@@ -12,7 +12,6 @@ const MAX_BYTES = 10 * 1024 * 1024; // 10MB
 const DOC_FOLDER_ID = process.env.GOOGLE_DRIVE_DOCUMENTS_FOLDER_ID ?? '';
 
 // POST /api/settings/documents/upload
-// 신분증 또는 통장사본을 Drive에 업로드하고 GmAffiliateContract에 경로 저장
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
@@ -33,13 +32,11 @@ export async function POST(req: Request) {
     if (file.size > MAX_BYTES) {
       return NextResponse.json({ ok: false, message: '파일 크기는 10MB 이하여야 합니다.' }, { status: 400 });
     }
-
     if (!DOC_FOLDER_ID) {
       logger.error('[settings/documents/upload] GOOGLE_DRIVE_DOCUMENTS_FOLDER_ID 미설정');
       return NextResponse.json({ ok: false, message: 'Drive 폴더 설정 오류' }, { status: 500 });
     }
 
-    // 사용자 식별: mallUser 없어도 member 이름 사용
     const userName = ctx.mallUser?.name ?? ctx.member?.displayName ?? ctx.userId;
     const typeLabel = type === 'idCard' ? '신분증' : '통장사본';
 
@@ -49,7 +46,7 @@ export async function POST(req: Request) {
     const ext = file.name.split('.').pop() ?? 'jpg';
     const fileName = `${typeLabel}_${stamp}.${ext}`;
 
-    // Drive 업로드: 루트폴더 / 사용자폴더 / 파일
+    // Drive 업로드
     const safeName = userName.replace(/[/\\:*?"<>|]/g, '_').slice(0, 50);
     const userFolderId = await findOrCreateFolder(safeName, DOC_FOLDER_ID);
 
@@ -65,32 +62,51 @@ export async function POST(req: Request) {
     const viewUrl = created.data.webViewLink
       ?? `https://drive.google.com/file/d/${created.data.id}/view`;
 
-    // GmAffiliateContract 업데이트 — GMcruise 연동된 경우에만 DB 저장
+    // DB 저장: GMcruise 연동 → GmAffiliateContract, 미연동 → MemberDocument
     if (ctx.mallUser?.id) {
       const gmUserId = ctx.mallUser.id;
       const contract = await prisma.gmAffiliateContract.findFirst({
         where: { userId: gmUserId },
         select: { id: true },
       });
-
       const docData = type === 'idCard'
         ? { idCardPath: viewUrl, idCardOriginalName: file.name }
         : { bankbookPath: viewUrl, bankbookOriginalName: file.name };
 
       if (contract) {
-        await prisma.gmAffiliateContract.update({
-          where: { id: contract.id },
-          data: docData,
-        });
+        await prisma.gmAffiliateContract.update({ where: { id: contract.id }, data: docData });
       } else {
         await prisma.gmAffiliateContract.create({
           data: { userId: gmUserId, name: userName, phone: '', ...docData },
         });
       }
+    } else if (ctx.organizationId) {
+      // MemberDocument에 upsert (docType = 'idCard' | 'bankbook')
+      const existing = await prisma.memberDocument.findFirst({
+        where: { userId: ctx.userId, organizationId: ctx.organizationId, docType: type },
+        select: { id: true },
+      });
+      if (existing) {
+        await prisma.memberDocument.update({
+          where: { id: existing.id },
+          data: { fileUrl: viewUrl, fileName, storagePath: viewUrl, fileSize: file.size, uploadedAt: new Date() },
+        });
+      } else {
+        await prisma.memberDocument.create({
+          data: {
+            userId: ctx.userId,
+            organizationId: ctx.organizationId,
+            docType: type,
+            fileName,
+            fileUrl: viewUrl,
+            storagePath: viewUrl,
+            fileSize: file.size,
+          },
+        });
+      }
     }
 
     logger.log('[settings/documents/upload] 서류 업로드 완료', { type, userName, fileName });
-
     return NextResponse.json({ ok: true, viewUrl, type });
   } catch (err) {
     logger.error('[settings/documents/upload] 오류', { err });
@@ -103,7 +119,7 @@ export async function GET() {
   try {
     const ctx = await getAuthContext();
 
-    // GMcruise 연동된 경우 DB에서 제출 상태 조회
+    // GMcruise 연동: GmAffiliateContract 조회
     if (ctx.mallUser?.id) {
       const contract = await prisma.gmAffiliateContract.findFirst({
         where: { userId: ctx.mallUser.id },
@@ -114,7 +130,6 @@ export async function GET() {
           bankbookOriginalName: true,
         },
       });
-
       return NextResponse.json({
         ok: true,
         hasIdCard: !!contract?.idCardPath,
@@ -126,15 +141,33 @@ export async function GET() {
       });
     }
 
-    // GMcruise 미연동 사용자: 업로드 UI 표시 (제출 내역은 Drive에서 확인)
+    // GMcruise 미연동: MemberDocument 조회
+    if (ctx.organizationId) {
+      const docs = await prisma.memberDocument.findMany({
+        where: {
+          userId: ctx.userId,
+          organizationId: ctx.organizationId,
+          docType: { in: ['idCard', 'bankbook'] },
+        },
+        select: { docType: true, fileUrl: true, fileName: true },
+      });
+      const idDoc      = docs.find(d => d.docType === 'idCard');
+      const bankDoc    = docs.find(d => d.docType === 'bankbook');
+      return NextResponse.json({
+        ok: true,
+        hasIdCard:    !!idDoc,
+        hasBankBook:  !!bankDoc,
+        idCardUrl:    idDoc?.fileUrl    ?? null,
+        bankbookUrl:  bankDoc?.fileUrl  ?? null,
+        idCardName:   idDoc?.fileName   ?? null,
+        bankbookName: bankDoc?.fileName ?? null,
+      });
+    }
+
+    // organizationId도 없는 경우(GLOBAL_ADMIN 비조직): 빈 상태
     return NextResponse.json({
-      ok: true,
-      hasIdCard: false,
-      hasBankBook: false,
-      idCardUrl: null,
-      bankbookUrl: null,
-      idCardName: null,
-      bankbookName: null,
+      ok: true, hasIdCard: false, hasBankBook: false,
+      idCardUrl: null, bankbookUrl: null, idCardName: null, bankbookName: null,
     });
   } catch (err) {
     logger.error('[settings/documents/upload GET] 오류', { err });
