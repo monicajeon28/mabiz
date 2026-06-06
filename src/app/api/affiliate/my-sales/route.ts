@@ -147,28 +147,60 @@ export async function GET(req: NextRequest) {
       `;
     }
 
-    // ── 통계 계산
+    // ── 통계 계산 (프론트 AffiliateMonthlyData/AffiliatePageDetail 계약에 맞춘 실데이터 reshape)
+    // ⚠️ 프론트는 응답을 json.data 로 읽으므로 반드시 { ok, data } 로 감싼다(없으면 마법사가 멈춤).
+    const completed = paymentRecords.filter((p) => p.status === 'completed');
     const totalViews = landingPages.reduce((sum, p) => sum + p.viewCount, 0);
-    const totalPayments = paymentRecords.length;
-    const totalRevenue = paymentRecords
-      .filter((p) => p.status === 'completed')
-      .reduce((sum, p) => sum + p.amount, 0);
+    const totalRevenue = completed.reduce((sum, p) => sum + p.amount, 0);
+    const completedCount = completed.length;
+    const conversionRate = totalViews > 0 ? Math.round((completedCount / totalViews) * 1000) / 10 : 0;
+    const avgOrderAmount = completedCount > 0 ? Math.round(totalRevenue / completedCount) : 0;
+    const monthStr = `${year}-${String(month).padStart(2, '0')}`;
 
-    const response = {
-      ok: true,
-      month: `${year}-${String(month).padStart(2, '0')}`,
-      summary: {
-        totalPages: landingPages.length,
-        totalViews,
-        totalPayments,
+    if (pageIdParam) {
+      // 상세 분석 (AffiliatePageDetail)
+      const page = landingPages.find((p) => p.id === pageIdParam);
+      const detail = {
+        pageId: pageIdParam,
+        pageTitle: page?.title ?? '',
+        month: monthStr,
         totalRevenue,
-      },
-      pages: landingPages,
-      payments: paymentRecords,
-      ...(pageIdParam && { monthlyTrend, customers }),
-    };
+        conversionRate,
+        avgOrderAmount,
+        // PayApp 결제에 상품명 정보가 없어 상품별 분해는 빈 배열(실데이터 한계)
+        topProducts: [] as Array<{ productName: string; salesCount: number; totalAmount: number }>,
+        monthlyTrend: monthlyTrend.map((t) => ({ month: t.month, revenue: t.revenue })),
+        customers: customers.map((c) => ({
+          customerName: c.customerName,
+          amount: c.amount,
+          paymentDate: c.paidAt ? c.paidAt.toISOString().slice(0, 10) : '',
+          productName: '',
+        })),
+      };
+      return NextResponse.json({ ok: true, data: detail });
+    }
 
-    return NextResponse.json(response);
+    // 월 요약 (AffiliateMonthlyData)
+    const pagesShaped = landingPages.map((p) => {
+      const pPayments = paymentRecords.filter((pm) => pm.landingPageId === p.id);
+      const pCompleted = pPayments.filter((pm) => pm.status === 'completed');
+      return {
+        id: p.id,
+        title: p.title,
+        revenue: pCompleted.reduce((sum, pm) => sum + pm.amount, 0),
+        conversionRate: p.viewCount > 0 ? Math.round((pPayments.length / p.viewCount) * 1000) / 10 : 0,
+        salesCount: pCompleted.length,
+      };
+    });
+    const monthly = {
+      month: monthStr,
+      totalRevenue,
+      conversionRate,
+      avgOrderAmount,
+      topProducts: [] as Array<{ productName: string; salesCount: number }>,
+      pages: pagesShaped,
+    };
+    return NextResponse.json({ ok: true, data: monthly });
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
     logger.error('affiliate/my-sales error:' + errMsg);

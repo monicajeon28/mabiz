@@ -5,16 +5,18 @@ import { FileText } from 'lucide-react';
 import ComparisonQuoteTab from './_components/ComparisonQuoteTab';
 import CertificateTab from './_components/CertificateTab';
 import ContractTab from './_components/ContractTab';
+import ApprovalQueueTab from './_components/ApprovalQueueTab';
 
 // ─── Tab config ────────────────────────────────────────────────────────────────
 
-type TabType = 'comparison' | 'purchase' | 'refund' | 'contracts';
+type TabType = 'comparison' | 'purchase' | 'refund' | 'contracts' | 'approval';
 
-const TABS: { key: TabType; label: string; accent: 'indigo' | 'emerald' | 'red' | 'orange' }[] = [
+const TABS: { key: TabType; label: string; accent: 'indigo' | 'emerald' | 'red' | 'orange' | 'slate' }[] = [
   { key: 'comparison', label: '비교견적서', accent: 'indigo' },
   { key: 'purchase', label: '구매확인증서', accent: 'emerald' },
   { key: 'refund', label: '환불인증서', accent: 'red' },
   { key: 'contracts', label: '계약서 관리', accent: 'orange' },
+  { key: 'approval', label: '승인 대기', accent: 'slate' },
 ];
 
 const TAB_ACTIVE: Record<string, string> = {
@@ -22,6 +24,7 @@ const TAB_ACTIVE: Record<string, string> = {
   emerald: 'bg-emerald-600 text-white shadow-md',
   red: 'bg-red-600 text-white shadow-md',
   orange: 'bg-orange-600 text-white shadow-md',
+  slate: 'bg-slate-700 text-white shadow-md',
 };
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
@@ -73,6 +76,7 @@ export default function DocumentsApprovalPage() {
           {activeTab === 'purchase' && <CertificateTab mode="purchase" />}
           {activeTab === 'refund' && <CertificateTab mode="refund" />}
           {activeTab === 'contracts' && <ContractTab />}
+          {activeTab === 'approval' && <ApprovalQueueTab />}
         </div>
       </div>
     </div>

@@ -101,10 +101,13 @@ export async function GET(_req: Request) {
     const orgNameMap = new Map(orgRows.map(o => [o.id, o.name]));
 
     // ── 판매 데이터 (단일 배치 쿼리) ──
-    const memberIds = memberRows.map(m => m.id);
+    // ⚠️ affiliateUserId 에는 User.id 가 저장됨(OrganizationMember.id 아님).
+    //    멤버.id 로 매칭하면 영영 0건이 되어 모든 판매원이 0건/GREEN 으로 표시됨.
+    const memberIds = memberRows.map(m => m.id);           // 정지현황(partnerId = OrganizationMember.id)용
+    const memberUserIds = memberRows.map(m => m.userId);   // 판매(affiliateUserId = User.id)용
     const allSales = await prisma.affiliateSale.findMany({
       where: {
-        affiliateUserId: { in: memberIds },
+        affiliateUserId: { in: memberUserIds },
         createdAt:       { gte: start5, lt: endNow },
       },
       select: {
@@ -139,7 +142,8 @@ export async function GET(_req: Request) {
     const statusOrder: Record<PerfStatus, number> = { BLACK: 0, RED: 1, YELLOW: 2, GREEN: 3 };
 
     const result = memberRows.map(member => {
-      const sales = salesByMember.get(member.id) ?? [];
+      // salesByMember 는 affiliateUserId(=User.id)로 인덱싱되므로 member.userId 로 조회
+      const sales = salesByMember.get(member.userId) ?? [];
 
       // 월별 집계
       const monthlySales = monthRanges.map(({ ym, start, end }) => {

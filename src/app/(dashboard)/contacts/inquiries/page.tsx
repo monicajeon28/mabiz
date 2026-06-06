@@ -146,12 +146,19 @@ export default function InquiriesPage() {
   const quickAssign = async (contactId: string, groupId: string) => {
     if (!groupId) return;
     setAssigning(contactId);
-    await fetch(`/api/groups/${groupId}/members`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contactId }),
-    });
-    setAssigning(null);
+    try {
+      // API는 contactIds(배열) 기대 — 단수 contactId를 보내면 400으로 조용히 실패했음
+      const res = await fetch(`/api/groups/${groupId}/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactIds: [contactId] }),
+      });
+      if (res.ok) {
+        await fetchContacts(); // 배정 후 목록 새로고침
+      }
+    } finally {
+      setAssigning(null);
+    }
   };
 
   const bulkAssignUnassigned = async () => {

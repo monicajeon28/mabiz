@@ -249,7 +249,7 @@ export default function ContactsPage() {
       });
       const data = await res.json();
       if (data.ok) {
-        toast({ title: '삭제 완료', description: `${data.count}명의 고객이 삭제되었습니다` });
+        toast({ title: '삭제 완료', description: `${data.deleted}명의 고객이 삭제되었습니다` });
         setSelectedIds(new Set());
         setShowDeleteConfirm(false);
         // page가 이미 1이면 setPage(1)은 no-op → 직접 호출
