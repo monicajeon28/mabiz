@@ -282,6 +282,7 @@ async function getChannelPerformance(orgId: string, startDate: Date) {
           where: {
             organizationId: orgId,
             sentTime: { gte: startDate },
+            channel: 'SMS', // 채널 분리 — EMAIL과 동일집계되던 버그 해소
           },
           _count: true,
           _sum: { clickCount: true },
@@ -293,6 +294,7 @@ async function getChannelPerformance(orgId: string, startDate: Date) {
           where: {
             organizationId: orgId,
             sentTime: { gte: startDate },
+            channel: 'EMAIL', // 실제 EMAIL 행만 — 없으면 0 → 아래 filter(sent>0)로 제외(가짜 EMAIL 행 안 뜸)
           },
           _count: true,
           _sum: { clickCount: true },
