@@ -159,7 +159,7 @@ export default function TrainingPage() {
   const product = CRUISE_PRODUCTS[activeProduct];
 
   // DB 상품 검색 함수
-  const fetchDbProducts = useCallback(async (q: string) => {
+  const fetchDbProducts = useCallback(async (q: string, signal?: AbortSignal) => {
     // 캐시 확인 (5분)
     if (!q && dbCache && Date.now() - dbCache.ts < 5 * 60 * 1000) {
       setDbProducts(dbCache.data);
@@ -169,22 +169,24 @@ export default function TrainingPage() {
     try {
       const params = new URLSearchParams({ limit: '20' });
       if (q) params.set('q', q);
-      const res = await fetch(`/api/products/training-search?${params}`);
+      const res = await fetch(`/api/products/training-search?${params}`, { signal });
       const data = await res.json() as { ok: boolean; products?: DbProduct[] };
       if (data.ok && data.products) {
         setDbProducts(data.products);
         if (!q) setDbCache({ data: data.products, ts: Date.now() });
       }
-    } catch {
-      // 조용히 실패
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
     } finally {
-      setDbLoading(false);
+      if (!signal?.aborted) setDbLoading(false);
     }
   }, [dbCache]);
 
   // 페이지 로드 시 DB 상품 미리 fetch
   useEffect(() => {
-    void fetchDbProducts('');
+    const ctrl = new AbortController();
+    void fetchDbProducts('', ctrl.signal);
+    return () => ctrl.abort();
   }, [fetchDbProducts]);
 
   // 디바운스 검색

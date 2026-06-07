@@ -85,29 +85,29 @@ export default function YearEndReportPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    const ctrl = new AbortController();
+    const { signal } = ctrl;
     setLoading(true);
     setError(null);
     setData(null);
 
-    fetch(`/api/year-end-report?year=${year}`)
+    fetch(`/api/year-end-report?year=${year}`, { signal })
       .then((res) => {
         if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
         return res.json();
       })
       .then((json) => {
-        if (!cancelled) setData(json);
+        if (!signal.aborted) setData(json);
       })
       .catch((err) => {
-        if (!cancelled) setError(err.message ?? "데이터를 불러오지 못했습니다.");
+        if (err instanceof Error && err.name === 'AbortError') return;
+        if (!signal.aborted) setError(err.message ?? "데이터를 불러오지 못했습니다.");
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!signal.aborted) setLoading(false);
       });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => ctrl.abort();
   }, [year]);
 
   const gt = data?.grandTotal;

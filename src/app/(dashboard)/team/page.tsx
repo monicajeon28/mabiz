@@ -205,7 +205,7 @@ function LeaderboardSection({
   const [loading, setLoading] = useState(true);
   const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
 
-  const load = useCallback(() => {
+  const load = useCallback((signal?: AbortSignal) => {
     const range = getPeriodRange(period, customFrom, customTo);
 
     // custom 모드인데 날짜가 없으면 조회 생략
@@ -214,17 +214,21 @@ function LeaderboardSection({
     setLoading(true);
     const qs = new URLSearchParams({ from: range.from, to: range.to });
     if (orgId) qs.set("orgId", orgId);
-    fetch(`/api/team/agents?${qs.toString()}`)
+    fetch(`/api/team/agents?${qs.toString()}`, { signal })
       .then((r) => r.json())
       .then((d) => {
         if (d.ok) setAgents(d.metrics ?? []);
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (err instanceof Error && err.name === 'AbortError') return;
+      })
+      .finally(() => { if (!signal?.aborted) setLoading(false); });
   }, [period, customFrom, customTo, orgId]);
 
   useEffect(() => {
-    load();
+    const ctrl = new AbortController();
+    load(ctrl.signal);
+    return () => ctrl.abort();
   }, [load]);
 
   const rankEmojis = ["🥇", "🥈", "🥉"];
@@ -427,9 +431,9 @@ export default function TeamPage() {
   const [selectedOrgId, setSelectedOrgId] = useState<string>(""); // "" = 전체
 
   // CRM 성과 탭 데이터
-  const loadCrmStats = useCallback(() => {
+  const loadCrmStats = useCallback((signal?: AbortSignal) => {
     const qs = selectedOrgId ? `?orgId=${selectedOrgId}` : "";
-    fetch(`/api/team/crm-stats${qs}`)
+    fetch(`/api/team/crm-stats${qs}`, { signal })
       .then((r) => r.json())
       .then((data) => {
         if (!data.ok) {
@@ -442,38 +446,44 @@ export default function TeamPage() {
         setSummary(data.summary ?? null);
       })
       .catch((err) => {
+        if (err instanceof Error && err.name === 'AbortError') return;
         logger.error("[TeamPage] fetch failed", { err });
         showError("서버 오류가 발생했습니다.");
       })
-      .finally(() => setCrmLoading(false));
+      .finally(() => { if (!signal?.aborted) setCrmLoading(false); });
   }, [selectedOrgId]);
 
   useEffect(() => {
-    loadCrmStats();
+    const ctrl = new AbortController();
+    loadCrmStats(ctrl.signal);
+    return () => ctrl.abort();
   }, [loadCrmStats]);
 
   // 프리세일즈 데이터 — agents API 에서 freeSales 필드 사용
-  const loadFreeSales = useCallback(() => {
+  const loadFreeSales = useCallback((signal?: AbortSignal) => {
     const range = getPeriodRange(period, customFrom, customTo);
     if (period === "custom" && (!range.from || !range.to)) return;
 
     setFreeSalesLoading(true);
     const qs = new URLSearchParams({ from: range.from, to: range.to });
     if (selectedOrgId) qs.set("orgId", selectedOrgId);
-    fetch(`/api/team/agents?${qs.toString()}`)
+    fetch(`/api/team/agents?${qs.toString()}`, { signal })
       .then((r) => r.json())
       .then((d) => {
         if (d.ok) setFreeSales(d.freeSales ?? []);
       })
-      .catch(() => {})
-      .finally(() => setFreeSalesLoading(false));
+      .catch((err) => {
+        if (err instanceof Error && err.name === 'AbortError') return;
+      })
+      .finally(() => { if (!signal?.aborted) setFreeSalesLoading(false); });
   }, [period, customFrom, customTo, selectedOrgId]);
 
   // 프리세일즈 탭 활성화 시 or 필터 변경 시 로드
   useEffect(() => {
-    if (activeTab === "freesales") {
-      loadFreeSales();
-    }
+    if (activeTab !== "freesales") return;
+    const ctrl = new AbortController();
+    loadFreeSales(ctrl.signal);
+    return () => ctrl.abort();
   }, [activeTab, loadFreeSales]);
 
   const tabClass = (tab: typeof activeTab) =>
