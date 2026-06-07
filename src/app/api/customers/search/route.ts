@@ -26,8 +26,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const organizationId = (request.nextUrl.searchParams.get("orgId") ||
-      session.organizationId) as string;
+    // GLOBAL_ADMIN: query param 허용, 일반: 세션 org 고정
+    const organizationId = (session.role === 'GLOBAL_ADMIN'
+      ? (request.nextUrl.searchParams.get("orgId") || session.organizationId)
+      : session.organizationId) as string;
 
     if (!organizationId) {
       return NextResponse.json(
