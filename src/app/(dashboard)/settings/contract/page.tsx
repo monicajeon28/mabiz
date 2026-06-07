@@ -50,11 +50,13 @@ export default function ContractPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/settings/my-contract')
+    const ctrl = new AbortController();
+    fetch('/api/settings/my-contract', { signal: ctrl.signal })
       .then(r => r.json())
       .then(d => { setContract(d.contract ?? null); })
-      .catch(() => { setContract(null); })
+      .catch((e) => { if (e.name !== 'AbortError') setContract(null); })
       .finally(() => { setLoading(false); });
+    return () => ctrl.abort();
   }, []);
 
   if (loading) {

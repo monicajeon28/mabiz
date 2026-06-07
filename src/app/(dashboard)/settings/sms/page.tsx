@@ -54,7 +54,9 @@ export default function SmsSettingsPage() {
 
   // ── 초기 로드 ──
   useEffect(() => {
-    fetch("/api/settings/sms")
+    const ctrl = new AbortController();
+
+    fetch("/api/settings/sms", { signal: ctrl.signal })
       .then((r) => r.json())
       .then((d) => {
         if (d.ok && d.config) {
@@ -68,9 +70,9 @@ export default function SmsSettingsPage() {
           setReEngageMsg2(d.config.reEngageMsg2 ?? "");
         }
       })
-      .catch(() => setMsg({ type: "err", text: "조직 SMS 설정 로드 실패" }));
+      .catch((e) => { if (e.name !== 'AbortError') setMsg({ type: "err", text: "조직 SMS 설정 로드 실패" }); });
 
-    fetch("/api/settings/sms-config")
+    fetch("/api/settings/sms-config", { signal: ctrl.signal })
       .then((r) => r.json())
       .then((d) => {
         if (d.ok) {
@@ -84,7 +86,10 @@ export default function SmsSettingsPage() {
           }
         }
       })
+      .catch((e) => { if (e.name !== 'AbortError') { /* 개인 SMS 설정 로드 실패 무시 */ } })
       .finally(() => setUserLoading(false));
+
+    return () => ctrl.abort();
   }, []);
 
   // ── 조직 설정 저장 ──

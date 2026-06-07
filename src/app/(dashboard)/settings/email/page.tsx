@@ -24,7 +24,8 @@ export default function EmailSettingsPage() {
   const [msg, setMsg]               = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   useEffect(() => {
-    fetch("/api/settings/email")
+    const ctrl = new AbortController();
+    fetch("/api/settings/email", { signal: ctrl.signal })
       .then((r) => r.json())
       .then((d) => {
         if (d && d.ok && d.config) {
@@ -39,9 +40,8 @@ export default function EmailSettingsPage() {
           }));
         }
       })
-      .catch(() => {
-        // 로드 실패 시 빈 폼 유지
-      });
+      .catch((e) => { if (e.name !== 'AbortError') { /* 로드 실패 시 빈 폼 유지 */ } });
+    return () => ctrl.abort();
   }, []);
 
   const applyPreset = (preset: typeof SMTP_PRESETS[0]) => {
