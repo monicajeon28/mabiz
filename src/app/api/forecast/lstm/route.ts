@@ -8,6 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { LSTMForecastManager } from '@/lib/ai/lstm-forecaster';
 import { logger } from '@/lib/logger';
+import { getMabizSession } from '@/lib/auth';
+import prisma from '@/lib/prisma';
 
 /**
  * Type guard for days parameter
@@ -20,6 +22,9 @@ export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await getMabizSession();
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     const searchParams = request.nextUrl.searchParams;
     const daysParam = parseInt(searchParams.get('days') || '30', 10);
     const days = isValidDays(daysParam)
@@ -30,22 +35,46 @@ export async function GET(request: NextRequest) {
 
     const startTime = Date.now();
 
-    // Generate mock historical data for demo
+    // 실 DB: 180일치 일별 매출 집계
+    const since = new Date();
+    since.setDate(since.getDate() - 180);
+    const sales = await prisma.affiliateSale.findMany({
+      where: {
+        organizationId: session.organizationId ?? undefined,
+        createdAt: { gte: since },
+        status: { notIn: ['CANCELLED', 'REFUNDED'] },
+      },
+      select: { createdAt: true, saleAmount: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // 일별 집계 맵 생성
+    const dailyMap = new Map<string, number>();
+    for (const s of sales) {
+      const key = s.createdAt.toISOString().slice(0, 10);
+      dailyMap.set(key, (dailyMap.get(key) ?? 0) + s.saleAmount);
+    }
+
+    // 180일 연속 배열 생성 (데이터 없는 날은 0 또는 이웃 평균으로 보간)
     const historicalData: number[] = [];
-    const baseDate = new Date();
-    baseDate.setDate(baseDate.getDate() - 180);
-
+    const baseDate = new Date(since);
     for (let i = 0; i < 180; i++) {
-      const date = new Date(baseDate);
-      date.setDate(date.getDate() + i);
-      const dayOfWeek = date.getDay();
-      const weekendMultiplier = dayOfWeek === 0 || dayOfWeek === 6 ? 0.8 : 1.0;
-      const trend = i * 0.5;
-      const seasonal = 50 * Math.sin((i / 7) * Math.PI * 2);
-      const noise = Math.random() * 20 - 10;
-      const value = 500 + trend + seasonal + noise;
+      const d = new Date(baseDate);
+      d.setDate(d.getDate() + i);
+      const key = d.toISOString().slice(0, 10);
+      historicalData.push(dailyMap.get(key) ?? 0);
+    }
 
-      historicalData.push(Math.max(0, value * weekendMultiplier));
+    // DB 데이터가 충분하지 않으면 trend + seasonal 보정
+    const nonZero = historicalData.filter((v) => v > 0).length;
+    if (nonZero < 14) {
+      const avg = nonZero > 0 ? historicalData.reduce((a, b) => a + b, 0) / nonZero : 500000;
+      for (let i = 0; i < 180; i++) {
+        if (historicalData[i] === 0) {
+          const seasonal = avg * 0.1 * Math.sin((i / 7) * Math.PI * 2);
+          historicalData[i] = Math.max(0, avg + seasonal);
+        }
+      }
     }
 
     const result = await LSTMForecastManager.forecastRevenue(historicalData, days);
