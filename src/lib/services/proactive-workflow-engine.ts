@@ -6,6 +6,7 @@
  */
 
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 import { Contact, ScheduledSms } from '@prisma/client';
 import { ChurnPredictor, ChurnPrediction } from '@/lib/ai/churn-predictor';
 import { UpsellPredictor, UpsellOpportunity } from '@/lib/ai/upsell-predictor';
@@ -56,7 +57,7 @@ export class ProactiveWorkflowEngine {
 
     // Respect opt-outs (contact.optOutAt = opted out of all)
     if (contact.optOutAt) {
-      console.log(`Contact ${config.contactId} opted out - skipping workflow`);
+      logger.log(`Contact ${config.contactId} opted out - skipping workflow`);
       return;
     }
 

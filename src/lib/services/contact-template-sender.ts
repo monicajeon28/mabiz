@@ -646,5 +646,5 @@ function getFeatureFlag(flagName: string): boolean {
  * $ npx ts-node src/lib/services/contact-template-sender.ts
  */
 if (require.main === module) {
-  console.log("[ContactTemplateSender] 래퍼 함수 로드 완료");
+  logger.log("[ContactTemplateSender] 래퍼 함수 로드 완료");
 }

@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 export interface LiveStreamEvent {
   contactId: string;
@@ -38,7 +39,7 @@ export async function logLiveStreamEvent(event: LiveStreamEvent): Promise<void> 
       },
     });
   } catch (error) {
-    console.error('[LIVE_STREAM_TRACKING]', error);
+    logger.error('[LIVE_STREAM_TRACKING]', { error: error instanceof Error ? error.message : String(error) });
   }
 }
 

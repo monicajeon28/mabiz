@@ -8,6 +8,7 @@
 
 import { KeywordSignal, LensType } from './types';
 import { KEYWORD_CONFIG } from './scoring-weights';
+import { logger } from '@/lib/logger';
 
 /**
  * 키워드 데이터베이스 (렌즈별 키워드)
@@ -259,7 +260,7 @@ function getOrCompileRegex(pattern: string): RegExp {
     try {
       COMPILED_PATTERNS.set(pattern, new RegExp(pattern, 'gi'));
     } catch (error) {
-      console.warn(`정규표현식 컴파일 실패: ${pattern}`);
+      logger.warn(`정규표현식 컴파일 실패: ${pattern}`);
       return /(?!)/; // Never match
     }
   }

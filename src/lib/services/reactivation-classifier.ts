@@ -10,6 +10,7 @@
  */
 
 import prisma from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 export interface ReactivationClassification {
   segment: '3-6m' | '6-12m' | '1y+';
@@ -56,7 +57,7 @@ export async function classifyReactivationCustomers(
     },
   });
 
-  console.log(`Found ${inactiveCustomers.length} inactive customers for organization ${organizationId}`);
+  logger.log(`Found ${inactiveCustomers.length} inactive customers for organization ${organizationId}`);
 
   // 배치 처리로 분류
   for (let i = 0; i < inactiveCustomers.length; i += batchSize) {
@@ -76,7 +77,7 @@ export async function classifyReactivationCustomers(
       }),
     );
 
-    console.log(`Classified batch ${Math.floor(i / batchSize) + 1}: ${updates.length} customers`);
+    logger.log(`Classified batch ${Math.floor(i / batchSize) + 1}: ${updates.length} customers`);
   }
 
   return {
@@ -224,7 +225,7 @@ export async function dailyReactivationClassification() {
       const result = await classifyReactivationCustomers(org.id);
       results.push({ organizationId: org.id, ...result });
     } catch (error) {
-      console.error(`Failed to classify reactivation for org ${org.id}:`, error);
+      logger.error(`Failed to classify reactivation for org ${org.id}:`, { error: error instanceof Error ? error.message : String(error) });
     }
   }
 

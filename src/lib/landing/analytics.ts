@@ -3,6 +3,8 @@
  * Tracks user interactions and scroll depth
  */
 
+import { logger } from '@/lib/logger';
+
 type TrackingEvent = {
   name: string;
   data: Record<string, any>;
@@ -26,7 +28,7 @@ export function track(eventName: string, data: Record<string, any> = {}) {
 
   // Log to console in development
   if (process.env.NODE_ENV === 'development') {
-    console.log('[Landing Analytics]', event);
+    logger.log('[Landing Analytics]', { event });
   }
 
   // Send to analytics endpoint (implement your backend)
@@ -45,7 +47,7 @@ export function sendEvents() {
   events.length = 0;
 
   // Here you would typically send to your analytics backend
-  console.log('Sending analytics batch:', batch);
+  logger.log('Sending analytics batch:', { count: batch.length });
 
   // Example: fetch('/api/analytics/landing', {
   //   method: 'POST',

@@ -3,6 +3,8 @@
  * Track D: A/B 테스트 할당을 Monday.com 보드에 자동 동기화
  */
 
+import { logger } from '@/lib/logger';
+
 export interface MondayTaskInput {
   week: number;
   counselorId: string;
@@ -117,7 +119,7 @@ export class MondayClient {
         const result = await this.createWeeklyTask(task);
         results.push(result);
       } catch (error) {
-        console.error(`Failed to create task for ${task.counselorName}:`, error);
+        logger.error(`Failed to create task for ${task.counselorName}:`, { error: error instanceof Error ? error.message : String(error) });
         // 에러가 발생해도 계속 진행 (부분 실패 처리)
       }
     }
@@ -231,7 +233,7 @@ export async function notifySlackAboutSync(
   }
 
   if (!slackWebhookUrl) {
-    console.warn("SLACK_WEBHOOK_URL is not set, skipping Slack notification");
+    logger.warn("SLACK_WEBHOOK_URL is not set, skipping Slack notification");
     return;
   }
 
@@ -258,9 +260,9 @@ export async function notifySlackAboutSync(
     });
 
     if (!response.ok) {
-      console.error(`Slack notification failed: ${response.statusText}`);
+      logger.error(`Slack notification failed: ${response.statusText}`);
     }
   } catch (error) {
-    console.error("Failed to send Slack notification:", error);
+    logger.error("Failed to send Slack notification:", { error: error instanceof Error ? error.message : String(error) });
   }
 }

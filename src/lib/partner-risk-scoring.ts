@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 export interface PartnerRiskSignal {
   partnerId: string;
@@ -165,7 +166,7 @@ export async function updatePartnerRiskScore(
 
     return result;
   } catch (error) {
-    console.error('[updatePartnerRiskScore] 오류:', error);
+    logger.error('[updatePartnerRiskScore] 오류:', { error: error instanceof Error ? error.message : String(error) });
     return null;
   }
 }

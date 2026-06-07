@@ -222,7 +222,7 @@ export async function getValidAccessToken(userId: string): Promise<string | null
       await prisma.googleCalendarToken.delete({ where: { userId } });
     } else {
       // 네트워크/타임아웃 등 일시적 오류 → 토큰 유지, 로그만 기록
-      console.error('[google-calendar] refreshAccessToken 일시적 오류 (토큰 유지):', err);
+      logger.error('[google-calendar] refreshAccessToken 일시적 오류 (토큰 유지):', { error: err instanceof Error ? err.message : String(err) });
     }
     return null;
   }

@@ -5,6 +5,7 @@
  */
 
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 import { ChurnPredictor } from '@/lib/ai/churn-predictor';
 import { UpsellPredictor } from '@/lib/ai/upsell-predictor';
 import { WinBackPredictor } from '@/lib/ai/winback-predictor';
@@ -55,7 +56,7 @@ export async function runChurnPredictionDaily(): Promise<void> {
         });
       }
 
-      console.log(`[CHURN] Organization ${org.id}: Processed ${predictions.length} predictions`);
+      logger.log(`[CHURN] Organization ${org.id}: Processed ${predictions.length} predictions`);
 
       // Log execution
       await prisma.executionLog.create({
@@ -73,7 +74,7 @@ export async function runChurnPredictionDaily(): Promise<void> {
         }
       });
     } catch (error) {
-      console.error(`[CHURN] Error for organization ${org.id}:`, error);
+      logger.error(`[CHURN] Error for organization ${org.id}:`, { error: error instanceof Error ? error.message : String(error) });
       await prisma.executionLog.create({
         data: {
           organizationId: org.id,
@@ -135,7 +136,7 @@ export async function runUpsellOpportunityDaily(): Promise<void> {
         });
       }
 
-      console.log(`[UPSELL] Organization ${org.id}: Processed ${opportunities.length} opportunities`);
+      logger.log(`[UPSELL] Organization ${org.id}: Processed ${opportunities.length} opportunities`);
 
       await prisma.executionLog.create({
         data: {
@@ -152,7 +153,7 @@ export async function runUpsellOpportunityDaily(): Promise<void> {
         }
       });
     } catch (error) {
-      console.error(`[UPSELL] Error for organization ${org.id}:`, error);
+      logger.error(`[UPSELL] Error for organization ${org.id}:`, { error: error instanceof Error ? error.message : String(error) });
       await prisma.executionLog.create({
         data: {
           organizationId: org.id,
@@ -218,7 +219,7 @@ export async function runWinBackPredictionWeekly(): Promise<void> {
         });
       }
 
-      console.log(`[WINBACK] Organization ${org.id}: Processed ${opportunities.length} opportunities`);
+      logger.log(`[WINBACK] Organization ${org.id}: Processed ${opportunities.length} opportunities`);
 
       await prisma.executionLog.create({
         data: {
@@ -235,7 +236,7 @@ export async function runWinBackPredictionWeekly(): Promise<void> {
         }
       });
     } catch (error) {
-      console.error(`[WINBACK] Error for organization ${org.id}:`, error);
+      logger.error(`[WINBACK] Error for organization ${org.id}:`, { error: error instanceof Error ? error.message : String(error) });
       await prisma.executionLog.create({
         data: {
           organizationId: org.id,
@@ -285,7 +286,7 @@ export async function runProactiveWorkflowTrigger(): Promise<void> {
           // Check delivery constraints
           const analysis = await optimizer.analyzeDeliveryWindow(prediction.contactId, 'SMS');
           if (!analysis.canSendNow) {
-            console.log(`[WORKFLOW] Skipping ${prediction.contactId} - delivery window not ready`);
+            logger.log(`[WORKFLOW] Skipping ${prediction.contactId} - delivery window not ready`);
             continue;
           }
 
@@ -315,11 +316,11 @@ export async function runProactiveWorkflowTrigger(): Promise<void> {
 
           workflowsCreated++;
         } catch (error) {
-          console.error(`[WORKFLOW] Error creating workflow for ${prediction.contactId}:`, error);
+          logger.error(`[WORKFLOW] Error creating workflow for ${prediction.contactId}:`, { error: error instanceof Error ? error.message : String(error) });
         }
       }
 
-      console.log(`[WORKFLOW] Organization ${org.id}: Created ${workflowsCreated} VIP Save workflows`);
+      logger.log(`[WORKFLOW] Organization ${org.id}: Created ${workflowsCreated} VIP Save workflows`);
 
       await prisma.executionLog.create({
         data: {
@@ -336,7 +337,7 @@ export async function runProactiveWorkflowTrigger(): Promise<void> {
         }
       });
     } catch (error) {
-      console.error(`[WORKFLOW] Error for organization ${org.id}:`, error);
+      logger.error(`[WORKFLOW] Error for organization ${org.id}:`, { error: error instanceof Error ? error.message : String(error) });
       await prisma.executionLog.create({
         data: {
           organizationId: org.id,
@@ -403,7 +404,7 @@ export async function runNextBestActionUpdate(): Promise<void> {
         });
       }
 
-      console.log(`[NBA] Organization ${org.id}: Updated ${actions.length} next best actions`);
+      logger.log(`[NBA] Organization ${org.id}: Updated ${actions.length} next best actions`);
 
       await prisma.executionLog.create({
         data: {
@@ -420,7 +421,7 @@ export async function runNextBestActionUpdate(): Promise<void> {
         }
       });
     } catch (error) {
-      console.error(`[NBA] Error for organization ${org.id}:`, error);
+      logger.error(`[NBA] Error for organization ${org.id}:`, { error: error instanceof Error ? error.message : String(error) });
       await prisma.executionLog.create({
         data: {
           organizationId: org.id,

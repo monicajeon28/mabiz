@@ -9,6 +9,8 @@
  * - FEATURE_ENABLE_ADVANCED_RETRY=true
  */
 
+import { logger } from '@/lib/logger';
+
 /**
  * Feature Flag 정의
  */
@@ -73,7 +75,7 @@ export function checkFeatureFlag(
   const value = featureFlags[flagKey];
 
   if (featureFlags.ENABLE_DEBUG_LOGGING) {
-    console.log(`[FeatureFlag] ${flagKey} = ${value}`, context || "");
+    logger.log(`[FeatureFlag] ${flagKey} = ${value}`, context);
   }
 
   return value;
