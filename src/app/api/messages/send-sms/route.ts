@@ -3,16 +3,11 @@ import prisma from '@/lib/prisma';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { normalizePhone } from '@/lib/import-utils';
 import { logger } from '@/lib/logger';
+import { resolveUserSmsConfig, sendSms } from '@/lib/aligo';
 
 interface SmsSendRequest {
   phone: string;
   content: string;
-}
-
-interface AligoSmsResponse {
-  result_code: string;
-  message?: string;
-  msg_id?: string;
 }
 
 interface SmsSendResponse {
@@ -44,10 +39,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // 수신 거부 여부 확인
+    // 수신 거부 여부 확인 (조직 연락처 기준)
     const contactRecord = await prisma.contact.findFirst({
       where: { phone: normalizedPhone, organizationId: orgId },
-      select: { optOutAt: true },
+      select: { id: true, optOutAt: true },
     });
     if (contactRecord?.optOutAt) {
       logger.warn('[sms/send] 수신 거부 연락처', { phone: normalizedPhone, orgId });
@@ -57,41 +52,36 @@ export async function POST(req: Request) {
       );
     }
 
-    // Aligo API 호출
-    const aligoKey = process.env.ALIGO_API_KEY;
-    const aligoUserId = process.env.ALIGO_USER_ID;
-    const aligoSender = process.env.ALIGO_SENDER_PHONE;
-
-    if (!aligoKey || !aligoUserId || !aligoSender) {
-      logger.error('[sms/send] 필수 환경변수 누락', {
-        hasKey: !!aligoKey,
-        hasUserId: !!aligoUserId,
-        hasSender: !!aligoSender,
-      });
+    // 발신 계정 해석: 개인(UserSmsConfig) > 조직(OrgSmsConfig) > 시스템 env.
+    // 판매원·대리점장이 자기 알리고를 연결하면 본인 발신번호로 나간다.
+    const config = await resolveUserSmsConfig(orgId, ctx.userId);
+    if (!config) {
+      logger.error('[sms/send] 알리고 설정 없음', { orgId, userId: ctx.userId });
       return NextResponse.json(
-        { ok: false, message: 'SMS 서비스 설정 오류' },
+        { ok: false, message: 'SMS 발신 계정이 설정되지 않았습니다. 설정 > 문자에서 알리고를 연결해 주세요.' },
         { status: 500 }
       );
     }
 
-    const res = await fetch('https://apis.aligo.in/send/', {
-      method: 'POST',
-      body: new URLSearchParams({
-        key: aligoKey,
-        user_id: aligoUserId,
-        sender: aligoSender,
-        receiver: normalizedPhone,
-        msg: content,
-      }),
+    // sendSms가 수신거부·야간차단·SmsLog 기록·타임아웃까지 처리
+    const data = await sendSms({
+      config,
+      receiver: normalizedPhone,
+      msg: content,
+      organizationId: orgId,
+      contactId: contactRecord?.id,
+      channel: 'MANUAL',
     });
 
-    const data: AligoSmsResponse = await res.json();
-
-    if (data.result_code !== '1') {
-      logger.error('[sms/send] Aligo 전송 실패', {
-        code: data.result_code,
-        message: data.message,
-      });
+    const code = Number(data.result_code);
+    if (code === -99) {
+      return NextResponse.json({ ok: false, message: '수신 거부 등록된 연락처입니다' }, { status: 400 });
+    }
+    if (code === -98) {
+      return NextResponse.json({ ok: false, message: '야간(21~08시)에는 문자를 발송할 수 없습니다' }, { status: 400 });
+    }
+    if (code !== 1) {
+      logger.error('[sms/send] Aligo 전송 실패', { code: data.result_code, message: data.message });
       return NextResponse.json(
         { ok: false, message: '발송 실패' },
         { status: 500 }
