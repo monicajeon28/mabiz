@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
+import { sendSmsViaAligo } from "@/lib/sms-service";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -197,18 +198,32 @@ export async function POST(req: Request, { params }: Params) {
       logger.warn("[L6SmsTrigger] SMS 로그 저장 실패", { err: logErr });
     }
 
-    // 실제 SMS 발송 (비동기 큐에 추가)
-    // TODO: 실제 SMS API 통합 필요 (KakaoTalk, NHN ToastSMS 등)
-    // 현재는 로그만 기록하고 성공 반환
-    logger.info("[L6SmsTrigger] Day 0 SMS 발송 예약", {
-      registrationId,
-      phoneNumber,
-      messageType,
-    });
+    // 실제 SMS 발송 (알리고)
+    let smsSent = false;
+    try {
+      await sendSmsViaAligo(phoneNumber, smsContent.trim());
+      smsSent = true;
+      logger.info("[L6SmsTrigger] Day 0 SMS 발송 완료", { registrationId, phoneNumber });
+    } catch (smsErr) {
+      logger.warn("[L6SmsTrigger] SMS 발송 실패", {
+        registrationId,
+        error: smsErr instanceof Error ? smsErr.message : String(smsErr),
+      });
+    }
+
+    // SMS 로그 상태 업데이트
+    if (org) {
+      try {
+        await prisma.smsLog.updateMany({
+          where: { organizationId: org.id, phone: phoneNumber, status: "PENDING" },
+          data: { status: smsSent ? "SENT" : "FAILED" },
+        });
+      } catch (_) { /* 로그 업데이트 실패는 무시 */ }
+    }
 
     return NextResponse.json({
       ok: true,
-      smsSent: true,
+      smsSent,
     });
   } catch (err) {
     logger.error("[L6SmsTrigger] 에러", { err });
