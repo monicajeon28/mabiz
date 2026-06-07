@@ -23,9 +23,10 @@ export default function ComparisonsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const ctrl = new AbortController();
     const fetchMetrics = async () => {
       try {
-        const res = await fetch('/api/comparisons/metrics');
+        const res = await fetch('/api/comparisons/metrics', { signal: ctrl.signal });
         const data = await res.json();
         if (data.ok) {
           setMetrics(data.metrics);
@@ -33,13 +34,15 @@ export default function ComparisonsPage() {
           setError('메트릭 로드 실패');
         }
       } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         setError(err instanceof Error ? err.message : '오류 발생');
       } finally {
-        setLoading(false);
+        if (!ctrl.signal.aborted) setLoading(false);
       }
     };
 
     fetchMetrics();
+    return () => ctrl.abort();
   }, []);
 
   if (loading) {
