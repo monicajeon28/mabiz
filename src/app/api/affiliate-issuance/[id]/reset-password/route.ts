@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const ctx = await getAuthContext();
@@ -26,7 +26,8 @@ export async function POST(
       return NextResponse.json({ ok: false, error: "FORBIDDEN" }, { status: 403 });
     }
 
-    const profileId = parseInt(params.id, 10);
+    const { id } = await params;
+    const profileId = parseInt(id, 10);
     if (isNaN(profileId)) {
       return NextResponse.json({ ok: false, error: "유효하지 않은 ID입니다." }, { status: 400 });
     }
