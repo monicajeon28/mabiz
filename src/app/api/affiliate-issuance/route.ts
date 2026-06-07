@@ -382,8 +382,9 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       mallUserId: result.mallUserId,
-      profileId: result.profileId,
+      profileId: String(result.profileId),
       affiliateCode: result.affiliateCode,
+      displayName: displayName ?? name ?? "",
       userId: result.userId,
       relationId: result.relationId,
     });

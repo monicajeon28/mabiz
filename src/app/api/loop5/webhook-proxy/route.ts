@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
 interface InquiryPayload {
@@ -48,10 +49,39 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // TODO: 실제 inquiry 처리 로직
-    // - Contact 조회/생성
-    // - InquiryLog 저장
-    // - CRM 자동화 트리거
+    // Contact 조회 또는 생성
+    const contact = await prisma.contact.upsert({
+      where: {
+        phone_organizationId: {
+          phone: payload.phone,
+          organizationId: payload.organizationId,
+        },
+      },
+      update: {
+        name: payload.name,
+        email: payload.email ?? undefined,
+        affiliateCode: payload.affiliateCode ?? undefined,
+        lastContactedAt: new Date(),
+      },
+      create: {
+        phone: payload.phone,
+        name: payload.name,
+        email: payload.email ?? null,
+        organizationId: payload.organizationId,
+        affiliateCode: payload.affiliateCode ?? null,
+        sourceType: 'landing_page',
+        lastContactedAt: new Date(),
+      },
+    });
+
+    // ContactMemo에 문의 내용 저장
+    await prisma.contactMemo.create({
+      data: {
+        contactId: contact.id,
+        userId: 'system',
+        content: `[Loop5 문의] 유형: ${payload.inquiryType}\n${payload.message || ''}`.trim(),
+      },
+    });
 
     logger.log('[webhook-proxy] Inquiry received and verified', {
       phone: payload.phone.replace(/\d(?=\d{4})/g, '*'),
@@ -60,7 +90,7 @@ export async function POST(req: NextRequest) {
       inquiryType: payload.inquiryType
     });
 
-    return NextResponse.json({ ok: true, message: 'Inquiry received' }, { status: 200 });
+    return NextResponse.json({ ok: true, contactId: contact.id }, { status: 200 });
   } catch (error) {
     logger.error('[webhook-proxy] Request processing error', {
       error: error instanceof Error ? error.message : String(error)
