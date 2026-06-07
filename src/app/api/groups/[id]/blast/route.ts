@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-import { sendSms, getOrgSmsConfig } from '@/lib/aligo';
+import { sendSms, resolveUserSmsConfig } from '@/lib/aligo';
 import { checkRateLimitAsync, getRateLimitStatus } from '@/lib/rate-limit';
 
 const MAX_RECIPIENTS = 200; // Vercel 타임아웃 방지 (10건 배치 × 20회 ≈ 2초)
@@ -211,13 +211,12 @@ export async function POST(req: Request, { params }: Params) {
       }, { status: 429 });
     }
 
-    // SMS 설정 1회 조회 (루프 밖)
-    const smsConfig = await getOrgSmsConfig(orgId);
-    if (!smsConfig) {
-      return NextResponse.json({ ok: false, message: 'SMS 설정이 없습니다. 설정 → SMS에서 Aligo 정보를 입력하세요.' }, { status: 400 });
+    // SMS 발신 계정 해석 (루프 밖, 1회): 개인(UserSmsConfig) > 조직 > 시스템 env.
+    // 판매원·대리점장이 자기 알리고를 연결하면 단체발송도 본인 발신번호로 나간다.
+    const config = await resolveUserSmsConfig(orgId, userId);
+    if (!config) {
+      return NextResponse.json({ ok: false, message: 'SMS 설정이 없습니다. 설정 → 문자에서 알리고를 연결하세요.' }, { status: 400 });
     }
-
-    const config = { key: smsConfig.aligoKey, userId: smsConfig.aligoUserId, sender: smsConfig.senderPhone };
 
     // 담당자 이름 맵 구축 (assignedUserId → displayName)
     // Contact.assignedUserId 는 OrganizationMember.userId 와 동일
