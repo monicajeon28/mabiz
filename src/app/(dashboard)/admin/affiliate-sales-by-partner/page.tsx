@@ -77,9 +77,10 @@ export default function AdminAffiliateSalesPage() {
 
   // 권한 확인 (GLOBAL_ADMIN만)
   useEffect(() => {
+    const ctrl = new AbortController();
     const checkAuth = async () => {
       try {
-        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        const res = await fetch('/api/auth/me', { credentials: 'include', signal: ctrl.signal });
         if (!res.ok) {
           router.push('/');
           return;
@@ -90,11 +91,13 @@ export default function AdminAffiliateSalesPage() {
           return;
         }
         setAuthChecked(true);
-      } catch {
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         router.push('/');
       }
     };
     checkAuth();
+    return () => ctrl.abort();
   }, [router]);
 
   // 데이터 로드

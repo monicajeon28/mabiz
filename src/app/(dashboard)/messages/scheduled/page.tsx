@@ -39,31 +39,38 @@ export default function ScheduledSmsPage() {
 
   // P1-13: CSRF 토큰 로드
   useEffect(() => {
-    fetch("/api/csrf-token").then(r => r.json())
+    const ctrl = new AbortController();
+    fetch("/api/csrf-token", { signal: ctrl.signal }).then(r => r.json())
       .then(d => { if (d.ok && d.token) setCsrfToken(d.token); })
-      .catch(() => { /* silently fail */ });
+      .catch(err => { if (err instanceof Error && err.name === 'AbortError') return; /* silently fail */ });
+    return () => ctrl.abort();
   }, []);
 
   // P1-14: filter 변경 시 filterRef 동기화
   useEffect(() => { filterRef.current = filter; }, [filter]);
 
-  const load = async (status: string) => {
+  const load = async (status: string, signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/scheduled-sms?status=${status}`);
+      const res = await fetch(`/api/scheduled-sms?status=${status}`, { signal });
       if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
       const data = await res.json();
       if (data.ok) setList(data.list);
       else throw new Error(data.message ?? "조회 실패");
     } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') return;
       setError(e instanceof Error ? e.message : "데이터를 불러올 수 없습니다.");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   };
 
-  useEffect(() => { load(filter); }, [filter]);
+  useEffect(() => {
+    const ctrl = new AbortController();
+    load(filter, ctrl.signal);
+    return () => ctrl.abort();
+  }, [filter]);
 
   const [actionError, setActionError] = useState<string | null>(null);
 

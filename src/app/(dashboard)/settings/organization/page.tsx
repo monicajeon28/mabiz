@@ -37,20 +37,23 @@ export default function OrganizationPage() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    const ctrl = new AbortController();
     async function load() {
       try {
-        const res = await fetch('/api/settings/organization');
+        const res = await fetch('/api/settings/organization', { signal: ctrl.signal });
         if (!res.ok) throw new Error();
         const data = await res.json();
         setOrg(data.org);
         setNameInput(data.org.name);
-      } catch {
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         showError('조직 정보를 불러오지 못했습니다.');
       } finally {
-        setLoading(false);
+        if (!ctrl.signal.aborted) setLoading(false);
       }
     }
     load();
+    return () => ctrl.abort();
   }, []);
 
   function startEdit() {

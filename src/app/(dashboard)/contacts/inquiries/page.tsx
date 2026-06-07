@@ -77,7 +77,7 @@ export default function InquiriesPage() {
   const [slidePanelLoadingId, setSlidePanelLoadingId] = useState<string | null>(null);
   const [slidePanelError, setSlidePanelError] = useState<string | null>(null);
 
-  const fetchContacts = useCallback(async () => {
+  const fetchContacts = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setFetchError('');
     const params = new URLSearchParams({ page: String(page), limit: "30", type: "LEAD" });
@@ -85,20 +85,25 @@ export default function InquiriesPage() {
     if (selectedTags.length > 0) params.set("tags", selectedTags.join(","));
 
     try {
-      const res = await fetch(`/api/contacts?${params}`);
+      const res = await fetch(`/api/contacts?${params}`, { signal });
       if (!res.ok) throw new Error('서버 오류');
       const data = await res.json() as { ok: boolean; contacts?: Contact[]; total?: number };
       if (!data.ok) throw new Error('데이터 로드 실패');
       setContacts(data.contacts ?? []);
       setTotal(data.total ?? 0);
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       setFetchError('고객 목록을 불러오지 못했습니다');
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, [q, page, selectedTags]);
 
-  useEffect(() => { fetchContacts(); }, [fetchContacts]);
+  useEffect(() => {
+    const ctrl = new AbortController();
+    fetchContacts(ctrl.signal);
+    return () => ctrl.abort();
+  }, [fetchContacts]);
 
   // 행 클릭 시 전체 고객 정보를 받아와 패널 열기
   const openSlidePanel = useCallback(async (contactId: string) => {
@@ -125,7 +130,12 @@ export default function InquiriesPage() {
   useEffect(() => { setPage(1); }, [q, selectedTags]);
 
   useEffect(() => {
-    fetch("/api/groups").then(r => r.json()).then(d => { if (d.ok) setGroups(d.groups ?? []); });
+    const ctrl = new AbortController();
+    fetch("/api/groups", { signal: ctrl.signal })
+      .then(r => r.json())
+      .then(d => { if (d.ok) setGroups(d.groups ?? []); })
+      .catch(err => { if (err instanceof Error && err.name === 'AbortError') return; });
+    return () => ctrl.abort();
   }, []);
 
   const runImport = async () => {
@@ -427,7 +437,7 @@ export default function InquiriesPage() {
       {fetchError && (
         <div className="text-center py-12">
           <p className="text-red-500 text-sm mb-3">{fetchError}</p>
-          <button onClick={fetchContacts} className="px-4 py-2 bg-navy-900 text-white rounded-lg text-sm">
+          <button onClick={() => fetchContacts()} className="px-4 py-2 bg-navy-900 text-white rounded-lg text-sm">
             다시 시도
           </button>
         </div>

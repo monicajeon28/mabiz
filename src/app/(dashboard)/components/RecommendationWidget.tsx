@@ -57,11 +57,13 @@ export function RecommendationWidget() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const ctrl = new AbortController();
     const fetchData = async () => {
       try {
         const res = await fetch('/api/dashboard/recommendations', {
           cache: 'no-store',
           credentials: 'include',
+          signal: ctrl.signal,
         });
 
         if (res.status === 401) {
@@ -82,15 +84,17 @@ export function RecommendationWidget() {
 
         setData(responseData);
       } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         const errorMsg = err instanceof Error ? err.message : 'Failed to load recommendation data';
         setError(errorMsg);
         console.error('[RecommendationWidget] Error:', errorMsg);
       } finally {
-        setLoading(false);
+        if (!ctrl.signal.aborted) setLoading(false);
       }
     };
 
     fetchData();
+    return () => ctrl.abort();
   }, []);
 
   if (loading) {

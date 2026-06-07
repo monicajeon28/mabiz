@@ -425,10 +425,10 @@ export default function PartnerApplicationsClient({ initialRole: _initialRole }:
     setTimeout(() => setToastMsg(null), 3000);
   }, []);
 
-  const refreshApplications = useCallback(async () => {
+  const refreshApplications = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/affiliate/contracts?status=${statusFilter}&page=1`);
+      const res = await fetch(`/api/affiliate/contracts?status=${statusFilter}&page=1`, { signal });
       const data = await res.json();
       if (data?.ok) {
         const cruisePartners = ((data.data?.contracts ?? []) as Application[]).filter(
@@ -436,32 +436,38 @@ export default function PartnerApplicationsClient({ initialRole: _initialRole }:
         );
         setApplications(cruisePartners);
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       showToast('데이터를 불러오지 못했습니다.', 'error');
     } finally {
-      setIsLoading(false);
+      if (!signal?.aborted) setIsLoading(false);
     }
   }, [statusFilter, showToast]);
 
   // 권한 확인 (GLOBAL_ADMIN만)
   useEffect(() => {
+    const ctrl = new AbortController();
     const checkAuth = async () => {
       try {
-        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        const res = await fetch('/api/auth/me', { credentials: 'include', signal: ctrl.signal });
         if (!res.ok) { router.push('/'); return; }
         const ctx = await res.json();
         if (ctx.role !== 'GLOBAL_ADMIN') { router.push('/'); return; }
         setAuthChecked(true);
-      } catch {
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         router.push('/');
       }
     };
     checkAuth();
+    return () => ctrl.abort();
   }, [router]);
 
   useEffect(() => {
     if (!authChecked) return;
-    refreshApplications();
+    const ctrl = new AbortController();
+    refreshApplications(ctrl.signal);
+    return () => ctrl.abort();
   }, [authChecked, refreshApplications]);
 
   // 선택 항목 파생 (stale 방지) — 목록에서 사라지면 모달 자동 닫힘
@@ -535,7 +541,7 @@ export default function PartnerApplicationsClient({ initialRole: _initialRole }:
               <h1 className="text-lg font-bold text-gray-900">파트너스 신청 관리</h1>
               <p className="text-sm text-gray-500 mt-0.5">크루즈닷 파트너스 가입 신청 검토</p>
             </div>
-            <button onClick={refreshApplications} className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-xl transition" aria-label="새로고침">
+            <button onClick={() => refreshApplications()} className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-xl transition" aria-label="새로고침">
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
           </div>

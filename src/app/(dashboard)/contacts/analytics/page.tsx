@@ -35,21 +35,24 @@ export default function ContactsAnalyticsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const ctrl = new AbortController();
     const fetchAnalytics = async () => {
       try {
-        const res = await fetch("/api/contacts/analytics");
+        const res = await fetch("/api/contacts/analytics", { signal: ctrl.signal });
         const result = await res.json();
         if (result.ok) {
           setData(result);
         }
       } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         console.error("Failed to fetch analytics", err);
       } finally {
-        setLoading(false);
+        if (!ctrl.signal.aborted) setLoading(false);
       }
     };
 
     fetchAnalytics();
+    return () => ctrl.abort();
   }, []);
 
   if (loading) {

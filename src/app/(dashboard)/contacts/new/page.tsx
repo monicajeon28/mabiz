@@ -35,9 +35,12 @@ export default function NewContactPage() {
   const groupInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetch("/api/groups").then((r) => r.json()).then((data) => {
-      if (data.ok) setGroups(data.groups ?? []);
-    });
+    const ctrl = new AbortController();
+    fetch("/api/groups", { signal: ctrl.signal })
+      .then((r) => r.json())
+      .then((data) => { if (data.ok) setGroups(data.groups ?? []); })
+      .catch(err => { if (err instanceof Error && err.name === 'AbortError') return; });
+    return () => ctrl.abort();
   }, []);
 
   const handleAddGroup = async (e?: React.FormEvent | React.MouseEvent) => {

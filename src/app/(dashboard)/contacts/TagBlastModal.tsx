@@ -21,9 +21,12 @@ export default function TagBlastModal({
 
   // 템플릿 로드
   useEffect(() => {
-    fetch('/api/tools/sms-templates')
+    const ctrl = new AbortController();
+    fetch('/api/tools/sms-templates', { signal: ctrl.signal })
       .then(r => r.json())
-      .then(d => { if (d.ok) setTemplates(d.templates ?? []); });
+      .then(d => { if (d.ok) setTemplates(d.templates ?? []); })
+      .catch(err => { if (err instanceof Error && err.name === 'AbortError') return; });
+    return () => ctrl.abort();
   }, []);
 
   const handlePreview = async () => {
