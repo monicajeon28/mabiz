@@ -79,23 +79,26 @@ export default function WebhookMonitorPage() {
   const [days, setDays] = useState('7');
   const [autoRefresh, setAutoRefresh] = useState(true);
 
-  const fetchData = async (dayCount: string) => {
+  const fetchData = async (dayCount: string, signal?: AbortSignal) => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/admin/webhook-stats-advanced?days=${dayCount}`);
+      const response = await fetch(`/api/admin/webhook-stats-advanced?days=${dayCount}`, { signal });
       if (!response.ok) throw new Error('Failed to fetch webhook stats');
       const result = await response.json();
       setData(result.data);
       setError(null);
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData(days);
+    const ctrl = new AbortController();
+    fetchData(days, ctrl.signal);
+    return () => ctrl.abort();
   }, [days]);
 
   useEffect(() => {

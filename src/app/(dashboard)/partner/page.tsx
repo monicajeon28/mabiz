@@ -54,17 +54,16 @@ export default function PartnerPage() {
   };
 
   // 파트너 목록 조회
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
         month: String(new Date().getMonth() + 1),
         year: String(new Date().getFullYear()),
       });
-      const res = await fetch(`/api/partner/list?${params}`);
+      const res = await fetch(`/api/partner/list?${params}`, { signal });
       if (!res.ok) {
         showToast('파트너 목록 조회 실패');
-        setLoading(false);
         return;
       }
       const data = await res.json();
@@ -74,14 +73,18 @@ export default function PartnerPage() {
         showToast('파트너 목록을 불러올 수 없습니다');
       }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       console.error('Failed to load partners:', err);
       showToast('파트너 목록 조회 중 오류가 발생했습니다');
+    } finally {
+      if (!signal?.aborted) setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   useEffect(() => {
-    load();
+    const ctrl = new AbortController();
+    load(ctrl.signal);
+    return () => ctrl.abort();
   }, [load]);
 
   // 파트너 생성

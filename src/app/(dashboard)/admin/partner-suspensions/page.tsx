@@ -45,25 +45,29 @@ export default function PartnerSuspensionsPage() {
 
   useEffect(() => {
     if (!authChecked) return;
-    fetchSuspensions();
+    const ctrl = new AbortController();
+    fetchSuspensions(ctrl.signal);
+    return () => ctrl.abort();
   }, [filter, authChecked]);
 
-  const fetchSuspensions = async () => {
+  const fetchSuspensions = async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(
-        `/api/admin/partner-suspensions?status=${filter}&limit=100`
+        `/api/admin/partner-suspensions?status=${filter}&limit=100`,
+        { signal }
       );
       const data = await res.json();
       if (data.ok) {
         setSuspensions(data.data.suspensions);
       }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       logger.error('조회 실패', { error: err instanceof Error ? err.message : String(err) });
       setError('파트너 정지 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   };
 

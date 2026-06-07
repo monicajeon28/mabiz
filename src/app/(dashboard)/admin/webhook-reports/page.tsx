@@ -70,23 +70,26 @@ export default function WebhookReportsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchReport = async () => {
+  const fetchReport = async (signal?: AbortSignal) => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/admin/webhook-reports?type=${reportType}`);
+      const response = await fetch(`/api/admin/webhook-reports?type=${reportType}`, { signal });
       if (!response.ok) throw new Error('Failed to fetch report');
       const result = await response.json();
       setReport(result.data);
       setError(null);
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchReport();
+    const ctrl = new AbortController();
+    fetchReport(ctrl.signal);
+    return () => ctrl.abort();
   }, [reportType]);
 
   if (loading) {

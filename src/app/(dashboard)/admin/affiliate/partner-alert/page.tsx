@@ -75,7 +75,7 @@ export default function PartnerAlertPage() {
 
   const totalPages = Math.ceil(total / 50);
 
-  const load = useCallback(() => {
+  const load = useCallback((signal?: AbortSignal) => {
     setLoading(true);
     const params = new URLSearchParams({
       page: String(page),
@@ -83,7 +83,7 @@ export default function PartnerAlertPage() {
     });
     if (riskLevel !== "ALL") params.set("riskLevel", riskLevel);
 
-    fetch(`/api/affiliate/partner-alert?${params}`)
+    fetch(`/api/affiliate/partner-alert?${params}`, { signal })
       .then((r) => r.json())
       .then((d: any) => {
         if (d.ok) {
@@ -100,6 +100,7 @@ export default function PartnerAlertPage() {
         }
       })
       .catch((err) => {
+        if (err instanceof Error && err.name === 'AbortError') return;
         setPartners([]);
         setTotal(0);
         toast({
@@ -108,26 +109,30 @@ export default function PartnerAlertPage() {
           variant: "destructive",
         });
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!signal?.aborted) setLoading(false); });
   }, [page, riskLevel, toast]);
 
   // 통계 로드
-  const loadStats = useCallback(() => {
+  const loadStats = useCallback((signal?: AbortSignal) => {
     setStatsLoading(true);
-    fetch(`/api/affiliate/partner-alert/stats?days=7`)
+    fetch(`/api/affiliate/partner-alert/stats?days=7`, { signal })
       .then((r) => r.json())
       .then((d: any) => {
         if (d.ok) {
           setStats(d.summary);
         }
       })
-      .catch(() => {})
-      .finally(() => setStatsLoading(false));
+      .catch((err) => {
+        if (err instanceof Error && err.name === 'AbortError') return;
+      })
+      .finally(() => { if (!signal?.aborted) setStatsLoading(false); });
   }, []);
 
   useEffect(() => {
-    load();
-    loadStats();
+    const ctrl = new AbortController();
+    load(ctrl.signal);
+    loadStats(ctrl.signal);
+    return () => ctrl.abort();
   }, [load, loadStats]);
 
   const handleSendSms = async (partnerId: string) => {

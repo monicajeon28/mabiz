@@ -81,7 +81,7 @@ export default function SalesConfirmationPage() {
 
   const totalPages = Math.ceil(total / 50);
 
-  const load = useCallback(() => {
+  const load = useCallback((signal?: AbortSignal) => {
     setLoading(true);
     const params = new URLSearchParams({
       page: String(page),
@@ -90,7 +90,7 @@ export default function SalesConfirmationPage() {
     if (status && status !== "ALL") params.set("status", status);
     if (search) params.set("search", search);
 
-    fetch(`/api/affiliate/sales-confirmation?${params}`)
+    fetch(`/api/affiliate/sales-confirmation?${params}`, { signal })
       .then((r) => r.json())
       .then((d: any) => {
         if (d.ok && d.data) {
@@ -107,6 +107,7 @@ export default function SalesConfirmationPage() {
         }
       })
       .catch((err) => {
+        if (err instanceof Error && err.name === 'AbortError') return;
         setSales([]);
         setTotal(0);
         toast({
@@ -115,11 +116,13 @@ export default function SalesConfirmationPage() {
           variant: "destructive",
         });
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!signal?.aborted) setLoading(false); });
   }, [page, status, search, toast]);
 
   useEffect(() => {
-    load();
+    const ctrl = new AbortController();
+    load(ctrl.signal);
+    return () => ctrl.abort();
   }, [load]);
 
   const handleSearch = (query: string) => {
