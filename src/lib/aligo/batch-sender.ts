@@ -12,19 +12,7 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { AligoClient, createAligoClient } from './client';
 import { replaceMessagePlaceholders } from '@/lib/message-replacements';
-import { validateSenderPhone } from '@/lib/funnel-sms-helpers';
-
-/**
- * SMS의 유효 발신번호 결정
- * 우선순위: ScheduledSms.senderPhone > orgSmsConfig.senderPhone (폴백)
- */
-function resolveSenderPhone(
-  smsSenderPhone: string | null | undefined,
-  fallbackPhone: string
-): string {
-  const trimmed = smsSenderPhone?.trim();
-  return trimmed && trimmed.length > 0 ? trimmed : fallbackPhone;
-}
+import { resolveUserSmsConfig } from '@/lib/aligo';
 
 /**
  * Aligo EUC-KR 바이트 기준 LMS/SMS 분류
@@ -103,33 +91,6 @@ export async function processPendingSms(
       return result;
     }
 
-    // SMS 설정 조회
-    const smsConfig = await prisma.orgSmsConfig.findUnique({
-      where: { organizationId },
-    });
-
-    if (!smsConfig || !smsConfig.isActive) {
-      logger.warn('[BatchSender] SMS 설정 없음', { organizationId });
-      result.errors++;
-      return result;
-    }
-
-    // 발신번호별 Aligo 클라이언트 캐시 — 대리점별 개별 발신번호 지원
-    // 우선순위: ScheduledSms.senderPhone > orgSmsConfig.senderPhone
-    const clientCache = new Map<string, AligoClient>();
-    const getAligoClientFor = (senderPhone: string): AligoClient => {
-      let client = clientCache.get(senderPhone);
-      if (!client) {
-        client = createAligoClient({
-          apiKey: smsConfig.aligoKey,
-          userId: smsConfig.aligoUserId,
-          senderPhone,
-        });
-        clientCache.set(senderPhone, client);
-      }
-      return client;
-    };
-
     // 배치 그룹 생성 (수신거부 및 야간 차단 분리)
     const validSms: typeof pendingSmsWithContact = [];
     const optOutBlocked: typeof pendingSmsWithContact = [];
@@ -201,46 +162,58 @@ export async function processPendingSms(
       return result;
     }
 
-    // 발신번호별 그룹핑 — 대리점별 개별 발신번호로 각각 배치 발송
-    // (Aligo 클라이언트는 인스턴스당 발신번호 1개 고정이므로 sender별로 분리 발송)
-    //
-    // [P0 보안] 발송 직전 재검증: ScheduledSms.senderPhone이 조직의 등록·검증
-    // 번호와 일치하지 않으면(트리거 우회/구 데이터) org 기본번호로 강제 폴백.
-    // 발신번호 변작(타 조직/공공기관 번호 발송)을 발송 단계에서 차단.
-    const smsBySender = new Map<string, typeof smsToSend>();
-    const senderValidationCache = new Map<string, string | undefined>();
+    // 작성자(createdByUserId)별 그룹핑 — 각자 본인 알리고 계정으로 발송.
+    // 관리자·대리점장·판매원이 자기 알리고를 연결하면 예약문자도 본인 키+발신번호로 나간다.
+    // 우선순위: 개인(UserSmsConfig) > 조직(OrgSmsConfig) > 시스템 env.
+    // 발신번호는 그 계정에 등록된 번호(config.sender)로 강제 → 타 조직/공공기관 번호
+    // 변작이 구조적으로 불가능(Aligo가 계정별 등록 발신번호만 허용).
+    const ORG_FALLBACK = '__ORG__';
+    const smsByCreator = new Map<string, typeof smsToSend>();
     for (const sms of smsToSend) {
-      const candidate = sms.senderPhone?.trim();
-      let validatedSender: string | undefined;
-      if (!candidate) {
-        validatedSender = undefined;
-      } else if (senderValidationCache.has(candidate)) {
-        validatedSender = senderValidationCache.get(candidate);
-      } else {
-        const v = await validateSenderPhone(organizationId, candidate);
-        validatedSender = v.valid ? candidate : undefined;
-        if (!v.valid) {
-          logger.warn('[BatchSender] 미검증 발신번호 발송 차단 → org 기본번호 폴백', {
-            organizationId,
-            smsId: sms.id,
-            attempted: candidate,
-          });
-        }
-        senderValidationCache.set(candidate, validatedSender);
-      }
-
-      const sender = resolveSenderPhone(validatedSender, smsConfig.senderPhone);
-      const bucket = smsBySender.get(sender);
-      if (bucket) {
-        bucket.push(sms);
-      } else {
-        smsBySender.set(sender, [sms]);
-      }
+      const creatorKey = sms.createdByUserId || ORG_FALLBACK;
+      const bucket = smsByCreator.get(creatorKey);
+      if (bucket) bucket.push(sms);
+      else smsByCreator.set(creatorKey, [sms]);
     }
 
-    // 발신번호 그룹별 배치 발송
-    for (const [sender, groupSms] of smsBySender) {
-      const aligoClient = getAligoClientFor(sender);
+    // 작성자별 알리고 설정 캐시 (동일 작성자 중복 조회 방지)
+    const configCache = new Map<string, Awaited<ReturnType<typeof resolveUserSmsConfig>>>();
+    const resolveConfigFor = async (creatorKey: string) => {
+      if (configCache.has(creatorKey)) return configCache.get(creatorKey) ?? null;
+      const uid = creatorKey === ORG_FALLBACK ? undefined : creatorKey;
+      const cfg = await resolveUserSmsConfig(organizationId, uid);
+      configCache.set(creatorKey, cfg);
+      return cfg;
+    };
+
+    // 작성자 그룹별 배치 발송
+    for (const [creatorKey, groupSms] of smsByCreator) {
+      const config = await resolveConfigFor(creatorKey);
+      if (!config) {
+        // 발신 계정 미설정 → 해당 작성자의 예약문자 일괄 FAILED
+        const failedAt = new Date();
+        await Promise.allSettled(
+          groupSms.map(sms =>
+            prisma.scheduledSms.update({
+              where: { id: sms.id },
+              data: { status: 'FAILED', failureReason: '발신 알리고 계정 미설정', updatedAt: failedAt },
+            })
+          )
+        );
+        result.failed += groupSms.length;
+        logger.warn('[BatchSender] 발신 계정 미설정 — 작성자 그룹 FAILED', {
+          organizationId,
+          creator: creatorKey,
+          count: groupSms.length,
+        });
+        continue;
+      }
+      const sender = config.sender;
+      const aligoClient = createAligoClient({
+        apiKey: config.key,
+        userId: config.userId,
+        senderPhone: config.sender,
+      });
 
       // 배치 발송 준비
       const batchRequests = groupSms.map(sms => {
