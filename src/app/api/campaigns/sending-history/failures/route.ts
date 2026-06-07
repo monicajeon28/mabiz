@@ -100,7 +100,7 @@ export async function GET(req: Request): Promise<NextResponse<FailuresResponse>>
         where: {
           organizationId: orgId,
           campaignId,
-          status: statusFilter as any,
+          status: statusFilter as 'FAILED' | 'ABANDONED',
         },
       }),
     ]);

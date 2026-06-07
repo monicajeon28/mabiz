@@ -1,30 +1,51 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Heart, Users, Calendar, Shield, ArrowRight, Star, CheckCircle,
-  Loader2
+  Heart, Users, Calendar, Shield, ArrowRight, Star, CheckCircle
 } from "lucide-react";
 
 const TESTIMONIALS = [
   {
-    name: "김영희",
+    name: "김OO",
     age: 58,
     text: "건강검진부터 여행까지 모든 걱정이 사라졌어요. 전담 매니저분이 계속 챙겨주셔서 안심이 됩니다.",
     rating: 5,
   },
   {
-    name: "이순신",
+    name: "이OO",
     age: 62,
     text: "월 33,000원으로 가족과 함께 여행을 가고, 건강도 챙길 수 있다니 정말 좋은 상품입니다.",
     rating: 5,
   },
   {
-    name: "박민영",
+    name: "박OO",
     age: 55,
     text: "혼자 여행 가는 게 불안했는데, 비슷한 나이대 사람들과 만나서 정말 좋은 추억을 만들었습니다.",
     rating: 5,
+  },
+];
+
+const BENEFITS = [
+  {
+    icon: Heart,
+    title: "건강검진",
+    desc: "연 2-4회 무료 건강검진",
+  },
+  {
+    icon: Calendar,
+    title: "여행 상담",
+    desc: "전담 매니저의 맞춤형 제안",
+  },
+  {
+    icon: Users,
+    title: "혼자 여행자 매칭",
+    desc: "비슷한 나이대 사람들과 만나기",
+  },
+  {
+    icon: Shield,
+    title: "여행보험",
+    desc: "월별 여행보험 + 건강보험",
   },
 ];
 
@@ -53,16 +74,9 @@ const STEPS = [
 
 export default function GoldMemberPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
 
-  const handleSignup = async () => {
-    setLoading(true);
-    try {
-      // 신청 페이지로 이동
-      router.push("/gold-member/signup");
-    } finally {
-      setLoading(false);
-    }
+  const handleSignup = () => {
+    router.push("/gold-member/signup");
   };
 
   return (
@@ -89,20 +103,10 @@ export default function GoldMemberPage() {
 
           <button
             onClick={handleSignup}
-            disabled={loading}
-            className="inline-flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-4 bg-white text-blue-600 rounded-lg font-bold text-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="inline-flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-4 bg-white text-blue-600 rounded-lg font-bold text-lg hover:bg-gray-100 transition-colors"
           >
-            {loading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>처리 중...</span>
-              </>
-            ) : (
-              <>
-                <span>지금 신청하기</span>
-                <ArrowRight className="w-5 h-5" />
-              </>
-            )}
+            <span>지금 신청하기</span>
+            <ArrowRight className="w-5 h-5" />
           </button>
         </div>
       </section>
@@ -205,7 +209,7 @@ export default function GoldMemberPage() {
 
           <div className="grid gap-6 md:grid-cols-4">
             {STEPS.map((step, idx) => (
-              <div key={idx} className="relative">
+              <div key={step.number} className="relative">
                 {/* 연결선 */}
                 {idx < STEPS.length - 1 && (
                   <div className="hidden md:block absolute top-12 left-[60%] right-[-50%] h-1 bg-blue-600" />
@@ -232,9 +236,9 @@ export default function GoldMemberPage() {
           </h2>
 
           <div className="grid gap-6 md:grid-cols-3">
-            {TESTIMONIALS.map((testimonial, idx) => (
+            {TESTIMONIALS.map((testimonial) => (
               <div
-                key={idx}
+                key={testimonial.name}
                 className="bg-white rounded-lg shadow-lg p-6 border-l-4 border-blue-600"
               >
                 <div className="flex gap-1 mb-3">
@@ -262,32 +266,11 @@ export default function GoldMemberPage() {
           </h2>
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {[
-              {
-                icon: Heart,
-                title: "건강검진",
-                desc: "연 2-4회 무료 건강검진",
-              },
-              {
-                icon: Calendar,
-                title: "여행 상담",
-                desc: "전담 매니저의 맞춤형 제안",
-              },
-              {
-                icon: Users,
-                title: "혼자 여행자 매칭",
-                desc: "비슷한 나이대 사람들과 만나기",
-              },
-              {
-                icon: Shield,
-                title: "여행보험",
-                desc: "월별 여행보험 + 건강보험",
-              },
-            ].map((benefit, idx) => {
+            {BENEFITS.map((benefit) => {
               const Icon = benefit.icon;
               return (
                 <div
-                  key={idx}
+                  key={benefit.title}
                   className="text-center p-6 bg-blue-50 rounded-lg border border-blue-200 hover:border-blue-400 transition-colors"
                 >
                   <Icon className="w-8 h-8 text-blue-600 mx-auto mb-4" />
@@ -312,20 +295,10 @@ export default function GoldMemberPage() {
 
           <button
             onClick={handleSignup}
-            disabled={loading}
-            className="inline-flex items-center gap-2 px-8 py-4 bg-white text-blue-600 rounded-lg font-bold text-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="inline-flex items-center gap-2 px-8 py-4 bg-white text-blue-600 rounded-lg font-bold text-lg hover:bg-gray-100 transition-colors"
           >
-            {loading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>처리 중...</span>
-              </>
-            ) : (
-              <>
-                <span>신청하기</span>
-                <ArrowRight className="w-5 h-5" />
-              </>
-            )}
+            <span>신청하기</span>
+            <ArrowRight className="w-5 h-5" />
           </button>
 
           <p className="text-sm text-blue-100 mt-6">

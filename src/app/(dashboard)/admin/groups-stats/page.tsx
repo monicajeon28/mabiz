@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Users, BarChart2, RefreshCw } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 type GroupStat = {
   id: string;
@@ -24,12 +25,14 @@ export default function GroupsStatsPage() {
   const [topNames, setTopNames] = useState<TopName[]>([]);
   const [total,    setTotal]    = useState(0);
   const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState<string | null>(null);
   const [orgFilter, setOrgFilter] = useState("");
   const [orgs,     setOrgs]     = useState<{ id: string; name: string }[]>([]);
 
   const load = async (orgId?: string, signal?: AbortSignal) => {
     try {
       setLoading(true);
+      setError(null);
       const params = new URLSearchParams({ limit: "200" });
       if (orgId) params.set("orgId", orgId);
       const [res, orgRes] = await Promise.all([
@@ -48,7 +51,8 @@ export default function GroupsStatsPage() {
       if (err instanceof Error && err.name === 'AbortError') {
         return; // 요청 중단, 에러 무시
       }
-      console.error('Failed to load groups stats:', err);
+      logger.error('Failed to load groups stats', { error: err instanceof Error ? err.message : String(err) });
+      setError('그룹 현황을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
     } finally {
       setLoading(false);
     }
@@ -99,6 +103,13 @@ export default function GroupsStatsPage() {
           ))}
         </select>
       </div>
+
+      {/* 에러 상태 */}
+      {error && (
+        <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       {/* TOP 그룹명 인사이트 */}
       {topNames.length > 0 && (

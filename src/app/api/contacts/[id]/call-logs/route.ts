@@ -300,7 +300,6 @@ export async function POST(req: Request, { params }: Params) {
           logId: log.id,
           severity: 'BACKUP_MISSING',
         });
-        // TODO: 알람 시스템 연동 시 여기에 Slack/PagerDuty 알림 추가
       });
     }
 

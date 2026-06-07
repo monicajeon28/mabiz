@@ -200,10 +200,10 @@ export async function GET(
   } catch (error: unknown) {
     const err = error as Record<string, unknown>;
     logger.error('[Reservation GET] Error', { error: err instanceof Error ? (err as Error).message : String(err) });
-    const isBusinessError = (err as any).status !== undefined;
+    const isBusinessError = err['status'] !== undefined;
     return NextResponse.json(
       { ok: false, message: '예약 정보를 불러올 수 없습니다.' },
-      { status: isBusinessError ? (err as any).status : 500 }
+      { status: isBusinessError ? (err['status'] as number) : 500 }
     );
   }
 }

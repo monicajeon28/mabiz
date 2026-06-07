@@ -383,8 +383,7 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
 
       {/* PNG 다운로드용 렌더링 (화면 밖 절대 위치 — html2canvas 렌더링 가능) */}
       {docs.map(doc => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const d = doc.generatedData as any;
+        const d = doc.generatedData;
         const docType = DOC_TYPES.find(t => t.key === tab)!;
         const issuedDate = new Date(doc.createdAt).toLocaleDateString('ko-KR');
         return (
@@ -465,7 +464,7 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
                 ))}
               </div>
             )}
-            {tab === 'PURCHASE_CONTRACT' && d.specialTerms && (
+            {tab === 'PURCHASE_CONTRACT' && !!d.specialTerms && (
               <div style={{ marginTop: '16px', padding: '16px', background: '#e3f2fd', border: '1px solid #90caf9', borderRadius: '8px' }}>
                 <p style={{ fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>특약사항</p>
                 <p style={{ fontSize: '12px', color: '#555' }}>{String(d.specialTerms)}</p>
@@ -682,7 +681,7 @@ function SaleSearchDropdown({
 
   const canIssue = (s: SaleResult) =>
     docType === 'REFUND_CERTIFICATE'
-      ? s.canIssuePurchaseCert || s.canIssueRefundCert
+      ? s.canIssueRefundCert
       : s.canIssuePurchaseCert;
 
   return (

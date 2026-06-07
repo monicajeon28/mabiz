@@ -60,9 +60,9 @@ export async function GET(req: NextRequest) {
           }),
           prisma.goldMember.count({ where }),
         ]),
-        new Promise((_, reject) =>
+        new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('Database query timeout (5s)')), 5000)
-        ) as Promise<any>,
+        ),
       ]);
       members = m;
       total = t;
@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      goldMembers: members.map((m: any) => ({
+      goldMembers: members.map((m) => ({
         id:             m.id,
         name:           m.name,
         phone:          maskPhone(m.phone),
@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    logger.log('[POST /api/gold-members] 골드회원 등록', { id: member.id, courseType });
+    logger.info('[POST /api/gold-members] 골드회원 등록', { id: member.id, courseType });
     return NextResponse.json({ ok: true, member });
   } catch (err) {
     logger.error('[POST /api/gold-members]', { err });

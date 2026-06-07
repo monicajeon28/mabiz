@@ -163,7 +163,7 @@ function ContactCallTabComponent({
               className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white mb-2"
             >
               <option value="">이의 없음</option>
-              {objectionsData.objections.map((obj: any) => (
+              {objectionsData.objections.map((obj: ObjectionData) => (
                 <option key={obj.id} value={obj.id}>
                   {obj.id} - {obj.categoryName}: {obj.subcategoryName}
                 </option>

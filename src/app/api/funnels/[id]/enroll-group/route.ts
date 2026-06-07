@@ -47,7 +47,7 @@ export async function POST(req: Request, { params }: Params) {
         members: {
           include: {
             contact: {
-              select: { id: true, name: true, phone: true, optOutAt: true },
+              select: { id: true, name: true, phone: true, optOutAt: true, departureDate: true },
             },
           },
         },
@@ -88,11 +88,14 @@ export async function POST(req: Request, { params }: Params) {
     await prisma.$transaction(async (tx) => {
       for (const contact of toEnroll) {
         const logs = funnel.stages.map(stage => {
-          const scheduledAt = new Date(baseDate);
+          const base = stage.triggerType === "DDAY"
+            ? (contact.departureDate ?? baseDate)
+            : baseDate;
+          const scheduledAt = new Date(base);
           scheduledAt.setUTCDate(scheduledAt.getUTCDate() + (stage.triggerOffset ?? 0));
           scheduledAt.setUTCHours(1, 0, 0, 0); // UTC 01:00 = KST 10:00
 
-          const rawContent = (stage as Record<string, unknown>).messageContent as string | null ?? null;
+          const rawContent = stage.messageContent ?? null;
           const content = rawContent
             ? rawContent.replace(/\[고객명\]/g, contact.name).replace(/\[이름\]/g, contact.name)
             : null;
@@ -101,7 +104,7 @@ export async function POST(req: Request, { params }: Params) {
             stageOrder: stage.order,
             scheduledAt,
             status:     "PENDING",
-            channel:    (stage as Record<string, unknown>).channel as string | null ?? "SMS",
+            channel:    stage.channel ?? "SMS",
             content,
           };
         });

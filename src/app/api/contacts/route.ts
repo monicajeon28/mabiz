@@ -99,8 +99,8 @@ export async function GET(req: Request) {
     let take = safeLimit + 1;  // hasMore 판단용 +1
 
     if (cursor) {
-      skip = 1;  // cursor 항목 제외
-      where = { ...baseWhere, id: { gt: cursor } };  // id > cursor
+      // id: { gt: cursor } 는 cursor 자체를 이미 제외하므로 skip = 0
+      where = { ...baseWhere, id: { gt: cursor } };
     } else {
       take = safeLimit;  // offset 방식일 때는 +1 안 함
       skip = (page - 1) * safeLimit;

@@ -457,6 +457,7 @@ export default function ContactsPage() {
 
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      abortControllerRef.current?.abort();
     };
   }, [q, type, page, filterGroupId, filterSourceType, filterAssignedTo, selectedTags, fetchContacts]);
 
@@ -672,7 +673,7 @@ export default function ContactsPage() {
   // 오늘 콜할 사람: LEAD + (연락 없음 OR 3일 이상 연락 없음) → 리드 스코어 높은 순
   const todayCallList = contacts
     .filter((c) => {
-      if (c.type !== "LEAD") return false;
+      if (c.type !== "잠재고객" && c.type !== "LEAD") return false;
       const days = getDaysSince(c.lastContactedAt ?? null);
       if (days === null) return true;
       return days >= 3;

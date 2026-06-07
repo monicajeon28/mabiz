@@ -12,7 +12,21 @@ import {
 /**
  * 캠페인 객체 직렬화 헬퍼
  */
-const serializeCampaign = (campaign: any) => ({
+type CampaignSelectResult = {
+  id: string;
+  title: string;
+  status: string;
+  sendSms: boolean;
+  sendEmail: boolean;
+  sendAt: Date;
+  repeatRule: string | null;
+  sentCount: number;
+  totalCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+const serializeCampaign = (campaign: CampaignSelectResult) => ({
   id: campaign.id,
   title: campaign.title,
   status: campaign.status,

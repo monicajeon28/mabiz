@@ -197,11 +197,23 @@ export async function GET(req: Request) {
   }
 }
 
+interface ContactVerifyStats {
+  totalCount: number;
+  nullOrgCount: number;
+  noEmailCount: number;
+  inquiryPatternCount: number;
+  assignedCount: number;
+  unassignedCount: number;
+  orgDistribution: { organizationId: string; count: number }[];
+  typeDistribution: { type: string; count: number }[];
+  assignmentDistribution: { assignedUserId: string; count: number }[];
+}
+
 /**
  * 검증 결과 기반 권장사항 생성
  */
 function generateRecommendations(
-  stats: any
+  stats: ContactVerifyStats
 ): string[] {
   const recommendations: string[] = [];
 

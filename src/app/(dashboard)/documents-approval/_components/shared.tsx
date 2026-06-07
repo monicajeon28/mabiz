@@ -75,13 +75,14 @@ export function useCurrentAgent(): CurrentAgent {
   const [agent, setAgent] = useState<CurrentAgent>({ displayName: null, phone: null });
   useEffect(() => {
     let alive = true;
-    fetch('/api/auth/me', { credentials: 'include' })
+    const controller = new AbortController();
+    fetch('/api/auth/me', { credentials: 'include', signal: controller.signal })
       .then((r) => r.json())
       .then((j) => {
         if (alive && j?.ok) setAgent({ displayName: j.displayName ?? null, phone: j.phone ?? null });
       })
       .catch(() => {});
-    return () => { alive = false; };
+    return () => { alive = false; controller.abort(); };
   }, []);
   return agent;
 }

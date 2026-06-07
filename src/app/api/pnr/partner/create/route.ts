@@ -269,7 +269,7 @@ export async function POST(req: NextRequest) {
               name: traveler.korName || traveler.name || null, // 한글 이름 우선
               email: traveler.email || null,
               password: hashedPassword,
-              role: 'PROSPECT', // 잠재고객 역할
+              role: 'user', // 일반 사용자 역할 (잠재고객 상태는 customerStatus로 구분)
               onboarded: false,
               customerStatus: 'PROSPECT', // 고객 상태도 설정
               updatedAt: new Date(), // 필수 필드
@@ -325,7 +325,7 @@ export async function POST(req: NextRequest) {
       let userTrip = await tx.gmTrip.findFirst({
         where: {
           userId: mainUserData.id,
-          productId: tripId,
+          productId: parsedTripId,
         },
         select: {
           id: true,
@@ -351,7 +351,7 @@ export async function POST(req: NextRequest) {
           userTrip = await tx.gmTrip.create({
             data: {
               userId: mainUserData.id,
-              productId: tripId,
+              productId: parsedTripId,
               cruiseName: `${cruiseProduct.cruiseLine} ${cruiseProduct.shipName}`,
               status: 'Upcoming',
               startDate,
@@ -370,9 +370,9 @@ export async function POST(req: NextRequest) {
 
           logger.log(`[Reservation Create] UserTrip 생성 완료: userTripId=${userTrip.id}, tripId=${tripId}`);
         } catch (createError: unknown) {
-          const err = createError as Record<string, unknown>;
-          logger.error(`[Reservation Create] UserTrip 생성 에러:`, err);
-          throw new Error(`UserTrip 생성 실패: ${(err.message as string) || 'Unknown error'}`);
+          const errMsg = createError instanceof Error ? createError.message : String(createError);
+          logger.error(`[Reservation Create] UserTrip 생성 에러:`, { message: errMsg });
+          throw new Error(`UserTrip 생성 실패: ${errMsg}`);
         }
       }
 
@@ -428,7 +428,7 @@ export async function POST(req: NextRequest) {
         }
 
         // 연결된 User ID 가져오기
-        const userId = travelerUserMap.get(i) || null;
+        const userId = travelerUserMap.get(i) ?? null;
 
         // Traveler 생성 (OCR로 얻은 모든 정보 저장)
         // ⚠️ 실제 DB에는 birthDate, issueDate, expiryDate (모두 String) 필드만 있음
@@ -482,9 +482,9 @@ export async function POST(req: NextRequest) {
         reservation,
         mainUser: mainUserData,
         travelers: createdTravelers,
-        travelerUsers: Array.from(travelerUserMap.entries()).map(([index, userId]) => ({
+        travelerUsers: Array.from(travelerUserMap.entries()).map(([index, mappedUserId]) => ({
           travelerIndex: index,
-          userId,
+          userId: mappedUserId,
           travelerName: travelers[index]?.korName || travelers[index]?.name || 'Unknown',
         })),
       };
@@ -611,7 +611,7 @@ export async function POST(req: NextRequest) {
     // syncApisSpreadsheet 미구현: google-sheets 모듈 준비 전까지 APIS 자동화를 건너뜀
     // TODO: lib/google-sheets.ts 구현 후 아래 early-exit guard를 제거하고 재시도 루프를 복원할 것
     {
-      logger.error('[Reservation Create] lib/google-sheets.ts 미구현 — APIS 자동화를 건너뜁니다.');
+      logger.warn('[Reservation Create] lib/google-sheets.ts 미구현 — APIS 자동화를 건너뜁니다.');
       apisSyncResult = { ok: false, error: 'google-sheets 모듈이 없습니다', retryCount: 0 };
     }
     /* 재시도 루프 보존 (향후 syncApisSpreadsheet 구현 시 재활성화)

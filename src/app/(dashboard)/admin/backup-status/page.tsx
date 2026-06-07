@@ -19,24 +19,23 @@ export default function BackupStatusPage() {
   const [stats, setStats] = useState<BackupStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchStats = async (signal?: AbortSignal) => {
     try {
       setLoading(true);
-      const res = await fetch('/api/cron/health-check', {
-        headers: {
-          'X-Vercel-Cron-Secret': process.env.NEXT_PUBLIC_CRON_SECRET || '',
-        },
+      const res = await fetch('/api/admin/backup-status-proxy', {
         signal,
       });
       const data = await res.json();
       setStats(data);
       setLastUpdated(new Date());
+      setError(null);
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         return; // 요청 중단, 에러 무시
       }
-      console.error('Failed to fetch backup stats:', err);
+      setError('백업 상태를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
     } finally {
       setLoading(false);
     }
@@ -90,6 +89,13 @@ export default function BackupStatusPage() {
           마지막 업데이트: {lastUpdated?.toLocaleTimeString('ko-KR')}
         </p>
       </div>
+
+      {/* 에러 메시지 */}
+      {error && (
+        <div className="p-4 mb-6 rounded-lg border-2 bg-red-50 border-red-400 text-red-700">
+          ⚠️ {error}
+        </div>
+      )}
 
       {/* 오늘의 통계 */}
       <div className="bg-white border rounded-lg p-6 mb-6">

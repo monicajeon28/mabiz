@@ -326,12 +326,18 @@ export default function SmsLogsPage() {
 
   // orgId 로드
   useEffect(() => {
-    fetch("/api/auth/me")
+    const controller = new AbortController();
+    fetch("/api/auth/me", { signal: controller.signal })
       .then((r) => r.json())
       .then((d) => {
         if (d.ok && d.organizationId) setOrgId(d.organizationId);
       })
-      .catch(() => {});
+      .catch((e) => {
+        if (e instanceof Error && e.name === "AbortError") return;
+      });
+    return () => {
+      controller.abort();
+    };
   }, []);
 
   // URL 쿼리 초기화 (?tab=funnel&funnelSmsId=) — T6 딥링크 연동
@@ -355,11 +361,10 @@ export default function SmsLogsPage() {
 
   // 퍼널문자 드롭다운 옵션 로드 (/api/funnel-sms)
   useEffect(() => {
-    let cancelled = false;
-    fetch("/api/funnel-sms?pageSize=200")
+    const controller = new AbortController();
+    fetch("/api/funnel-sms?pageSize=200", { signal: controller.signal })
       .then((r) => r.json())
       .then((d: FunnelSmsListResponse) => {
-        if (cancelled) return;
         if (d.ok && Array.isArray(d.data)) {
           setFunnelOptions(
             d.data.map((f) => ({ id: f.id, title: f.title }))
@@ -367,12 +372,13 @@ export default function SmsLogsPage() {
         }
       })
       .catch((e) => {
+        if (e instanceof Error && e.name === "AbortError") return;
         logger.error("[sms-logs] funnel-sms 옵션 로드 실패", {
           err: e instanceof Error ? e.message : String(e),
         });
       });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, []);
 

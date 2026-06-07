@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
     }
 
     const contact = await prisma.contact.findFirst({
-      where: { id: contactId, organizationId },
+      where: { id: contactId, organizationId, optOutAt: null },
       select: {
         id: true,
         name: true,
@@ -156,7 +156,17 @@ export async function POST(req: NextRequest) {
       .replace('{link}', `${process.env.NEXT_PUBLIC_APP_URL || 'https://mabizcruisedot.com'}/booking/${contactId}`);
 
     // Update sent flags based on day
-    const updateData: any = {};
+    interface ContactDaySentUpdate {
+      companionSmsDay0Sent?: boolean;
+      companionSmsDay0SentAt?: Date;
+      companionSmsDay1Sent?: boolean;
+      companionSmsDay1SentAt?: Date;
+      companionSmsDay2Sent?: boolean;
+      companionSmsDay2SentAt?: Date;
+      companionSmsDay3Sent?: boolean;
+      companionSmsDay3SentAt?: Date;
+    }
+    const updateData: ContactDaySentUpdate = {};
     if (day === 0) updateData.companionSmsDay0Sent = true;
     if (day === 0) updateData.companionSmsDay0SentAt = new Date();
     if (day === 1) updateData.companionSmsDay1Sent = true;

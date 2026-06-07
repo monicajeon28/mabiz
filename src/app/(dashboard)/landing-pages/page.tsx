@@ -358,6 +358,10 @@ function PageCard({
   const titleRef = useRef<HTMLElement | null>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  useEffect(() => {
+    return () => { if (hoverTimer.current) clearTimeout(hoverTimer.current); };
+  }, []);
+
   const onMouseEnter = () => {
     hoverTimer.current = setTimeout(() => setHoverVisible(true), 600);
   };
@@ -625,8 +629,8 @@ export default function LandingPagesPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
-  const loadPages = useCallback(async () => {
-    const res = await fetch("/api/landing-pages");
+  const loadPages = useCallback(async (signal?: AbortSignal) => {
+    const res = await fetch("/api/landing-pages", { signal });
     const d   = await res.json();
     if (d.ok) {
       setPages(d.pages ?? []);
@@ -635,7 +639,9 @@ export default function LandingPagesPage() {
   }, []);
 
   useEffect(() => {
-    loadPages().finally(() => setLoading(false));
+    const controller = new AbortController();
+    loadPages(controller.signal).finally(() => setLoading(false));
+    return () => controller.abort();
   }, [loadPages]);
 
   const loadStats = async (pageId: string) => {

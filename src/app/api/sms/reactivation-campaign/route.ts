@@ -88,11 +88,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 세그먼트 기준 고객 조회
+    // 세그먼트 기준 고객 조회 (수신거부 고객 제외 — 정보통신망법)
     const recipients = await prisma.contact.findMany({
       where: {
         organizationId,
         deletedAt: null,
+        optOutAt: null,
         type: 'CUSTOMER',
         reactivationSegment: segment,
         reactivationLikelihood: { gte: safeMinLikelihood },
@@ -118,9 +119,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 예상 수익 계산용 상수 (크루즈 평균 객단가 × 재활성화 전환율)
+    const AVG_REVENUE_PER_CUSTOMER = 366_000; // 원 (평균 크루즈 상품 객단가)
+    const REACTIVATION_CONVERSION_RATE = 0.63;  // 63% 재활성화 전환율
+
     // Dry Run 모드
     if (safeDryRun) {
-      const expectedRevenue = recipients.length * 366000 * 0.63; // 450명 * $366K * 63% 전환율
+      const expectedRevenue = recipients.length * AVG_REVENUE_PER_CUSTOMER * REACTIVATION_CONVERSION_RATE;
       return NextResponse.json(
         {
           campaignId: `CAMPAIGN-${Date.now()}`,
@@ -203,8 +208,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 캠프인 통계
-    const expectedRevenue = recipients.length * 366000 * 0.63; // 450명 * $366K * 63% 전환율
+    // 캠페인 통계
+    const expectedRevenue = recipients.length * AVG_REVENUE_PER_CUSTOMER * REACTIVATION_CONVERSION_RATE;
 
     return NextResponse.json(
       {

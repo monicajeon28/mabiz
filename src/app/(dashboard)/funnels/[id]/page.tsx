@@ -94,9 +94,11 @@ export default function FunnelEditPage() {
             linkUrl:        s.linkUrl        ?? "",
           }))
         );
+      } else {
+        showError(data.message ?? '퍼널 정보를 불러오지 못했습니다');
       }
     } catch {
-      // 네트워크 오류 등 — 로딩 스피너가 무한히 유지되는 것을 방지
+      showError('퍼널 정보를 불러오지 못했습니다');
     } finally {
       setLoading(false);
     }
@@ -111,11 +113,15 @@ export default function FunnelEditPage() {
 
     try {
       // 1. 퍼널 기본 정보
-      await fetch(`/api/funnels/${id}`, {
+      const patchRes = await fetch(`/api/funnels/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, description, isActive }),
       });
+      if (!patchRes.ok) {
+        setSaveMsg("❌ 저장 실패");
+        return;
+      }
 
       // 2. 스테이지 전체 저장
       const res  = await fetch(`/api/funnels/${id}/stages`, {

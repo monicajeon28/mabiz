@@ -269,7 +269,6 @@ export default function ContractTab() {
       }));
       showSuccess('상품 정보가 자동 반영되었습니다.');
     } catch (e) {
-      console.warn('[handleLoadProduct] 상품 조회 실패', e);
       showError(e instanceof Error ? e.message : '상품 정보 로드 실패');
     } finally {
       setLoadingProduct(false);

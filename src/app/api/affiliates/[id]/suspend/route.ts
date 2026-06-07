@@ -30,7 +30,7 @@ export async function POST(
 
     let reason: string | null = null;
     try {
-      const body = await req.json() as { reason?: string };
+      const body = await req.json() as Record<string, unknown>;
       reason = typeof body.reason === 'string' ? body.reason.slice(0, 500) : null;
     } catch {
       // body 없음 허용
