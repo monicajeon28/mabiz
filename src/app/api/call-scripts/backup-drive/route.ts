@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getMabizSession } from "@/lib/auth";
 import { backupCallScriptToGoogleDrive } from "@/lib/google-drive";
 import { logger } from "@/lib/logger";
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getMabizSession();
+    if (!session?.userId) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const { segment, phase, phaseName, content, psychologyPrinciples, pasonaPhase, tips } = body;
 
