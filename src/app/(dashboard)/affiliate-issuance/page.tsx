@@ -615,9 +615,14 @@ function AffiliateListTab() {
   const [filterType, setFilterType] = useState('');
   const [filterStatus, setFilterStatus] = useState('ACTIVE');
   const [q, setQ] = useState('');
+  const qRef = useRef(q);
   const [resetLoadingId, setResetLoadingId] = useState<number | null>(null);
   const [resetMsg, setResetMsg] = useState<{ id: number; msg: string; ok: boolean } | null>(null);
   const resetMsgTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    qRef.current = q;
+  }, [q]);
 
   useEffect(() => {
     return () => {
@@ -632,7 +637,7 @@ function AffiliateListTab() {
       const params = new URLSearchParams();
       if (filterType) params.set('type', filterType);
       if (filterStatus) params.set('status', filterStatus);
-      if (q.trim()) params.set('q', q.trim());
+      if (qRef.current.trim()) params.set('q', qRef.current.trim());
 
       const res = await fetch(`/api/affiliate-issuance?${params.toString()}`, { signal });
       const data = await res.json();
@@ -647,7 +652,7 @@ function AffiliateListTab() {
     } finally {
       setListLoading(false);
     }
-  }, [filterType, filterStatus, q]);
+  }, [filterType, filterStatus]);
 
   useEffect(() => {
     const controller = new AbortController();

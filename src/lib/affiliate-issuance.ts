@@ -50,7 +50,7 @@ export function buildAffiliateCode(name: string, mallUserId: string): string {
 export async function ensureUniqueAffiliateCode(base: string): Promise<string> {
   let code = base;
   let i = 1;
-  for (;;) {
+  while (i <= 500) {
     const exists = await prisma.gmAffiliateProfile.findUnique({
       where: { affiliateCode: code },
       select: { id: true },
@@ -58,6 +58,7 @@ export async function ensureUniqueAffiliateCode(base: string): Promise<string> {
     if (!exists) return code;
     code = `${base}${i++}`;
   }
+  throw new Error(`affiliateCode 충돌 한계 초과: ${base}`);
 }
 
 /** mallUserId 중복 확인 */
