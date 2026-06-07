@@ -27,34 +27,21 @@ import {
   getReactivationStats,
 } from '@/lib/services/reactivation-classifier';
 import { logger } from '@/lib/logger';
+import { getAuthContext } from '@/lib/rbac';
 
 export async function GET(request: NextRequest) {
   try {
-    const organizationId = request.nextUrl.searchParams.get('organizationId');
+    const ctx = await getAuthContext().catch(() => null);
+    if (!ctx?.userId || !ctx?.organizationId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const organizationId = ctx.organizationId;
     const classify = request.nextUrl.searchParams.get('classify') === 'true';
     const daysInactive = parseInt(
       request.nextUrl.searchParams.get('daysInactive') || '180',
       10,
     );
-
-    if (!organizationId) {
-      return NextResponse.json(
-        { error: 'organizationId is required' },
-        { status: 400 },
-      );
-    }
-
-    // 조직 검증
-    const organization = await prisma.organization.findUnique({
-      where: { id: organizationId },
-    });
-
-    if (!organization) {
-      return NextResponse.json(
-        { error: 'Organization not found' },
-        { status: 404 },
-      );
-    }
 
     // 필요시 자동분류 수행
     if (classify) {

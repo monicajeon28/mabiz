@@ -14,6 +14,7 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { getDailyMetrics } from '@/lib/services/partner-analytics-service';
 import { calculateChurnRisk } from '@/lib/services/partner-churn-detector';
+import { getMabizSession } from '@/lib/auth';
 
 interface MetricsResponse {
   partner: {
@@ -34,6 +35,11 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getMabizSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const partnerId = params.id;
 
     // Verify partner exists

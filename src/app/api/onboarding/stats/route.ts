@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { getAuthContext } from '@/lib/rbac';
 
 /**
  * GET /api/onboarding/stats
@@ -20,15 +21,13 @@ import { logger } from '@/lib/logger';
  */
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const organizationId = searchParams.get('organizationId');
-
-  if (!organizationId) {
-    return NextResponse.json(
-      { ok: false, message: 'organizationId 필수' },
-      { status: 400 }
-    );
+  const ctx = await getAuthContext().catch(() => null);
+  if (!ctx?.userId || !ctx?.organizationId) {
+    return NextResponse.json({ ok: false, message: '인증이 필요합니다' }, { status: 401 });
   }
+
+  const { searchParams } = new URL(req.url);
+  const organizationId = ctx.organizationId;
 
   const dateFromParam = searchParams.get('dateFrom');
   const dateToParam = searchParams.get('dateTo');

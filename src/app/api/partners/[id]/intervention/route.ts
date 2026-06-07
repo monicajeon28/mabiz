@@ -16,16 +16,22 @@ import {
   sendYellowIntervention,
   sendRedIntervention,
 } from '@/lib/services/partner-intervention-service';
+import { getMabizSession } from '@/lib/auth';
 
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getMabizSession();
+    if (!session || !['GLOBAL_ADMIN', 'OWNER'].includes(session.role)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const partnerId = params.id;
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') as 'GREEN' | 'YELLOW' | 'RED';
-    const organizationId = searchParams.get('organizationId');
+    const organizationId = session.organizationId ?? searchParams.get('organizationId');
 
     if (!type || !organizationId) {
       return NextResponse.json(
