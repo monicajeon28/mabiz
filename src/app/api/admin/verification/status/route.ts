@@ -9,7 +9,6 @@ import { logger } from "@/lib/logger";
 import { getFeatureFlagStatus } from "@/lib/middleware/feature-flag-middleware";
 import { getRollbackStatus } from "@/lib/services/rollback-handler";
 import { enforceRBAC } from "@/app/api/_middleware/enforce-rbac";
-// import { verifyAdminToken } from "@/lib/auth";  // TODO: Fix auth import
 
 export async function GET(req: NextRequest) {
   // ────────────────────────────────────────────────────────
@@ -22,8 +21,6 @@ export async function GET(req: NextRequest) {
   if (rbacCheck !== true) return rbacCheck;
 
   try {
-    // 관리자 인증은 이미 middleware에서 처리됨
-    // 추가 검증이 필요한 경우 아래에 추가
 
     const [flagStatus, rollbackStatus] = await Promise.all([
       getFeatureFlagStatus(),
