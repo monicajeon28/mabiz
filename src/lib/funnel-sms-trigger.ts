@@ -124,26 +124,21 @@ export async function triggerGroupFunnelSms(opts: TriggerOptions): Promise<boole
       const sendHour   = funnelSms.sendHour;
       const sendMinute = funnelSms.sendMinute;
 
-      // 5-2-b. [P0 보안] 발신번호 검증 — 미등록/미검증 번호로 발송 방지(발신번호 변작)
-      // 검증 실패 시 org 기본 발신번호로 폴백(undefined면 BatchSender가 다시 폴백)
+      // 5-2-b. [발신번호] 실제 발송 발신번호의 SSoT는 BatchSender의 작성자 개인 알리고
+      //   config.sender(개인>조직>env)이다. 따라서 여기서 검증 결과로 퍼널 전체를
+      //   '스킵'하면 정당한 발송이 거짓음성으로 누락된다 → continue 스킵 제거.
+      //   senderPhone 컬럼 저장은 무해(미래 호환용 데드데이터)하므로 폴백 결과를 그대로 남긴다.
       const phoneValidation = await validateSenderPhone(organizationId, funnelSms.senderPhone);
       if (!phoneValidation.valid) {
-        logger.warn("[FunnelSmsTrigger] 미검증 발신번호 폴백 적용", {
+        logger.warn("[FunnelSmsTrigger] 미검증 발신번호(참고 로그) — 발송은 BatchSender config.sender가 SSoT", {
           organizationId,
           funnelSmsId,
           attempted: funnelSms.senderPhone,
           fallback: phoneValidation.fallbackPhone,
         });
       }
-      const resolvedSenderPhone = phoneValidation.fallbackPhone ?? undefined;
-      if (!resolvedSenderPhone && funnelSms.senderPhone) {
-        logger.error("[FunnelSmsTrigger] 발신번호 검증 완전 실패 (폴백 불가)", {
-          funnelSmsId,
-          organizationId,
-          senderPhone: funnelSms.senderPhone,
-        });
-        continue; // 이 FunnelSms 스킵, 나머지는 계속
-      }
+      // 폴백 결과(undefined 가능)를 senderPhone 컬럼에 저장. BatchSender가 무시하므로 발송엔 영향 없음.
+      const resolvedSenderPhone = phoneValidation.fallbackPhone ?? funnelSms.senderPhone ?? undefined;
 
       // 5-3. 각 FunnelSmsMessage → ScheduledSms INSERT (단일 createMany)
       const data = funnelSms.messages.map((msg) => {
@@ -180,7 +175,7 @@ export async function triggerGroupFunnelSms(opts: TriggerOptions): Promise<boole
           funnelSmsId,
           funnelSmsMessageId: msg.id,
           round: msg.daysAfter,
-          // 대리점별 발신번호(검증 통과분만): 없으면 BatchSender에서 orgSmsConfig.senderPhone 폴백
+          // [데드데이터/미래호환] 발송 발신번호 SSoT는 BatchSender의 작성자 config.sender이며 이 값은 무시됨
           senderPhone: resolvedSenderPhone,
           // 퍼널 소유자 계정으로 발송 → BatchSender가 작성자별 개인 알리고(개인>조직>env) 해석
           createdByUserId: funnelSms.createdByUserId ?? null,

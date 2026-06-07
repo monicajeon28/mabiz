@@ -174,12 +174,22 @@ export async function resolveUserSmsConfig(
     const userCfg = await prisma.userSmsConfig.findUnique({
       where: { userId_organizationId: { userId, organizationId } },
     });
-    if (userCfg?.isActive) {
+    // 발신번호 미검증(senderVerified=false)인 개인 설정은 사용하지 않고 조직>env로 폴백한다.
+    // (미검증 발신번호로 발송하면 Aligo가 전건 거부 → 개인 경로가 short-circuit되어 메시지가 끊김)
+    if (userCfg?.isActive && !userCfg.senderVerified) {
+      logger.warn("[aligo] 개인 발신번호 미검증(senderVerified=false) → 조직/시스템 발신으로 폴백", {
+        organizationId,
+        userId,
+      });
+    }
+    // senderVerified=true인 개인 설정만 개인 발송에 사용
+    if (userCfg?.isActive && userCfg.senderVerified) {
       try {
         const key = decrypt(userCfg.aligoKeyEncrypted, "SMS_ENCRYPT_KEY");
         return { key, userId: userCfg.aligoUserId, sender: userCfg.senderPhone };
       } catch (err) {
-        logger.error("[aligo] UserSmsConfig 복호화 실패 — OrgSmsConfig로 fallback", { userId, err });
+        // 복호화 실패 시 silent하지 않게 organizationId/userId를 남기고 OrgSmsConfig로 폴백
+        logger.error("[aligo] UserSmsConfig 복호화 실패 — OrgSmsConfig로 fallback", { organizationId, userId, err });
       }
     }
   }
