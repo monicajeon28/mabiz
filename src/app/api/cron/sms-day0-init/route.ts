@@ -5,6 +5,8 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { validateCronSecret } from '@/lib/cron-middleware';
 import { normalizePhone } from '@/lib/import-utils';
+// 조직>env 폴백 config 해석으로 발신 (멀티조직 OrgSmsConfig 지원)
+import { resolveUserSmsConfig } from '@/lib/aligo';
 
 /**
  * POST /api/cron/sms-day0-init
@@ -46,15 +48,12 @@ async function sendSmsViaAligo(
   message: string
 ): Promise<{ success: boolean; msgId?: string; errorCode?: string }> {
   try {
-    const aligoKey = process.env.ALIGO_API_KEY;
-    const aligoUserId = process.env.ALIGO_USER_ID;
-    const aligoSender = process.env.ALIGO_SENDER_PHONE;
+    // 조직별 알리고 설정 해석 (UserSmsConfig 미해당 → 조직 OrgSmsConfig > env 폴백)
+    const config = await resolveUserSmsConfig(organizationId);
 
-    if (!aligoKey || !aligoUserId || !aligoSender) {
-      logger.error('[SMS/ALIGO-DAY0] 필수 환경변수 누락', {
-        hasKey: !!aligoKey,
-        hasUserId: !!aligoUserId,
-        hasSender: !!aligoSender,
+    if (!config) {
+      logger.error('[SMS/ALIGO-DAY0] 발신 설정 없음 (OrgSmsConfig/env 모두 미설정)', {
+        organizationId,
       });
       return { success: false, errorCode: 'MISSING_CONFIG' };
     }
@@ -62,9 +61,9 @@ async function sendSmsViaAligo(
     const res = await fetch('https://apis.aligo.in/send/', {
       method: 'POST',
       body: new URLSearchParams({
-        key: aligoKey,
-        user_id: aligoUserId,
-        sender: aligoSender,
+        key: config.key,
+        user_id: config.userId,
+        sender: config.sender,
         receiver: phone,
         msg: message,
       }),

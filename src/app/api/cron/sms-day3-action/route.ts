@@ -4,6 +4,8 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { validateCronSecret } from '@/lib/cron-middleware';
+// 조직>env 폴백 config 해석으로 발신 (멀티조직 OrgSmsConfig 지원)
+import { resolveUserSmsConfig } from '@/lib/aligo';
 
 /**
  * POST /api/cron/sms-day3-action
@@ -150,16 +152,12 @@ ${isVip ? '⭐ VIP 멤버님께 감사드립니다!' : '🎁 처음 고객님은
 
 예약 문의: [전화번호]`;
 
-        // SMS 발송
-        const aligoKey = process.env.ALIGO_API_KEY;
-        const aligoUserId = process.env.ALIGO_USER_ID;
-        const aligoSender = process.env.ALIGO_SENDER_PHONE;
+        // SMS 발송 — 조직별 알리고 설정 해석 (OrgSmsConfig > env 폴백)
+        const config = await resolveUserSmsConfig(contact.organizationId);
 
-        if (!aligoKey || !aligoUserId || !aligoSender) {
-          logger.error('[SMS/ALIGO-DAY3] 필수 환경변수 누락', {
-            hasKey: !!aligoKey,
-            hasUserId: !!aligoUserId,
-            hasSender: !!aligoSender,
+        if (!config) {
+          logger.error('[SMS/ALIGO-DAY3] 발신 설정 없음 (OrgSmsConfig/env 모두 미설정)', {
+            organizationId: contact.organizationId,
           });
           response.failCount++;
           response.errors.push({
@@ -172,9 +170,9 @@ ${isVip ? '⭐ VIP 멤버님께 감사드립니다!' : '🎁 처음 고객님은
         const res = await fetch('https://apis.aligo.in/send/', {
           method: 'POST',
           body: new URLSearchParams({
-            key: aligoKey,
-            user_id: aligoUserId,
-            sender: aligoSender,
+            key: config.key,
+            user_id: config.userId,
+            sender: config.sender,
             receiver: normalizedPhone,
             msg: message,
           }),

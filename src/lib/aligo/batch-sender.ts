@@ -234,15 +234,15 @@ export async function processPendingSms(
         senderPhone: config.sender,
       });
 
-      // 배치 발송 준비
-      const batchRequests = groupSms.map(sms => {
-        const resolvedMessage = replaceMessagePlaceholders(sms.message, sms.contact ?? {});
-        return {
-          receiver: sms.contact?.phone || '',
-          message: resolvedMessage,
-          messageType: getAligoMessageType(resolvedMessage),
-        };
-      });
+      // 배치 발송 준비 — 치환된 실제 발송 메시지를 보관해 SmsLog 기록에 그대로 재사용
+      const resolvedMessages = groupSms.map(sms =>
+        replaceMessagePlaceholders(sms.message, sms.contact ?? {})
+      );
+      const batchRequests = groupSms.map((sms, i) => ({
+        receiver: sms.contact?.phone || '',
+        message: resolvedMessages[i],
+        messageType: getAligoMessageType(resolvedMessages[i]),
+      }));
 
       // Aligo 배치 발송 (이 그룹의 발신번호로)
       const sendResponse = await aligoClient.sendSmsBatch(batchRequests);
@@ -282,6 +282,32 @@ export async function processPendingSms(
             }
           });
         }
+
+        // [FIX] 1차 배치성공 경로는 ScheduledSms만 SENT로 갱신하고 SmsLog를 남기지 않아
+        // 문자이력/통계(sms-logs, analytics/channels)에서 예약·퍼널 정상발송분이 누락됐다.
+        // → ScheduledSms 업데이트가 성공(fulfilled)한 건에 한해 SmsLog를 기록한다.
+        // 개별 재시도(sendOneSms)와 동일 필드 형태. SmsLog 스키마에 createdByUserId/sender
+        // 컬럼이 없으므로(추가 금지) 해당 값은 생략. channel은 원본 sms.channel을 보존해
+        // 역할/채널별 집계(analytics는 channel!=KAKAO를 SMS로 집계)가 정상 동작하게 한다.
+        // Promise.allSettled로 묶어 일부 로그 기록이 실패해도 발송 결과(result)에 영향 없음.
+        await Promise.allSettled(
+          updateResults.map((r, i) => {
+            if (r.status !== 'fulfilled') return Promise.resolve();
+            const sms = groupSms[i];
+            return prisma.smsLog.create({
+              data: {
+                organizationId,
+                contactId: sms.contactId,
+                phone: sms.contact?.phone || '',
+                contentPreview: resolvedMessages[i].slice(0, 100),
+                msg: resolvedMessages[i],
+                status: 'SENT',
+                msgId: sendResponse.msgId,
+                channel: sms.channel || 'SCHEDULED',
+              },
+            });
+          })
+        );
 
         logger.log('[BatchSender] 배치 발송 완료', {
           organizationId,

@@ -110,14 +110,21 @@ export class AligoClient {
       logger.warn(`[Aligo] 배치 크기 초과: ${requests.length} > ${MAX_BATCH_SIZE}`);
     }
 
-    // 배치는 1000건씩 분할
-    const batches = [];
-    for (let i = 0; i < requests.length; i += MAX_BATCH_SIZE) {
-      batches.push(requests.slice(i, i + MAX_BATCH_SIZE));
+    // 요청별 messageType을 존중해 LMS/SMS를 분리 발송(Aligo 대량발송은 호출당 단일 msg_type만 지원)
+    const smsReqs = requests.filter(r => (r.messageType || 'SMS') !== 'LMS');
+    const lmsReqs = requests.filter(r => (r.messageType || 'SMS') === 'LMS');
+
+    // SMS/LMS 각 그룹을 1000건씩 청크로 쪼개 [chunk, msgType] 튜플로 구성(빈 그룹은 호출 생략)
+    const batches: Array<[AligoSendRequest[], 'SMS' | 'LMS']> = [];
+    for (let i = 0; i < smsReqs.length; i += MAX_BATCH_SIZE) {
+      batches.push([smsReqs.slice(i, i + MAX_BATCH_SIZE), 'SMS']);
+    }
+    for (let i = 0; i < lmsReqs.length; i += MAX_BATCH_SIZE) {
+      batches.push([lmsReqs.slice(i, i + MAX_BATCH_SIZE), 'LMS']);
     }
 
     const results = await Promise.all(
-      batches.map(batch => this.sendBatchInternal(batch))
+      batches.map(([batch, msgType]) => this.sendBatchInternal(batch, msgType))
     );
 
     // 결과 집계
@@ -132,10 +139,41 @@ export class AligoClient {
   }
 
   /**
+   * LMS 배치 title 산출: 요청별 title 우선, 없으면 첫 메시지 첫 줄을 40바이트 이내로 절단.
+   * 바이트 계산은 getAligoMessageType과 동일 규칙(charCodeAt>127 ? 2 : 1)으로 40바이트 한도 내 자르기.
+   */
+  private resolveBatchTitle(requests: AligoSendRequest[]): string {
+    const first = requests[0];
+    const explicit = first?.title?.trim();
+    if (explicit) {
+      return this.truncateByBytes(explicit, 40);
+    }
+    const firstLine = (first?.message || '').split('\n')[0]?.trim() || '';
+    const truncated = this.truncateByBytes(firstLine, 40);
+    return truncated || '안내'; // 빈 값 폴백(LMS title 누락 방지)
+  }
+
+  /**
+   * 문자열을 지정 바이트 한도 내로 절단(한글 2바이트, ASCII 1바이트 규칙)
+   */
+  private truncateByBytes(text: string, maxBytes: number): string {
+    let bytes = 0;
+    let result = '';
+    for (const ch of text) {
+      const charBytes = ch.charCodeAt(0) > 127 ? 2 : 1;
+      if (bytes + charBytes > maxBytes) break;
+      bytes += charBytes;
+      result += ch;
+    }
+    return result;
+  }
+
+  /**
    * 배치 발송 내부 구현
    */
   private async sendBatchInternal(
-    requests: AligoSendRequest[]
+    requests: AligoSendRequest[],
+    batchMsgType: 'SMS' | 'LMS' = 'SMS' // 배치 단위 msg_type를 외부에서 주입받아 LMS 강제 SMS 전환 방지
   ): Promise<AligoSendResponse> {
     try {
       // URLSearchParams로 배치 구성
@@ -143,8 +181,13 @@ export class AligoClient {
         key: this.config.apiKey,
         user_id: this.config.userId,
         sender: this.config.senderPhone,
-        msg_type: 'SMS', // 배치는 SMS만 지원
+        msg_type: batchMsgType, // 호출당 단일 msg_type(SMS 또는 LMS)
       });
+
+      // LMS 배치는 단일 title만 전송 가능 → 그룹 대표 title 1개 산출해 주입(빈 값 방지)
+      if (batchMsgType === 'LMS') {
+        params.set('title', this.resolveBatchTitle(requests));
+      }
 
       // 각 수신자별 파라미터 추가
       requests.forEach((req, idx) => {
