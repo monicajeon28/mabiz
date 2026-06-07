@@ -59,18 +59,28 @@ export async function GET(request: NextRequest) {
     const avgScore = avgScoreResult._avg.anxietyScore || 0;
 
     // 3. SMS 성과 조회
-    // ScheduledSms에서 anxiety 시퀀스의 성과 계산
-    const anxietySmsCount = await prisma.scheduledSms.count({
-      where: {
-        organizationId,
-        failureReason: { contains: 'L2_ANXIETY' }, // failureReason에 저장된 메타데이터 활용
-      },
-    });
-
-    // TODO: 실제 SMS 전송 이력 데이터로부터 계산
-    // 현재는 예상값으로 설정
+    // smsClickRate: Aligo 오픈 추적 미지원 — 더미 유지
     const smsClickRate = 38.5;
-    const consultationBookingRate = 22.8;
+
+    // consultationBookingRate 실측 계산
+    // anxietySequenceStartedAt이 있는 고객 중 bookingRef가 있는 비율
+    const anxietySequenceTotal = await prisma.contact.count({
+      where: { organizationId, anxietySequenceStartedAt: { not: null } },
+    });
+    const consultedCount =
+      anxietySequenceTotal > 0
+        ? await prisma.contact.count({
+            where: {
+              organizationId,
+              anxietySequenceStartedAt: { not: null },
+              bookingRef: { not: null },
+            },
+          })
+        : 0;
+    const consultationBookingRate =
+      anxietySequenceTotal > 0
+        ? Math.round((consultedCount / anxietySequenceTotal) * 1000) / 10
+        : 0;
 
     // 4. 최종 예약 완료율 (불안도별)
     // purchasedAt이 있는 경우만 카운트
