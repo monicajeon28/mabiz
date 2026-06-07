@@ -341,8 +341,8 @@ export default function B2BEditorPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
-  const loadPages = useCallback(async () => {
-    const res = await fetch("/api/b2b-landing");
+  const loadPages = useCallback(async (signal?: AbortSignal) => {
+    const res = await fetch("/api/b2b-landing", { signal });
     const d   = await res.json();
     if (d.ok) {
       setPages(d.pages ?? []);
@@ -350,7 +350,9 @@ export default function B2BEditorPage() {
   }, []);
 
   useEffect(() => {
-    loadPages().finally(() => setLoading(false));
+    const ctrl = new AbortController();
+    loadPages(ctrl.signal).catch((e) => { if (e.name !== 'AbortError') throw e; }).finally(() => { if (!ctrl.signal.aborted) setLoading(false); });
+    return () => ctrl.abort();
   }, [loadPages]);
 
   const loadStats = async (pageId: string) => {
@@ -363,7 +365,7 @@ export default function B2BEditorPage() {
       const data = await res.json();
       if (data.ok) setStatsMap((prev) => ({ ...prev, [pageId]: data.stats }));
     } catch (err) {
-      // eslint-disable-next-line no-console
+       
       console.error(`[loadStats] Failed to load stats for ${pageId}:`, err);
     } finally {
       setLoadingStats(null);

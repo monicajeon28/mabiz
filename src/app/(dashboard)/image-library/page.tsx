@@ -110,7 +110,7 @@ export default function ImageLibraryPage() {
   // 로컬 이미지 함수들
   // ═══════════════════════════════════════════════════════════════════════════════
 
-  const fetchAssets = useCallback(async () => {
+  const fetchAssets = useCallback(async (signal?: AbortSignal) => {
     try {
       setIsLoading(true);
       const params = new URLSearchParams();
@@ -120,22 +120,25 @@ export default function ImageLibraryPage() {
       params.append('offset', offset.toString());
       params.append('limit', limit.toString());
 
-      const res = await fetch(`/api/image-library?${params}`, { method: 'GET' });
+      const res = await fetch(`/api/image-library?${params}`, { method: 'GET', signal });
       const json = await res.json();
       if (json.ok) {
         const imgs = json.images ?? json.data?.assets ?? [];
         setAssets(imgs);
         setTotal(json.total ?? json.data?.total ?? imgs.length);
       }
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
     } finally {
-      setIsLoading(false);
+      if (!signal?.aborted) setIsLoading(false);
     }
   }, [search, selectedCategory, selectedTags, offset, limit]);
 
   useEffect(() => {
-    if (activeTab === 'local') {
-      fetchAssets();
-    }
+    if (activeTab !== 'local') return;
+    const ctrl = new AbortController();
+    fetchAssets(ctrl.signal);
+    return () => ctrl.abort();
   }, [fetchAssets, activeTab]);
 
   // ═══════════════════════════════════════════════════════════════════════════════

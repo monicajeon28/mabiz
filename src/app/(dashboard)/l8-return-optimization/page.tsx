@@ -45,16 +45,19 @@ export default function L8ReturnOptimizationPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (session?.organizationId) loadStats(session.organizationId);
+    if (!session?.organizationId) return;
+    const ctrl = new AbortController();
+    loadStats(session.organizationId, ctrl.signal);
+    return () => ctrl.abort();
   }, [session?.organizationId]);
 
-  const loadStats = async (orgId: string) => {
+  const loadStats = async (orgId: string, signal?: AbortSignal) => {
     try {
       setLoading(true);
 
       const [ltvRes, smsRes] = await Promise.all([
-        fetch(`/api/l8-ltv-tracking`),
-        fetch(`/api/l8-sms-return-sequence`),
+        fetch(`/api/l8-ltv-tracking`, { signal }),
+        fetch(`/api/l8-sms-return-sequence`, { signal }),
       ]);
 
       if (ltvRes.ok) {
@@ -78,9 +81,10 @@ export default function L8ReturnOptimizationPage() {
         });
       }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       setError(err instanceof Error ? err.message : "Failed to load stats");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   };
 
