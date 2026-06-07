@@ -49,7 +49,7 @@ export function ImageLibraryModal({
   }, [search]);
 
   // 이미지 목록 조회
-  const fetchAssets = async () => {
+  const fetchAssets = async (signal?: AbortSignal) => {
     if (!isOpen) return;
 
     try {
@@ -60,23 +60,25 @@ export function ImageLibraryModal({
       if (category) params.append('category', category);
       params.append('limit', '100');
 
-      const res = await fetch(`/api/images/list?${params}`);
+      const res = await fetch(`/api/images/list?${params}`, { signal });
       const json = await res.json();
 
       if (json.ok) {
         setAssets(json.data.assets);
       }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       logger.warn('[ImageLibraryModal] 이미지 목록 조회 실패', { error: err instanceof Error ? err.message : String(err) });
     } finally {
-      setIsLoading(false);
+      if (!signal?.aborted) setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    if (isOpen) {
-      fetchAssets();
-    }
+    if (!isOpen) return;
+    const ctrl = new AbortController();
+    fetchAssets(ctrl.signal);
+    return () => ctrl.abort();
   }, [isOpen, debouncedSearch, category]);
 
   if (!isOpen) return null;

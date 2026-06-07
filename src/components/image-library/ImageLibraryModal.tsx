@@ -55,17 +55,16 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
   const [editingId, setEditingId]     = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
 
-  const fetchImages = useCallback(async () => {
+  const fetchImages = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     const params = new URLSearchParams();
     if (q) params.set("q", q);
     if (folder !== "전체") params.set("folder", folder);
     try {
-      const res  = await fetch(`/api/image-library?${params}`);
+      const res  = await fetch(`/api/image-library?${params}`, { signal });
       if (!res.ok) {
         setError("이미지를 불러올 수 없습니다");
-        setLoading(false);
         return;
       }
       const data = await res.json();
@@ -75,15 +74,19 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
       } else {
         setError(data.error || "이미지를 불러올 수 없습니다");
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       setError("이미지를 불러올 수 없습니다");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, [q, folder]);
 
   useEffect(() => {
-    if (open && tab === "library") fetchImages();
+    if (!open || tab !== "library") return;
+    const ctrl = new AbortController();
+    fetchImages(ctrl.signal);
+    return () => ctrl.abort();
   }, [open, tab, fetchImages]);
 
   // 클립보드 복사 타이머 정리 (메모리 누수 방지)
