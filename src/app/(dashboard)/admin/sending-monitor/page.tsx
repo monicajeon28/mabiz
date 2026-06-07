@@ -90,11 +90,13 @@ export default function SendingMonitorPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const ctrl = new AbortController();
+
     const fetchMetrics = async () => {
       try {
         setLoading(true);
         setError(null);
-        const res = await fetch(`/api/admin/sending-metrics?period=${period}`);
+        const res = await fetch(`/api/admin/sending-metrics?period=${period}`, { signal: ctrl.signal });
 
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
@@ -107,13 +109,15 @@ export default function SendingMonitorPage() {
 
         setMetrics(data.metrics);
       } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         setError(err instanceof Error ? err.message : 'Unknown error');
       } finally {
-        setLoading(false);
+        if (!ctrl.signal.aborted) setLoading(false);
       }
     };
 
     fetchMetrics();
+    return () => ctrl.abort();
   }, [period]);
 
   if (loading) {
