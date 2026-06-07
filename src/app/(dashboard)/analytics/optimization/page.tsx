@@ -98,11 +98,12 @@ export default function OptimizationDashboard() {
   );
 
   useEffect(() => {
+    const ctrl = new AbortController();
     const fetchData = async () => {
       setIsLoading(true);
       setFetchError(null);
       try {
-        const response = await fetch('/api/analytics/optimization');
+        const response = await fetch('/api/analytics/optimization', { signal: ctrl.signal });
         const result = await response.json();
         if (result.ok) {
           setData({
@@ -114,12 +115,14 @@ export default function OptimizationDashboard() {
           setFetchError(result.message || '데이터를 불러올 수 없습니다.');
         }
       } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         setFetchError('최적화 데이터 로드 중 오류가 발생했습니다.');
       } finally {
-        setIsLoading(false);
+        if (!ctrl.signal.aborted) setIsLoading(false);
       }
     };
     fetchData();
+    return () => ctrl.abort();
   }, []);
 
   const handleRefresh = async () => {

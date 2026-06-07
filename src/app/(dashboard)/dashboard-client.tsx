@@ -316,12 +316,16 @@ export function DashboardClient({ session }: DashboardClientProps) {
   }, []);
 
   useEffect(() => {
+    const ctrl = new AbortController();
+
     Promise.allSettled([
-      fetch("/api/dashboard").then((r) => r.json()),
-      fetch('/api/notifications/feed?limit=5').then(r => r.json()),
-      fetch('/api/admin/partner-suspensions?status=SUSPENDED&limit=1').then(r => r.json()),
-      fetch('/api/marketing/campaigns/today-stats').then(r => r.json()),
+      fetch("/api/dashboard", { signal: ctrl.signal }).then((r) => r.json()),
+      fetch('/api/notifications/feed?limit=5', { signal: ctrl.signal }).then(r => r.json()),
+      fetch('/api/admin/partner-suspensions?status=SUSPENDED&limit=1', { signal: ctrl.signal }).then(r => r.json()),
+      fetch('/api/marketing/campaigns/today-stats', { signal: ctrl.signal }).then(r => r.json()),
     ]).then(results => {
+      if (ctrl.signal.aborted) return;
+
       if (results[0].status === 'fulfilled' && results[0].value?.ok) {
         setData(results[0].value);
       }
@@ -355,6 +359,8 @@ export function DashboardClient({ session }: DashboardClientProps) {
     } else {
       setMyOrgId('');
     }
+
+    return () => ctrl.abort();
   }, [session]);
 
   const role = data?.role;
