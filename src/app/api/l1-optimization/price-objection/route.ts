@@ -16,8 +16,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { validateOrgMembership } from '@/app/api/_auth/validate-agent-role';
+import prisma from '@/lib/prisma';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { detectL1ObjectiveType } from '@/lib/l1-optimization/objective-detector';
 import { selectOptimalResponseMethod } from '@/lib/l1-optimization/response-selector';
 import { getABTestVariant } from '@/lib/l1-optimization/ab-test-selector';
@@ -49,14 +49,12 @@ interface L1PriceObjectionResponse {
 
 export async function POST(request: NextRequest): Promise<NextResponse<L1PriceObjectionResponse>> {
   try {
-    const body = await request.json() as L1PriceObjectionRequest;
-    const { organizationId, contactId, initialResponse, channel = 'SMS', agentId } = body;
+    const ctx = await getAuthContext().catch(() => null);
+    if (!ctx?.userId) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    const organizationId = resolveOrgId(ctx);
 
-    // 1. 인증 및 권한 확인
-    const authResult = validateOrgMembership(request);
-    if (authResult !== true) {
-      return authResult as unknown as NextResponse<L1PriceObjectionResponse>;
-    }
+    const body = await request.json() as L1PriceObjectionRequest;
+    const { contactId, initialResponse, channel = 'SMS', agentId } = body;
 
     // 2. Contact 확인
     const contact = await prisma.contact.findUnique({

@@ -22,8 +22,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { validateOrgMembership } from '@/app/api/_auth/validate-agent-role';
+import prisma from '@/lib/prisma';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { validateMessageTemplate } from '@/lib/l1-optimization/message-validator';
 import { estimateWinnerAt } from '@/lib/l1-optimization/winner-estimator';
 import logger from '@/lib/logger';
@@ -55,14 +55,12 @@ interface L1ABTestVariantResponse {
 
 export async function POST(request: NextRequest): Promise<NextResponse<L1ABTestVariantResponse>> {
   try {
-    const body = await request.json() as L1ABTestVariantRequest;
-    const { organizationId, objectiveType, variantType, messageTemplate, copyAngle, psychologyLens, description } = body;
+    const ctx = await getAuthContext().catch(() => null);
+    if (!ctx?.userId) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    const organizationId = resolveOrgId(ctx);
 
-    // 1. 인증 및 권한 확인
-    const authResult = validateOrgMembership(request);
-    if (authResult !== true) {
-      return authResult as NextResponse<L1ABTestVariantResponse>;
-    }
+    const body = await request.json() as L1ABTestVariantRequest;
+    const { objectiveType, variantType, messageTemplate, copyAngle, psychologyLens, description } = body;
 
     // 2. 메시지 템플릿 검증
     const validation = validateMessageTemplate(messageTemplate);
@@ -192,21 +190,12 @@ export async function POST(request: NextRequest): Promise<NextResponse<L1ABTestV
 // GET: 현재 활성 변형 조회
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
+    const ctx = await getAuthContext().catch(() => null);
+    if (!ctx?.userId) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    const organizationId = resolveOrgId(ctx);
+
     const { searchParams } = new URL(request.url);
-    const organizationId = searchParams.get('organizationId');
     const objectiveType = searchParams.get('objectiveType');
-
-    if (!organizationId) {
-      return NextResponse.json(
-        { success: false, error: 'organizationId required' },
-        { status: 400 }
-      );
-    }
-
-    const authResult2 = validateOrgMembership(request);
-    if (authResult2 !== true) {
-      return authResult2 as NextResponse<L1ABTestVariantResponse>;
-    }
 
     const query: any = {
       where: {
