@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext, buildContactWhere } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
+import { sendSmsViaAligo } from "@/lib/sms-service";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -30,26 +31,36 @@ export async function POST(req: Request, { params }: Params) {
       );
     }
 
-    // 카카오 API 호출 (추후 실제 API 연결)
     const msgToSend = message || `안녕하세요 ${contact.name}님!\n\n저희 크루즈 서비스를 이용해주셔서 감사합니다.`;
 
-    logger.log("[POST /api/contacts/[id]/send-kakao] 카카오톡 발송", {
+    // 카카오 API 미연동 — SMS로 fallback 발송
+    let smsSent = false;
+    if (contact.phone) {
+      try {
+        await sendSmsViaAligo(contact.phone, msgToSend);
+        smsSent = true;
+      } catch (smsErr) {
+        logger.warn("[POST /api/contacts/[id]/send-kakao] SMS fallback 실패", {
+          contactId: contact.id,
+          error: smsErr instanceof Error ? smsErr.message : String(smsErr),
+        });
+      }
+    }
+
+    logger.log("[POST /api/contacts/[id]/send-kakao] 발송 처리", {
       contactId: contact.id,
       templateId: templateId || "custom",
-      messageLength: msgToSend.length,
+      channel: smsSent ? "SMS_FALLBACK" : "QUEUED",
     });
-
-    // NOTE: 실제 카카오 API 연결은 별도 구현 필요
-    // (현재는 로깅만 수행, 실제 발송 미구현)
 
     return NextResponse.json({
       ok: true,
-      message: "카카오톡이 발송되었습니다.",
+      message: smsSent ? "카카오 미연동으로 SMS로 발송되었습니다." : "발송 대기 중입니다. (카카오 미연동, 전화번호 없음)",
       data: {
         contactId: contact.id,
-        channel: "KAKAO",
-        status: "SENT",
-        sentAt: new Date(),
+        channel: smsSent ? "SMS_FALLBACK" : "QUEUED",
+        status: smsSent ? "SENT" : "QUEUED",
+        sentAt: smsSent ? new Date() : null,
       },
     });
   } catch (err) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authMiddleware } from '@/lib/auth-middleware';
 import { logger } from '@/lib/logger';
+import prisma from '@/lib/prisma';
 import {
   allL10ClosingVariants,
   getVariantById,
@@ -183,8 +184,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Contact 조회 (이미 인증되었으므로 생략 가능하지만, 소유권 확인 필요)
-    // TODO: Contact 조회 후 organizationId 확인
+    // Contact 소유권 검증 (IDOR 방지)
+    if (!auth.isAdmin && auth.orgId) {
+      const contact = await prisma.contact.findFirst({
+        where: { id: contactId, organizationId: auth.orgId },
+        select: { id: true },
+      });
+      if (!contact) {
+        return NextResponse.json({ error: 'Contact not found or unauthorized' }, { status: 404 });
+      }
+    }
 
     return NextResponse.json({
       success: true,
