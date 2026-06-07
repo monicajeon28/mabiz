@@ -65,7 +65,7 @@ async function loadSyncFunctions(): Promise<{
   syncToMasterApisSheet: (userId: number) => Promise<{ ok: boolean; error?: string }>;
 } | null> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+     
     const mod = await (Function('return import("@/lib/google-sheets")')() as Promise<{
       syncApisSpreadsheet: (tripId: number) => Promise<{ ok: boolean; error?: string }>;
       syncToMasterApisSheet: (userId: number) => Promise<{ ok: boolean; error?: string }>;
@@ -84,6 +84,8 @@ async function loadSyncFunctions(): Promise<{
  * Process pending tasks in the APIS sync queue.
  * Should be called by Cron job.
  */
+import { notifyCruisedotPassportSent } from '@/lib/notify-cruisedot-ops';
+
 export async function processApisSyncQueue(batchSize = 10) {
   logger.log('[ApisSyncQueue] Starting queue processing...');
 
@@ -131,6 +133,9 @@ export async function processApisSyncQueue(batchSize = 10) {
           data: { status: 'COMPLETED', processedAt: new Date() },
         });
         logger.log(`[ApisSyncQueue] Task ${task.id} (${task.targetType}:${task.targetId}) completed.`);
+        if (task.targetType === 'TRIP_SHEET') {
+          void notifyCruisedotPassportSent(task.targetId);
+        }
       } else {
         throw new Error(result?.error || 'Unknown error during sync');
       }

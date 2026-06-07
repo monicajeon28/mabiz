@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import { requireCrmManager } from '@/lib/passport-auth';
 import { logger } from '@/lib/logger';
 import { enforceRBAC } from '@/app/api/_middleware/enforce-rbac';
+import { notifyCruisedotPnrSent } from '@/lib/notify-cruisedot-ops';
 // Aligo SMS API 인라인 타입 및 함수 (aligo/client 모듈 미존재)
 interface AligoSendResponse {
   result_code: string;
@@ -272,6 +273,7 @@ export async function POST(req: NextRequest) {
           updatedAt: new Date(),
         },
       });
+      void notifyCruisedotPnrSent(reservationId);
     }
 
     // 잔액 조회
