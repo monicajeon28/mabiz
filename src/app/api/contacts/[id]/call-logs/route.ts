@@ -1,5 +1,6 @@
 export const runtime = 'nodejs';
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { getMabizSession } from "@/lib/auth";
 import { logger } from "@/lib/logger";
@@ -23,7 +24,7 @@ export async function GET(_req: Request, { params }: Params) {
     if (!contact) return NextResponse.json({ ok: false }, { status: 404 });
 
     // 역할별 필터링
-    let whereClause: any = { contactId: id };
+    let whereClause: Prisma.CallLogWhereInput = { contactId: id };
     if (ctx.role === 'AGENT') {
       // 판매원은 자신이 만든 콜기록만 봄
       whereClause.userId = ctx.userId;
@@ -73,7 +74,7 @@ export async function DELETE(req: Request, { params }: Params) {
     if (!contact) return NextResponse.json({ ok: false }, { status: 404 });
 
     // AGENT는 자신의 콜로그만 삭제 가능
-    const deleteWhere: any = { contactId: id };
+    const deleteWhere: Prisma.CallLogWhereInput = { contactId: id };
     if (ctx.role === 'AGENT') {
       deleteWhere.userId = ctx.userId;
     }

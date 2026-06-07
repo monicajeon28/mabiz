@@ -15,21 +15,14 @@ export default async function MonthlyReportsPage() {
     return notFound();
   }
 
-  // 최근 12개월 MonthlySettlement 조회 — summary JSON의 organizationId로 필터
-  // NOTE: 스키마에 organizationId 컬럼이 없어 JSON 필터를 사용하나 인덱스 없음.
-  //       장기적으로 MonthlySettlement에 organizationId String 컬럼 추가 필요.
-  const allSettlements = await prisma.monthlySettlement.findMany({
+  // 최근 12개월 MonthlySettlement 조회
+  const settlements = await prisma.monthlySettlement.findMany({
     where: {
-      summary: {
-        path: ['organizationId'],
-        equals: session.organizationId,
-      },
+      organizationId: session.organizationId,
     },
     orderBy: { periodStart: 'desc' },
     take: 12,
   });
-
-  const settlements = allSettlements;
 
   // 총 통계 계산
   const totalAmount = settlements.reduce((sum: number, s: any) => {

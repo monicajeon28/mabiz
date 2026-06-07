@@ -5,6 +5,8 @@ import { logger } from '@/lib/logger';
 import { sendSms, resolveUserSmsConfig } from '@/lib/aligo';
 import { checkRateLimitAsync } from '@/lib/rate-limit';
 
+export const dynamic = 'force-dynamic';
+
 interface FamilySmsPayload {
   contactId: string;
   targetRole: 'spouse' | 'parent' | 'friend'; // 누가 받을 SMS?
@@ -151,7 +153,7 @@ export async function POST(req: NextRequest) {
       .replace('{spouse_name}', contact.spouseName || '')
       .replace('{parent_name}', contact.parentName || '')
       .replace('{friend_name}', contact.friendName || '')
-      .replace('{link}', `https://crm.example.com/booking/${contactId}`);
+      .replace('{link}', `${process.env.NEXT_PUBLIC_APP_URL || 'https://mabizcruisedot.com'}/booking/${contactId}`);
 
     // Update sent flags based on day
     const updateData: any = {};

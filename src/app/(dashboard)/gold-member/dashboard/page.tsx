@@ -22,7 +22,7 @@ type GoldMember = {
   memo?: string;
 };
 
-const PLAN_DETAILS = {
+const PLAN_DETAILS: Record<string, { name: string; monthlyPrice: number; healthCheckups: number; broadcast: string; benefits: string[] }> = {
   A: {
     name: "기본 플랜",
     monthlyPrice: 33000,
@@ -46,6 +46,29 @@ const PLAN_DETAILS = {
       "주 3회 라이브방송 + 1:1 상담",
       "전담 매니저 + VIP 지원팀",
       "크루즈 50% 할인권",
+    ],
+  },
+  C: {
+    name: "C 플랜",
+    monthlyPrice: 49500,
+    healthCheckups: 3,
+    broadcast: "주 2회",
+    benefits: [
+      "연 3회 건강검진",
+      "월 여행보험 + 건강보험",
+      "주 2회 라이브방송 접근",
+      "전담 매니저 배정",
+    ],
+  },
+  HEALTH: {
+    name: "건강 플랜",
+    monthlyPrice: 27000,
+    healthCheckups: 2,
+    broadcast: "-",
+    benefits: [
+      "연 2회 건강검진",
+      "건강관리 서비스",
+      "전담 매니저 배정",
     ],
   },
 };
@@ -136,11 +159,24 @@ export default function GoldMemberDashboard() {
     );
   }
 
-  const plan = PLAN_DETAILS[member.courseType as "A" | "B"];
+  const plan = PLAN_DETAILS[member.courseType];
+  if (!plan) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="p-6 bg-red-50 border border-red-200 rounded-lg text-red-700">
+            알 수 없는 플랜 유형입니다: {member.courseType}
+          </div>
+        </div>
+      </div>
+    );
+  }
   const statusInfo = STATUS_INFO[member.status as keyof typeof STATUS_INFO] || STATUS_INFO.PENDING;
   const StatusIcon = statusInfo.icon;
   const remainingPayments = member.totalPayments - member.paidCount;
-  const progressPercent = (member.paidCount / member.totalPayments) * 100;
+  const progressPercent = member.totalPayments > 0
+    ? (member.paidCount / member.totalPayments) * 100
+    : 0;
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">

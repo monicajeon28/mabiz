@@ -67,14 +67,18 @@ export default function SegmentAnalyticsDashboard() {
   const [sortBy, setSortBy] = useState<'size' | 'churn' | 'ltv' | 'engagement'>('size');
 
   useEffect(() => {
-    if (session?.organizationId) fetchSegments(session.organizationId);
+    if (!session?.organizationId) return;
+    const controller = new AbortController();
+    fetchSegments(session.organizationId, controller.signal);
+    return () => controller.abort();
   }, [session?.organizationId]);
 
-  const fetchSegments = async (orgId: string) => {
+  const fetchSegments = async (orgId: string, signal?: AbortSignal) => {
     try {
       setLoading(true);
       const response = await fetch('/api/segments', {
         headers: { 'x-organization-id': orgId },
+        signal,
       });
 
       if (!response.ok) throw new Error('Failed to fetch segments');
@@ -86,6 +90,7 @@ export default function SegmentAnalyticsDashboard() {
         setSelectedSegment(data.segments[0]);
       }
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') return;
       console.error('Error fetching segments:', error);
     } finally {
       setLoading(false);

@@ -421,7 +421,7 @@ export async function POST(req: NextRequest) {
             continue;
           }
 
-          link = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/pnr/${reservationId}`;
+          link = `${(process.env.NEXT_PUBLIC_BASE_URL ?? 'https://mabizcruisedot.com').replace(/\/$/, '')}/pnr/${reservationId}`;
           personalizedMessage = `${user.name ? `${user.name}님` : '고객님'}의 여행 정보 입력을 위한 링크입니다. 아래 링크를 통해 객실 정보 등을 입력해 주세요.\n${link}`;
         }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -40,13 +40,9 @@ export default function CampaignDetailPage() {
   const [loading, setLoading] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState<number | null>(null);
 
-  useEffect(() => {
-    fetchCampaignData();
-  }, [campaignId]);
-
-  const fetchCampaignData = async () => {
+  const fetchCampaignData = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await fetch(`/api/marketing/campaigns/${campaignId}/track`);
+      const res = await fetch(`/api/marketing/campaigns/${campaignId}/track`, { signal });
       if (!res.ok) throw new Error('데이터를 불러올 수 없습니다.');
 
       const data = await res.json();
@@ -55,25 +51,36 @@ export default function CampaignDetailPage() {
       setConversionRates(data.conversionRates);
 
       // 발송 중이면 자동으로 새로고침
-      if (data.campaign.status === 'SENDING' && !refreshInterval) {
-        setRefreshInterval(2000); // 2초마다 새로고침
-      } else if (data.campaign.status !== 'SENDING' && refreshInterval) {
-        setRefreshInterval(null);
-      }
+      setRefreshInterval((prev) => {
+        if (data.campaign.status === 'SENDING' && !prev) return 2000;
+        if (data.campaign.status !== 'SENDING' && prev) return null;
+        return prev;
+      });
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       logger.error('[fetchCampaignData]', { err });
     } finally {
       setLoading(false);
     }
-  };
+  }, [campaignId]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchCampaignData(controller.signal);
+    return () => controller.abort();
+  }, [fetchCampaignData]);
 
   // 자동 새로고침
   useEffect(() => {
     if (!refreshInterval) return;
 
-    const timer = setInterval(fetchCampaignData, refreshInterval);
-    return () => clearInterval(timer);
-  }, [refreshInterval]);
+    const controller = new AbortController();
+    const timer = setInterval(() => fetchCampaignData(controller.signal), refreshInterval);
+    return () => {
+      clearInterval(timer);
+      controller.abort();
+    };
+  }, [refreshInterval, fetchCampaignData]);
 
   const handleSend = async () => {
     if (!confirm('이 캠페인을 지금 발송하시겠습니까?')) return;

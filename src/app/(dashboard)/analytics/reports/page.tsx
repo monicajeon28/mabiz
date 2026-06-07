@@ -10,7 +10,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 
 interface ReportRow {
@@ -31,25 +31,28 @@ export default function ReportsPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedData, setExpandedData] = useState<any>(null);
 
-  useEffect(() => {
-    fetchReports();
-  }, [filter]);
-
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async (signal?: AbortSignal) => {
     try {
       setLoading(true);
       const days = parseInt(filter);
-      const response = await fetch(`/api/analytics/reports?days=${days}`);
+      const response = await fetch(`/api/analytics/reports?days=${days}`, { signal });
       if (!response.ok) throw new Error('Failed to fetch reports');
 
       const data = await response.json();
       setReports(data);
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       console.error('Error fetching reports:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [filter]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchReports(controller.signal);
+    return () => controller.abort();
+  }, [fetchReports]);
 
   const expandRow = async (id: string) => {
     if (expandedId === id) {

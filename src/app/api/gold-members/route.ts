@@ -30,7 +30,14 @@ export async function GET(req: NextRequest) {
     const q          = searchParams.get('q')?.trim() ?? '';
 
     const where: Record<string, unknown> = {};
-    if (ctx.organizationId) where.organizationId = ctx.organizationId;
+    if (ctx.role === 'GLOBAL_ADMIN') {
+      // GLOBAL_ADMIN은 전체 조회 (organizationId 필터 없음)
+    } else {
+      if (!ctx.organizationId) {
+        return NextResponse.json({ ok: false, error: '조직 정보가 없습니다.' }, { status: 403 });
+      }
+      where.organizationId = ctx.organizationId;
+    }
     if (status) where.status = status;
     if (courseType) where.courseType = courseType;
     if (q) where.OR = [
@@ -83,14 +90,14 @@ export async function GET(req: NextRequest) {
         email:          m.email,
         memberCode:     m.memberCode,
         courseType:     m.courseType,
-        joinDate:       m.joinDate.toISOString(),
+        joinDate:       m.joinDate?.toISOString() ?? null,
         paymentDay:     m.paymentDay,
         totalPayments:  m.totalPayments,
         paidCount:      m.paidCount,
         status:         m.status,
         memo:           m.memo,
-        consultationCount: m._count.consultations,
-        createdAt:      m.createdAt.toISOString(),
+        consultationCount: m._count?.consultations ?? 0,
+        createdAt:      m.createdAt?.toISOString() ?? null,
       })),
       total,
       page,

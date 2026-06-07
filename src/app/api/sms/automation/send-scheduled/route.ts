@@ -2,6 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendSms, getOrgSmsConfig } from '@/lib/aligo';
 
+interface ScheduledSendDetail {
+  messageId: string;
+  status: 'sent' | 'failed' | 'error';
+  day?: number | null;
+  segment?: string | null;
+  phoneNumber?: string;
+  aligoMessageId?: string;
+  error?: string;
+}
+
 async function sendSmsToContact(
   organizationId: string,
   phoneNumber: string,
@@ -63,7 +73,7 @@ export async function GET(request: NextRequest) {
       sentCount: 0,
       failedCount: 0,
       timestamp: now.toISOString(),
-      details: [] as any[]
+      details: [] as ScheduledSendDetail[]
     };
 
     for (const message of pendingMessages) {
@@ -142,6 +152,22 @@ export async function GET(request: NextRequest) {
           });
         }
       } catch (error) {
+        // status를 failed로 업데이트하여 다음 크론 재시도 시 중복 발송 방지
+        try {
+          await prisma.crmMarketingMessage.update({
+            where: { id: message.id },
+            data: {
+              status: 'failed',
+              metadata: {
+                ...(message.metadata as Record<string, unknown> || {}),
+                failureReason: error instanceof Error ? error.message : String(error),
+                failedAt: now.toISOString()
+              }
+            }
+          });
+        } catch {
+          // DB 업데이트 실패 시 로깅만 — 원본 에러는 아래에서 집계
+        }
         results.failedCount++;
         results.details.push({
           messageId: message.id,

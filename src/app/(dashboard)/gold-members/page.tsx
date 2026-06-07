@@ -64,6 +64,7 @@ export default function GoldMembersPage() {
   const [q, setQ]                 = useState("");
   const [search, setSearch]       = useState("");
   const [loading, setLoading]     = useState(true);
+  const [error, setError]           = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // 등록 폼 상태
@@ -81,6 +82,7 @@ export default function GoldMembersPage() {
     abortControllerRef.current = new AbortController();
 
     setLoading(true);
+    setError(null);
     const params = new URLSearchParams({ page: String(page), limit: "20" });
     if (statusFilter) params.set("status", statusFilter);
     if (courseFilter) params.set("courseType", courseFilter);
@@ -101,7 +103,7 @@ export default function GoldMembersPage() {
       })
       .catch((err) => {
         if (err.name !== 'AbortError') {
-          // 로깅 (console.error 제거)
+          setError(err instanceof Error ? err.message : '데이터를 불러오지 못했습니다.');
         }
       })
       .finally(() => setLoading(false));
@@ -241,6 +243,13 @@ export default function GoldMembersPage() {
           </button>
         </form>
       </div>
+
+      {/* 에러 배너 */}
+      {error && (
+        <div className="mb-4 px-4 py-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-200 flex items-center gap-2">
+          <span className="font-semibold">오류:</span> {error}
+        </div>
+      )}
 
       {/* 테이블 */}
       {loading ? (

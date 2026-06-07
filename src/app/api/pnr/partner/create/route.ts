@@ -5,6 +5,28 @@ import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { logger } from '@/lib/logger';
 import { getMabizSession } from '@/lib/auth';
+import type { GmUser, Prisma } from '@prisma/client';
+
+interface TravelerInput {
+  phone?: string | null;
+  name?: string | null;
+  korName?: string | null;
+  engSurname?: string | null;
+  engGivenName?: string | null;
+  passportNo?: string | null;
+  residentNum?: string | null;
+  nationality?: string | null;
+  birthDate?: string | null;
+  dateOfBirth?: string | Date | null;
+  gender?: string | null;
+  issueDate?: string | null;
+  expiryDate?: string | null;
+  passportExpiryDate?: string | Date | null;
+  passportImage?: string | null;
+  email?: string | null;
+  roomNumber?: number | null;
+  roomKey?: string | null;
+}
 
 /**
  * 예약 생성 API
@@ -54,7 +76,8 @@ export async function POST(req: NextRequest) {
       days: number | null;
       itineraryPattern: string[] | null;
       productCode: string | null;
-    }>>`SELECT id, "cruiseLine", "shipName", nights, days, "itineraryPattern", "productCode" FROM "CruiseProduct" WHERE id = ${parsedTripId}`;
+      departureDate: Date | string | null;
+    }>>`SELECT id, "cruiseLine", "shipName", nights, days, "itineraryPattern", "productCode", "departureDate" FROM "CruiseProduct" WHERE id = ${parsedTripId}`;
 
     const cruiseProduct = cruiseProducts[0] ?? null;
 
@@ -103,7 +126,7 @@ export async function POST(req: NextRequest) {
         });
       } else {
         // 기존 유저 정보 업데이트 (이름, 이메일, phone)
-        const updateData: any = {};
+        const updateData: Prisma.GmUserUncheckedUpdateInput = {};
         if (mainUser.name && !mainUserData.name) {
           updateData.name = mainUser.name;
         }
@@ -128,7 +151,7 @@ export async function POST(req: NextRequest) {
 
       // ⚠️ 싱글차지 여부 확인: 동일 여권번호가 2개 이상이면 싱글차지로 간주
       const passportCounts = new Map<string, number>();
-      travelers.forEach((t: any) => {
+      travelers.forEach((t: TravelerInput) => {
         if (t.passportNo) {
           passportCounts.set(t.passportNo, (passportCounts.get(t.passportNo) || 0) + 1);
         }
@@ -153,7 +176,7 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        let travelerUser: any = null;
+        let travelerUser: GmUser | null = null;
         let foundBy: string = '';
 
         // ⚠️ 싱글차지인 경우: 동일 여권번호를 가진 여행자가 이미 처리되었으면 같은 User 사용
@@ -256,7 +279,7 @@ export async function POST(req: NextRequest) {
           logger.log(`[Reservation Create] 새로운 PROSPECT User 생성: userId=${travelerUser.id}, name=${travelerUser.name}, phone=${travelerUser.phone}`);
         } else {
           // 기존 User 정보 업데이트 (OCR로 얻은 정보로 보강)
-          const updateData: any = {};
+          const updateData: Prisma.GmUserUncheckedUpdateInput = {};
           if (traveler.korName && !travelerUser.name) {
             updateData.name = traveler.korName;
           }
@@ -315,6 +338,14 @@ export async function POST(req: NextRequest) {
       // UserTrip이 없으면 생성 (CruiseProduct를 기반으로)
       if (!userTrip) {
         const now = new Date();
+        // CruiseProduct.departureDate 기반으로 startDate 계산 (없으면 now 폴백)
+        const rawDeparture = cruiseProduct.departureDate;
+        const startDate = rawDeparture ? new Date(rawDeparture) : now;
+        // endDate = startDate + nights일 (nights가 없으면 startDate와 동일)
+        const nightsCount = cruiseProduct.nights ?? 0;
+        const endDate = nightsCount > 0
+          ? new Date(startDate.getTime() + nightsCount * 24 * 60 * 60 * 1000)
+          : new Date(startDate);
 
         try {
           userTrip = await tx.gmTrip.create({
@@ -323,8 +354,8 @@ export async function POST(req: NextRequest) {
               productId: tripId,
               cruiseName: `${cruiseProduct.cruiseLine} ${cruiseProduct.shipName}`,
               status: 'Upcoming',
-              startDate: now,
-              endDate: now,
+              startDate,
+              endDate,
               nights: cruiseProduct.nights || 0,
               days: cruiseProduct.days || 0,
               updatedAt: new Date(), // 필수 필드
@@ -420,7 +451,7 @@ export async function POST(req: NextRequest) {
 
         // Traveler 생성 (실제 DB 스키마에 맞춰 String 필드 사용)
         // ⚠️ 실제 DB: roomNumber는 필수(Int), isSingleCharge 필드 있음
-        const travelerData: any = {
+        const travelerData: Prisma.GmTravelerUncheckedCreateInput = {
           reservationId: reservation.id,
           userId, // 연결된 User ID (여권 스캔으로 자동 등록된 고객)
           roomNumber, // 방 배정 번호 (필수 Int, 항상 숫자 값 보장됨)
@@ -577,63 +608,47 @@ export async function POST(req: NextRequest) {
     let apisSyncResult: { ok: boolean; error?: string; retryCount?: number } | null = null;
     const maxRetries = 3;
 
+    // syncApisSpreadsheet 미구현: google-sheets 모듈 준비 전까지 APIS 자동화를 건너뜀
+    // TODO: lib/google-sheets.ts 구현 후 아래 early-exit guard를 제거하고 재시도 루프를 복원할 것
+    {
+      logger.error('[Reservation Create] lib/google-sheets.ts 미구현 — APIS 자동화를 건너뜁니다.');
+      apisSyncResult = { ok: false, error: 'google-sheets 모듈이 없습니다', retryCount: 0 };
+    }
+    /* 재시도 루프 보존 (향후 syncApisSpreadsheet 구현 시 재활성화)
     for (let retryCount = 0; retryCount < maxRetries; retryCount++) {
       try {
-        // UserTrip.id를 Trip.id로 변환 필요 (Reservation.tripId는 UserTrip.id)
         const userTrip = await prisma.gmTrip.findUnique({
           where: { id: result.reservation.tripId },
           select: { id: true },
         });
-
         if (!userTrip) {
-          logger.error('[Reservation Create] UserTrip을 찾을 수 없습니다:', { tripId: result.reservation.tripId });
           apisSyncResult = { ok: false, error: 'UserTrip을 찾을 수 없습니다.', retryCount };
           break;
         }
-
-        // syncApisSpreadsheet 함수 import (동적 import로 에러 방지)
-        // google-sheets.ts 파일이 비어있어서 임시 함수로 대체
-        const syncApisSpreadsheet = async (tripId: number) => ({ ok: false, error: 'google-sheets 모듈이 없습니다', spreadsheetId: null });
-
-        // Trip.id를 찾기 위해 UserTrip에서 Trip으로 연결
-        // 실제로는 UserTrip.id를 그대로 사용하거나, Trip 테이블에서 찾아야 함
-        // 일단 UserTrip.id를 tripId로 사용 (나중에 수정 필요할 수 있음)
+        const { syncApisSpreadsheet } = await import('@/lib/google-sheets');
         const tripId = userTrip.id;
-
-        logger.log(`[Reservation Create] APIS 자동화 실행 시작 (재시도 ${retryCount + 1}/${maxRetries}): tripId=${tripId}`);
-
         const syncResult = await syncApisSpreadsheet(tripId);
-
         if (syncResult.ok) {
-          logger.log(`[Reservation Create] APIS 자동화 성공: spreadsheetId=${(syncResult as any).spreadsheetId}`);
           apisSyncResult = { ok: true, retryCount: retryCount + 1 };
-          break; // 성공하면 재시도 중단
+          break;
         } else {
-          logger.error(`[Reservation Create] APIS 자동화 실패 (재시도 ${retryCount + 1}/${maxRetries}):`, { error: syncResult.error });
           apisSyncResult = { ok: false, error: syncResult.error, retryCount: retryCount + 1 };
-
-          // 마지막 재시도가 아니면 잠시 대기 후 재시도
           if (retryCount < maxRetries - 1) {
-            await new Promise(resolve => setTimeout(resolve, 2000 * (retryCount + 1))); // 2초, 4초, 6초 대기
+            await new Promise(resolve => setTimeout(resolve, 2000 * (retryCount + 1)));
           }
         }
       } catch (apisError: unknown) {
         const err = apisError as Record<string, unknown>;
-        logger.error(`[Reservation Create] APIS 자동화 에러 (재시도 ${retryCount + 1}/${maxRetries}):`, err);
         apisSyncResult = { ok: false, error: (err.message as string) || 'APIS 자동화 실행 중 오류 발생', retryCount: retryCount + 1 };
-
-        // 파일이 없거나 import 에러인 경우 재시도하지 않음
         if ((err.message as string)?.includes('Cannot find module') || (err.message as string)?.includes('google-sheets')) {
-          logger.error('[Reservation Create] lib/google-sheets.ts 파일이 없습니다. APIS 자동화를 건너뜁니다.');
           break;
         }
-
-        // 마지막 재시도가 아니면 잠시 대기 후 재시도
         if (retryCount < maxRetries - 1) {
           await new Promise(resolve => setTimeout(resolve, 2000 * (retryCount + 1)));
         }
       }
     }
+    */
 
     // APIS 자동화 결과 로깅 (실패해도 예약 생성은 성공)
     if (apisSyncResult && !apisSyncResult.ok) {

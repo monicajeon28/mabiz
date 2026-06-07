@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { handleApiError } from "@/lib/response";
 import prisma from "@/lib/prisma";
 import { getAuthContext, buildContactWhere, maskContactInfo } from "@/lib/rbac";
@@ -93,13 +94,13 @@ export async function GET(req: Request) {
     });
 
     // cursor 기반 페이지네이션 또는 offset 기반 페이지네이션
-    let where = baseWhere;
+    let where: Prisma.ContactWhereInput = baseWhere;
     let skip = 0;
     let take = safeLimit + 1;  // hasMore 판단용 +1
 
     if (cursor) {
       skip = 1;  // cursor 항목 제외
-      where = { ...baseWhere, id: { gt: cursor } } as unknown as typeof baseWhere;  // id > cursor
+      where = { ...baseWhere, id: { gt: cursor } };  // id > cursor
     } else {
       take = safeLimit;  // offset 방식일 때는 +1 안 함
       skip = (page - 1) * safeLimit;
@@ -313,8 +314,8 @@ export async function POST(req: Request) {
       logger.log("[POST /api/contacts] 렌즈 감지 완료", { id: contact.id, lenses: sortedLenses });
     }
 
-    // C-1: 세그먼트별 SMS 템플릿 조회 및 발송 + 퍼널 상태 + 그룹 퍼널 (Promise.allSettled로 안전하게 처리)
-    Promise.allSettled([
+    // C-1: 세그먼트별 SMS 템플릿 조회 및 발송 + 퍼널 상태 + 그룹 퍼널 (await로 완료 보장)
+    await Promise.allSettled([
       // SMS 자동 발송
       (async () => {
         try {
@@ -400,9 +401,7 @@ export async function POST(req: Request) {
             )
           )
         : []),
-    ]).catch((err) => {
-      logger.error('[POST /api/contacts] Promise.allSettled 오류', { err });
-    });
+    ]);
 
     return NextResponse.json({ ok: true, contact }, { status: 201 });
   } catch (err: unknown) {

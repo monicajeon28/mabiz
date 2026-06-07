@@ -80,21 +80,26 @@ export default function FunnelEditPage() {
   };
 
   const load = useCallback(async () => {
-    const res  = await fetch(`/api/funnels/${id}`);
-    const data = await res.json();
-    if (data.ok) {
-      setName(data.funnel.name ?? "");
-      setDescription(data.funnel.description ?? "");
-      setIsActive(data.funnel.isActive ?? true);
-      setStages(
-        (data.funnel.stages ?? []).map((s: Stage) => ({
-          ...s,
-          messageContent: s.messageContent ?? "",
-          linkUrl:        s.linkUrl        ?? "",
-        }))
-      );
+    try {
+      const res  = await fetch(`/api/funnels/${id}`);
+      const data = await res.json();
+      if (data.ok) {
+        setName(data.funnel.name ?? "");
+        setDescription(data.funnel.description ?? "");
+        setIsActive(data.funnel.isActive ?? true);
+        setStages(
+          (data.funnel.stages ?? []).map((s: Stage) => ({
+            ...s,
+            messageContent: s.messageContent ?? "",
+            linkUrl:        s.linkUrl        ?? "",
+          }))
+        );
+      }
+    } catch {
+      // 네트워크 오류 등 — 로딩 스피너가 무한히 유지되는 것을 방지
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
@@ -104,26 +109,32 @@ export default function FunnelEditPage() {
     setSaving(true);
     setSaveMsg("");
 
-    // 1. 퍼널 기본 정보
-    await fetch(`/api/funnels/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, description, isActive }),
-    });
+    try {
+      // 1. 퍼널 기본 정보
+      await fetch(`/api/funnels/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, description, isActive }),
+      });
 
-    // 2. 스테이지 전체 저장
-    const res  = await fetch(`/api/funnels/${id}/stages`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stages: stages.map((s, i) => ({ ...s, order: i })) }),
-    });
-    const data = await res.json();
-    setSaving(false);
-    if (data.ok) {
-      setSaveMsg("✅ 저장됐습니다!");
-      setTimeout(() => setSaveMsg(""), 2500);
-    } else {
+      // 2. 스테이지 전체 저장
+      const res  = await fetch(`/api/funnels/${id}/stages`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stages: stages.map((s, i) => ({ ...s, order: i })) }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setSaveMsg("✅ 저장됐습니다!");
+        setTimeout(() => setSaveMsg(""), 2500);
+      } else {
+        setSaveMsg("❌ 저장 실패");
+      }
+    } catch {
+      // 네트워크 오류 등 — 저장 버튼이 영구 비활성화되는 것을 방지
       setSaveMsg("❌ 저장 실패");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -138,8 +149,11 @@ export default function FunnelEditPage() {
   };
 
   const addStage = () => {
-    setStages((prev) => [...prev, EMPTY_STAGE(prev.length)]);
-    setExpandedIdx(stages.length);
+    setStages((prev) => {
+      const next = [...prev, EMPTY_STAGE(prev.length)];
+      setExpandedIdx(next.length - 1);
+      return next;
+    });
   };
 
   const removeStage = (idx: number) => {

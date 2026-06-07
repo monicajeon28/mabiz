@@ -272,28 +272,26 @@ export default function ContactsPage() {
   const handleBulkShare = async () => {
     if (!shareTarget || selectedIds.size === 0) return;
     setSharing(true);
-    const results = await Promise.allSettled(
-      Array.from(selectedIds).map((contactId) =>
-        fetch(`/api/contacts/${contactId}/send-db`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ targetUserId: shareTarget }),
-        }).then((r) => r.json())
-      )
-    );
-    let ok = 0;
-    let fail = 0;
-    results.forEach((r) => {
-      if (r.status === 'fulfilled' && r.value.ok) {
-        ok++;
+    try {
+      const res = await fetch("/api/contacts/bulk-send-db", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactIds: Array.from(selectedIds), targetUserId: shareTarget }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        const failMsg = data.failed > 0 ? ` / ❌ ${data.failed}건 실패` : "";
+        setShareResult(`✅ ${data.succeeded}건 전달 완료${failMsg}`);
       } else {
-        fail++;
-        const reason = r.status === 'rejected' ? r.reason : r.value;
-        logger.error('[bulkShare failed]', { reason });
+        setShareResult(`❌ ${data.message ?? "공유 실패"}`);
+        logger.error('[bulkShare failed]', { data });
       }
-    });
-    setSharing(false);
-    setShareResult(`✅ ${ok}건 전달 완료${fail > 0 ? ` / ❌ ${fail}건 실패` : ""}`);
+    } catch (err) {
+      logger.error('[bulkShare error]', { err });
+      setShareResult("❌ 네트워크 오류");
+    } finally {
+      setSharing(false);
+    }
     setSelectedIds(new Set());
     fetchContacts();
     // [L6] setTimeout: cleanup 처리됨 (아래 useEffect 참고)
@@ -1061,7 +1059,7 @@ export default function ContactsPage() {
                 ✅ 성공한 고객들의 패턴
               </p>
               <p className="text-sm text-green-700 mb-2.5">
-                {total}명의 고객 중 <span className="font-semibold">{Math.round(total * 0.35)}명</span>이 구매 완료한 프로세스
+                구매 완료로 이어진 검증된 프로세스
               </p>
               <div className="flex gap-3 flex-wrap">
                 <div className="text-sm bg-white rounded-lg px-2.5 py-1.5 border border-green-200">
