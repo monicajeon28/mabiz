@@ -3,8 +3,6 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-import { createRefundNotifications } from '@/lib/notification-service';
-import { handleCabinInventoryRefund } from '@/lib/cabin-inventory-refund';
 import { sendDay0Sms, type Segment, type ABVariant } from '@/lib/loop5-sms-service';
 import { getCommissionRateByAffiliateCode } from '@/lib/commission-calculator';
 
@@ -257,81 +255,10 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // AffiliateSale 처리 (환불 시)
-      // affiliateCode → Partner 조회 → Tier 수당율 확인 후 REVERSAL 원자화
-      if (status === 'REFUNDED' && affiliateSale) {
-        // 1. AffiliateSale 상태 변경 (commissionAmount는 원본 유지 — 감사추적)
-        await tx.affiliateSale.update({
-          where: { id: affiliateSale.id },
-          data: {
-            refundedAmount: refundAmount ?? affiliateSale.saleAmount,
-            refundedAt: new Date(timestamp),
-            status: 'REFUNDED',
-            cancelReason: 'CUSTOMER_REFUND_CRUISEDOT',
-          },
-        });
-
-        // 2. 기존 CommissionLedger 조회 → REVERSAL 항목 추가 (감사추적 유지)
-        if (affiliateSale.commissionAmount > 0) {
-          const existingLedger = await tx.commissionLedger.findFirst({
-            where: {
-              saleId: affiliateSale.id,
-              organizationId: affiliateSale.organizationId,
-              entryType: 'COMMISSION_AUTO',
-            },
-            select: { id: true, amount: true, profileId: true },
-          });
-
-          const reversalAmount = existingLedger
-            ? -existingLedger.amount
-            : -affiliateSale.commissionAmount;
-
-          await tx.commissionLedger.create({
-            data: {
-              saleId: affiliateSale.id,
-              organizationId: affiliateSale.organizationId,
-              profileId: existingLedger?.profileId ?? null,
-              entryType: 'REVERSAL',
-              amount: reversalAmount,
-              currency: 'KRW',
-              isSettled: false,
-              notes: [
-                `환불 역분개 | ${bookingRef}`,
-                reason ? `사유: ${reason}` : null,
-                `원본 eventId: ${eventId}`,
-              ].filter(Boolean).join(' | '),
-            },
-          });
-
-          logger.log('[CruisedotWebhook] 환불 역분개 CommissionLedger 생성', {
-            affiliateSaleId: affiliateSale.id,
-            reversalAmount,
-            bookingRef,
-          });
-        }
-
-        // ★ P2: 환불 알림 생성
-        await createRefundNotifications({
-          organizationId: affiliateSale.organizationId,
-          orderId: bookingRef,
-          customerName: contact?.name || '고객',
-          refundAmount: refundAmount ?? affiliateSale.saleAmount,
-          refundReason: reason || '환불 요청',
-          type: 'full_refund',
-        }).catch((err) => {
-          logger.warn('[CruisedotWebhook] 환불 알림 생성 실패', {
-            bookingRef,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        });
-      }
-
-      // ★ 객실 재고 감소 처리 (환불 시)
-      if (status === 'REFUNDED' && contact?.userId && affiliateSale) {
-        const result = await handleCabinInventoryRefund(contact.userId, affiliateSale.organizationId, tx);
-        if (!result.success) {
-          logger.warn('[CruisedotWebhook] 객실 재고 감소 실패', { userId: contact.userId, reason: result.reason });
-        }
+      // payment.refunded: /api/webhooks/crm/refund 경로에서 처리 (중복 방지)
+      // 이 경로는 acknowledge만 반환하고 환불 처리를 하지 않음
+      if (status === 'REFUNDED') {
+        logger.log('[CruisedotWebhook] payment.refunded acknowledged — 실제 처리는 /api/webhooks/crm/refund 경로', { eventId, bookingRef });
       }
 
       // ProcessedWebhookEvent 기록 (중복 방지)
