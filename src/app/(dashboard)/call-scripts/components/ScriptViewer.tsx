@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Copy, Check, MessageCircle, Save } from "lucide-react";
 import { useToast } from "@/lib/api/use-toast";
+import { logger } from "@/lib/logger";
 
 interface ScriptViewerProps {
   category: string;
@@ -63,7 +64,7 @@ export function ScriptViewer({
         variant: "success",
       });
     } catch (err) {
-      console.error("Error saving to Drive:", err);
+      logger.error("Error saving to Drive:", { error: err instanceof Error ? err.message : String(err) });
       toast({
         title: "저장 실패",
         description: "Google Drive 저장 중 오류가 발생했습니다.",

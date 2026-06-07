@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Trash2, Eye, Edit2, X } from 'lucide-react';
+import { logger } from '@/lib/logger';
 
 type Partner = {
   id: string;
@@ -74,7 +75,7 @@ export default function PartnerPage() {
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return;
-      console.error('Failed to load partners:', err);
+      logger.error('Failed to load partners:', { error: err instanceof Error ? err.message : String(err) });
       showToast('파트너 목록 조회 중 오류가 발생했습니다');
     } finally {
       if (!signal?.aborted) setLoading(false);
@@ -112,7 +113,7 @@ export default function PartnerPage() {
         showToast(data.message || '파트너 생성 실패');
       }
     } catch (err) {
-      console.error(err);
+      logger.error('partner action error:', { error: err instanceof Error ? err.message : String(err) });
       showToast('파트너 생성 중 오류가 발생했습니다');
     }
     setSaving(false);
@@ -143,7 +144,7 @@ export default function PartnerPage() {
         showToast('파트너 수정 실패');
       }
     } catch (err) {
-      console.error(err);
+      logger.error('partner action error:', { error: err instanceof Error ? err.message : String(err) });
       showToast('파트너 수정 중 오류가 발생했습니다');
     }
     setSaving(false);
@@ -162,7 +163,7 @@ export default function PartnerPage() {
         showToast('파트너 삭제 실패');
       }
     } catch (err) {
-      console.error(err);
+      logger.error('partner action error:', { error: err instanceof Error ? err.message : String(err) });
       showToast('파트너 삭제 중 오류가 발생했습니다');
     }
   };
@@ -192,7 +193,7 @@ export default function PartnerPage() {
     } catch (err) {
       // Rollback on error
       setPartners(previousPartners);
-      console.error(err);
+      logger.error('partner action error:', { error: err instanceof Error ? err.message : String(err) });
       showToast('파트너 상태 변경 중 오류가 발생했습니다');
     }
   };

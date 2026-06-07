@@ -13,6 +13,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSession } from '@/hooks/useSession';
 import { useToast } from '@/lib/api/use-toast';
+import { logger } from '@/lib/logger';
 import {
   LineChart,
   Line,
@@ -91,7 +92,7 @@ export default function SegmentAnalyticsDashboard() {
       }
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') return;
-      console.error('Error fetching segments:', error);
+      logger.error('Error fetching segments:', { error: error instanceof Error ? error.message : String(error) });
     } finally {
       setLoading(false);
     }
@@ -114,7 +115,7 @@ export default function SegmentAnalyticsDashboard() {
       await fetchSegments(session.organizationId);
       toast({ title: '세그먼트 재분류 완료', description: '고객 세그먼트가 업데이트되었습니다.' });
     } catch (error) {
-      console.error('Error:', error);
+      logger.error('Error:', { error: error instanceof Error ? error.message : String(error) });
       toast({ title: '재분류 실패', description: '잠시 후 다시 시도해주세요.', variant: 'destructive' });
     }
   };

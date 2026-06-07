@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { showSuccess, showError } from '@/components/ui/Toast';
+import { logger } from '@/lib/logger';
 const toast = {
   success: (msg: string) => showSuccess(msg),
   error: (msg: string) => showError(msg),
@@ -62,7 +63,7 @@ export default function LiveStreamPage() {
         // router.push('/dashboard'); // 원하는 페이지로 이동
       }, 2000);
     } catch (error) {
-      console.error('Registration error:', error);
+      logger.error('Registration error:', { error: error instanceof Error ? error.message : String(error) });
       toast.error('신청 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);

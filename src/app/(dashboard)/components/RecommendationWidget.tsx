@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import React, { useEffect, useState } from 'react';
+import { logger } from '@/lib/logger';
 import {
   BarChart,
   Bar,
@@ -87,7 +88,7 @@ export function RecommendationWidget() {
         if (err instanceof Error && err.name === 'AbortError') return;
         const errorMsg = err instanceof Error ? err.message : 'Failed to load recommendation data';
         setError(errorMsg);
-        console.error('[RecommendationWidget] Error:', errorMsg);
+        logger.error('[RecommendationWidget] Error:', { error: errorMsg });
       } finally {
         if (!ctrl.signal.aborted) setLoading(false);
       }

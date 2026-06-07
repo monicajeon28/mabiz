@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
+import { logger } from "@/lib/logger";
 import {
   AlertCircle,
   TrendingUp,
@@ -123,7 +124,7 @@ export default function Customer360View({ contactId }: Customer360ViewProps) {
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       setError(message);
-      console.error("[Customer360] Error:", err);
+      logger.error("[Customer360] Error:", { error: err instanceof Error ? err.message : String(err) });
     } finally {
       setLoading(false);
     }

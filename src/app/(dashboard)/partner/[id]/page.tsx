@@ -7,6 +7,7 @@ import { ContractManager } from "./components/ContractManager";
 import { AlertCircle, Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/lib/api/use-toast";
+import { logger } from "@/lib/logger";
 
 interface Partner {
   id: string;
@@ -66,7 +67,7 @@ export default function PartnerDetailPage() {
           }
         } catch (err: any) {
           if (err?.name === 'AbortError') return;
-          console.error("Failed to fetch metrics", err);
+          logger.error("Failed to fetch metrics", { error: err instanceof Error ? err.message : String(err) });
         }
       } catch (err: any) {
         if (err?.name === 'AbortError') return;

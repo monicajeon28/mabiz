@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import React from "react";
 import type { SmsABTestDTO, TimelineEntryDTO } from "@/lib/types/ab-test";
+import { logger } from "@/lib/logger";
 
 interface ABTestDashboardProps {
   orgId: string;
@@ -90,7 +91,7 @@ export default function ABTestDashboard({ orgId }: ABTestDashboardProps) {
       const data = await response.json();
       setTimeline(data.data || []);
     } catch (err) {
-      console.error("Error loading timeline:", err);
+      logger.error("Error loading timeline:", { error: err instanceof Error ? err.message : String(err) });
       setTimeline([]);
     } finally {
       setLoadingTimeline(false);

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Download, Mail, FileText, RefreshCw } from 'lucide-react';
 import { useToast } from '@/lib/api/use-toast';
+import { logger } from '@/lib/logger';
 import { Loop5HeroKpi } from '@/components/loop5-hero-kpi';
 import { Loop5SegmentTable } from '@/components/loop5-segment-table';
 import { Loop5DayChart } from '@/components/loop5-day-chart';
@@ -105,7 +106,7 @@ export default function Loop5DashboardPage() {
       });
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') return;
-      console.error('Failed to fetch dashboard:', error);
+      logger.error('Failed to fetch dashboard:', { error: error instanceof Error ? error.message : String(error) });
       toast({
         title: '오류',
         description: '대시보드 데이터를 불러올 수 없습니다.',

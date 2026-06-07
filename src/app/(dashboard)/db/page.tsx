@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { IMPORT_CONFIGS, type ImportTarget } from "@/lib/import-config";
+import { logger } from "@/lib/logger";
 
 type Stats = { total: number; leads: number; customers: number; optOut: number };
 type Group = { id: string; name: string; memberCount: number };
@@ -303,7 +304,7 @@ export default function DbPage() {
         URL.revokeObjectURL(url);
       }
     } catch (error) {
-      console.error("Export failed:", error);
+      logger.error("Export failed:", { error: error instanceof Error ? error.message : String(error) });
     } finally {
       setExporting(false);
     }

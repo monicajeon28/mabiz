@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useToast } from "@/lib/api/use-toast";
+import { logger } from "@/lib/logger";
 import Link from "next/link";
 import {
   Plus, Eye, Copy, Globe, Files,
@@ -366,7 +367,7 @@ export default function B2BEditorPage() {
       if (data.ok) setStatsMap((prev) => ({ ...prev, [pageId]: data.stats }));
     } catch (err) {
        
-      console.error(`[loadStats] Failed to load stats for ${pageId}:`, err);
+      logger.error(`[loadStats] Failed to load stats for ${pageId}:`, { error: err instanceof Error ? err.message : String(err) });
     } finally {
       setLoadingStats(null);
     }

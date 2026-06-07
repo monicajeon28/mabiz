@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { logger } from '@/lib/logger';
 import {
   ArrowLeft,
   RefreshCw,
@@ -81,7 +82,7 @@ export default function PartnerPassportRequestsPage() {
       setRequests(json.customers || []);
     } catch (error: any) {
       if (error?.name === 'AbortError') return;
-      console.error('[PartnerPassportRequests] load error', error);
+      logger.error('[PartnerPassportRequests] load error', { error: error instanceof Error ? error.message : String(error) });
       showError(error.message || '여권 요청 목록을 불러오는 중 오류가 발생했습니다.');
     } finally {
       if (!signal?.aborted) setLoading(false);
@@ -107,7 +108,7 @@ export default function PartnerPassportRequestsPage() {
       }
     } catch (error: any) {
       if (error?.name === 'AbortError') return;
-      console.error('[PartnerPassportRequests] template load error', error);
+      logger.error('[PartnerPassportRequests] template load error', { error: error instanceof Error ? error.message : String(error) });
       showError(error.message || '템플릿을 불러오는 중 오류가 발생했습니다.');
     } finally {
       if (!signal?.aborted) setTemplatesLoading(false);
@@ -178,7 +179,7 @@ export default function PartnerPassportRequestsPage() {
       showSuccess('여권 제출 링크가 생성되었습니다. 메시지를 복사해 고객에게 전달하세요.');
       loadRequests();
     } catch (error: any) {
-      console.error('[PartnerPassportRequests] manual error', error);
+      logger.error('[PartnerPassportRequests] manual error', { error: error instanceof Error ? error.message : String(error) });
       showError(error.message || '여권 제출 링크를 생성하지 못했습니다.');
     } finally {
       setIsGenerating(false);

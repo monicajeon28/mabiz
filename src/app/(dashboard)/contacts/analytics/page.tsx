@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, TrendingUp, Users, Target } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 interface AnalyticsData {
   sourceDistribution: Array<{
@@ -45,7 +46,7 @@ export default function ContactsAnalyticsPage() {
         }
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') return;
-        console.error("Failed to fetch analytics", err);
+        logger.error("Failed to fetch analytics", { error: err instanceof Error ? err.message : String(err) });
       } finally {
         if (!ctrl.signal.aborted) setLoading(false);
       }

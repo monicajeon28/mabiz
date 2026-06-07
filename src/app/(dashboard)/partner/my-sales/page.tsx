@@ -6,6 +6,7 @@ import {
   ChevronLeft, ChevronRight, Loader2, Calendar, FileText, TrendingUp,
 } from 'lucide-react';
 import { maskCustomerName } from '@/lib/pii-mask';
+import { logger } from '@/lib/logger';
 
 /* ─────────────────── 타입 정의 ─────────────────── */
 
@@ -449,7 +450,7 @@ export default function MyAffiliateSalesPage() {
         setStep('pages');
       }
     } catch (error) {
-      console.error('[my-sales] fetch error:', error);
+      logger.error('[my-sales] fetch error:', { error: error instanceof Error ? error.message : String(error) });
       alert('데이터를 불러올 수 없습니다.');
     } finally {
       setMonthlyLoading(false);
@@ -471,7 +472,7 @@ export default function MyAffiliateSalesPage() {
           setStep('detail');
         }
       } catch (error) {
-        console.error('[my-sales] detail fetch error:', error);
+        logger.error('[my-sales] detail fetch error:', { error: error instanceof Error ? error.message : String(error) });
         alert('상세 데이터를 불러올 수 없습니다.');
       } finally {
         setDetailLoading(false);
