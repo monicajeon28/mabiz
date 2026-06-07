@@ -267,6 +267,10 @@ export default function SmsSettingsPage() {
           <li>• <strong>내 개인 계정</strong> — 나만의 발신번호로 문자를 보내고 싶을 때 (위 섹션)</li>
         </ul>
         <p className="mt-1.5 text-blue-600">개인 계정을 연결하면 내 발신번호가 우선 사용됩니다.</p>
+        <p className="mt-2 pt-2 border-t border-blue-200 text-amber-700 font-medium">
+          ⚠️ 알리고 콘솔의 <strong>‘발송 서버 IP’는 비워두세요.</strong> 특정 IP를 등록하면 문자 발송이 막힙니다
+          (발송 서버 IP가 자주 바뀌고 여러 서버가 공유합니다). API Key·User ID·발신번호만 입력하면 됩니다.
+        </p>
       </div>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
