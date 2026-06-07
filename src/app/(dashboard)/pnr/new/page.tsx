@@ -40,14 +40,17 @@ export default function NewReservationPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    loadTrips();
+    const ctrl = new AbortController();
+    loadTrips(ctrl.signal);
+    return () => ctrl.abort();
   }, []);
 
-  const loadTrips = async () => {
+  const loadTrips = async (signal?: AbortSignal) => {
     try {
       setIsLoading(true);
       const response = await fetch('/api/pnr/partner/trips', {
         credentials: 'include',
+        signal,
       });
 
       if (!response.ok) {
@@ -60,8 +63,9 @@ export default function NewReservationPage() {
       } else {
         throw new Error(data.message || '여행 상품 목록을 불러올 수 없습니다.');
       }
-    } catch (err: any) {
-      setError(err.message || '여행 상품 목록을 불러오는 중 오류가 발생했습니다.');
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      setError(err instanceof Error ? err.message : '여행 상품 목록을 불러오는 중 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
     }
@@ -95,7 +99,7 @@ export default function NewReservationPage() {
             <p className="font-semibold">오류</p>
             <p className="mt-2">{error}</p>
             <button
-              onClick={loadTrips}
+              onClick={() => loadTrips()}
               className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
             >
               다시 시도

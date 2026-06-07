@@ -178,21 +178,19 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
     return null;
   };
   // 결제 내역 불러오기
-  const loadPayments = async () => {
+  const loadPayments = async (signal?: AbortSignal) => {
     try {
       setLoadingPayments(true);
       setError('');
       const response = await fetch('/api/pnr/partner/payments', {
         credentials: 'include',
+        signal,
       });
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`결제 내역을 불러올 수 없습니다. (${response.status})`);
       }
       const data = await response.json();
-      // 디버깅 정보가 있으면 출력
-      if (data.debug) {
-      }
       if (data.ok) {
         const paymentsList = data.payments || [];
         setPayments(paymentsList);
@@ -205,15 +203,18 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
       } else {
         throw new Error(data.message || data.error || '결제 내역을 불러올 수 없습니다.');
       }
-    } catch (err: any) {
-      setError(err.message || '결제 내역을 불러오는 중 오류가 발생했습니다.');
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      setError(err instanceof Error ? err.message : '결제 내역을 불러오는 중 오류가 발생했습니다.');
     } finally {
       setLoadingPayments(false);
     }
   };
   // 페이지 로드 시 자동으로 결제 내역 불러오기
   useEffect(() => {
-    loadPayments();
+    const ctrl = new AbortController();
+    loadPayments(ctrl.signal);
+    return () => ctrl.abort();
   }, []); // 빈 의존성 배열: 컴포넌트 마운트 시 한 번만 실행
   // ⚠️ 중요: selectedTripId가 변경되면 객실 정보를 다시 처리 (상품 선택 후 객실 정보 표시 보장)
   useEffect(() => {
@@ -298,10 +299,6 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
           // 둘 중 하나라도 일치하면 매칭
           const tripProductCode = nestedProductCode || rootProductCode;
           const match = tripProductCode === payment.productCode;
-          // 디버깅: 모든 trip의 productCode 출력
-          if (!match) {
-          } else {
-          }
           return match;
         }
       );
@@ -378,8 +375,6 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
           // ⚠️ 중요: matchingTrip이 없어도 객실 정보는 설정 (대표자 정보는 이미 설정되었으므로)
           // selectedTripId가 설정되면 useEffect가 자동으로 처리하지만, 여기서도 즉시 설정하여 빠른 반영 보장
           setCabinPurchases(purchases);
-          if (!matchingTrip) {
-          }
           // matchingTrip이 있으면 방 그룹도 생성
           if (matchingTrip) {
             // 방 그룹 생성 (사장님 특별 지시: 구매 수량 + 1개 여유분)
@@ -715,9 +710,6 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
         roomSelectionsFound = true;
       }
     }
-    // 방법 3: 둘 다 없으면 에러 로그만 출력
-    if (!roomSelectionsFound) {
-    }
     // 4. 결제 정보 채우기 (Read-only)
     if (payment.paidAt) {
       const paidDate = new Date(payment.paidAt);
@@ -754,6 +746,8 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
   };
   // 구매 수량 기반으로 방 그룹 자동 생성 (2인 1실 원칙)
   const generateRoomGroups = (purchases: CabinPurchase[]) => {
+    // 기존 여행자 스냅샷을 먼저 캡처 (직접 뮤테이션 방지)
+    const existingTravelers = roomGroups.flatMap((rg) => rg.travelers);
     const newRoomGroups: RoomGroup[] = [];
     let roomNumber = 1;
     purchases.forEach((purchase) => {
@@ -762,18 +756,15 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
           id: `room-${roomNumber}`,
           roomNumber,
           cabinType: purchase.cabinType,
-          travelers: [],
+          travelers: [], // 초기화 (직접 뮤테이션 불필요)
           maxCapacity: 2, // 2인 1실 원칙
         });
         roomNumber++;
       }
     });
     setRoomGroups(newRoomGroups);
-    // 기존 여행자들의 방 배정 초기화
-    setUnassignedTravelers([...unassignedTravelers, ...roomGroups.flatMap((rg) => rg.travelers)]);
-    roomGroups.forEach((rg) => {
-      rg.travelers = [];
-    });
+    // 함수형 업데이트로 기존 여행자를 미배정 목록에 추가
+    setUnassignedTravelers((prev) => [...prev, ...existingTravelers]);
   };
   // 미배정 여행자 추가
   const addUnassignedTraveler = () => {
@@ -1088,11 +1079,9 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
             });
             return updated;
           });
-        } else {
         }
         // 성공 토스트 메시지 표시
         showSuccess('여권 정보가 입력되었습니다.');
-      } else {
       }
     } catch (err: any) {
       // 에러 발생 시에만 isScanning 해제 (성공 시에는 이미 업데이트됨)
@@ -1404,10 +1393,6 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
       document.body.removeChild(textArea);
       setLinkCopied(true);
     }
-  };
-  // 문자 발송 (Mock)
-  const handleSendSMS = () => {
-    alert('고객님께 여권 등록 요청 문자를 발송했습니다. (가상)');
   };
   // 대시보드로 이동
   const handleGoToDashboard = () => {
@@ -1751,7 +1736,7 @@ export default function ReservationForm({ trips }: ReservationFormProps) {
           </div>
           <button
             type="button"
-            onClick={loadPayments}
+            onClick={() => loadPayments()}
             disabled={loadingPayments}
             className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-gray-400 md:ml-2"
           >
