@@ -69,7 +69,7 @@ export default function Loop5DashboardPage() {
     segments: ['A', 'B', 'C', 'D', 'E'],
   });
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (signal?: AbortSignal) => {
     try {
       setRefreshing(true);
 
@@ -79,9 +79,9 @@ export default function Loop5DashboardPage() {
       });
 
       const [statsRes, segmentRes, abTestRes] = await Promise.all([
-        fetch(`/api/loop5/dashboard/stats?${params}`),
-        fetch(`/api/loop5/dashboard/segment-breakdown?${params}`),
-        fetch(`/api/loop5/dashboard/ab-test-results?${params}`),
+        fetch(`/api/loop5/dashboard/stats?${params}`, { signal }),
+        fetch(`/api/loop5/dashboard/segment-breakdown?${params}`, { signal }),
+        fetch(`/api/loop5/dashboard/ab-test-results?${params}`, { signal }),
       ]);
 
       if (!statsRes.ok || !segmentRes.ok || !abTestRes.ok) {
@@ -104,6 +104,7 @@ export default function Loop5DashboardPage() {
         description: `${new Date().toLocaleTimeString('ko-KR')} 기준 데이터 갱신됨`,
       });
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') return;
       console.error('Failed to fetch dashboard:', error);
       toast({
         title: '오류',
@@ -111,19 +112,24 @@ export default function Loop5DashboardPage() {
         variant: 'destructive',
       });
     } finally {
-      setRefreshing(false);
-      setLoading(false);
+      if (!signal?.aborted) {
+        setRefreshing(false);
+        setLoading(false);
+      }
     }
   }, [filters, toast]);
 
   useEffect(() => {
-    // 초기 로드
-    fetchData();
+    const ctrl = new AbortController();
+    fetchData(ctrl.signal);
 
     // 5분마다 자동 갱신
-    const interval = setInterval(fetchData, 5 * 60 * 1000);
+    const interval = setInterval(() => fetchData(), 5 * 60 * 1000);
 
-    return () => clearInterval(interval);
+    return () => {
+      ctrl.abort();
+      clearInterval(interval);
+    };
   }, [fetchData]);
 
   const handleFilterChange = (newFilters: FilterState) => {
@@ -211,7 +217,7 @@ export default function Loop5DashboardPage() {
               />
 
               <button
-                onClick={fetchData}
+                onClick={() => fetchData()}
                 disabled={refreshing}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors font-medium text-sm disabled:opacity-50"
               >

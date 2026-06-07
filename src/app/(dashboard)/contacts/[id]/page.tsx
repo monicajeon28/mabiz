@@ -272,11 +272,14 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   };
 
   useEffect(() => {
-    const fetchContact = fetch(`/api/contacts/${id}`).catch(() => null);
-    const fetchGroups = fetch("/api/groups").catch(() => null);
-    const fetchFunnels = fetch("/api/funnels").catch(() => null);
+    const ctrl = new AbortController();
+    const { signal } = ctrl;
+    const fetchContact = fetch(`/api/contacts/${id}`, { signal }).catch(() => null);
+    const fetchGroups = fetch("/api/groups", { signal }).catch(() => null);
+    const fetchFunnels = fetch("/api/funnels", { signal }).catch(() => null);
     Promise.allSettled([fetchContact, fetchGroups, fetchFunnels])
       .then((results) => {
+        if (signal.aborted) return;
         // Contact 필수, Funnels/Groups는 선택적
         const [c, g, f] = results;
 
@@ -321,17 +324,23 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       .catch(err => {
         logger.error('[Promise.allSettled failed]', { err });
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!signal.aborted) setLoading(false); });
+    return () => ctrl.abort();
   }, [id]);
 
   useEffect(() => {
     if (!contact?.id) return;
+    const ctrl = new AbortController();
     setLoadingTransfer(true);
-    fetch(`/api/contacts/${contact.id}/transfer-logs`)
+    fetch(`/api/contacts/${contact.id}/transfer-logs`, { signal: ctrl.signal })
       .then(r => r.json())
       .then(d => { if (d.ok) setTransferLogs(d.logs ?? []); })
-      .catch(err => logger.error('[transfer-logs]', { err }))
-      .finally(() => setLoadingTransfer(false));
+      .catch(err => {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        logger.error('[transfer-logs]', { err });
+      })
+      .finally(() => { if (!ctrl.signal.aborted) setLoadingTransfer(false); });
+    return () => ctrl.abort();
   }, [contact?.id]);
 
   useEffect(() => {
@@ -342,14 +351,17 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
 
   // [S-002] CSRF 토큰 초기화 (페이지 로드 시 한 번)
   useEffect(() => {
-    fetch('/api/csrf-token')
+    const ctrl = new AbortController();
+    fetch('/api/csrf-token', { signal: ctrl.signal })
       .then(r => r.json())
       .then(d => {
         if (d.ok) setCsrfToken(d.token);
       })
       .catch(err => {
+        if (err instanceof Error && err.name === 'AbortError') return;
         logger.error('[csrf-token fetch failed]', { err });
       });
+    return () => ctrl.abort();
   }, []);
 
   // [L6] setTimeout cleanup 통합 (메시지 자동 숨김)

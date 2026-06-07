@@ -73,11 +73,11 @@ export default function ChannelsPage() {
     null
   );
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/analytics/channels");
+      const response = await fetch("/api/analytics/channels", { signal });
       const result = await response.json();
       if (result.ok) {
         setData({
@@ -88,15 +88,18 @@ export default function ChannelsPage() {
       } else {
         setError(result.message || "데이터를 불러올 수 없습니다.");
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       setError("채널 데이터 로드 중 오류가 발생했습니다.");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchData();
+    const ctrl = new AbortController();
+    fetchData(ctrl.signal);
+    return () => ctrl.abort();
   }, [fetchData]);
 
   const totalSent = data?.channels.reduce((sum, c) => sum + c.sent, 0) ?? 0;
@@ -122,7 +125,7 @@ export default function ChannelsPage() {
       <div className="p-4 md:p-6 max-w-7xl mx-auto flex flex-col items-center justify-center min-h-64 gap-4">
         <div className="text-center text-red-500">{error ?? "데이터 없음"}</div>
         <button
-          onClick={fetchData}
+          onClick={() => fetchData()}
           className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2"
         >
           <RefreshCw className="w-4 h-4" />
@@ -156,7 +159,7 @@ export default function ChannelsPage() {
           지난 90일
         </button>
         <button
-          onClick={fetchData}
+          onClick={() => fetchData()}
           className="ml-auto px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2"
         >
           <RefreshCw className="w-4 h-4" />
