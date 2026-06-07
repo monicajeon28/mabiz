@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse } from '@/types/api';
+import { logger } from '@/lib/logger';
 
 /** 성공 응답 */
 export function ok<T extends Record<string, unknown>>(data: T, status = 200) {
@@ -75,7 +76,7 @@ export function handleApiError(err: unknown, context?: string): NextResponse {
     return forbidden('조직 설정이 필요합니다');
   }
   if (context) {
-    console.error(`[${context}]`, err);
+    logger.error(`[${context}]`, { error: err instanceof Error ? err.message : String(err) });
   }
   return NextResponse.json({ ok: false }, { status: 500 });
 }

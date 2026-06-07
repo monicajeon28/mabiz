@@ -17,6 +17,7 @@
  */
 
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 type ObjectiveType = 'PRICE_HIGH' | 'PAYMENT_TERMS' | 'ROI_DOUBT' | 'COMPETITOR_COMPARE' | 'AFFORD_DOUBT';
 type ResponseMethod = 'VALUE_REDEFINITION' | 'SPLIT_PAYMENT' | 'EARLY_BOOKING' | 'GROUP_DISCOUNT' | 'LIMITED_TIME';
@@ -132,7 +133,7 @@ export async function selectOptimalResponseMethod(
     return best.method;
   } catch (error) {
     // 에러 발생 시 기본 매핑 사용
-    console.warn('[L1] selectOptimalResponseMethod error, falling back to default', error);
+    logger.warn('[L1] selectOptimalResponseMethod error, falling back to default', { error: error instanceof Error ? error.message : String(error) });
     return selectResponseMethod(objectiveType);
   }
 }

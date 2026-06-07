@@ -13,6 +13,7 @@
  */
 
 import crypto from 'crypto';
+import { logger } from '@/lib/logger';
 
 /**
  * 암호화 키 검증
@@ -65,7 +66,7 @@ export function encryptLandingNotes(data: {
     // IV:encryptedData:authTag 형식으로 반환
     return `${iv.toString('hex')}:${encrypted}:${authTag}`;
   } catch (error) {
-    console.error('[encrypt-landing-notes-error]', error);
+    logger.error('[encrypt-landing-notes-error]', { error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -109,7 +110,7 @@ export function decryptLandingNotes(encrypted: string): {
 
     return JSON.parse(decrypted);
   } catch (error) {
-    console.error('[decrypt-landing-notes-error]', error);
+    logger.error('[decrypt-landing-notes-error]', { error: error instanceof Error ? error.message : String(error) });
     return {};
   }
 }
@@ -146,7 +147,7 @@ export function encryptAuditLogDetails(
 
     return `${iv.toString('hex')}:${encrypted}:${authTag}`;
   } catch (error) {
-    console.error('[encrypt-audit-log-error]', error);
+    logger.error('[encrypt-audit-log-error]', { error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -184,7 +185,7 @@ export function decryptAuditLogDetails(encrypted: string): {
 
     return JSON.parse(decrypted);
   } catch (error) {
-    console.error('[decrypt-audit-log-error]', error);
+    logger.error('[decrypt-audit-log-error]', { error: error instanceof Error ? error.message : String(error) });
     return {};
   }
 }

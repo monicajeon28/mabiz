@@ -13,6 +13,8 @@
  * - retrySendingMessage() 호출 시 캐시된 snapshot 사용
  */
 
+import { logger } from '@/lib/logger';
+
 export interface ContactSnapshot {
   id: string;
   phone: string | null;
@@ -85,7 +87,7 @@ export async function cacheContactSnapshotToRedis(
     await redis.set(key, JSON.stringify(snapshot), { ex: ttlSeconds });
   } catch (err) {
     // Redis 실패는 무시 (메모리 캐시 사용)
-    console.warn(`[ContactSnapshot] Redis 저장 실패: ${contactId}`, err);
+    logger.warn(`[ContactSnapshot] Redis 저장 실패: ${contactId}`, { error: err instanceof Error ? err.message : String(err) });
   }
 }
 
@@ -105,7 +107,7 @@ export async function getContactSnapshotFromRedis(
     return JSON.parse(json as string) as ContactSnapshot;
   } catch (err) {
     // Redis 실패는 무시
-    console.warn(`[ContactSnapshot] Redis 조회 실패: ${contactId}`, err);
+    logger.warn(`[ContactSnapshot] Redis 조회 실패: ${contactId}`, { error: err instanceof Error ? err.message : String(err) });
     return null;
   }
 }
@@ -123,6 +125,6 @@ export async function deleteContactSnapshotFromRedis(
     await redis.del(key);
   } catch (err) {
     // Redis 실패는 무시
-    console.warn(`[ContactSnapshot] Redis 삭제 실패: ${contactId}`, err);
+    logger.warn(`[ContactSnapshot] Redis 삭제 실패: ${contactId}`, { error: err instanceof Error ? err.message : String(err) });
   }
 }

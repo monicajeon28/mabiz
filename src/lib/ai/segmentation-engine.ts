@@ -12,6 +12,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 import { Contact, Organization } from "@prisma/client";
 
 // ============================================================================
@@ -580,7 +581,7 @@ export async function runSegmentation(
   convergenceStatus: "CONVERGED" | "MAX_ITERATIONS";
 }> {
   if (process.env.NODE_ENV !== 'production') {
-    console.log(`[Segmentation] Starting for org ${organizationId} with ${numSegments} segments`);
+    logger.log(`[Segmentation] Starting for org ${organizationId} with ${numSegments} segments`);
   }
 
   // 1. Load all active contacts
@@ -619,7 +620,7 @@ export async function runSegmentation(
   });
 
   if (process.env.NODE_ENV !== 'production') {
-    console.log(`[Segmentation] Loaded ${contacts.length} contacts`);
+    logger.log(`[Segmentation] Loaded ${contacts.length} contacts`);
   }
 
   if (contacts.length === 0) {
@@ -649,7 +650,7 @@ export async function runSegmentation(
   const { clusters, centers, converged } = kmeans.cluster(normalizedFeatures);
 
   if (process.env.NODE_ENV !== 'production') {
-    console.log(`[Segmentation] K-means converged: ${converged}, centers: ${centers.length}`);
+    logger.log(`[Segmentation] K-means converged: ${converged}, centers: ${centers.length}`);
   }
 
   // 5. Group contacts by cluster
@@ -716,7 +717,7 @@ export async function runSegmentation(
   // }
 
   if (process.env.NODE_ENV !== 'production') {
-    console.log(`[Segmentation] Saved ${savedSegments.length} segments and ${assignments.length} assignments`);
+    logger.log(`[Segmentation] Saved ${savedSegments.length} segments and ${assignments.length} assignments`);
   }
 
   return {
@@ -763,7 +764,7 @@ export async function triggerReclustering(organizationId: string) {
   if (!org) throw new Error("Organization not found");
 
   if (process.env.NODE_ENV !== 'production') {
-    console.log(`[Segmentation] Triggering re-clustering for ${org.name}`);
+    logger.log(`[Segmentation] Triggering re-clustering for ${org.name}`);
   }
   return runSegmentation(organizationId, 5);
 }

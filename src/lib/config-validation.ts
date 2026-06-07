@@ -12,6 +12,8 @@
  * - 배포 전 검증: npm run validate-env 추가
  */
 
+import { logger } from '@/lib/logger';
+
 interface EnvValidationRule {
   name: string;
   required: boolean;
@@ -121,25 +123,15 @@ export function validateEnvAtStartup(): void {
   const { errors, warnings } = validateEnv();
 
   if (errors.length > 0) {
-    console.error('\n❌ [STARTUP] 환경변수 검증 실패:');
-    errors.forEach(error => {
-      console.error(`\n${error}`);
-    });
-    console.error('\n💡 해결책:');
-    console.error('  1. .env.local 파일에서 필수 환경변수 확인');
-    console.error('  2. Vercel 대시보드 → Settings → Environment Variables 확인');
-    console.error('  3. 로컬 테스트: npx dotenv -- node -e "console.log(process.env.CRON_SECRET)"');
+    logger.error('\n❌ [STARTUP] 환경변수 검증 실패:', { errors });
     process.exit(1);
   }
 
   if (warnings.length > 0) {
-    console.warn('\n⚠️  [STARTUP] 환경변수 경고:');
-    warnings.forEach(warning => {
-      console.warn(`\n${warning}`);
-    });
+    logger.warn('\n⚠️  [STARTUP] 환경변수 경고:', { warnings });
   }
 
-  console.log('✅ [STARTUP] 모든 필수 환경변수 검증 통과');
+  logger.log('✅ [STARTUP] 모든 필수 환경변수 검증 통과');
 }
 
 /**

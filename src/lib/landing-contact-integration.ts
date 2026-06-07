@@ -10,6 +10,7 @@
  */
 
 import { prisma as db } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 import { selectSmsSequence } from './landing-sms-templates';
 
 /**
@@ -202,7 +203,7 @@ export async function scheduleDay0To3SMS(
     }
   });
 
-  console.log(`[SMS Scheduled] Contact: ${contactId}, Lens: ${lens}, Days: 0-3`);
+  logger.log(`[SMS Scheduled] Contact: ${contactId}, Lens: ${lens}, Days: 0-3`);
 }
 
 /**
@@ -259,7 +260,7 @@ export async function assignManagerAuto(
     }
   });
 
-  console.log(
+  logger.log(
     `[Manager Assignment Pending] Contact: ${contactId}, Lens: ${lens}, ManagerType: ${managerType}`
   );
 
@@ -358,7 +359,7 @@ export async function processLandingFormSubmission(
     );
 
     // Step 5: 감사 로그
-    console.log(`[Landing Form] Contact: ${contactId}, Lens: ${lens}, Score: ${leadScore}`);
+    logger.log(`[Landing Form] Contact: ${contactId}, Lens: ${lens}, Score: ${leadScore}`);
 
     return {
       contactId,
@@ -370,7 +371,7 @@ export async function processLandingFormSubmission(
       error: undefined
     };
   } catch (error) {
-    console.error('[Landing Form Error]', error);
+    logger.error('[Landing Form Error]', { error: error instanceof Error ? error.message : String(error) });
     return {
       contactId: '',
       lens: '',

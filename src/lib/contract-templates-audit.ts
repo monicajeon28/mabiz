@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { NextRequest } from "next/server";
+import { logger } from "@/lib/logger";
 
 export interface AuditLogParams {
   organizationId: string;
@@ -72,7 +73,7 @@ export async function logContractTemplateAudit(
       },
     });
   } catch (logError) {
-    console.error("[ContractTemplateAudit] Failed to log audit:", logError);
+    logger.error("[ContractTemplateAudit] Failed to log audit:", { error: logError instanceof Error ? logError.message : String(logError) });
     // 감사 로그 실패는 주요 작업 실패로 간주하지 않음
   }
 }

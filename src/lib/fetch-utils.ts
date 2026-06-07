@@ -2,6 +2,8 @@
  * Fetch 유틸리티: 타임아웃 + 재시도 로직
  */
 
+import { logger } from '@/lib/logger';
+
 /**
  * 타임아웃이 있는 fetch 호출
  * @param url
@@ -106,7 +108,7 @@ export function saveTravelersDraft(token: string, travelers: any[]): void {
     };
     localStorage.setItem(key, JSON.stringify(draft));
   } catch (error) {
-    console.warn('[Passport] localStorage 저장 실패:', error);
+    logger.warn('[Passport] localStorage 저장 실패:', { error: error instanceof Error ? error.message : String(error) });
     // localStorage 실패는 무시 (용량 부족 등)
   }
 }
@@ -140,7 +142,7 @@ export function loadTravelersDraft(token: string): { travelers: any[]; savedAt: 
 
     return parsed;
   } catch (error) {
-    console.warn('[Passport] localStorage 로드 실패:', error);
+    logger.warn('[Passport] localStorage 로드 실패:', { error: error instanceof Error ? error.message : String(error) });
     return null;
   }
 }
@@ -157,6 +159,6 @@ export function clearTravelersDraft(token: string): void {
     const key = `passport_draft_${token}`;
     localStorage.removeItem(key);
   } catch (error) {
-    console.warn('[Passport] localStorage 삭제 실패:', error);
+    logger.warn('[Passport] localStorage 삭제 실패:', { error: error instanceof Error ? error.message : String(error) });
   }
 }
