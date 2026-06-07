@@ -148,14 +148,44 @@ export async function POST(req: Request) {
     // 주의: 실제 구현에서는 Anthropic SDK 사용
     // const copy = await generateWithClaude(prompt);
 
-    // 임시: 템플릿 기반 응답 (프로덕션에서는 실제 API 호출)
-    const copy = {
-      headline: `${mockProduct.title} - 지금만 ${Math.floor(Math.random() * 30) + 10}% 할인`,
-      body: "한정된 시간 동안만 이 특별한 가격을 제공합니다. 지금 바로 예약하세요.",
-      cta: "지금 예약하기",
+    // 렌즈·세그먼트 기반 카피 템플릿 (Claude API 미연동 환경 fallback)
+    const LENS_COPY: Record<string, { headline: string; body: string; cta: string }> = {
+      l6_timing:      { headline: `${mockProduct.title} — 오늘 마감!`, body: "지금 신청하지 않으면 내년 선착순 마감될 수 있습니다. 한정 기회를 놓치지 마세요.", cta: "오늘 바로 예약" },
+      l10_immediate:  { headline: `${mockProduct.title} — 지금 결정하면 특별 혜택`, body: "오늘 바로 신청하시면 추가 선물 증정. 망설이지 마세요!", cta: "지금 신청하기" },
+      l1_price_objection: { headline: `${mockProduct.title} — 가격 걱정 NO`, body: "월 소액으로 시작할 수 있습니다. 가격보다 훨씬 큰 가치를 경험하세요.", cta: "가격 확인하기" },
+      l7_companion:   { headline: `${mockProduct.title} — 가족과 함께`, body: "소중한 가족과 평생 추억을 만드세요. 동반 혜택으로 더 특별하게.", cta: "가족 혜택 보기" },
+      l9_medical:     { headline: `${mockProduct.title} — 전문가 추천`, body: "크루즈 전문 컨설턴트가 맞춤 상품을 안내합니다. 믿을 수 있는 서비스.", cta: "전문가 상담" },
+    };
+    const SEGMENT_BODY: Record<string, string> = {
+      price_sensitive:  "가격 대비 최고의 혜택을 드립니다.",
+      quality_focused:  "최상의 품질로 특별한 경험을 약속합니다.",
+      family_decision:  "온 가족이 만족하는 프리미엄 서비스입니다.",
+      experience_seeker: "새로운 경험과 설렘이 기다립니다.",
+      group_planner:    "그룹 특별 혜택으로 더욱 경제적입니다.",
     };
 
-    // 생성 로그 기록
+    const lensTemplate = LENS_COPY[safeLensType] ?? LENS_COPY.l6_timing;
+    const segmentBody = SEGMENT_BODY[safeSegment];
+    const copy = {
+      headline: lensTemplate.headline,
+      body: segmentBody ? `${segmentBody} ${lensTemplate.body}` : lensTemplate.body,
+      cta: lensTemplate.cta,
+    };
+
+    // 생성 기록 DB 저장 (AuditLog 재활용)
+    await prisma.auditLog.create({
+      data: {
+        organizationId: ctx.organizationId ?? undefined,
+        userId: ctx.userId,
+        action: "COPY_GENERATED",
+        resourceType: "CopyTool",
+        resourceId: productId,
+        status: "SUCCESS",
+        purpose: safeLensType || undefined,
+        reasonDescription: JSON.stringify({ segment: safeSegment, copy }),
+      },
+    }).catch(() => {}); // 로그 실패는 무시
+
     logger.info("[POST /api/tools/generate-copy] 카피 생성 성공", {
       userId: ctx.userId,
       productId,
@@ -189,20 +219,23 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const limit = Math.min(parseInt(searchParams.get("limit") ?? "10", 10), 100);
 
-    // 사용자의 최근 생성 내역 조회 (선택사항)
-    // 실제 구현에서는 DB에서 로그 조회
-    const recentGenerations: Array<{
-      id: string;
-      productId: string;
-      createdAt: string;
-      copy: { headline: string; body: string; cta: string };
-    }> = [
-      // { id: "...", productId: "...", createdAt: "...", copy: {...} }
-    ];
+    // AuditLog에서 최근 생성 내역 조회
+    const logs = await prisma.auditLog.findMany({
+      where: { userId: ctx.userId, action: "COPY_GENERATED" },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      select: { id: true, resourceId: true, createdAt: true, reasonDescription: true },
+    });
+
+    const generations = logs.map((log) => {
+      let copy = null;
+      try { copy = JSON.parse(log.reasonDescription ?? "{}").copy ?? null; } catch {}
+      return { id: log.id, productId: log.resourceId ?? "", createdAt: log.createdAt.toISOString(), copy };
+    });
 
     return NextResponse.json({
       ok: true,
-      generations: recentGenerations,
+      generations,
     });
 
   } catch (err) {
