@@ -291,18 +291,43 @@ export async function POST(request: NextRequest) {
       }
 
       // ScheduledSms 큐잉 (Day 0-3)
-      // 실제 구현에서는 SmsTemplate을 참조하여 메시지 생성
-      // 여기서는 기본 구조만 제시
+      const daySchedule: Array<{ templateId: string | null; daysOffset: number }> = [
+        { templateId: template.smsDay0TemplateId ?? null, daysOffset: 0 },
+        { templateId: template.smsDay1TemplateId ?? null, daysOffset: 1 },
+        { templateId: template.smsDay2TemplateId ?? null, daysOffset: 2 },
+        { templateId: template.smsDay3TemplateId ?? null, daysOffset: 3 },
+      ];
 
-      if (template.smsDay0TemplateId) {
-        // TODO: Day 0 SMS 스케줄링 미구현 — ScheduledSms 레코드 생성 필요
-        // 현재 autoSendSms=true 설정 시에도 SMS가 발송되지 않습니다.
-        logger.warn('[ContractInstances] SMS Day 0 자동발송 미구현', {
-          templateId: template.id,
-          smsDay0TemplateId: template.smsDay0TemplateId,
+      for (const { templateId: smsTplId, daysOffset } of daySchedule) {
+        if (!smsTplId) continue;
+        const smsTpl = await prisma.smsTemplate.findUnique({ where: { id: smsTplId }, select: { content: true } });
+        if (!smsTpl) continue;
+
+        const scheduledAt = new Date();
+        if (daysOffset > 0) {
+          scheduledAt.setDate(scheduledAt.getDate() + daysOffset);
+          scheduledAt.setHours(10, 0, 0, 0); // 오전 10시 발송
+        }
+
+        await prisma.scheduledSms.create({
+          data: {
+            organizationId,
+            contactId,
+            message: smsTpl.content,
+            scheduledAt,
+            status: 'PENDING',
+            channel: 'SMS',
+            createdByUserId: userId,
+          },
+        });
+
+        logger.info('[ContractInstances] SMS Day 자동발송 스케줄링', {
+          daysOffset,
+          smsTplId,
+          contactId,
+          scheduledAt,
         });
       }
-      // Day 1, 2, 3도 유사하게 처리
     }
 
     // 응답

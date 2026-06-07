@@ -25,6 +25,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext, resolveOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
+import { sendSmsViaAligo } from "@/lib/sms-service";
 
 export const dynamic = 'force-dynamic';
 
@@ -55,24 +56,26 @@ async function sendAlertNotification(
   partnerId: string,
   riskType: string,
   severity: string,
-  partnerId_name: string
+  partnerName: string,
+  partnerPhone?: string | null
 ) {
-  // 실제 구현: 이메일/SMS 발송
-  // 여기서는 로그만 출력
-  logger.info('[ALERT] Partner risk notification', { partnerName: partnerId_name, partnerId, riskType, severity });
+  logger.info('[ALERT] Partner risk notification', { partnerName, partnerId, riskType, severity });
 
-  // TODO: Aligo SMS API 통합
-  // const sms = await sendPartnerAlert(
-  //   partner.phone,
-  //   `파트너님, ${riskType} 신호가 감지되었습니다. 담당자와 상담하세요.`
-  // );
-
-  // TODO: 이메일 발송
-  // const email = await sendPartnerEmail(
-  //   partner.email,
-  //   "위험 신호 알림",
-  //   `파트너님의 ${riskType} 위험도가 높습니다.`
-  // );
+  if (partnerPhone) {
+    const riskLabels: Record<string, string> = {
+      low_performance: '저성과',
+      churn_indicator: '이탈 위험',
+      dishonesty: '정직성 문제',
+      skill_gap: '역량 부족',
+    };
+    const label = riskLabels[riskType] ?? riskType;
+    const msg = `[마비즈] ${partnerName}님, ${label} 신호가 감지되었습니다. 담당자와 상담해주세요.`;
+    try {
+      await sendSmsViaAligo(partnerPhone, msg);
+    } catch (err) {
+      logger.warn('[ALERT] SMS 발송 실패', { partnerId, err: String(err) });
+    }
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -195,7 +198,7 @@ export async function POST(request: NextRequest) {
 
     // 알림 발송
     if (action === "auto_alert") {
-      await sendAlertNotification(partnerId, riskType, severity, partner.name);
+      await sendAlertNotification(partnerId, riskType, severity, partner.name, partner.phone);
     }
 
     // 예정된 개입 날짜 (3일 이내)
