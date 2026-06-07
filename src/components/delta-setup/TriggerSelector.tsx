@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
  */
 
 interface TriggerSelectorProps {
-  value: 'PURCHASE' | 'ABANDONED';
+  value: 'PURCHASE' | 'ABANDONED' | null;
   onChange: (value: 'PURCHASE' | 'ABANDONED') => void;
 }
 
@@ -77,6 +77,13 @@ export default function TriggerSelector({
           </div>
         </label>
       </div>
+
+      {/* 미선택 시 안내 문구 */}
+      {value === null && (
+        <p className="text-sm text-red-500 font-medium" role="alert">
+          트리거 유형을 선택해주세요.
+        </p>
+      )}
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <p className="text-sm text-blue-800">

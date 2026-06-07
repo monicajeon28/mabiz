@@ -16,7 +16,7 @@ import { getErrorMessage } from '@/constants/error-messages';
  */
 
 interface ScheduleVisualizerProps {
-  triggerType: 'PURCHASE' | 'ABANDONED';
+  triggerType: 'PURCHASE' | 'ABANDONED' | null;
 }
 
 /**
@@ -95,7 +95,7 @@ const ScheduleCard = React.memo(function ScheduleCard({
   triggerType,
 }: {
   schedule: CronSchedule;
-  triggerType: string;
+  triggerType: string | null;
 }) {
   const isDay2Or3 = schedule.hour === 19;
 
