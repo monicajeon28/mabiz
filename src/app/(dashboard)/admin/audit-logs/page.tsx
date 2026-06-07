@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getMabizSession } from '@/lib/auth';
 import type { MabizAuthContext } from '@/lib/auth';
+import { logger } from '@/lib/logger';
 
 interface AuditLogEntry {
   id: number;
@@ -66,7 +67,7 @@ export default function AuditLogsPage() {
       }
       setLoading(false);
     } catch (error) {
-      console.error('Error loading audit logs:', error);
+      logger.error('Error loading audit logs:', error);
       setLoading(false);
     }
   }

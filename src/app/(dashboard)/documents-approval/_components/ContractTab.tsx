@@ -1067,7 +1067,7 @@ function FullContractPreview({
             <span>대표: {COMPANY_INFO.ceo}</span>
             <span>전화: {COMPANY_INFO.hqPhone}</span>
             <span>담당자: {agent.displayName || '___'} {agent.phone || ''}</span>
-            <span className="col-span-2">계좌: 국민은행 531301-04-167150 (배연성)</span>
+            <span className="col-span-2">계좌: {COMPANY_INFO.bankName} {COMPANY_INFO.bankAccount} ({COMPANY_INFO.bankHolder})</span>
           </div>
         </div>
 

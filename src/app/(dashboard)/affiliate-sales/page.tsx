@@ -55,21 +55,28 @@ export default function AffiliateSalesPage() {
 
   const totalPages = Math.ceil(total / 20);
 
-  const load = useCallback(() => {
+  const load = useCallback((signal?: AbortSignal) => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: "20" });
     if (status) params.set("status", status);
-    fetch(`/api/affiliate-sales?${params}`)
+    fetch(`/api/affiliate-sales?${params}`, { signal })
       .then((r) => r.json() as Promise<AffiliateSalesResponse | { ok: false }>)
       .then((d) => {
         if (d.ok) { setSales(d.sales ?? []); setTotal(d.total ?? 0); }
         else { setSales([]); setTotal(0); }
       })
-      .catch(() => { setSales([]); setTotal(0); })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setSales([]); setTotal(0);
+      })
       .finally(() => setLoading(false));
   }, [page, status]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const controller = new AbortController();
+    load(controller.signal);
+    return () => controller.abort();
+  }, [load]);
 
   const doAction = async (id: number, action: "approve" | "reject" | "refund") => {
     setActing(id);
@@ -95,6 +102,7 @@ export default function AffiliateSalesPage() {
       }
 
       toast({ title: `${action} 완료` });
+      setActing(null);
       load();
     } catch (err) {
       const msg = err instanceof Error ? err.message : '네트워크 오류';

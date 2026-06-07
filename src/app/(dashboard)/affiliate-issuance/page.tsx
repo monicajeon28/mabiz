@@ -129,14 +129,18 @@ function IssuanceForm() {
 
   useEffect(() => {
     if (!needsManager) return;
+    const controller = new AbortController();
     setManagersLoading(true);
-    fetch('/api/affiliate-issuance/branch-managers')
+    fetch('/api/affiliate-issuance/branch-managers', { signal: controller.signal })
       .then(r => r.json())
       .then(data => {
         if (data.ok) setManagers(data.managers ?? []);
       })
-      .catch(() => {})
+      .catch(err => {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+      })
       .finally(() => setManagersLoading(false));
+    return () => controller.abort();
   }, [needsManager]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -605,7 +609,7 @@ function AffiliateListTab() {
   const [resetLoadingId, setResetLoadingId] = useState<number | null>(null);
   const [resetMsg, setResetMsg] = useState<{ id: number; msg: string; ok: boolean } | null>(null);
 
-  const fetchList = useCallback(async () => {
+  const fetchList = useCallback(async (signal?: AbortSignal) => {
     setListLoading(true);
     setListError(null);
     try {
@@ -614,14 +618,15 @@ function AffiliateListTab() {
       if (filterStatus) params.set('status', filterStatus);
       if (q.trim()) params.set('q', q.trim());
 
-      const res = await fetch(`/api/affiliate-issuance?${params.toString()}`);
+      const res = await fetch(`/api/affiliate-issuance?${params.toString()}`, { signal });
       const data = await res.json();
       if (!res.ok) {
         setListError(data.error ?? `오류 발생 (${res.status})`);
         return;
       }
       setProfiles(data.profiles ?? []);
-    } catch {
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       setListError('네트워크 오류가 발생했습니다.');
     } finally {
       setListLoading(false);
@@ -629,7 +634,9 @@ function AffiliateListTab() {
   }, [filterType, filterStatus, q]);
 
   useEffect(() => {
-    fetchList();
+    const controller = new AbortController();
+    fetchList(controller.signal);
+    return () => controller.abort();
   }, [fetchList]);
 
   async function handleResetPassword(profile: AffiliateProfile) {
@@ -699,7 +706,7 @@ function AffiliateListTab() {
         </div>
 
         <button
-          onClick={fetchList}
+          onClick={() => fetchList()}
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 transition"
         >
           <RefreshCw size={14} />

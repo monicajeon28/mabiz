@@ -58,9 +58,16 @@ export async function POST(req: Request, { params }: Params) {
             create: funnel.stages.map((stage) => {
               const scheduledAt = new Date(baseDate);
               if (stage.triggerType === "DDAY") {
+                // 절대 오프셋: baseDate(출발일 기준) + triggerOffset 일
                 scheduledAt.setUTCDate(scheduledAt.getUTCDate() + stage.triggerOffset);
               } else {
-                scheduledAt.setUTCDate(scheduledAt.getUTCDate() + stage.triggerOffset);
+                // 상대 오프셋: 이전 스테이지들의 triggerOffset 누적합 + 현재 스테이지 triggerOffset
+                // (stages는 order ASC 정렬됨 → map의 index를 현재 스테이지 위치로 활용)
+                const currentIdx = funnel.stages.indexOf(stage);
+                const accumulated = funnel.stages
+                  .slice(0, currentIdx)
+                  .reduce((sum, s) => sum + s.triggerOffset, 0);
+                scheduledAt.setUTCDate(scheduledAt.getUTCDate() + accumulated + stage.triggerOffset);
               }
               scheduledAt.setUTCHours(10, 0, 0, 0); // 오전 10시 발송
 

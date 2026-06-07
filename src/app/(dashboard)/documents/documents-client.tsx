@@ -60,20 +60,25 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
 
   const current = DOC_TYPES.find(d => d.key === tab)!;
 
-  const load = useCallback(() => {
+  const load = useCallback((signal?: AbortSignal) => {
     setLoading(true);
-    fetch(current.api)
+    fetch(current.api, signal ? { signal } : undefined)
       .then(r => r.json())
       .then((d: { ok: boolean; documents?: Document[]; message?: string }) => {
         if (d.ok) setDocs(d.documents ?? []);
         else showError('로드 실패');
       })
-      .catch(() => showError('네트워크 오류'))
+      .catch((err: unknown) => {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        showError('네트워크 오류');
+      })
       .finally(() => setLoading(false));
   }, [current.api]);
 
   useEffect(() => {
-    load();
+    const controller = new AbortController();
+    load(controller.signal);
+    return () => { controller.abort(); };
   }, [load]);
 
   const requestDoc = async () => {

@@ -64,65 +64,6 @@ const CHANNEL_CONFIG: Record<
   },
 };
 
-// Mock 데이터 (실제로는 API에서 조회)
-const MOCK_DATA: DashboardData = {
-  channels: [
-    {
-      channel: "SMS",
-      sent: 5000,
-      opened: 1250,
-      clicked: 400,
-      converted: 100,
-      failed: 50,
-      cost: 250000,
-      openRate: 25.0,
-      clickRate: 8.0,
-      conversionRate: 2.0,
-      roi: 0.04,
-      trend: "UP",
-      trendPercent: 12.5,
-    },
-    {
-      channel: "KAKAO",
-      sent: 4000,
-      opened: 1800,
-      clicked: 540,
-      converted: 160,
-      failed: 30,
-      cost: 120000,
-      openRate: 45.0,
-      clickRate: 13.5,
-      conversionRate: 4.0,
-      roi: 0.133,
-      trend: "UP",
-      trendPercent: 18.2,
-    },
-    {
-      channel: "EMAIL",
-      sent: 6000,
-      opened: 900,
-      clicked: 225,
-      converted: 54,
-      failed: 100,
-      cost: 0,
-      openRate: 15.0,
-      clickRate: 3.75,
-      conversionRate: 0.9,
-      roi: 0,
-      trend: "STABLE",
-      trendPercent: 0,
-    },
-  ],
-  bestPerformer: "KAKAO",
-  recommendations: [
-    "💡 Kakao 채널이 최고 효율입니다 (ROI 0.133, 비용 효율 기준)",
-    "📈 다채널 혼합 사용 시 전환율 +25-35% 기대",
-    "🎯 Day 0-3 시퀀스에서 Kakao → SMS → Email 순서 추천",
-    "📊 SMS 비용 최적화: 현재 ₩50/건 → ₩30/건 협상 시 ROI +40%",
-  ],
-  periodStart: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-  periodEnd: new Date(),
-};
 
 export default function ChannelsPage() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -439,30 +380,28 @@ export default function ChannelsPage() {
                 {
                   label: "개방율",
                   key: "openRate",
-                  format: (v: number) => `${v.toFixed(1)}%`,
+                  format: (v: number, _ch: ChannelStats) => `${v.toFixed(1)}%`,
                 },
                 {
                   label: "클릭율",
                   key: "clickRate",
-                  format: (v: number) => `${v.toFixed(1)}%`,
+                  format: (v: number, _ch: ChannelStats) => `${v.toFixed(1)}%`,
                 },
                 {
                   label: "전환율",
                   key: "conversionRate",
-                  format: (v: number) => `${v.toFixed(2)}%`,
+                  format: (v: number, _ch: ChannelStats) => `${v.toFixed(2)}%`,
                 },
                 {
                   label: "ROI",
                   key: "roi",
-                  format: (v: number) => `${(v * 100).toFixed(1)}%`,
+                  format: (v: number, _ch: ChannelStats) => `${(v * 100).toFixed(1)}%`,
                 },
                 {
                   label: "비용/건",
                   key: "cost",
-                  format: (v: number) => {
-                    const perUnit = data.channels[0]?.sent
-                      ? v / data.channels[0].sent
-                      : 0;
+                  format: (v: number, ch: ChannelStats) => {
+                    const perUnit = ch.sent > 0 ? v / ch.sent : 0;
                     return `₩${perUnit.toFixed(0)}`;
                   },
                 },
@@ -486,7 +425,7 @@ export default function ChannelsPage() {
                           isHighest ? "bg-green-50 text-green-700" : "text-gray-900"
                         }`}
                       >
-                        {row.format(value)}
+                        {row.format(value, channel)}
                       </td>
                     );
                   })}

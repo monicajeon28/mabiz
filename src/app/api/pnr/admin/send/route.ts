@@ -114,7 +114,10 @@ function formatDate(value: Date | string | null | undefined) {
 }
 
 function buildPnrLink(reservationId: number): string {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+  if (!baseUrl) {
+    throw new Error('NEXT_PUBLIC_BASE_URL 환경변수가 설정되지 않았습니다. PNR 링크를 생성할 수 없습니다.');
+  }
   return `${baseUrl.replace(/\/$/, '')}/customer/pnr/${reservationId}`;
 }
 

@@ -59,10 +59,12 @@ export default function ContactAffiliateCard({
   const [loadingRecipients, setLoadingRecipients] = useState(false);
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchAffiliateInfo = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`/api/contacts/${contactId}/affiliate-info`);
+        const res = await fetch(`/api/contacts/${contactId}/affiliate-info`, { signal: controller.signal });
         if (!res.ok) {
           setError("제휴 정보를 불러올 수 없습니다.");
           return;
@@ -72,6 +74,7 @@ export default function ContactAffiliateCard({
           setAffiliateInfo(result.data);
         }
       } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
         logger.error("[ContactAffiliateCard] 제휴 정보 조회 실패", { err, contactId });
         setError("제휴 정보 조회 중 오류가 발생했습니다.");
       } finally {
@@ -80,6 +83,7 @@ export default function ContactAffiliateCard({
     };
 
     fetchAffiliateInfo();
+    return () => controller.abort();
   }, [contactId]);
 
   const loadDbRecipients = async () => {

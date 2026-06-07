@@ -60,16 +60,21 @@ export default function AnalyticsDashboard() {
 
   // 데이터 로드
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchSummary = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`/api/analytics/summary?timeframe=${timeframe}`);
+        const res = await fetch(`/api/analytics/summary?timeframe=${timeframe}`, {
+          signal: controller.signal,
+        });
         if (res.ok) {
           const data = await res.json();
           setSummary(data);
           setLastUpdated(new Date());
         }
       } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') return;
         console.error('Failed to fetch analytics:', error);
       } finally {
         setLoading(false);
@@ -80,7 +85,10 @@ export default function AnalyticsDashboard() {
       fetchSummary();
       // 5분마다 새로고침
       const interval = setInterval(fetchSummary, 5 * 60 * 1000);
-      return () => clearInterval(interval);
+      return () => {
+        clearInterval(interval);
+        controller.abort();
+      };
     }
   }, [session?.organizationId, timeframe]);
 

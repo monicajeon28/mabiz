@@ -25,10 +25,12 @@ export default function ContactRiskPanel({ contactId }: RiskPanelProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchRiskData = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`/api/contacts/${contactId}/risk-flags`);
+        const res = await fetch(`/api/contacts/${contactId}/risk-flags`, { signal: controller.signal });
         if (!res.ok) {
           setLoading(false);
           return;
@@ -38,6 +40,7 @@ export default function ContactRiskPanel({ contactId }: RiskPanelProps) {
           setRiskData(result.data);
         }
       } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
         logger.error("[ContactRiskPanel] Risk 데이터 조회 실패", { err, contactId });
       } finally {
         setLoading(false);
@@ -45,6 +48,7 @@ export default function ContactRiskPanel({ contactId }: RiskPanelProps) {
     };
 
     fetchRiskData();
+    return () => controller.abort();
   }, [contactId]);
 
   if (loading || !riskData || riskData.flags.length === 0) {

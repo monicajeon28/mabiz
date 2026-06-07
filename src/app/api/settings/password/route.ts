@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { getAuthContext } from '@/lib/rbac';
 import { unauthorized, serverError } from '@/lib/response';
@@ -25,25 +26,76 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ ok: false, message: '새 비밀번호는 8자 이상이어야 합니다.' }, { status: 400 });
     }
 
-    const member = await prisma.organizationMember.findFirst({
-      where: { userId: ctx.userId, isActive: true },
-      select: { id: true, passwordHash: true },
-    });
+    let existingHash: string | null = null;
 
-    if (!member) {
-      return NextResponse.json({ ok: false, message: '계정을 찾을 수 없습니다.' }, { status: 404 });
+    if (ctx.role === 'GLOBAL_ADMIN') {
+      // GlobalAdmin 세션: GlobalAdmin 테이블에서 조회/업데이트
+      const admin = await prisma.globalAdmin.findUnique({
+        where: { id: ctx.userId },
+        select: { id: true, passwordHash: true },
+      });
+      if (!admin) {
+        return NextResponse.json({ ok: false, message: '계정을 찾을 수 없습니다.' }, { status: 404 });
+      }
+      existingHash = admin.passwordHash ?? null;
+      if (!existingHash) {
+        return NextResponse.json({ ok: false, message: '비밀번호가 설정되지 않은 계정입니다.' }, { status: 400 });
+      }
+      const valid = await verifyPassword(currentPassword, existingHash);
+      if (!valid) {
+        return NextResponse.json({ ok: false, message: '현재 비밀번호가 올바르지 않습니다.' }, { status: 400 });
+      }
+      const newHash = await hashPassword(newPassword);
+      await prisma.globalAdmin.update({
+        where: { id: ctx.userId },
+        data: { passwordHash: newHash },
+      });
+    } else if (ctx.member !== null) {
+      // OrganizationMember 세션 (OWNER / AGENT / FREE_SALES)
+      const member = await prisma.organizationMember.findFirst({
+        where: { userId: ctx.userId, isActive: true },
+        select: { id: true, passwordHash: true },
+      });
+      if (!member) {
+        return NextResponse.json({ ok: false, message: '계정을 찾을 수 없습니다.' }, { status: 404 });
+      }
+      existingHash = member.passwordHash;
+      const valid = await verifyPassword(currentPassword, existingHash);
+      if (!valid) {
+        return NextResponse.json({ ok: false, message: '현재 비밀번호가 올바르지 않습니다.' }, { status: 400 });
+      }
+      const newHash = await hashPassword(newPassword);
+      await prisma.organizationMember.update({
+        where: { id: member.id },
+        data: { passwordHash: newHash },
+      });
+    } else {
+      // GMcruise User 세션 (mallUserId 기반): User 테이블 raw 쿼리
+      const mallUserId = ctx.mallUser?.id;
+      if (!mallUserId) {
+        return NextResponse.json({ ok: false, message: '계정을 찾을 수 없습니다.' }, { status: 404 });
+      }
+      type UserRow = { id: number; password: string };
+      const rows = await prisma.$queryRaw<UserRow[]>(
+        Prisma.sql`
+          SELECT id, password FROM "User" WHERE id = ${mallUserId} AND "isLocked" = false LIMIT 1
+        `
+      );
+      if (!rows[0]) {
+        return NextResponse.json({ ok: false, message: '계정을 찾을 수 없습니다.' }, { status: 404 });
+      }
+      existingHash = rows[0].password;
+      const valid = await verifyPassword(currentPassword, existingHash);
+      if (!valid) {
+        return NextResponse.json({ ok: false, message: '현재 비밀번호가 올바르지 않습니다.' }, { status: 400 });
+      }
+      const newHash = await hashPassword(newPassword);
+      await prisma.$queryRaw(
+        Prisma.sql`
+          UPDATE "User" SET password = ${newHash} WHERE id = ${mallUserId}
+        `
+      );
     }
-
-    const valid = await verifyPassword(currentPassword, member.passwordHash);
-    if (!valid) {
-      return NextResponse.json({ ok: false, message: '현재 비밀번호가 올바르지 않습니다.' }, { status: 400 });
-    }
-
-    const newHash = await hashPassword(newPassword);
-    await prisma.organizationMember.update({
-      where: { id: member.id },
-      data: { passwordHash: newHash },
-    });
 
     logger.info('[PATCH /api/settings/password] 비밀번호 변경', { userId: ctx.userId });
     return NextResponse.json({ ok: true });

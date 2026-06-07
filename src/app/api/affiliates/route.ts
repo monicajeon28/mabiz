@@ -123,7 +123,7 @@ export async function GET(req: Request) {
         ${searchCondition}
         ${relationCondition}
       GROUP BY
-        ap.id, ap.type, ap.status, ap."isActive", ap."autoSuspended",
+        ap.id, ap."userId", ap.type, ap.status, ap."isActive", ap."autoSuspended",
         ap."suspendedAt", ap."suspensionReason", ap."displayName",
         ap."branchLabel", ap."affiliateCode", ap."contractStatus",
         ap."onboardedAt", ap."lastSalesDate", ap."createdAt", ap."contactPhone",

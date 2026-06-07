@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Heart, Users, Calendar, DollarSign, Shield, ArrowRight, Star, CheckCircle,
+  Heart, Users, Calendar, Shield, ArrowRight, Star, CheckCircle,
   Loader2
 } from "lucide-react";
 
@@ -57,8 +57,12 @@ export default function GoldMemberPage() {
 
   const handleSignup = async () => {
     setLoading(true);
-    // 신청 페이지로 이동
-    router.push("/gold-member/signup");
+    try {
+      // 신청 페이지로 이동
+      router.push("/gold-member/signup");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -183,7 +187,7 @@ export default function GoldMemberPage() {
 
               <button
                 onClick={handleSignup}
-                className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors font-bold"
+                className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors"
               >
                 프리미엄 플랜 신청
               </button>
@@ -325,11 +329,11 @@ export default function GoldMemberPage() {
           </button>
 
           <p className="text-sm text-blue-100 mt-6">
-            문제가 있으신가요?{" "}
-            <a href="tel:02-1234-5678" className="underline hover:text-white">
-              고객 지원 전화
+            문의사항이 있으신가요?{" "}
+            <a href="mailto:support@mabizcruise.com" className="underline hover:text-white">
+              고객 지원팀에 문의
             </a>
-            로 연락주세요.
+            해 주세요.
           </p>
         </div>
       </section>
