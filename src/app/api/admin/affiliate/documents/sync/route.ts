@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
     }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : '문서 동기화 중 오류가 발생했습니다.';
-    console.error('[Document Sync API] Error:', error);
+    logger.error('[Document Sync API] Error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { ok: false, message },
       { status: 500 }

@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { getMabizSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 // ─── 문서 타입 ────────────────────────────────────────────────────────────────
 type DocumentType =
@@ -307,7 +308,7 @@ export async function POST(req: NextRequest) {
               },
             })
             .catch((err: unknown) => {
-              console.error('[Document Generation] SalesDocument save error:', err);
+              logger.error('[Document Generation] SalesDocument save error', { error: err instanceof Error ? err.message : String(err) });
             });
         }
 
@@ -379,7 +380,7 @@ export async function POST(req: NextRequest) {
               },
             })
             .catch((err: unknown) => {
-              console.error('[Document Generation] SalesDocument save error:', err);
+              logger.error('[Document Generation] SalesDocument save error', { error: err instanceof Error ? err.message : String(err) });
             });
         }
 
@@ -470,7 +471,7 @@ export async function POST(req: NextRequest) {
               },
             })
             .catch((err: unknown) => {
-              console.error('[Document Generation] SalesDocument save error:', err);
+              logger.error('[Document Generation] SalesDocument save error', { error: err instanceof Error ? err.message : String(err) });
             });
         }
 
@@ -483,7 +484,7 @@ export async function POST(req: NextRequest) {
       }
     }
   } catch (error: unknown) {
-    console.error('[Document Generation] Error:', error);
+    logger.error('[Document Generation] Error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ ok: false, error: '문서 생성 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }
