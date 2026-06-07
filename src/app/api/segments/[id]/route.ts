@@ -9,7 +9,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import prisma from "@/lib/prisma";
+import { getAuthContext, resolveOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 interface RouteParams {
@@ -24,15 +25,11 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const orgId = request.headers.get("x-organization-id");
-    const path = request.nextUrl.pathname;
+    const ctx = await getAuthContext().catch(() => null);
+    if (!ctx?.userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    if (!orgId) {
-      return NextResponse.json(
-        { error: "Organization ID required" },
-        { status: 400 }
-      );
-    }
+    const orgId = resolveOrgId(ctx);
+    const path = request.nextUrl.pathname;
 
     const segmentId = params.id;
 
