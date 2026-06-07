@@ -44,48 +44,50 @@ export function Menu48AnxietyDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchDashboardData();
+    const ctrl = new AbortController();
+    fetchDashboardData(ctrl.signal);
+    return () => ctrl.abort();
   }, []);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (signal: AbortSignal) => {
     try {
-      // 실제 API 호출로 대체 필요
-      setStats({
-        totalContacts: 324,
-        highAnxiety: 98,
-        mediumAnxiety: 126,
-        lowAnxiety: 100,
-        avgScore: 54.2,
-        smsClickRate: 38.5,
-        consultationBookingRate: 22.8,
-        conversionRate: 78.5,
-      });
+      const [metricsRes, breakdownRes, smsRes] = await Promise.all([
+        fetch('/api/menu-48/metrics', { credentials: 'include', signal }),
+        fetch('/api/menu-48/metrics/breakdown', { credentials: 'include', signal }),
+        fetch('/api/menu-48/metrics/sms-performance', { credentials: 'include', signal }),
+      ]);
 
+      if (!metricsRes.ok || !breakdownRes.ok || !smsRes.ok) {
+        throw new Error('메트릭 조회 실패');
+      }
+
+      const [metrics, breakdownData, smsData] = await Promise.all([
+        metricsRes.json() as Promise<AnxietyStats>,
+        breakdownRes.json() as Promise<{ stages: PreparationStageBreakdown[] }>,
+        smsRes.json() as Promise<{ smsPerformance: SmsPerformance[] }>,
+      ]);
+
+      setStats(metrics);
+
+      const total = metrics.totalContacts || 1;
+      const CATEGORY_COLORS: Record<string, string> = {
+        high: '#ef4444',
+        medium: '#f97316',
+        low: '#22c55e',
+      };
       setAnxietyBreakdown([
-        { category: 'high', count: 98, percentage: 30.2, color: '#ef4444' },
-        { category: 'medium', count: 126, percentage: 38.9, color: '#f97316' },
-        { category: 'low', count: 100, percentage: 30.9, color: '#22c55e' },
+        { category: 'high', count: metrics.highAnxiety, percentage: Math.round((metrics.highAnxiety / total) * 1000) / 10, color: CATEGORY_COLORS.high },
+        { category: 'medium', count: metrics.mediumAnxiety, percentage: Math.round((metrics.mediumAnxiety / total) * 1000) / 10, color: CATEGORY_COLORS.medium },
+        { category: 'low', count: metrics.lowAnxiety, percentage: Math.round((metrics.lowAnxiety / total) * 1000) / 10, color: CATEGORY_COLORS.low },
       ]);
 
-      setPrepStages([
-        { stage: 'inquiry', count: 45 },
-        { stage: 'visa_concern', count: 78 },
-        { stage: 'health_concern', count: 54 },
-        { stage: 'passport_concern', count: 89 },
-        { stage: 'ready', count: 58 },
-      ]);
-
-      setSmsPerformance([
-        { day: 0, openRate: 72, clickRate: 35, conversionRate: 18 },
-        { day: 1, openRate: 68, clickRate: 42, conversionRate: 24 },
-        { day: 2, openRate: 65, clickRate: 45, conversionRate: 28 },
-        { day: 3, openRate: 78, clickRate: 58, conversionRate: 38 },
-      ]);
-
-      setLoading(false);
+      setPrepStages(breakdownData.stages ?? []);
+      setSmsPerformance(smsData.smsPerformance ?? []);
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
       console.error('Error fetching dashboard data:', error);
-      setLoading(false);
+    } finally {
+      if (!signal.aborted) setLoading(false);
     }
   };
 
