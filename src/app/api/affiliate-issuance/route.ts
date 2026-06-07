@@ -1,5 +1,6 @@
 import "server-only";
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import prisma from "@/lib/prisma";
 import { getAuthContext } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
@@ -209,6 +210,7 @@ export async function POST(req: Request) {
       // 1. GmUser 생성
       const user = await tx.gmUser.create({
         data: {
+          externalId: randomUUID(),   // CRM 발급 멱등키 — 크루즈닷 upsert API가 이 값으로 upsert
           name,
           phone: mallUserId,
           mallUserId,
@@ -277,6 +279,7 @@ export async function POST(req: Request) {
 
       result = {
         userId: user.id,
+        externalId: user.externalId as string,
         mallUserId,
         profileId: profile.id,
         affiliateCode,
@@ -296,18 +299,25 @@ export async function POST(req: Request) {
 
     if (provisionUrl && provisionSecret) {
       try {
-        // 소속 대리점장의 userId 조회 (managerExternalId)
+        // 소속 대리점장의 externalId 조회 (크루즈닷 upsert API 멱등키)
         let managerExternalId: string | undefined;
         if (needsRelation && managerProfileId) {
           const managerProfile = await prisma.gmAffiliateProfile.findUnique({
             where: { id: managerProfileId },
             select: { userId: true },
           });
-          if (managerProfile) managerExternalId = String(managerProfile.userId);
+          if (managerProfile) {
+            const managerUser = await prisma.gmUser.findUnique({
+              where: { id: managerProfile.userId },
+              select: { id: true, externalId: true },
+            });
+            // externalId 있으면 사용, 없으면 Int id를 문자열로 (구버전 호환)
+            managerExternalId = managerUser?.externalId ?? (managerUser ? String(managerUser.id) : undefined);
+          }
         }
 
         const upsertBody = {
-          externalId:          String(result.userId),
+          externalId:          result.externalId,
           mallUserId:          result.mallUserId,
           password:            initialPassword,          // 크루즈닷이 bcrypt 해시
           name,
