@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
@@ -34,7 +35,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const payload: InquiryPayload = await req.json();
+    // HMAC 서명 검증
+    const bodyText = await req.text();
+    const signature = req.headers.get('x-mabiz-signature') ?? '';
+    const expected = createHmac('sha256', secret).update(bodyText).digest('hex');
+    let sigValid = false;
+    try {
+      sigValid = signature.length === expected.length &&
+        timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+    } catch { sigValid = false; }
+
+    if (!sigValid) {
+      logger.warn('[webhook-proxy] HMAC 서명 불일치');
+      return NextResponse.json({ ok: false, error: 'Invalid signature' }, { status: 401 });
+    }
+
+    const payload: InquiryPayload = JSON.parse(bodyText);
 
     // 필드 검증
     if (!payload.phone || !payload.name || !payload.organizationId) {
