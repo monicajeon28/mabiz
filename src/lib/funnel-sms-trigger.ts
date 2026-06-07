@@ -106,6 +106,7 @@ export async function triggerGroupFunnelSms(opts: TriggerOptions): Promise<boole
           sendHour:    true,
           sendMinute:  true,
           senderPhone: true,
+          createdByUserId: true,
           messages: {
             orderBy: { order: "asc" },
             select: {
@@ -181,6 +182,8 @@ export async function triggerGroupFunnelSms(opts: TriggerOptions): Promise<boole
           round: msg.daysAfter,
           // 대리점별 발신번호(검증 통과분만): 없으면 BatchSender에서 orgSmsConfig.senderPhone 폴백
           senderPhone: resolvedSenderPhone,
+          // 퍼널 소유자 계정으로 발송 → BatchSender가 작성자별 개인 알리고(개인>조직>env) 해석
+          createdByUserId: funnelSms.createdByUserId ?? null,
         };
       });
 

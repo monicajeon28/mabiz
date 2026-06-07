@@ -89,6 +89,7 @@ export async function POST(req: Request, { params }: Params) {
         regEmailEnabled: true, regEmailSubject: true, regEmailContent: true,
         formConfig: true,
         smsL6Day0Enabled: true,
+        createdByUserId: true,
       },
     });
     if (!landingPage) {
@@ -282,6 +283,8 @@ export async function POST(req: Request, { params }: Params) {
             scheduledAt: new Date(), // 즉시 발송
             status: "PENDING",
             channel: "L6_DAY0",
+            // 랜딩 소유자 계정으로 발송 → BatchSender가 작성자별 개인 알리고 해석
+            createdByUserId: landingPage.createdByUserId ?? null,
           },
         }).catch((e) => logger.warn("[LandingRegister] Day 0 SMS 예약 실패", { err: e }));
       } else if (smsContact?.optOutAt) {
