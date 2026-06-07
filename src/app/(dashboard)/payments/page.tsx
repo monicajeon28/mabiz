@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { CreditCard, RefreshCw, ArrowUpRight, ArrowDownLeft, Clock, Repeat, Store } from "lucide-react";
 import { useSession } from "@/hooks/useSession";
+import { logger } from "@/lib/logger";
 
 type Payment = {
   id: string;
@@ -113,7 +114,9 @@ export default function PaymentsPage() {
         setTotalPages(data.totalPages);
         setStats(data.stats);
       }
-    } catch {}
+    } catch (err) {
+      logger.error("[payments] load 실패", err);
+    }
     setLoading(false);
   }, [filter, search]);
 
@@ -125,7 +128,9 @@ export default function PaymentsPage() {
       const res = await fetch("/api/payapp/subscription");
       const data = await res.json();
       if (data.ok) setSubscriptions(data.subscriptions ?? []);
-    } catch {}
+    } catch (err) {
+      logger.error("[payments] loadSubscriptions 실패", err);
+    }
     setSubLoading(false);
   }, []);
 

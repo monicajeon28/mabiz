@@ -321,6 +321,8 @@ export default function MembersPage() {
       if (res.ok) {
         setStatusUpdateMsg("✅ 상태가 저장되었습니다.");
         setTimeout(() => setStatusUpdateMsg(""), 2000);
+        // 상세 데이터 재로드 (변경된 상태 반영)
+        setTimeout(() => { if (selectedMember) openDetailModal(selectedMember); }, 300);
       }
     } catch (err) {
       setStatusUpdateMsg("❌ 저장 실패");
