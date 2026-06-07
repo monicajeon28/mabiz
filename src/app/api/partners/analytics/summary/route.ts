@@ -58,9 +58,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: '권한이 없습니다' }, { status: 403 });
     }
 
-    // Get organization from session or header
+    // GLOBAL_ADMIN: query param, OWNER: 세션 org 고정
     const searchParams = new URL(request.url).searchParams;
-    const organizationId = searchParams.get('organizationId');
+    const organizationId = ctx.role === 'GLOBAL_ADMIN'
+      ? (searchParams.get('organizationId') ?? ctx.organizationId)
+      : ctx.organizationId;
 
     if (!organizationId) {
       return NextResponse.json(
