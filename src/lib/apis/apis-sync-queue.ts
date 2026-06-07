@@ -1,22 +1,29 @@
 /**
  * APIS Google Sheets 동기화 큐
- * 크루즈닷몰 GmApisSyncQueue 테이블을 사용하여
- * APIS 데이터를 Google Sheets에 비동기 동기화합니다.
+ * GmApisSyncQueue 테이블을 사용하여 APIS 데이터를 비동기 처리합니다.
  *
- * NOTE: syncApisSpreadsheet / syncToMasterApisSheet 함수는
- * 크루즈닷몰의 google-sheets 모듈에서 제공됩니다.
- * CRM에서는 동적 import로 안전하게 호출합니다.
+ * targetType 별 처리:
+ *   MASTER_SHEET  → syncToMasterApisSheet(targetId=userId)
+ *   TRIP_SHEET    → syncApisSpreadsheet(targetId=tripId)
+ *   PNR           → sendPnrSmsForReservation(targetId=reservationId)
+ *
+ * batchId 에코: 배치 내 모든 태스크 완료 시 passport-sent | pnr-sent 호출
  */
 
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { sendPnrSmsForReservation } from '@/lib/pnr-sms-send';
+import {
+  notifyCruisedotPassportSent,
+  notifyCruisedotPnrSent,
+} from '@/lib/notify-cruisedot-ops';
 
-export type ApisSyncTargetType = 'MASTER_SHEET' | 'TRIP_SHEET';
+export type ApisSyncTargetType = 'MASTER_SHEET' | 'TRIP_SHEET' | 'PNR';
 
 /**
  * Enqueue a sync task for APIS data.
- * @param targetType 'MASTER_SHEET' or 'TRIP_SHEET'
- * @param targetId userId for MASTER_SHEET, tripId for TRIP_SHEET
+ * @param targetType 'MASTER_SHEET' | 'TRIP_SHEET' | 'PNR'
+ * @param targetId userId(MASTER), tripId(TRIP), reservationId(PNR)
  * @param delayMinutes Number of minutes to delay execution (default: 10)
  */
 export async function enqueueApisSync(
@@ -25,7 +32,6 @@ export async function enqueueApisSync(
   delayMinutes: number = 10
 ) {
   try {
-    // Check if a pending task already exists to avoid duplicates
     const existing = await prisma.gmApisSyncQueue.findFirst({
       where: {
         targetType,
@@ -58,14 +64,12 @@ export async function enqueueApisSync(
 
 /**
  * Google Sheets 동기화 함수를 동적으로 로드
- * CRM에 google-sheets 모듈이 없을 수 있으므로 안전하게 처리
  */
 async function loadSyncFunctions(): Promise<{
   syncApisSpreadsheet: (tripId: number) => Promise<{ ok: boolean; error?: string }>;
   syncToMasterApisSheet: (userId: number) => Promise<{ ok: boolean; error?: string }>;
 } | null> {
   try {
-     
     const mod = await (Function('return import("@/lib/google-sheets")')() as Promise<{
       syncApisSpreadsheet: (tripId: number) => Promise<{ ok: boolean; error?: string }>;
       syncToMasterApisSheet: (userId: number) => Promise<{ ok: boolean; error?: string }>;
@@ -81,16 +85,42 @@ async function loadSyncFunctions(): Promise<{
 }
 
 /**
- * Process pending tasks in the APIS sync queue.
- * Should be called by Cron job.
+ * 배치 완료 여부 확인 후 cruisedot 에코 알림
+ * - 배치의 모든 태스크가 COMPLETED/FAILED이면 notify
+ * - PNR 태스크가 포함된 배치 → pnr-sent, 그 외 → passport-sent
  */
-// TODO: notifyCruisedotPassportSent — batchId 핸드오프 방식 크루즈닷 협의 후 연결 예정
-// (GmApisSyncQueue에 batchId 컬럼 없어 현재 호출 불가)
+async function checkAndNotifyBatch(batchId: string): Promise<void> {
+  const tasks = await prisma.gmApisSyncQueue.findMany({
+    where: { batchId },
+    select: { status: true, targetType: true },
+  });
 
+  if (tasks.length === 0) return;
+
+  const allDone = tasks.every((t) => t.status === 'COMPLETED' || t.status === 'FAILED');
+  if (!allDone) return;
+
+  const sentCount = tasks.filter((t) => t.status === 'COMPLETED').length;
+  const failureCount = tasks.filter((t) => t.status === 'FAILED').length;
+
+  const isPnrBatch = tasks.some((t) => t.targetType === 'PNR');
+
+  logger.log('[ApisSyncQueue] 배치 완료 — 에코 알림', { batchId, sentCount, failureCount, isPnrBatch });
+
+  if (isPnrBatch) {
+    await notifyCruisedotPnrSent(batchId, sentCount, failureCount > 0 ? failureCount : undefined);
+  } else {
+    await notifyCruisedotPassportSent(batchId, sentCount, failureCount > 0 ? failureCount : undefined);
+  }
+}
+
+/**
+ * Process pending tasks in the APIS sync queue.
+ * Cron job: GET /api/cron/apis-sync
+ */
 export async function processApisSyncQueue(batchSize = 10) {
   logger.log('[ApisSyncQueue] Starting queue processing...');
 
-  // Fetch pending tasks that are scheduled for now or in the past
   const tasks = await prisma.gmApisSyncQueue.findMany({
     where: {
       status: 'PENDING',
@@ -108,24 +138,31 @@ export async function processApisSyncQueue(batchSize = 10) {
   logger.log(`[ApisSyncQueue] Found ${tasks.length} tasks to process.`);
 
   const syncFns = await loadSyncFunctions();
-  if (!syncFns) {
-    logger.error('[ApisSyncQueue] Cannot process: google-sheets module unavailable');
-    return;
-  }
+  const batchIdsToCheck = new Set<string>();
 
   for (const task of tasks) {
     try {
-      // Update status to PROCESSING
       await prisma.gmApisSyncQueue.update({
         where: { id: task.id },
         data: { status: 'PROCESSING', attempts: { increment: 1 } },
       });
 
       let result: { ok: boolean; error?: string } | undefined;
-      if (task.targetType === 'MASTER_SHEET') {
-        result = await syncFns.syncToMasterApisSheet(task.targetId);
-      } else if (task.targetType === 'TRIP_SHEET') {
-        result = await syncFns.syncApisSpreadsheet(task.targetId);
+
+      if (task.targetType === 'MASTER_SHEET' || task.targetType === 'TRIP_SHEET') {
+        if (!syncFns) {
+          throw new Error('google-sheets module unavailable');
+        }
+        if (task.targetType === 'MASTER_SHEET') {
+          result = await syncFns.syncToMasterApisSheet(task.targetId);
+        } else {
+          result = await syncFns.syncApisSpreadsheet(task.targetId);
+        }
+      } else if (task.targetType === 'PNR') {
+        const pnrResult = await sendPnrSmsForReservation(task.targetId);
+        result = { ok: pnrResult.success, error: pnrResult.error };
+      } else {
+        throw new Error(`Unknown targetType: ${task.targetType}`);
       }
 
       if (result && result.ok) {
@@ -134,35 +171,40 @@ export async function processApisSyncQueue(batchSize = 10) {
           data: { status: 'COMPLETED', processedAt: new Date() },
         });
         logger.log(`[ApisSyncQueue] Task ${task.id} (${task.targetType}:${task.targetId}) completed.`);
-        // TODO: notifyCruisedotPassportSent(batchId, sentCount) — batchId 핸드오프 협의 후
       } else {
-        throw new Error(result?.error || 'Unknown error during sync');
+        throw new Error(result?.error ?? 'Unknown error during sync');
       }
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : String(error);
       logger.error(`[ApisSyncQueue] Task ${task.id} failed:`, { message: errMsg });
 
-      // If max attempts reached (e.g., 3), mark as FAILED
       if (task.attempts >= 2) {
         await prisma.gmApisSyncQueue.update({
           where: { id: task.id },
-          data: {
-            status: 'FAILED',
-            lastError: errMsg,
-            processedAt: new Date(),
-          },
+          data: { status: 'FAILED', lastError: errMsg, processedAt: new Date() },
         });
       } else {
-        // Reset to PENDING for retry
         await prisma.gmApisSyncQueue.update({
           where: { id: task.id },
-          data: {
-            status: 'PENDING',
-            lastError: errMsg,
-          },
+          data: { status: 'PENDING', lastError: errMsg },
         });
       }
     }
+
+    // batchId가 있으면 완료 체크 목록에 추가
+    if (task.batchId) {
+      batchIdsToCheck.add(task.batchId);
+    }
+  }
+
+  // 이 cron 실행에서 처리된 배치들 완료 여부 확인
+  for (const batchId of batchIdsToCheck) {
+    await checkAndNotifyBatch(batchId).catch((err) => {
+      logger.warn('[ApisSyncQueue] batchId 알림 실패 — 무시됨', {
+        batchId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
   }
 
   logger.log('[ApisSyncQueue] Queue processing finished.');
