@@ -302,8 +302,14 @@ async function getChannelPerformance(orgId: string, startDate: Date) {
         sent = email._count || 0;
         clicked = email._sum.clickCount || 0;
       } else if (channel === 'CALL') {
-        // callLog는 organizationId 없음 - 임시 0 반환
-        sent = 0;
+        // CallLog → Contact 조인으로 조직별 집계
+        const callCount = await prisma.callLog.count({
+          where: {
+            createdAt: { gte: startDate },
+            contact: { organizationId: orgId, deletedAt: null },
+          },
+        });
+        sent = callCount;
       }
 
       const ctr = sent > 0 ? (clicked / sent) * 100 : 0;

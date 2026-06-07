@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, buildContactWhere, maskContactInfo } from "@/lib/rbac";
+import { getAuthContext, buildContactWhere } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 type Params = { params: Promise<{ id: string }> };
@@ -38,6 +38,7 @@ export async function GET(_req: Request, { params }: Params) {
             displayName: true,
             phone: true,
             email: true,
+            role: true,
             organization: { select: { name: true } },
           },
         })
@@ -48,33 +49,33 @@ export async function GET(_req: Request, { params }: Params) {
     const manager = contact.affiliateManagerId ? memberMap.get(contact.affiliateManagerId) : null;
     const agent = contact.affiliateAgentId ? memberMap.get(contact.affiliateAgentId) : null;
 
-    // L9 의료신뢰: 담당자 경험도/신뢰도 점수 (더미, 향후 실제 데이터로 대체)
-    // L10 클로징: 즉시 연락 CTA
+    // L9 의료신뢰 / L10 클로징 — 역할 기반 trustScore
+    const roleToScore: Record<string, { score: number; label: string }> = {
+      GLOBAL_ADMIN: { score: 99, label: "총괄 크루즈 전문가" },
+      OWNER: { score: 97, label: "대리점장급 전문가" },
+      MANAGER: { score: 93, label: "전문 크루즈 컨설턴트" },
+      AGENT: { score: 88, label: "크루즈 맞춤 컨설턴트" },
+      FREE_SALES: { score: 82, label: "크루즈 판매 전문가" },
+    };
+
+    const buildMemberData = (m: typeof members[0]) => {
+      const ts = roleToScore[m.role] ?? roleToScore.AGENT;
+      return {
+        id: m.id,
+        name: m.displayName ?? m.id,
+        phone: m.phone,
+        email: m.email,
+        org: m.organization.name,
+        trustScore: ts.score,
+        expertise: ts.label,
+      };
+    };
+
     return NextResponse.json({
       ok: true,
       data: {
-        manager: manager
-          ? {
-              id: manager.id,
-              name: manager.displayName ?? manager.id,
-              phone: manager.phone,
-              email: manager.email,
-              org: manager.organization.name,
-              trustScore: 95, // L9: 신뢰도 점수
-              expertise: "15년+ 크루즈 판매 경력",
-            }
-          : null,
-        agent: agent
-          ? {
-              id: agent.id,
-              name: agent.displayName ?? agent.id,
-              phone: agent.phone,
-              email: agent.email,
-              org: agent.organization.name,
-              trustScore: 88,
-              expertise: "크루즈 맞춤 컨설턴트",
-            }
-          : null,
+        manager: manager ? buildMemberData(manager) : null,
+        agent: agent ? buildMemberData(agent) : null,
         assignedAt: contact.createdAt,
       },
     });
