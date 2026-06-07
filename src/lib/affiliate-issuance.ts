@@ -99,6 +99,7 @@ export interface IssueAffiliateInput {
 
 export interface IssueAffiliateResult {
   userId: number;
+  externalId: string;
   mallUserId: string;
   profileId: number;
   affiliateCode: string;
