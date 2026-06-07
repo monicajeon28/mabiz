@@ -181,9 +181,22 @@ async function checkDataIntegrity() {
       where: { name: { equals: "" } },
     });
 
-    // Check for orphaned sales (this check is skipped as AffiliateSale doesn't have contactId)
-    // Alternative: check if affiliateCode exists in contacts
-    const orphanedSales = 0; // TODO: implement proper orphaned sales detection
+    // Check for orphaned sales: AffiliateSale with affiliateUserId not matching any member
+    const salesWithUser = await prisma.affiliateSale.findMany({
+      select: { affiliateUserId: true },
+      distinct: ['affiliateUserId'],
+      where: { affiliateUserId: { not: null } },
+    });
+    let orphanedSales = 0;
+    if (salesWithUser.length > 0) {
+      const userIds = salesWithUser.map((s) => s.affiliateUserId!);
+      const existingMembers = await prisma.organizationMember.findMany({
+        select: { userId: true },
+        where: { userId: { in: userIds } },
+      });
+      const existingSet = new Set(existingMembers.map((m) => m.userId));
+      orphanedSales = userIds.filter((id) => !existingSet.has(id)).length;
+    }
 
     const status =
       contactsWithoutName === 0 && orphanedSales === 0 ? "HEALTHY" : "WARNING";

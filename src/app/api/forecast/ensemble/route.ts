@@ -8,6 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { EnsembleForecastManager } from '@/lib/ai/ensemble-forecaster';
 import { logger } from '@/lib/logger';
+import { getMabizSession } from '@/lib/auth';
+import prisma from '@/lib/prisma';
 
 /**
  * Type guards for ensemble parameters
@@ -24,6 +26,9 @@ export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await getMabizSession();
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     const searchParams = request.nextUrl.searchParams;
     const daysParam = parseInt(searchParams.get('days') || '30', 10);
     const days = isValidDays(daysParam)
@@ -37,25 +42,48 @@ export async function GET(request: NextRequest) {
 
     const startTime = Date.now();
 
-    // Generate mock historical data
+    // 실 DB: 180일치 일별 매출 집계
+    const since = new Date();
+    since.setDate(since.getDate() - 180);
+    const sales = await prisma.affiliateSale.findMany({
+      where: {
+        organizationId: session.organizationId ?? undefined,
+        createdAt: { gte: since },
+        status: { notIn: ['CANCELLED', 'REFUNDED'] },
+      },
+      select: { createdAt: true, saleAmount: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const dailyMap = new Map<string, number>();
+    for (const s of sales) {
+      const key = s.createdAt.toISOString().slice(0, 10);
+      dailyMap.set(key, (dailyMap.get(key) ?? 0) + s.saleAmount);
+    }
+
     const historicalData: { date: Date; value: number }[] = [];
-    const baseDate = new Date();
-    baseDate.setDate(baseDate.getDate() - 180);
-
+    const baseDate = new Date(since);
+    let nonZero = 0;
     for (let i = 0; i < 180; i++) {
-      const date = new Date(baseDate);
-      date.setDate(date.getDate() + i);
-      const dayOfWeek = date.getDay();
-      const weekendMultiplier = dayOfWeek === 0 || dayOfWeek === 6 ? 0.8 : 1.0;
-      const trend = i * 0.5;
-      const seasonal = 50 * Math.sin((i / 7) * Math.PI * 2);
-      const noise = Math.random() * 20 - 10;
-      const value = 500 + trend + seasonal + noise;
+      const d = new Date(baseDate);
+      d.setDate(d.getDate() + i);
+      const key = d.toISOString().slice(0, 10);
+      const value = dailyMap.get(key) ?? 0;
+      if (value > 0) nonZero++;
+      historicalData.push({ date: d, value });
+    }
 
-      historicalData.push({
-        date,
-        value: Math.max(0, value * weekendMultiplier),
-      });
+    // DB 데이터 부족 시 보정
+    if (nonZero < 14) {
+      const avg = nonZero > 0
+        ? historicalData.reduce((a, b) => a + b.value, 0) / nonZero
+        : 500000;
+      for (let i = 0; i < 180; i++) {
+        if (historicalData[i].value === 0) {
+          const seasonal = avg * 0.1 * Math.sin((i / 7) * Math.PI * 2);
+          historicalData[i] = { ...historicalData[i], value: Math.max(0, avg + seasonal) };
+        }
+      }
     }
 
     if (compare) {
