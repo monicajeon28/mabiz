@@ -83,11 +83,16 @@ export async function GET(req: NextRequest) {
     // GLOBAL_ADMIN 은 전체 접근. OWNER 는 자기 조직 예약만 노출.
     const isOwnerScoped = ctx.role === 'OWNER' && !!ctx.organizationId;
 
-    // ── 예약·탑승객 조회 (board용 컬럼만, agentName 포함) ──────────
-    type ResRow = { id: number; agentName: string | null };
+    // ── 예약·탑승객 조회 (board용 컬럼만, agentName + 판매확인 상태 포함) ──────────
+    type ResRow = {
+      id: number;
+      agentName: string | null;
+      finalConfirmStatus: string;
+      affiliateSaleId: number | null;
+    };
     const reservations = trip.id > 0
       ? await prisma.$queryRaw<ResRow[]>(Prisma.sql`
-          SELECT id, "agentName"
+          SELECT id, "agentName", "finalConfirmStatus", "affiliateSaleId"
           FROM "Reservation"
           WHERE "tripId" = ${trip.id}
           ORDER BY id ASC
@@ -111,6 +116,9 @@ export async function GET(req: NextRequest) {
     }
 
     const agentNameMap = new Map(reservations.map((r) => [r.id, r.agentName ?? '']));
+    const saleConfirmMap = new Map(
+      reservations.map((r) => [r.id, { status: r.finalConfirmStatus ?? 'PENDING', affiliateSaleId: r.affiliateSaleId ?? null }])
+    );
 
     const travelers = reservationIds.length === 0
       ? []
@@ -198,11 +206,14 @@ export async function GET(req: NextRequest) {
           dupPassportSet.add(pno);
         }
 
+        const saleConfirmInfo = saleConfirmMap.get(reservationId);
         return {
           // 카드 그룹핑 단위 = 예약×방. 같은 roomNumber 라도 예약이 다르면 별도 카드로 분리된다.
           reservationId,
           roomNumber,
           colorHex: getRoomColorValue(roomNumber > 0 ? roomNumber : 1),
+          saleConfirmStatus: saleConfirmInfo?.status ?? 'PENDING',
+          affiliateSaleId: saleConfirmInfo?.affiliateSaleId ?? null,
           travelers: list.map((tv) => {
             totalTravelers++;
 

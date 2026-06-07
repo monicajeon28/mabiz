@@ -76,12 +76,16 @@ interface BoardTraveler {
   status: 'complete' | 'partial' | 'error';
 }
 
+type SaleConfirmStatus = 'PENDING' | 'REQUESTED' | 'APPROVED' | 'REJECTED';
+
 interface BoardRoom {
   // 그룹핑 단위 = 예약×방. 같은 roomNumber 라도 예약이 다르면 별도 카드(서버 board route 기준).
   reservationId: number;
   roomNumber: number;
   colorHex: string;
   travelers: BoardTraveler[];
+  saleConfirmStatus: SaleConfirmStatus;
+  affiliateSaleId: number | null;
 }
 
 interface BoardProduct {
@@ -341,6 +345,9 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
   // 문제 행 점프 필터: null=전체 / 'expired' / 'incomplete'
   const [problemFilter, setProblemFilter] = useState<null | 'expired' | 'incomplete'>(null);
 
+  // 판매확인 승인요청 중인 reservationId 집합
+  const [saleConfirmLoading, setSaleConfirmLoading] = useState<Set<number>>(new Set());
+
   // 저장됨·되돌리기 토스트
   const [toast, setToast] = useState<{
     message: string;
@@ -384,6 +391,34 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
       setLoading(false);
     }
   }, [productCode]);
+
+  const handleSaleConfirmRequest = useCallback(
+    async (reservationId: number) => {
+      setSaleConfirmLoading((prev) => new Set(prev).add(reservationId));
+      try {
+        const res = await fetch(
+          `/api/admin/apis/reservation/${reservationId}/request-sale-confirm`,
+          { method: 'POST' }
+        );
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          showToast(data.error ?? '요청에 실패했습니다.', 'warn');
+          return;
+        }
+        showToast('판매확인 승인요청을 크루즈닷에 전송했습니다.', 'ok');
+        void loadBoard();
+      } catch {
+        showToast('네트워크 오류가 발생했습니다.', 'warn');
+      } finally {
+        setSaleConfirmLoading((prev) => {
+          const next = new Set(prev);
+          next.delete(reservationId);
+          return next;
+        });
+      }
+    },
+    [showToast, loadBoard]
+  );
 
   useEffect(() => {
     void loadBoard();
@@ -965,6 +1000,8 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
               onAddCompanion={(reservationId) =>
                 setAddTarget({ reservationId, roomNumber: room.roomNumber })
               }
+              onSaleConfirm={handleSaleConfirmRequest}
+              saleConfirmLoading={saleConfirmLoading.has(room.reservationId)}
             />
           ))}
         </div>
@@ -1042,6 +1079,14 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
 // 방 카드
 // ─────────────────────────────────────────────────────────────
 
+// 판매확인 상태 배지
+const SALE_CONFIRM_CONFIG: Record<SaleConfirmStatus, { label: string; cls: string }> = {
+  PENDING:   { label: '미요청',   cls: 'bg-gray-100 text-gray-500' },
+  REQUESTED: { label: '승인대기', cls: 'bg-orange-100 text-orange-700' },
+  APPROVED:  { label: '승인완료', cls: 'bg-green-100 text-green-700' },
+  REJECTED:  { label: '반려',     cls: 'bg-red-100 text-red-600' },
+};
+
 interface RoomCardProps {
   room: BoardRoom;
   canManage: boolean;
@@ -1052,6 +1097,8 @@ interface RoomCardProps {
   onHistory: (t: BoardTraveler) => void;
   onDelete: (t: BoardTraveler, currentRoom: number) => void;
   onAddCompanion: (reservationId: number) => void;
+  onSaleConfirm: (reservationId: number) => void;
+  saleConfirmLoading: boolean;
 }
 
 function RoomCard({
@@ -1064,9 +1111,15 @@ function RoomCard({
   onHistory,
   onDelete,
   onAddCompanion,
+  onSaleConfirm,
+  saleConfirmLoading,
 }: RoomCardProps) {
   // 동행인 추가 시 연결할 reservationId: 방의 첫 번째 탑승객 기준 (없으면 추가 비활성)
   const primaryReservationId = room.travelers[0]?.reservationId ?? null;
+  const confirmCfg = SALE_CONFIRM_CONFIG[room.saleConfirmStatus] ?? SALE_CONFIRM_CONFIG.PENDING;
+  const canRequest = room.affiliateSaleId != null
+    && room.saleConfirmStatus !== 'REQUESTED'
+    && room.saleConfirmStatus !== 'APPROVED';
 
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
@@ -1080,6 +1133,29 @@ function RoomCard({
               · {room.travelers.length}명
             </span>
           </h3>
+          {/* 판매확인 승인요청 영역 */}
+          {canManage && room.affiliateSaleId != null && (
+            <div className="flex items-center gap-2">
+              <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${confirmCfg.cls}`}>
+                {confirmCfg.label}
+              </span>
+              {canRequest && (
+                <button
+                  type="button"
+                  disabled={saleConfirmLoading}
+                  onClick={() => onSaleConfirm(room.reservationId)}
+                  className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {saleConfirmLoading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Check className="h-3.5 w-3.5" />
+                  )}
+                  판매확인 승인요청
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col divide-y divide-gray-100">
