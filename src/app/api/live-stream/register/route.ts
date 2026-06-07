@@ -12,6 +12,7 @@ import { getMabizSession } from '@/lib/auth';
 import { sendSmsViaAligo } from '@/lib/sms-service';
 import { validateLiveStreamForm } from '@/lib/live-stream/validation';
 import { logLiveStreamEvent } from '@/lib/live-stream/tracking';
+import { logger } from '@/lib/logger';
 
 const generateShortId = (prefix: string) =>
   `${prefix}_${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
@@ -143,7 +144,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[LIVE_STREAM_REGISTER]', error);
+    logger.error('[LIVE_STREAM_REGISTER]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

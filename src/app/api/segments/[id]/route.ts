@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 interface RouteParams {
   params: {
@@ -112,7 +113,7 @@ export async function GET(
       message: "CustomerSegment functionality disabled - awaiting schema update"
     });
   } catch (error) {
-    console.error("[GET /api/segments/[id]]", error);
+    logger.error("[GET /api/segments/[id]]", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: "Failed to fetch segment details" },
       { status: 500 }

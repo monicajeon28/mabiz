@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Client } from 'pg';
 import { getMabizSession } from '@/lib/auth';
+import { logger } from '@/lib/logger';
 
 export async function GET(req: NextRequest) {
   const ctx = await getMabizSession();
@@ -63,7 +64,7 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: '서버 오류가 발생했습니다.' },
       { status: 500 }

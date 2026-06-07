@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
+import { logger } from '@/lib/logger';
 import {
   SMS_DAY0_3_SCHEDULE,
   assignAbTestVariant,
@@ -74,9 +75,7 @@ export async function POST(request: NextRequest) {
         const template = getTemplateBySegmentAndDay(segment, schedule.day, variant);
 
         if (!template) {
-          console.warn(
-            `Template not found for segment=${segment}, day=${schedule.day}, variant=${variant}`
-          );
+          logger.warn(`Template not found for segment=${segment}, day=${schedule.day}, variant=${variant}`);
           continue;
         }
 
@@ -120,10 +119,7 @@ export async function POST(request: NextRequest) {
 
         messagesToCreate.push(message);
       } catch (err) {
-        console.error(
-          `Failed to create message for day ${schedule.day}:`,
-          err
-        );
+        logger.error(`Failed to create message for day ${schedule.day}`, { error: err instanceof Error ? err.message : String(err) });
       }
     }
 
@@ -158,7 +154,7 @@ export async function POST(request: NextRequest) {
       }))
     });
   } catch (error) {
-    console.error('Error in schedule-day0-3:', error);
+    logger.error('Error in schedule-day0-3', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: '서버 오류가 발생했습니다.' },
       { status: 500 }

@@ -291,14 +291,11 @@ async function assignManagerByWeightedRoundRobin(
       return current.contactCount < prev.contactCount ? current : prev;
     });
 
-    console.log(
-      `[landing-contact-signup-manager] Assigned to manager`,
-      {
-        managerId: selectedManager.userId,
-        currentLoad: selectedManager.contactCount,
-        totalManagers: managers.length
-      }
-    );
+    logger.log('[landing-contact-signup-manager] Assigned to manager', {
+      managerId: selectedManager.userId,
+      currentLoad: selectedManager.contactCount,
+      totalManagers: managers.length,
+    });
 
     return selectedManager.userId;
   } catch (error) {
@@ -365,15 +362,12 @@ async function scheduleDay0To3Sms(
           delayHours: schedule.delayMinutes / 60
         });
 
-        console.log(
-          `[landing-contact-signup-sms] Day ${schedule.day} SMS created`,
-          {
-            contactId,
-            scheduledSmsId: scheduledSms.id,
-            lens,
-            scheduledAt: scheduledAt.toISOString()
-          }
-        );
+        logger.log(`[landing-contact-signup-sms] Day ${schedule.day} SMS created`, {
+          contactId,
+          scheduledSmsId: scheduledSms.id,
+          lens,
+          scheduledAt: scheduledAt.toISOString(),
+        });
       } catch (smsError) {
         logger.error(`[landing-contact-signup-sms-error] Failed to schedule Day ${schedule.day} SMS`, { error: smsError instanceof Error ? smsError.message : String(smsError) });
         // SMS 생성 실패해도 Contact 생성은 유지 (비치명적)
@@ -435,7 +429,7 @@ function logLandingSignup(data: LandingSignupLogData) {
     level: 'INFO',
     service: 'landing-contact-signup',
   };
-  console.log('[LandingSignupLog]', JSON.stringify(masked));
+  logger.log('[LandingSignupLog]', masked);
 }
 
 // OPTIONS 메서드 (CORS 프리플라이트)

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { getMabizSession } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 // ─── 네이버 검색광고 API (키워드 도구) ───────────────────────────────────────
 const NAVER_BASE = "https://api.naver.com";
@@ -66,7 +67,7 @@ async function fetchNaverVolume(
 
     if (!res.ok) {
       const errText = await res.text().catch(() => "");
-      console.error(`[keyword-volume] naver api ${res.status}:`, errText);
+      logger.error(`[keyword-volume] naver api ${res.status}`, { error: errText });
       return [];
     }
 
@@ -137,7 +138,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ source: "naver_live", results });
   } catch (err) {
     // [P0-3 수정] 에러 상세(스택/메시지) 클라이언트 노출 금지 — 서버 로그에만 기록
-    console.error("[keyword-volume] naver api error:", err);
+    logger.error("[keyword-volume] naver api error", { error: err instanceof Error ? err.message : String(err) });
     return NextResponse.json({ error: "API fetch failed" }, { status: 502 });
   }
 }
