@@ -297,12 +297,14 @@ export default function GroupsPage() {
 
   // ── CSRF 토큰 ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    fetch("/api/csrf-token")
+    const ctrl = new AbortController();
+    fetch("/api/csrf-token", { signal: ctrl.signal })
       .then((r) => r.json())
       .then((d) => {
         if (d.ok) setCsrfToken(d.token);
       })
-      .catch((err) => logger.error("[GroupsPage] csrf", { err }));
+      .catch((err) => { if (err.name !== 'AbortError') logger.error("[GroupsPage] csrf", { err }); });
+    return () => ctrl.abort();
   }, []);
 
   // ── 데이터 로드 ────────────────────────────────────────────────────────────
@@ -344,10 +346,12 @@ export default function GroupsPage() {
 
   // funnels + funnel-sms 한 번만 패칭 (모달 열릴 때 필요)
   useEffect(() => {
+    const ctrl = new AbortController();
     Promise.allSettled([
-      fetch("/api/funnels").then((r) => r.json()),
-      fetch("/api/funnel-sms").then((r) => r.json()),
+      fetch("/api/funnels", { signal: ctrl.signal }).then((r) => r.json()),
+      fetch("/api/funnel-sms", { signal: ctrl.signal }).then((r) => r.json()),
     ]).then(([fRes, fsRes]) => {
+      if (ctrl.signal.aborted) return;
       if (fRes.status === "fulfilled" && fRes.value.ok) {
         setFunnels((fRes.value as { ok: boolean; funnels?: { id: string; name: string }[] }).funnels ?? []);
       }
@@ -355,6 +359,7 @@ export default function GroupsPage() {
         setFunnelSmsList((fsRes.value as { ok: boolean; funnelSmsList?: { id: string; title: string }[] }).funnelSmsList ?? []);
       }
     }).catch(() => {/* funnels 패칭 실패는 조용히 무시 */});
+    return () => ctrl.abort();
   }, []);
 
   // ── 트리 빌드 ──────────────────────────────────────────────────────────────
