@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { getMabizSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 // 상품 데이터 기반으로 포함/불포함 내역 + 인솔자 유무 자동 도출
 function deriveContractItems(product: {
@@ -141,7 +142,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error: unknown) {
-    console.error('[Product Info API] Error:', error instanceof Error ? error.message : String(error));
+    logger.error('[Product Info API] Error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ ok: false, error: '상품 정보 조회 중 오류가 발생했습니다' }, { status: 500 });
   }
 }
