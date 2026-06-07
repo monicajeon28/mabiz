@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext, resolveOrgId, requireOrgId } from "@/lib/rbac";
-import { sendSms, getOrgSmsConfig } from "@/lib/aligo";
+import { sendSms, resolveUserSmsConfig } from "@/lib/aligo";
 import { logger } from "@/lib/logger";
 
 const MAX_RECIPIENTS = 200;
@@ -69,15 +69,15 @@ export async function POST(req: Request) {
       });
     }
 
-    const smsConfig = await getOrgSmsConfig(orgId);
-    if (!smsConfig) {
+    // 발신 계정 해석: 개인(UserSmsConfig) > 조직(OrgSmsConfig) > 시스템 env.
+    const config = await resolveUserSmsConfig(orgId, ctx.userId);
+    if (!config) {
       return NextResponse.json(
-        { ok: false, message: "SMS 설정이 없습니다. 설정 → SMS에서 Aligo 정보를 입력하세요." },
+        { ok: false, message: "SMS 발신 계정이 없습니다. 설정 → 문자에서 알리고를 연결하세요." },
         { status: 400 }
       );
     }
 
-    const config = { key: smsConfig.aligoKey, userId: smsConfig.aligoUserId, sender: smsConfig.senderPhone };
     let sentCount = 0, failedCount = 0;
 
     for (let i = 0; i < targets.length; i += BATCH_SIZE) {

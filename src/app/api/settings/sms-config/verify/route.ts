@@ -12,7 +12,7 @@ import { decrypt } from "@/lib/crypto";
 export async function POST() {
   try {
     const ctx = await getAuthContext();
-    if (!ctx.member?.id) {
+    if (!ctx.userId) {
       return NextResponse.json(
         { ok: false, message: "사용자 정보 없음" },
         { status: 401 }
@@ -20,7 +20,7 @@ export async function POST() {
     }
 
     const orgId = resolveOrgId(ctx);
-    const userId = ctx.member.id;
+    const userId = ctx.userId;
 
     // 개인 SMS 설정 확인
     const config = await prisma.userSmsConfig.findUnique({
@@ -118,12 +118,12 @@ export async function POST() {
 export async function PUT() {
   try {
     const ctx = await getAuthContext();
-    if (!ctx.member?.id) {
+    if (!ctx.userId) {
       return NextResponse.json({ ok: false, message: "사용자 정보 없음" }, { status: 401 });
     }
 
     const orgId = resolveOrgId(ctx);
-    const userId = ctx.member.id;
+    const userId = ctx.userId;
 
     // 개인 SMS 설정 확인
     const config = await prisma.userSmsConfig.findUnique({
