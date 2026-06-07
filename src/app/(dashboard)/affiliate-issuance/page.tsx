@@ -41,9 +41,9 @@ type IssuanceResult = {
 
 type BranchManager = {
   id: number;
-  displayName: string;
-  mallUserId: string;
-  name: string;
+  displayName: string | null;
+  mallUserId: string | null;
+  name: string | null;
 };
 
 type AffiliateProfile = {
@@ -447,7 +447,7 @@ function IssuanceForm() {
               <Field label="수당율 % (agentCommissionRate)">
                 <input
                   type="number"
-                  step="0.1"
+                  step="1"
                   min="0"
                   max="100"
                   value={agentCommissionRate}
@@ -613,7 +613,7 @@ function AffiliateListTab() {
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [filterType, setFilterType] = useState('');
-  const filterStatus = 'ACTIVE';
+  const [filterStatus, setFilterStatus] = useState('ACTIVE');
   const [q, setQ] = useState('');
   const [resetLoadingId, setResetLoadingId] = useState<number | null>(null);
   const [resetMsg, setResetMsg] = useState<{ id: number; msg: string; ok: boolean } | null>(null);
@@ -706,6 +706,25 @@ function AffiliateListTab() {
             </option>
           ))}
         </select>
+
+        <select
+          value={filterStatus}
+          onChange={e => setFilterStatus(e.target.value)}
+          className={inputCls + ' bg-white min-w-[120px]'}
+        >
+          <option value="">상태 전체</option>
+          {Object.entries(STATUS_LABELS).map(([val, label]) => (
+            <option key={val} value={val}>
+              {label}
+            </option>
+          ))}
+        </select>
+
+        {filterStatus === 'ACTIVE' && (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+            활성 계정만 표시 중
+          </span>
+        )}
 
         <div className="relative flex-1 min-w-[200px]">
           <Search
