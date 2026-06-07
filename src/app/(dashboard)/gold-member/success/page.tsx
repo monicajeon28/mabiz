@@ -28,9 +28,10 @@ export default function SuccessPage() {
       return;
     }
 
+    const ctrl = new AbortController();
     const fetchMember = async () => {
       try {
-        const res = await fetch(`/api/gold-members/${memberId}`);
+        const res = await fetch(`/api/gold-members/${memberId}`, { signal: ctrl.signal });
         if (!res.ok) {
           setError("회원 정보를 불러올 수 없습니다.");
           return;
@@ -40,13 +41,15 @@ export default function SuccessPage() {
           setMember(data.member);
         }
       } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         setError("네트워크 오류가 발생했습니다.");
       } finally {
-        setLoading(false);
+        if (!ctrl.signal.aborted) setLoading(false);
       }
     };
 
     fetchMember();
+    return () => ctrl.abort();
   }, [memberId]);
 
   if (loading) {

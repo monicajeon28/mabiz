@@ -107,11 +107,12 @@ export default function GoldMemberDashboard() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const ctrl = new AbortController();
     // URL에서 memberId 가져오기 또는 localStorage에서 조회
     const loadMember = async () => {
       try {
         // 현재 로그인 사용자의 골드회원 정보 조회
-        const res = await fetch("/api/gold-members?limit=1");
+        const res = await fetch("/api/gold-members?limit=1", { signal: ctrl.signal });
         if (!res.ok) {
           setError("회원 정보를 불러올 수 없습니다.");
           return;
@@ -124,13 +125,15 @@ export default function GoldMemberDashboard() {
           setError("회원 정보를 찾을 수 없습니다.");
         }
       } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         setError("네트워크 오류가 발생했습니다.");
       } finally {
-        setLoading(false);
+        if (!ctrl.signal.aborted) setLoading(false);
       }
     };
 
     loadMember();
+    return () => ctrl.abort();
   }, []);
 
   if (loading) {

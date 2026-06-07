@@ -76,7 +76,7 @@ export default function PurchasedPage() {
     }
   }, [toast]);
 
-  const fetchContacts = useCallback(async () => {
+  const fetchContacts = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setFetchError('');
     // type 필터: "CUSTOMER"(영문) + "구매완료"(한글) 모두 포함해야 함 → API에 customerOnly 파라미터 사용
@@ -87,26 +87,36 @@ export default function PurchasedPage() {
     params.set("sortBy", sortBy === "recent" ? "purchasedAt_desc" : "purchasedAt_asc");
 
     try {
-      const res = await fetch(`/api/contacts?${params}`);
+      const res = await fetch(`/api/contacts?${params}`, { signal });
       if (!res.ok) throw new Error('서버 오류');
       const data = await res.json() as { ok: boolean; contacts?: Contact[]; total?: number };
       if (!data.ok) throw new Error('데이터 로드 실패');
       setContacts(data.contacts ?? []);
       setTotal(data.total ?? 0);
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       setFetchError('고객 목록을 불러오지 못했습니다');
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, [q, page, channelFilter, selectedTags, sortBy]);
 
-  useEffect(() => { fetchContacts(); }, [fetchContacts]);
+  useEffect(() => {
+    const ctrl = new AbortController();
+    fetchContacts(ctrl.signal);
+    return () => ctrl.abort();
+  }, [fetchContacts]);
 
   // 의존성: 필터 변경 시 페이지 초기화
   useEffect(() => { setPage(1); }, [channelFilter, sortBy]);
 
   useEffect(() => {
-    fetch("/api/groups").then(r => r.json()).then(d => { if (d.ok) setGroups(d.groups ?? []); });
+    const ctrl = new AbortController();
+    fetch("/api/groups", { signal: ctrl.signal })
+      .then(r => r.json())
+      .then(d => { if (d.ok) setGroups(d.groups ?? []); })
+      .catch(err => { if (err instanceof Error && err.name === 'AbortError') return; });
+    return () => ctrl.abort();
   }, []);
 
   const runImport = async () => {
@@ -347,7 +357,7 @@ export default function PurchasedPage() {
       {fetchError && (
         <div className="text-center py-12">
           <p className="text-red-500 text-sm mb-3">{fetchError}</p>
-          <button onClick={fetchContacts} className="px-4 py-2 bg-navy-900 text-white rounded-lg text-sm">
+          <button onClick={() => fetchContacts()} className="px-4 py-2 bg-navy-900 text-white rounded-lg text-sm">
             다시 시도
           </button>
         </div>

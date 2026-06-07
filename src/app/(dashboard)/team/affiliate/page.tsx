@@ -300,10 +300,14 @@ export default function AffiliateTeamDashboardPage() {
   };
 
   useEffect(() => {
-    fetchPendingCount();
-    // 30초마다 자동 폴링 (대기 건수 실시간 반영)
+    const ctrl = new AbortController();
+    fetch('/api/affiliate/contracts?status=submitted&page=1', { signal: ctrl.signal })
+      .then(r => r.json())
+      .then(d => { if (d.ok && mountedRef.current) setPendingCount(d.data?.total ?? d.data?.contracts?.length ?? 0); })
+      .catch(err => { if (err instanceof Error && err.name === 'AbortError') return; });
+    // 30초마다 자동 폴링 (대기 건수 실시간 반영) — setInterval 내부 fetch는 signal 없이 유지
     const timer = setInterval(fetchPendingCount, 30_000);
-    return () => clearInterval(timer);
+    return () => { ctrl.abort(); clearInterval(timer); };
   }, []);
 
   // ── 대리점장 CRM 연결 정보 (활성화/비활성화/삭제용) ──────────────────────
@@ -313,7 +317,8 @@ export default function AffiliateTeamDashboardPage() {
   const [actingManager, setActingManager] = useState<string | null>(null); // userId
 
   useEffect(() => {
-    fetch(`/api/admin/affiliate-managers?limit=${AFFILIATE_MANAGERS_LIMIT}`)
+    const ctrl = new AbortController();
+    fetch(`/api/admin/affiliate-managers?limit=${AFFILIATE_MANAGERS_LIMIT}`, { signal: ctrl.signal })
       .then(r => r.json())
       .then(d => {
         if (!d.ok || !d.managers) return;
@@ -330,7 +335,8 @@ export default function AffiliateTeamDashboardPage() {
         }
         setManagerLookup(map);
       })
-      .catch(() => {});
+      .catch(err => { if (err instanceof Error && err.name === 'AbortError') return; });
+    return () => ctrl.abort();
   }, []);
 
   const handleToggleManager = async (userId: string, orgId: string, currentIsActive: boolean, name: string) => {
