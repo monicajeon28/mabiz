@@ -135,11 +135,13 @@ export default function EditB2BPage() {
 
   // Task 1-5: 초기 데이터 로딩 — HTTP 에러 처리 추가
   useEffect(() => {
+    const ctrl = new AbortController();
+    const { signal } = ctrl;
     Promise.all([
-      fetch(`/api/b2b-landing/${id}`).then((r) => {
+      fetch(`/api/b2b-landing/${id}`, { signal }).then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
-      }).catch(() => ({ ok: false })),
+      }).catch((e) => { if (e?.name === 'AbortError') throw e; return { ok: false }; }),
     ]).then(([pageData]) => {
       if (pageData.ok && pageData.page) {
         setTitle(pageData.page.title ?? "");
@@ -199,8 +201,9 @@ export default function EditB2BPage() {
           if (typeof dateTo === 'string') setCommentDateTo(dateTo);
         }
       }
-      setLoading(false);
-    }).catch(() => setLoading(false));
+      if (!signal.aborted) setLoading(false);
+    }).catch((e) => { if (e?.name !== 'AbortError') setLoading(false); });
+    return () => ctrl.abort();
   }, [id]);
 
   // Task 1-5: loadStats — HTTP 에러 처리 추가
