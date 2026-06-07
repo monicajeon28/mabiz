@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { realtimeMetricsService } from '@/lib/services/realtime-metrics-service';
+import { getMabizSession } from '@/lib/auth';
 
 /**
  * WebSocket handler for real-time KPI updates
@@ -117,7 +118,8 @@ async function handleHttpMetricsRequest(organizationId: string) {
  */
 export async function POST(request: NextRequest) {
   try {
-    // Note: In production, add proper authentication check here
+    const session = await getMabizSession();
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
     const { type, organizationId, ...eventData } = body;
