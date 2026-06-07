@@ -2905,8 +2905,10 @@ model GmApisSyncQueue {
   scheduledAt DateTime  @default(now())
   createdAt   DateTime  @default(now())
   processedAt DateTime?
+  batchId     String?
 
   @@index([status, scheduledAt])
+  @@index([batchId])
   @@map("ApisSyncQueue")
 }
 
