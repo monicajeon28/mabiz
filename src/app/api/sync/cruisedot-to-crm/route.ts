@@ -11,6 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { Client } from 'pg';
+import { getMabizSession } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
@@ -165,6 +166,11 @@ async function syncAffiliateLeadsToContact(
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getMabizSession();
+    if (!session?.userId || session.role !== 'GLOBAL_ADMIN') {
+      return NextResponse.json({ error: 'GLOBAL_ADMIN 권한이 필요합니다.' }, { status: 403 });
+    }
+
     // Get the CRM default organization (first one)
     const orgs = await prisma.organization.findMany({
       take: 1,
