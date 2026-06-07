@@ -34,8 +34,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { validateOrgMembership } from '@/app/api/_auth/validate-agent-role';
+import prisma from '@/lib/prisma';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import logger from '@/lib/logger';
 
 interface L1MetricsResponse {
@@ -88,22 +88,13 @@ interface L1MetricsResponse {
 
 export async function GET(request: NextRequest): Promise<NextResponse<L1MetricsResponse>> {
   try {
+    const ctx = await getAuthContext().catch(() => null);
+    if (!ctx?.userId) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    const organizationId = resolveOrgId(ctx);
+
     const { searchParams } = new URL(request.url);
-    const organizationId = searchParams.get('organizationId');
     const daysBack = parseInt(searchParams.get('daysBack') || '30', 10);
     const contactId = searchParams.get('contactId');
-
-    if (!organizationId) {
-      return NextResponse.json<L1MetricsResponse>(
-        { success: false, error: 'organizationId required' },
-        { status: 400 }
-      );
-    }
-
-    const authResult = validateOrgMembership(request);
-    if (authResult !== true) {
-      return authResult as any as NextResponse<L1MetricsResponse>;
-    }
 
     const dateFrom = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000);
     const dateTo = new Date();

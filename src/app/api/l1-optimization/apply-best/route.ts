@@ -21,8 +21,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { validateOrgMembership } from '@/app/api/_auth/validate-agent-role';
+import prisma from '@/lib/prisma';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { sendL1SMS } from '@/lib/l1-optimization/sms-sender';
 import logger from '@/lib/logger';
 
@@ -51,14 +51,12 @@ interface L1ApplyBestResponse {
 
 export async function POST(request: NextRequest): Promise<NextResponse<L1ApplyBestResponse>> {
   try {
-    const body = await request.json() as L1ApplyBestRequest;
-    const { organizationId, contactId, objectiveType, autoSendSMS = false, segmentId } = body;
+    const ctx = await getAuthContext().catch(() => null);
+    if (!ctx?.userId) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    const organizationId = resolveOrgId(ctx);
 
-    // 1. 인증 및 권한 확인
-    const authResult = validateOrgMembership(request);
-    if (authResult !== true) {
-      return authResult as any as NextResponse<L1ApplyBestResponse>;
-    }
+    const body = await request.json() as L1ApplyBestRequest;
+    const { contactId, objectiveType, autoSendSMS = false, segmentId } = body;
 
     // 2. Contact 확인
     const contact = await prisma.contact.findUnique({
