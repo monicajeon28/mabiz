@@ -97,11 +97,12 @@ export async function POST(
   const prevStatus = reservation.finalConfirmStatus;
 
   // 1. finalConfirmStatus → REQUESTED (원자 클레임)
+  const requesterId = ctx.mallUser?.id ?? null;
   const claimed = await prisma.$executeRaw`
     UPDATE "Reservation"
-    SET "finalConfirmStatus"       = 'REQUESTED',
-        "finalConfirmRequestedAt"  = NOW(),
-        "finalConfirmRequestedById" = ${reservation.mainUserId}
+    SET "finalConfirmStatus"        = 'REQUESTED',
+        "finalConfirmRequestedAt"   = NOW(),
+        "finalConfirmRequestedById" = ${requesterId}
     WHERE id = ${reservationId}
       AND "finalConfirmStatus" NOT IN ('REQUESTED', 'APPROVED')
   `;
