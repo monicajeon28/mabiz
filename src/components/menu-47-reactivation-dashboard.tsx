@@ -108,6 +108,7 @@ export default function Menu47ReactivationDashboard({ organizationId }: Reactiva
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          organizationId,
           segment: selectedSegment === 'all' ? null : selectedSegment,
           dayIndex,
           variant,
@@ -116,7 +117,6 @@ export default function Menu47ReactivationDashboard({ organizationId }: Reactiva
       });
 
       if (response.ok) {
-        alert('캠페인 발송 완료!');
         void fetchAnalytics();
       }
     } catch (error) {
