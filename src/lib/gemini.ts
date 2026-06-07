@@ -10,6 +10,8 @@
  * Last updated: 2026-05-26
  */
 
+import { logger } from '@/lib/logger';
+
 export const initGeminiClient = () => {
   // TODO: Initialize with process.env.GOOGLE_GEMINI_API_KEY
   return {
@@ -25,7 +27,7 @@ export const initGeminiClient = () => {
  */
 export const scanPassport = async (imageUrl: string) => {
   // TODO: Implement actual Gemini vision API call
-  console.warn('[TODO] scanPassport requires Gemini Vision API implementation');
+  logger.warn('[TODO] scanPassport requires Gemini Vision API implementation');
   return {
     mrz: null,
     name: null,

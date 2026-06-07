@@ -10,6 +10,8 @@
  * Last updated: 2026-05-26
  */
 
+import { logger } from '@/lib/logger';
+
 export interface GoogleSheetsConfig {
   spreadsheetId: string;
   apiKey?: string;
@@ -31,22 +33,22 @@ export class GoogleSheetsClient {
   }
 
   async appendValues(range: SheetRange, values: any[][]): Promise<void> {
-    console.warn('[TODO] appendValues requires Google Sheets API implementation');
+    logger.warn('[TODO] appendValues requires Google Sheets API implementation');
     // TODO: Implement append operation
   }
 
   async getValues(range: SheetRange): Promise<any[][]> {
-    console.warn('[TODO] getValues requires Google Sheets API implementation');
+    logger.warn('[TODO] getValues requires Google Sheets API implementation');
     return [];
   }
 
   async updateValues(range: SheetRange, values: any[][]): Promise<void> {
-    console.warn('[TODO] updateValues requires Google Sheets API implementation');
+    logger.warn('[TODO] updateValues requires Google Sheets API implementation');
     // TODO: Implement update operation
   }
 
   async batchUpdate(requests: any[]): Promise<void> {
-    console.warn('[TODO] batchUpdate requires Google Sheets API implementation');
+    logger.warn('[TODO] batchUpdate requires Google Sheets API implementation');
     // TODO: Implement batch update operation
   }
 
@@ -78,7 +80,7 @@ export const initGoogleSheetsClient = () => {
  * TODO: Implement full APIS sync logic
  */
 export const syncApisSpreadsheet = async (tripId: number) => {
-  console.warn('[TODO] syncApisSpreadsheet requires full Google Sheets API implementation');
+  logger.warn('[TODO] syncApisSpreadsheet requires full Google Sheets API implementation');
   return { ok: false, error: 'Not implemented' };
 };
 
@@ -87,7 +89,7 @@ export const syncApisSpreadsheet = async (tripId: number) => {
  * TODO: Implement full master sheet sync logic
  */
 export const syncToMasterApisSheet = async (userId: number) => {
-  console.warn('[TODO] syncToMasterApisSheet requires full Google Sheets API implementation');
+  logger.warn('[TODO] syncToMasterApisSheet requires full Google Sheets API implementation');
   return { ok: false, error: 'Not implemented' };
 };
 
