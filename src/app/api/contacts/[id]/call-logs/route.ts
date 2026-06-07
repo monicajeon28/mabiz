@@ -2,7 +2,6 @@ export const runtime = 'nodejs';
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { getMabizSession } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { addLeadScore } from "@/lib/lead-score";
 import { getAuthContext } from "@/lib/rbac";
@@ -187,7 +186,6 @@ export async function PUT(req: Request, { params }: Params) {
 export async function POST(req: Request, { params }: Params) {
   try {
     const ctx      = await getAuthContext();
-    const session  = await getMabizSession();
     const { id }   = await params;
     const body     = await req.json();
 
@@ -265,7 +263,7 @@ export async function POST(req: Request, { params }: Params) {
     }
 
     // ★ Google Drive 자동 백업 (BackupJob 큐에 등록)
-    if (session && process.env.GOOGLE_DRIVE_CALL_LOG_FOLDER_ID) {
+    if (ctx.userId && process.env.GOOGLE_DRIVE_CALL_LOG_FOLDER_ID) {
       let userId: string;
       let displayName: string;
       if (ctx.role === 'GLOBAL_ADMIN') {
