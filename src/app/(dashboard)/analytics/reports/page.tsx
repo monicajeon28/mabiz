@@ -12,6 +12,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { logger } from '@/lib/logger';
 
 interface ReportRow {
   id: string;
@@ -42,7 +43,7 @@ export default function ReportsPage() {
       setReports(data);
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return;
-      console.error('Error fetching reports:', err);
+      logger.error('Error fetching reports:', { error: err instanceof Error ? err.message : String(err) });
     } finally {
       setLoading(false);
     }
@@ -68,7 +69,7 @@ export default function ReportsPage() {
       setExpandedData(data);
       setExpandedId(id);
     } catch (err) {
-      console.error('Error expanding row:', err);
+      logger.error('Error expanding row:', { error: err instanceof Error ? err.message : String(err) });
     }
   };
 

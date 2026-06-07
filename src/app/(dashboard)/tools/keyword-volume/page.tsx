@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Search, TrendingUp, Smartphone, Monitor, RefreshCw, AlertCircle, ChevronUp, ChevronDown, Info } from "lucide-react";
 import { KEYWORD_DB, TOTAL_KEYWORDS, TOP_MOBILE_KW, searchKeywords, getTopKeywords, formatVol, type KeywordData } from "@/lib/keyword-data";
+import { logger } from "@/lib/logger";
 
 type SortKey = "mobile" | "pc" | "total" | "keyword";
 type SortDir = "asc" | "desc";
@@ -112,7 +113,7 @@ export default function KeywordVolumePage() {
       }
     } catch (e) {
       if (e instanceof Error && e.name === "AbortError") return;
-      console.error("[keyword-volume] fetch error:", e);
+      logger.error("[keyword-volume] fetch error:", { error: e instanceof Error ? e.message : String(e) });
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }

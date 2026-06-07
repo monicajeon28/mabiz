@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { BookOpen, ChevronLeft, ChevronRight } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 type LedgerEntry = {
   id: number;
@@ -109,7 +110,7 @@ export default function CommissionLedgerPage() {
       })
       .catch((e) => {
         if (e.name !== "AbortError") {
-          console.error("[commission-ledger]", e);
+          logger.error("[commission-ledger]", { error: e instanceof Error ? e.message : String(e) });
           setError(e.message || "데이터를 불러올 수 없습니다.");
         }
       })

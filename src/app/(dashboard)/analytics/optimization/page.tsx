@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import React, { useState, useEffect } from "react";
+import { logger } from "@/lib/logger";
 import {
   BarChart3,
   TrendingUp,
@@ -138,7 +139,7 @@ export default function OptimizationDashboard() {
         });
       }
     } catch (error) {
-      console.error("Failed to refresh optimization:", error);
+      logger.error("Failed to refresh optimization:", { error: error instanceof Error ? error.message : String(error) });
     } finally {
       setIsLoading(false);
     }

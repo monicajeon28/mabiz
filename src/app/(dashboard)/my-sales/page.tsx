@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Copy, Check, TrendingUp, Clock, CheckCircle, DollarSign } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 type Sale = {
   id: string;
@@ -69,20 +70,20 @@ export default function MySalesPage() {
         setSales(salesResult.value.sales ?? []);
         setSummary(salesResult.value.summary ?? []);
       } else if (salesResult.status === 'rejected') {
-        console.error('[my-sales] sales API 실패:', salesResult.reason);
+        logger.error('[my-sales] sales API 실패:', { error: salesResult.reason instanceof Error ? salesResult.reason.message : String(salesResult.reason) });
       }
 
       if (affiliateResult.status === 'fulfilled' && affiliateResult.value.ok) {
         setAffiliateCode(affiliateResult.value.affiliateCode);
         setLink(affiliateResult.value.cruisemallLink);
       } else if (affiliateResult.status === 'rejected') {
-        console.error('[my-sales] affiliate API 실패:', affiliateResult.reason);
+        logger.error('[my-sales] affiliate API 실패:', { error: affiliateResult.reason instanceof Error ? affiliateResult.reason.message : String(affiliateResult.reason) });
       }
 
       if (payslipResult.status === 'fulfilled' && payslipResult.value.ok) {
         setPayslips(payslipResult.value.payslips ?? []);
       } else if (payslipResult.status === 'rejected') {
-        console.error('[my-sales] payslip API 실패:', payslipResult.reason);
+        logger.error('[my-sales] payslip API 실패:', { error: payslipResult.reason instanceof Error ? payslipResult.reason.message : String(payslipResult.reason) });
       }
 
       setLoading(false);

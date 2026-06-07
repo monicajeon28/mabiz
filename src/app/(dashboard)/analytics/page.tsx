@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from '@/hooks/useSession';
+import { logger } from '@/lib/logger';
 import {
   TrendingUp,
   TrendingDown,
@@ -75,7 +76,7 @@ export default function AnalyticsDashboard() {
         }
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') return;
-        console.error('Failed to fetch analytics:', error);
+        logger.error('Failed to fetch analytics:', { error: error instanceof Error ? error.message : String(error) });
       } finally {
         setLoading(false);
       }
