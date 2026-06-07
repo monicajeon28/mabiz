@@ -50,21 +50,40 @@ export default function AuditLogsPage() {
   async function loadData() {
     try {
       setLoading(true);
-      const params = new URLSearchParams();
-      if (filter.action !== 'ALL') params.set('action', filter.action);
-      if (filter.status !== 'ALL') params.set('status', filter.status);
-      if (filter.startDate) params.set('startDate', filter.startDate);
-      if (filter.endDate) params.set('endDate', filter.endDate);
 
-      const res = await fetch(`/api/admin/audit-logs?${params.toString()}`);
-      if (!res.ok) {
-        setLoading(false);
-        return;
+      // 감시 로그 파라미터
+      const auditParams = new URLSearchParams();
+      if (filter.action !== 'ALL') auditParams.set('action', filter.action);
+      if (filter.status !== 'ALL') auditParams.set('status', filter.status);
+      if (filter.startDate) auditParams.set('startDate', filter.startDate);
+      if (filter.endDate) auditParams.set('endDate', filter.endDate);
+
+      // 보안 이벤트 파라미터
+      const secParams = new URLSearchParams();
+      if (filter.severity !== 'ALL') secParams.set('severity', filter.severity);
+      if (filter.startDate) secParams.set('startDate', filter.startDate);
+      if (filter.endDate) secParams.set('endDate', filter.endDate);
+      secParams.set('limit', '100');
+
+      const [auditRes, secRes] = await Promise.all([
+        fetch(`/api/admin/audit-logs?${auditParams.toString()}`),
+        fetch(`/api/admin/security-events?${secParams.toString()}`),
+      ]);
+
+      if (auditRes.ok) {
+        const data = await auditRes.json();
+        if (data.ok) {
+          setAuditLogs(data.data ?? []);
+        }
       }
-      const data = await res.json();
-      if (data.ok) {
-        setAuditLogs(data.data ?? []);
+
+      if (secRes.ok) {
+        const data = await secRes.json();
+        if (data.ok) {
+          setSecurityEvents(data.data ?? []);
+        }
       }
+
       setLoading(false);
     } catch (error) {
       logger.error('Error loading audit logs:', error);
