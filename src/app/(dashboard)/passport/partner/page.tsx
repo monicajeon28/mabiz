@@ -60,7 +60,7 @@ export default function PartnerPassportRequestsPage() {
     return templates.find((tpl) => tpl.isDefault) ?? templates[0];
   }, [templates]);
 
-  const loadRequests = useCallback(async () => {
+  const loadRequests = useCallback(async (signal?: AbortSignal) => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -70,6 +70,7 @@ export default function PartnerPassportRequestsPage() {
 
       const res = await fetch(`/api/passport/partner/requests?${params.toString()}`, {
         credentials: 'include',
+        signal,
       });
       const json = await res.json();
 
@@ -79,18 +80,20 @@ export default function PartnerPassportRequestsPage() {
 
       setRequests(json.customers || []);
     } catch (error: any) {
+      if (error?.name === 'AbortError') return;
       console.error('[PartnerPassportRequests] load error', error);
       showError(error.message || '여권 요청 목록을 불러오는 중 오류가 발생했습니다.');
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, [searchQuery]);
 
-  const loadTemplates = useCallback(async () => {
+  const loadTemplates = useCallback(async (signal?: AbortSignal) => {
     try {
       setTemplatesLoading(true);
       const res = await fetch('/api/passport/partner/templates', {
         credentials: 'include',
+        signal,
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
@@ -103,19 +106,24 @@ export default function PartnerPassportRequestsPage() {
         setMessageBody(tpl.body || '');
       }
     } catch (error: any) {
+      if (error?.name === 'AbortError') return;
       console.error('[PartnerPassportRequests] template load error', error);
       showError(error.message || '템플릿을 불러오는 중 오류가 발생했습니다.');
     } finally {
-      setTemplatesLoading(false);
+      if (!signal?.aborted) setTemplatesLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadRequests();
+    const ctrl = new AbortController();
+    loadRequests(ctrl.signal);
+    return () => ctrl.abort();
   }, [loadRequests]);
 
   useEffect(() => {
-    loadTemplates();
+    const ctrl = new AbortController();
+    loadTemplates(ctrl.signal);
+    return () => ctrl.abort();
   }, [loadTemplates]);
 
   const handleOpenModal = (request: PassportRequest) => {
@@ -218,7 +226,7 @@ export default function PartnerPassportRequestsPage() {
                 />
               </div>
               <button
-                onClick={loadRequests}
+                onClick={() => loadRequests()}
                 className="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100"
               >
                 <RefreshCw className="h-4 w-4" />
