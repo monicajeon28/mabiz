@@ -12,7 +12,7 @@ export const metadata = {
 export default async function Menu48Page() {
   const session = await getMabizSession();
 
-  if (!session) {
+  if (!session?.organizationId) {
     redirect('/login');
   }
 
