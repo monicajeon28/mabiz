@@ -39,22 +39,29 @@ export default function ApisPage() {
   const [savingDrive, setSavingDrive] = useState(false);
 
   // 실제 판매 상품 목록 로드 (/products 와 동일 소스)
-  const loadProducts = useCallback(async (q: string) => {
+  const loadProducts = useCallback(async (q: string, signal?: AbortSignal) => {
     setLoadingProducts(true);
     try {
       const params = new URLSearchParams();
       params.set('isActive', 'true');           // 현재 판매중 상품만
       params.set('limit', '200');                // 선택 UI: 판매중 상품을 한 번에 로드
       if (q.trim()) params.set('q', q.trim());   // 선박명·크루즈명·상품코드 검색
-      const res = await fetch(`/api/products?${params}`);
+      const res = await fetch(`/api/products?${params}`, { signal });
       const data = await res.json();
       if (data.ok) setProducts(data.products ?? []);
       else showError(data.error ?? '상품 목록을 불러오지 못했습니다.');
-    } catch { showError('네트워크 오류'); }
-    finally { setLoadingProducts(false); }
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return;
+      showError('네트워크 오류');
+    }
+    finally { if (!signal?.aborted) setLoadingProducts(false); }
   }, []);
 
-  useEffect(() => { loadProducts(''); }, [loadProducts]);
+  useEffect(() => {
+    const ctrl = new AbortController();
+    loadProducts('', ctrl.signal);
+    return () => ctrl.abort();
+  }, [loadProducts]);
 
   // 상품 선택 → selected만 세팅 (APIS 표는 ApisBoard가 자체 로드)
   // Drive 저장 버튼 게이팅을 위해 탑승객 수만 가볍게 조회

@@ -40,10 +40,12 @@ export default function AuditLogsPage() {
   });
   // 초기 로드
   useEffect(() => {
-    loadData();
+    const ctrl = new AbortController();
+    loadData(ctrl.signal);
+    return () => ctrl.abort();
   }, [filter]);
 
-  async function loadData() {
+  async function loadData(signal?: AbortSignal) {
     try {
       setLoading(true);
 
@@ -62,8 +64,8 @@ export default function AuditLogsPage() {
       secParams.set('limit', '100');
 
       const [auditRes, secRes] = await Promise.all([
-        fetch(`/api/admin/audit-logs?${auditParams.toString()}`),
-        fetch(`/api/admin/security-events?${secParams.toString()}`),
+        fetch(`/api/admin/audit-logs?${auditParams.toString()}`, { signal }),
+        fetch(`/api/admin/security-events?${secParams.toString()}`, { signal }),
       ]);
 
       if (auditRes.ok) {
@@ -80,10 +82,11 @@ export default function AuditLogsPage() {
         }
       }
 
-      setLoading(false);
-    } catch (error) {
+      if (!signal?.aborted) setLoading(false);
+    } catch (error: any) {
+      if (error?.name === 'AbortError') return;
       logger.error('Error loading audit logs:', error);
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }
 
