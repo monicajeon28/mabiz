@@ -6,23 +6,22 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
 import prisma from '@/lib/prisma';
 import { createAligoClient } from '@/lib/aligo';
 import { logger } from '@/lib/logger';
-import { authOptions } from '@/lib/auth';
+import { getMabizSession } from '@/lib/auth';
 
 export async function POST(req: Request) {
   try {
     // 관리자 인증 확인
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
+    const session = await getMabizSession();
+    if (!session) {
       return NextResponse.json({ error: '인증 필요' }, { status: 401 });
     }
 
     // 관리자 권한 확인 (OrganizationMember 사용)
     const member = await prisma.organizationMember.findFirst({
-      where: { email: session.user.email, isActive: true },
+      where: { userId: session.userId, isActive: true },
       select: { role: true, organizationId: true },
     });
 

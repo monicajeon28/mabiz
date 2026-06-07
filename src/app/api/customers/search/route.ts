@@ -16,18 +16,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCustomers360 } from "@/lib/customers/customer-aggregator";
 import { maskCustomer360, UserRole } from "@/lib/customers/pii-masker";
-import { getServerSession } from "next-auth";
+import { getMabizSession } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession();
+    const session = await getMabizSession();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const organizationId = (request.nextUrl.searchParams.get("orgId") ||
-      (typeof session === 'object' && session !== null && 'user' in session ? (session as { user?: { organizationId?: string } }).user?.organizationId : undefined)) as string;
+      session.organizationId) as string;
 
     if (!organizationId) {
       return NextResponse.json(

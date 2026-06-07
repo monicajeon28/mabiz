@@ -26,7 +26,7 @@ import { detectCustomerLenses } from "@/lib/customers/lens-detector";
 import { maskCustomer360, UserRole } from "@/lib/customers/pii-masker";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
-import { getServerSession } from "next-auth";
+import { getMabizSession } from "@/lib/auth";
 import { headers } from "next/headers";
 
 export async function GET(
@@ -37,7 +37,7 @@ export async function GET(
     const startTime = Date.now();
 
     // Get session and organization context
-    const session = await getServerSession();
+    const session = await getMabizSession();
     if (!session) {
       return NextResponse.json(
         { error: "Unauthorized" },
@@ -46,7 +46,7 @@ export async function GET(
     }
 
     const organizationId = (request.nextUrl.searchParams.get("orgId") ||
-      (typeof session === 'object' && session !== null && 'user' in session ? (session as { user?: { organizationId?: string } }).user?.organizationId : undefined)) as string;
+      session.organizationId) as string;
 
     if (!organizationId) {
       return NextResponse.json(

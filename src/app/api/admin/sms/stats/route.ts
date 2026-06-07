@@ -9,21 +9,20 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-import { authOptions } from '@/lib/auth';
+import { getMabizSession } from '@/lib/auth';
 
 export async function GET(req: Request) {
   try {
     // 관리자 인증 확인
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
+    const session = await getMabizSession();
+    if (!session) {
       return NextResponse.json({ error: '인증 필요' }, { status: 401 });
     }
 
     const member = await prisma.organizationMember.findFirst({
-      where: { email: session.user.email, isActive: true },
+      where: { userId: session.userId, isActive: true },
       select: { organizationId: true, role: true },
     });
 
