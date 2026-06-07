@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
+import { sendSmsWithAligoPublic } from "@/lib/aligo-sms-service";
 
 /**
  * L8 렌즈: 재방문 습관화 SMS 자동 발송 (Cron Job)
@@ -219,21 +220,22 @@ async function sendSmsViaAligo(
       return false;
     }
 
-    // TODO: Aligo SDK 통합
-    // const response = await aligoClient.send({
-    //   receiver: phone,
-    //   message: text,
-    //   senderKey: config.senderKey,
-    // });
-    // return response.success;
+    const result = await sendSmsWithAligoPublic(
+      config.aligoUserId,
+      config.aligoKey,
+      config.senderPhone,
+      phone,
+      text,
+    );
 
-    // 임시: 항상 true 반환 (실제 환경에서는 위 주석 풀기)
-    logger.log("[SMS_SENT]", {
-      phone: phone.slice(0, 4) + "***",
-      textPreview: text.substring(0, 50),
-      organizationId,
-    });
-    return true;
+    if (result.success) {
+      logger.log("[SMS_SENT]", {
+        phone: phone.slice(0, 4) + "***",
+        textPreview: text.substring(0, 50),
+        organizationId,
+      });
+    }
+    return result.success;
   } catch (error) {
     logger.error("[ALIGO_SEND_ERROR]", {
       error: error instanceof Error ? error.message : String(error),
