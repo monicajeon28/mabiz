@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
+import { randomBytes } from 'crypto';
 import prisma from '@/lib/prisma';
 import { getAuthContext } from '@/lib/rbac';
 import { unauthorized, forbidden, notFound, serverError } from '@/lib/response';
@@ -10,9 +11,10 @@ import { logger } from '@/lib/logger';
 const CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
 
 function randomTempPassword(len = 10): string {
+  const buf = randomBytes(len);
   let out = '';
   for (let i = 0; i < len; i++) {
-    out += CHARS[Math.floor(Math.random() * CHARS.length)];
+    out += CHARS[buf[i] % CHARS.length];
   }
   return out;
 }
