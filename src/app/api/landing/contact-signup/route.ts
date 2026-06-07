@@ -30,6 +30,7 @@ import { prisma } from '@/lib/prisma';
 import { detectLandingLens, LENS_SMS_TEMPLATES, type LandingLensType } from '@/lib/landing-lens-detector';
 import { encryptLandingNotes } from '@/lib/sensitive-data-encryption';
 import { checkRateLimitAsync } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic'; // 쿠키·헤더 의존 → 정적 캐싱 방지
 
@@ -223,15 +224,10 @@ export async function POST(request: Request) {
     });
 
   } catch (error) {
-    console.error('[landing-contact-signup] 에러:', error);
-
-    // 데이터베이스 관련 에러 로깅
-    if (error instanceof Error) {
-      console.error('[landing-contact-signup] 에러 메시지:', error.message);
-      if (process.env.NODE_ENV !== 'production') {
-        console.error('[landing-contact-signup] 스택:', error.stack);
-      }
-    }
+    logger.error('[landing-contact-signup] 에러', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: process.env.NODE_ENV !== 'production' && error instanceof Error ? error.stack : undefined,
+    });
 
     return Response.json(
       {
@@ -268,9 +264,7 @@ async function assignManagerByWeightedRoundRobin(
     });
 
     if (managers.length === 0) {
-      console.warn(
-        `[landing-contact-signup-manager] No MANAGER found in org: ${organizationId}`
-      );
+      logger.warn(`[landing-contact-signup-manager] No MANAGER found in org: ${organizationId}`);
       return null;
     }
 
@@ -308,7 +302,7 @@ async function assignManagerByWeightedRoundRobin(
 
     return selectedManager.userId;
   } catch (error) {
-    console.error('[landing-contact-signup-manager-error]', error);
+    logger.error('[landing-contact-signup-manager-error]', { error: error instanceof Error ? error.message : String(error) });
     return null;
   }
 }
@@ -331,7 +325,7 @@ async function scheduleDay0To3Sms(
     // 렌즈별 메시지 템플릿 가져오기
     const templates = LENS_SMS_TEMPLATES[lens];
     if (!templates) {
-      console.warn(`[landing-contact-signup] Unknown lens: ${lens}`);
+      logger.warn(`[landing-contact-signup] Unknown lens: ${lens}`);
       return [];
     }
 
@@ -381,17 +375,14 @@ async function scheduleDay0To3Sms(
           }
         );
       } catch (smsError) {
-        console.error(
-          `[landing-contact-signup-sms-error] Failed to schedule Day ${schedule.day} SMS`,
-          smsError
-        );
+        logger.error(`[landing-contact-signup-sms-error] Failed to schedule Day ${schedule.day} SMS`, { error: smsError instanceof Error ? smsError.message : String(smsError) });
         // SMS 생성 실패해도 Contact 생성은 유지 (비치명적)
       }
     }
 
     return createdSmsList;
   } catch (error) {
-    console.error('[landing-contact-signup-sms-queue-error]', error);
+    logger.error('[landing-contact-signup-sms-queue-error]', { error: error instanceof Error ? error.message : String(error) });
     return [];
   }
 }

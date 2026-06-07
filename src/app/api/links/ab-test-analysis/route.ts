@@ -26,6 +26,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getAuthContext } from '@/lib/rbac';
+import { logger } from '@/lib/logger';
 import {
   declareWinner,
   calculateConfidenceInterval,
@@ -240,7 +241,7 @@ export async function POST(
       { status: 200 }
     );
   } catch (error) {
-    console.error('[ab-test-analysis] Error:', error);
+    logger.error('[ab-test-analysis] Error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       {
         ok: false,
@@ -292,7 +293,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     return res;
   } catch (error) {
-    console.error('[ab-test-analysis GET] Error:', error);
+    logger.error('[ab-test-analysis GET] Error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       {
         ok: false,

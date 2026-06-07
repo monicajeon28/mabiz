@@ -15,6 +15,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   try {
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json(tests);
   } catch (error) {
-    console.error('[ab-tests GET] Error:', error);
+    logger.error('[ab-tests GET] Error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: '서버 오류가 발생했습니다.' },
       { status: 500 }
@@ -122,7 +123,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json(test, { status: 201 });
   } catch (error) {
-    console.error('[ab-tests POST] Error:', error);
+    logger.error('[ab-tests POST] Error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: '서버 오류가 발생했습니다.' },
       { status: 500 }

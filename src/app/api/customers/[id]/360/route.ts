@@ -135,7 +135,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("[360 View] Error:", error);
+    logger.error("[360 View] Error", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       {
         error: "서버 오류가 발생했습니다.",

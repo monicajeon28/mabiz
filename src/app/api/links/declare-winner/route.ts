@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getAuthContext } from '@/lib/rbac';
+import { logger } from '@/lib/logger';
 import {
   declareWinner,
   calculateConfidenceInterval,
@@ -199,7 +200,7 @@ export async function PATCH(
         },
       },
     }).catch((err) => {
-      console.warn('[declare-winner] Failed to log in ExecutionLog:', err);
+      logger.warn('[declare-winner] Failed to log in ExecutionLog', { error: err instanceof Error ? err.message : String(err) });
       // Non-critical, continue
     });
 
@@ -226,7 +227,7 @@ export async function PATCH(
       { status: 200 }
     );
   } catch (error) {
-    console.error('[declare-winner] Error:', error);
+    logger.error('[declare-winner] Error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       {
         ok: false,

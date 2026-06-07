@@ -20,6 +20,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 import { calculateChiSquare } from '@/lib/ab-test-statistics';
 
 interface DeclareWinnerRequest {
@@ -132,7 +133,7 @@ export async function PATCH(
       test: updated
     });
   } catch (error) {
-    console.error('[declare-winner] Error:', error);
+    logger.error('[declare-winner] Error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: '우승자 선택 처리 중 오류가 발생했습니다.' },
       { status: 500 }
