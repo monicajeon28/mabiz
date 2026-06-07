@@ -365,13 +365,13 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
     [],
   );
 
-  const loadBoard = useCallback(async () => {
+  const loadBoard = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(
         `/api/admin/apis/board?productCode=${encodeURIComponent(productCode)}`,
-        { cache: 'no-store' },
+        { cache: 'no-store', signal },
       );
       const data: BoardResponse = await res.json();
       if (!res.ok || !data.ok) {
@@ -385,10 +385,11 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
       setRooms(data.rooms ?? []);
       setSummary(data.summary ?? null);
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       logger.error('[ApisBoard] load failed', { err: String(err) });
       setError('네트워크 오류로 보드를 불러오지 못했습니다.');
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, [productCode]);
 
@@ -421,7 +422,9 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
   );
 
   useEffect(() => {
-    void loadBoard();
+    const ctrl = new AbortController();
+    void loadBoard(ctrl.signal);
+    return () => ctrl.abort();
   }, [loadBoard]);
 
   useEffect(() => {
