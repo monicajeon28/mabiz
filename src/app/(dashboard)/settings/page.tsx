@@ -62,10 +62,12 @@ export default function SettingsPage() {
   const [docs, setDocs] = useState<DocStatus | null>(null);
 
   useEffect(() => {
-    fetch('/api/settings/documents/upload')
+    const ctrl = new AbortController();
+    fetch('/api/settings/documents/upload', { signal: ctrl.signal })
       .then(r => r.json())
       .then(d => { if (d.ok) setDocs({ hasIdCard: d.hasIdCard, hasBankBook: d.hasBankBook }); })
-      .catch(() => {});
+      .catch((e) => { if (e.name !== 'AbortError') { /* 로드 실패 무시 */ } });
+    return () => ctrl.abort();
   }, []);
 
   const allDocs = docs?.hasIdCard && docs?.hasBankBook;
