@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMabizSession } from '@/lib/auth';
 import { getLiveStreamStats, generateLiveStreamWeeklyReport } from '@/lib/live-stream/tracking';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[LIVE_STREAM_STATS]', error);
+    logger.error('[LIVE_STREAM_STATS]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

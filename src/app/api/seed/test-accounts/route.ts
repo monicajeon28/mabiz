@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import { logger } from '@/lib/logger';
 
 const SALT_ROUNDS = 10;
 
@@ -183,7 +184,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[Seed] Error:', error);
+    logger.error('[Seed] Error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       {
         ok: false,

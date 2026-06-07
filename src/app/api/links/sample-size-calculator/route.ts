@@ -32,6 +32,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { recommendedSampleSize } from '@/lib/ab-test-statistics';
+import { logger } from '@/lib/logger';
 
 interface SampleSizeResponse {
   ok: boolean;
@@ -128,7 +129,7 @@ export async function GET(
       { status: 200 }
     );
   } catch (error) {
-    console.error('[sample-size-calculator] Error:', error);
+    logger.error('[sample-size-calculator] Error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       {
         ok: false,

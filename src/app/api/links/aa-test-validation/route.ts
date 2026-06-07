@@ -26,6 +26,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { validateStatisticalEngine, declareWinner } from '@/lib/ab-test-statistics';
+import { logger } from '@/lib/logger';
 
 interface AATestRequest {
   sample1: { clicks: number; impressions: number };
@@ -103,7 +104,7 @@ export async function POST(
       { status: 200 }
     );
   } catch (error) {
-    console.error('[aa-test-validation] Error:', error);
+    logger.error('[aa-test-validation] Error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       {
         ok: false,
