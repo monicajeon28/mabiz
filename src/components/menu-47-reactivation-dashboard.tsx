@@ -1,10 +1,8 @@
 ﻿'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface ReactivationDashboardProps {
   organizationId: string;
@@ -16,44 +14,89 @@ interface SegmentStats {
   avgLikelihood: number;
 }
 
-interface SmsMetrics {
-  day0: { sent: number; pending: number; sendRate: string };
-  day1: { sent: number; pending: number; sendRate: string };
-  day2: { sent: number; pending: number; sendRate: string };
-  day3: { sent: number; pending: number; sendRate: string };
+/** /api/segments/reactivation 실제 응답 형태 */
+interface ReactivationApiResponse {
+  segments: SegmentStats[];
+  total: number;
+  timestamp: string;
 }
 
-interface ConversionStage {
-  stage: string;
-  count: number;
-  rate: string | number;
+/** 컴포넌트 내부 표시용 summary */
+interface DashboardSummary {
+  totalContacts: number;
+  expectedConversion: number;
+  expectedRevenue: number;
+  segmentBreakdown: SegmentStats[];
 }
 
 export default function Menu47ReactivationDashboard({ organizationId }: ReactivationDashboardProps) {
   const [selectedSegment, setSelectedSegment] = useState<'3-6m' | '6-12m' | '1y+' | 'all'>('all');
   const [loading, setLoading] = useState(false);
-  const [stats, setStats] = useState<any>(null);
-  const [smsMetrics, setSmsMetrics] = useState<SmsMetrics | null>(null);
-  const [conversionFunnel, setConversionFunnel] = useState<ConversionStage[]>([]);
+  const [stats, setStats] = useState<DashboardSummary | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   // 데이터 로드
   useEffect(() => {
     fetchAnalytics();
+    // cleanup: 언마운트 또는 selectedSegment 변경 시 이전 요청 취소
+    return () => {
+      abortRef.current?.abort();
+    };
   }, [selectedSegment]);
 
   const fetchAnalytics = async () => {
+    // 이전 요청 취소
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setLoading(true);
     try {
-      const response = await fetch(
-        `/api/analytics/reactivation?segment=${selectedSegment === 'all' ? '' : selectedSegment}`,
-      );
-      const data = await response.json();
+      const params = new URLSearchParams({ organizationId });
+      if (selectedSegment !== 'all') {
+        // 세그먼트별 daysInactive 매핑
+        const daysMap: Record<string, string> = {
+          '3-6m': '90',
+          '6-12m': '180',
+          '1y+': '365',
+        };
+        params.set('daysInactive', daysMap[selectedSegment] ?? '180');
+      }
 
-      setStats(data.summary);
-      setSmsMetrics(data.smsPipeline);
-      setConversionFunnel(data.conversionFunnel);
+      const response = await fetch(
+        `/api/segments/reactivation?${params.toString()}`,
+        { signal: controller.signal },
+      );
+      const data: ReactivationApiResponse = await response.json();
+
+      // 실제 응답(segments, total)을 컴포넌트 표시 구조로 매핑
+      // avgLikelihood를 가중 평균하여 예상 전환율 산출
+      const weightedLikelihood =
+        data.total > 0
+          ? Math.round(
+              data.segments.reduce((sum, s) => sum + s.avgLikelihood * s.count, 0) / data.total,
+            )
+          : 0;
+
+      // 예상 매출: 총 고객 × 전환율 × 평균 객단가(임시 1,200,000원 기준)
+      const avgOrderValue = 1200000;
+      const expectedRevenue = Math.round(data.total * (weightedLikelihood / 100) * avgOrderValue);
+
+      // 선택된 세그먼트가 있으면 해당 세그먼트만 필터링해서 breakdown으로 표시
+      const breakdown =
+        selectedSegment === 'all'
+          ? data.segments
+          : data.segments.filter((s) => s.segment === selectedSegment);
+
+      setStats({
+        totalContacts: data.total,
+        expectedConversion: weightedLikelihood,
+        expectedRevenue,
+        segmentBreakdown: breakdown,
+      });
     } catch (error) {
-      console.error('Failed to fetch analytics:', error);
+      if ((error as Error).name === 'AbortError') return;
+      console.error('Failed to fetch reactivation segments:', error);
     } finally {
       setLoading(false);
     }
@@ -68,13 +111,13 @@ export default function Menu47ReactivationDashboard({ organizationId }: Reactiva
           segment: selectedSegment === 'all' ? null : selectedSegment,
           dayIndex,
           variant,
-          customerIds: [], // 실제로는 선택된 고객 목록
+          customerIds: [],
         }),
       });
 
       if (response.ok) {
         alert('캠페인 발송 완료!');
-        fetchAnalytics();
+        void fetchAnalytics();
       }
     } catch (error) {
       console.error('Failed to send campaign:', error);
@@ -140,7 +183,9 @@ export default function Menu47ReactivationDashboard({ organizationId }: Reactiva
             <CardTitle className="text-sm font-medium text-gray-500">예상 매출</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">${stats?.expectedRevenue || 0}</div>
+            <div className="text-3xl font-bold">
+              {stats?.expectedRevenue ? `₩${stats.expectedRevenue.toLocaleString('ko-KR')}` : '₩0'}
+            </div>
             <p className="text-sm text-gray-500">예상 재예약</p>
           </CardContent>
         </Card>
@@ -184,62 +229,25 @@ export default function Menu47ReactivationDashboard({ organizationId }: Reactiva
         </CardContent>
       </Card>
 
-      {/* SMS 발송 상태 */}
+      {/* SMS Day 0-3 캠페인 발송 */}
       <Card>
         <CardHeader>
-          <CardTitle>SMS 발송 진행률</CardTitle>
-          <CardDescription>Day 0-3 자동화 시퀀스 추적</CardDescription>
+          <CardTitle>SMS Day 0-3 캠페인</CardTitle>
+          <CardDescription>자동화 시퀀스 수동 발송</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-4 gap-4">
-            {smsMetrics && ['day0', 'day1', 'day2', 'day3'].map((day, idx) => {
-              const dayMetric = smsMetrics[day as keyof SmsMetrics];
-              return (
-                <div key={day} className="text-center">
-                  <h3 className="font-medium text-sm mb-2">Day {idx}</h3>
-                  <div className="mb-2">
-                    <div className="text-lg font-bold">{dayMetric.sent}</div>
-                    <div className="text-sm text-gray-500">발송완료 ({dayMetric.sendRate}%)</div>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant={dayMetric.sent > 0 ? 'outline' : 'default'}
-                    onClick={() => handleSendCampaign(idx, idx % 2 === 0 ? 'A' : 'B')}
-                    className="w-full text-sm"
-                  >
-                    {dayMetric.sent > 0 ? '재발송' : '발송'}
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 전환 Funnel */}
-      <Card>
-        <CardHeader>
-          <CardTitle>전환 Funnel</CardTitle>
-          <CardDescription>부재 고객 → 재예약 완료</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {conversionFunnel.map((stage, idx) => (
-              <div key={idx} className="flex items-center gap-4">
-                <div className="w-24 text-sm font-medium text-gray-600">{stage.stage}</div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <div className="text-sm font-bold">{stage.count}</div>
-                    <div className="flex-1 bg-gray-200 rounded-full h-6">
-                      <div
-                        className="bg-green-500 h-6 rounded-full flex items-center justify-center text-white text-sm font-medium"
-                        style={{ width: `${typeof stage.rate === 'number' ? stage.rate : parseFloat(stage.rate as string)}%` }}
-                      >
-                        {typeof stage.rate === 'number' ? stage.rate : stage.rate}%
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            {(['Day 0', 'Day 1', 'Day 2', 'Day 3'] as const).map((label, idx) => (
+              <div key={label} className="text-center">
+                <h3 className="font-medium text-sm mb-2">{label}</h3>
+                <Button
+                  size="sm"
+                  variant="default"
+                  onClick={() => handleSendCampaign(idx, idx % 2 === 0 ? 'A' : 'B')}
+                  className="w-full text-sm"
+                >
+                  발송
+                </Button>
               </div>
             ))}
           </div>
