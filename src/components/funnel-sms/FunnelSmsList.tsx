@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { Copy, Trash2 } from 'lucide-react';
 
 interface ListItem {
@@ -30,6 +31,7 @@ function formatDate(date: Date): string {
 }
 
 export default function FunnelSmsList({ items, onCopyUrl, onDelete }: Props) {
+  const router = useRouter();
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-gray-400">
@@ -119,7 +121,8 @@ export default function FunnelSmsList({ items, onCopyUrl, onDelete }: Props) {
             return (
               <tr
                 key={`${item.id}-${group?.id ?? 'none'}`}
-                className={`hover:bg-gray-50 transition-colors ${
+                onClick={() => router.push(`/funnel-sms/${item.id}`)}
+                className={`hover:bg-blue-50 cursor-pointer transition-colors ${
                   !isFirst ? 'border-t border-dashed border-gray-100' : ''
                 }`}
               >
@@ -210,7 +213,7 @@ export default function FunnelSmsList({ items, onCopyUrl, onDelete }: Props) {
                   {group ? (
                     <button
                       type="button"
-                      onClick={() => onCopyUrl(item.id, group.id)}
+                      onClick={(e) => { e.stopPropagation(); onCopyUrl(item.id, group.id); }}
                       className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-blue-600 hover:text-blue-800 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
                       title={`${group.name} URL 복사`}
                     >
@@ -230,7 +233,7 @@ export default function FunnelSmsList({ items, onCopyUrl, onDelete }: Props) {
                   >
                     <button
                       type="button"
-                      onClick={() => onDelete(item.id)}
+                      onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
                       className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                       title="삭제"
                     >
