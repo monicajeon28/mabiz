@@ -152,8 +152,36 @@ export default function ContractsPage() {
   }
 
   useEffect(() => {
-    fetchContracts();
-     
+    setLoading(true);
+    setError(null);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    fetch("/api/my/contracts", { signal: controller.signal })
+      .then((res) => res.json())
+      .then((data: ApiResponse) => {
+        if (data.ok) {
+          setContracts(data.contracts ?? []);
+        } else {
+          setError(data.message ?? "데이터를 불러오지 못했습니다.");
+        }
+      })
+      .catch((err: unknown) => {
+        if (err instanceof Error && err.name === "AbortError") {
+          setError("요청 시간 초과 - 다시 시도해주세요.");
+        } else {
+          setError("네트워크 오류가 발생했습니다.");
+        }
+      })
+      .finally(() => {
+        clearTimeout(timeout);
+        setLoading(false);
+      });
+
+    return () => {
+      controller.abort();
+      clearTimeout(timeout);
+    };
   }, []);
 
   return (
@@ -420,15 +448,6 @@ export default function ContractsPage() {
               </button>
             </div>
 
-            {/* 성과 메트릭 표시 */}
-            <div className="bg-gray-50 p-3 rounded-lg mb-4 text-center">
-              <p className="text-sm text-gray-600 font-semibold">
-                ✨ 옵션 A 선택 고객 평균 소요시간: <span className="text-blue-600">8분</span>
-              </p>
-              <p className="text-sm text-gray-500 mt-1">
-                전환율: <span className="text-green-600 font-semibold">75-85%</span> (L10 렌즈 적용)
-              </p>
-            </div>
 
             <button
               onClick={() => setShowOptionsModal(false)}

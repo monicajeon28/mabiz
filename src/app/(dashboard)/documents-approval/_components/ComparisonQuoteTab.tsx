@@ -209,14 +209,13 @@ export default function ComparisonQuoteTab() {
     const ok = await download(`비교견적서_${form.customerName.trim() || '고객'}`);
     if (ok) {
       showSuccess('비교견적서 이미지가 다운로드되었습니다.');
-      fetch('/api/documents/comparison-quote', {
+      void fetch('/api/documents/comparison-quote', {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...(selectedAffiliateId ? { affiliateSaleId: selectedAffiliateId } : {}),
           productName: form.productName || form.customerName,
           cruiseLine: form.cabinType || undefined,
-          nights: form.headcount ? Number(form.headcount) : undefined,
           price: form.ourPrice,
           competitorPrices: form.competitorPrices.filter((cp) => cp.companyName && cp.price > 0).map((cp) => ({ name: cp.companyName, price: cp.price })),
           departureDate: form.departureDate || undefined,

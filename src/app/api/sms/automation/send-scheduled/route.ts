@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendSms, getOrgSmsConfig } from '@/lib/aligo';
+import { logger } from '@/lib/logger';
+
+export const dynamic = 'force-dynamic';
 
 interface ScheduledSendDetail {
   messageId: string;
@@ -112,6 +115,11 @@ export async function GET(request: NextRequest) {
               where: { id: message.contactId },
               data: { smsDay1Sent: true, smsDay1SentAt: now }
             });
+          } else if (message.day === 2) {
+            await prisma.contact.update({
+              where: { id: message.contactId },
+              data: { smsDay2Sent: true, smsDay2SentAt: now }
+            });
           } else if (message.day === 3) {
             await prisma.contact.update({
               where: { id: message.contactId },
@@ -185,7 +193,7 @@ export async function GET(request: NextRequest) {
       ...results
     });
   } catch (error) {
-    console.error('Error in send-scheduled:', error);
+    logger.error('Error in send-scheduled', { error });
     return NextResponse.json(
       {
         success: false,

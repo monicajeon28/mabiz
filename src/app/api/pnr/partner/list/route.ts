@@ -133,9 +133,8 @@ export async function GET(req: NextRequest) {
 
     // 예약 목록 조회 (대리점장/판매원이 관리하는 고객의 예약)
     // 빈 배열일 때는 쿼리를 실행하지 않음
-    let reservations: any[] = [];
-    if (userIdArray.length > 0) {
-      reservations = await prisma.gmReservation.findMany({
+    const reservations = userIdArray.length > 0
+      ? await prisma.gmReservation.findMany({
         where: {
           mainUserId: { in: userIdArray },
         },
@@ -177,10 +176,10 @@ export async function GET(req: NextRequest) {
           id: 'desc',
         },
         take: 100, // 최대 100개
-      });
-    }
+      })
+      : [];
 
-    const reservationIds = reservations.map((r: any) => r.id);
+    const reservationIds = reservations.map((r) => r.id);
     const allTravelers = reservationIds.length > 0
       ? await prisma.gmTraveler.findMany({
           where: { reservationId: { in: reservationIds } },
@@ -266,7 +265,7 @@ export async function GET(req: NextRequest) {
         let affiliateOwnership: {
           ownerType: 'HQ' | 'BRANCH_MANAGER' | 'SALES_AGENT';
           ownerName: string | null;
-          managerProfile: any | null;
+          managerProfile: null;
         } | null = null;
 
         if (lead) {
@@ -339,12 +338,12 @@ export async function GET(req: NextRequest) {
   } catch (error: unknown) {
     const err = error as Record<string, unknown>;
     logger.error('GET /api/pnr/partner/list error', {
-      error: err instanceof Error ? (err as Error).message : String(err),
-      name: (err as any).name,
-      status: (err as any).status,
+      error: err instanceof Error ? String((err as Error).message) : String(err),
+      name: err['name'] != null ? String(err['name']) : undefined,
+      status: err['status'] != null ? String(err['status']) : undefined,
     });
     return NextResponse.json(
-      { ok: false, message: (err as any).message || '예약 목록 조회에 실패했습니다.' },
+      { ok: false, message: err['message'] ? String(err['message']) : '예약 목록 조회에 실패했습니다.' },
       { status: 500 }
     );
   }

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
+import { logger } from '@/lib/logger';
+
+export const dynamic = 'force-dynamic';
 
 interface MetricsByDay {
   [key: string]: {
@@ -62,6 +65,7 @@ export async function GET(request: NextRequest) {
     const metricsByDay: MetricsByDay = {
       '0': { sent: 0, clicked: 0, converted: 0, rate: '0%' },
       '1': { sent: 0, clicked: 0, converted: 0, rate: '0%' },
+      '2': { sent: 0, clicked: 0, converted: 0, rate: '0%' },
       '3': { sent: 0, clicked: 0, converted: 0, rate: '0%' },
       '7': { sent: 0, clicked: 0, converted: 0, rate: '0%' }
     };
@@ -108,14 +112,16 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Variant별 메트릭
+      // Variant별 메트릭 (undefined variant 가드)
       const variant = msg.variant as keyof typeof metricsByVariant;
-      metricsByVariant[variant].sent += msg.status === 'sent' ? 1 : 0;
-      if (msg.clickCount > 0) {
-        metricsByVariant[variant].clicked += 1;
-      }
-      if (msg.conversionTime) {
-        metricsByVariant[variant].converted += 1;
+      if (variant in metricsByVariant) {
+        metricsByVariant[variant].sent += msg.status === 'sent' ? 1 : 0;
+        if (msg.clickCount > 0) {
+          metricsByVariant[variant].clicked += 1;
+        }
+        if (msg.conversionTime) {
+          metricsByVariant[variant].converted += 1;
+        }
       }
 
       // 전체 메트릭
@@ -174,7 +180,7 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Error in metrics:', error);
+    logger.error('Error in metrics:', error);
     return NextResponse.json(
       { error: '서버 오류가 발생했습니다.' },
       { status: 500 }

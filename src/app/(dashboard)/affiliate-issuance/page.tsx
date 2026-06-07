@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -51,8 +52,8 @@ type AffiliateProfile = {
   status: string;
   affiliateCode: string;
   displayName: string;
-  mallUserId: string;
-  name: string;
+  mallUserId: string | null;
+  name: string | null;
   contactPhone: string | null;
   contactEmail: string | null;
   contractStatus: string | null;
@@ -120,6 +121,13 @@ function IssuanceForm() {
   const [result, setResult] = useState<IssuanceResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current !== null) clearTimeout(copyTimerRef.current);
+    };
+  }, []);
 
   // Branch manager dropdown
   const [managers, setManagers] = useState<BranchManager[]>([]);
@@ -227,7 +235,8 @@ function IssuanceForm() {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(key);
-      setTimeout(() => setCopied(null), 2000);
+      if (copyTimerRef.current !== null) clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = setTimeout(() => setCopied(null), 2000);
     } catch {
       // ignore
     }
@@ -604,10 +613,17 @@ function AffiliateListTab() {
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [filterType, setFilterType] = useState('');
-  const [filterStatus] = useState('ACTIVE');
+  const filterStatus = 'ACTIVE';
   const [q, setQ] = useState('');
   const [resetLoadingId, setResetLoadingId] = useState<number | null>(null);
   const [resetMsg, setResetMsg] = useState<{ id: number; msg: string; ok: boolean } | null>(null);
+  const resetMsgTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (resetMsgTimerRef.current !== null) clearTimeout(resetMsgTimerRef.current);
+    };
+  }, []);
 
   const fetchList = useCallback(async (signal?: AbortSignal) => {
     setListLoading(true);
@@ -661,7 +677,8 @@ function AffiliateListTab() {
       setResetMsg({ id: profile.id, msg: '네트워크 오류', ok: false });
     } finally {
       setResetLoadingId(null);
-      setTimeout(() => setResetMsg(null), 4000);
+      if (resetMsgTimerRef.current !== null) clearTimeout(resetMsgTimerRef.current);
+      resetMsgTimerRef.current = setTimeout(() => setResetMsg(null), 4000);
     }
   }
 
@@ -780,7 +797,7 @@ function AffiliateListTab() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{p.displayName || p.name}</div>
+                      <div className="font-medium text-gray-900">{p.displayName || p.name || '-'}</div>
                       {p.displayName && (
                         <div className="text-xs text-gray-400">{p.name}</div>
                       )}
@@ -842,7 +859,38 @@ function AffiliateListTab() {
 type Tab = 'issue' | 'list';
 
 export default function AffiliateIssuancePage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>('issue');
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (!res.ok) {
+          router.replace('/');
+          return;
+        }
+        const ctx = await res.json();
+        if (ctx.role !== 'GLOBAL_ADMIN') {
+          router.replace('/');
+          return;
+        }
+        setAuthChecked(true);
+      } catch {
+        router.replace('/');
+      }
+    };
+    checkAuth();
+  }, [router]);
+
+  if (!authChecked) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6">

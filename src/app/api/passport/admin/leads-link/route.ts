@@ -161,23 +161,19 @@ export async function POST(req: NextRequest) {
     } else {
       const latestTrip = customerUser.trips[0];
       const now = new Date();
-      const createData: Record<string, unknown> = {
-        userId: customerUser.id,
-        token,
-        tokenExpiresAt,
-        isSubmitted: false,
-        driveFolderUrl: null,
-        extraData: Prisma.JsonNull,
-        createdAt: now,
-        updatedAt: now,
-      };
-
-      if (latestTrip?.id) {
-        createData.tripId = latestTrip.id;
-      }
 
       const created = await prisma.gmPassportSubmission.create({
-        data: createData as any,
+        data: {
+          userId: customerUser.id,
+          token,
+          tokenExpiresAt,
+          isSubmitted: false,
+          driveFolderUrl: null,
+          extraData: Prisma.JsonNull,
+          createdAt: now,
+          updatedAt: now,
+          ...(latestTrip?.id ? { tripId: latestTrip.id } : {}),
+        },
       });
       submissionId = created.id;
     }
@@ -214,7 +210,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       link,
-      token,
       submissionId,
       expiresAt: tokenExpiresAt.toISOString(),
       message: '여권 제출 링크가 생성되었습니다.',

@@ -59,6 +59,9 @@ export async function PATCH(req: Request) {
       if (!member) {
         return NextResponse.json({ ok: false, message: '계정을 찾을 수 없습니다.' }, { status: 404 });
       }
+      if (!member.passwordHash) {
+        return NextResponse.json({ ok: false, message: '비밀번호가 설정되지 않은 계정입니다.' }, { status: 400 });
+      }
       existingHash = member.passwordHash;
       const valid = await verifyPassword(currentPassword, existingHash);
       if (!valid) {
@@ -67,7 +70,7 @@ export async function PATCH(req: Request) {
       const newHash = await hashPassword(newPassword);
       await prisma.organizationMember.update({
         where: { id: member.id },
-        data: { passwordHash: newHash },
+        data: { passwordHash: newHash, passwordPlain: null },
       });
     } else {
       // GMcruise User 세션 (mallUserId 기반): User 테이블 raw 쿼리
@@ -99,9 +102,10 @@ export async function PATCH(req: Request) {
 
     logger.info('[PATCH /api/settings/password] 비밀번호 변경', { userId: ctx.userId });
     return NextResponse.json({ ok: true });
-  } catch (err: any) {
-    if (err.message === 'UNAUTHORIZED') return unauthorized('인증이 필요합니다.');
-    if (err.status === 400) return NextResponse.json({ ok: false, message: '요청을 처리할 수 없습니다.' }, { status: 400 });
+  } catch (err: unknown) {
+    if (err instanceof Error && err.message === 'UNAUTHORIZED') return unauthorized('인증이 필요합니다.');
+    if (typeof err === 'object' && err !== null && 'status' in err && (err as { status: unknown }).status === 400)
+      return NextResponse.json({ ok: false, message: '요청을 처리할 수 없습니다.' }, { status: 400 });
     logger.error('[PATCH /api/settings/password] Error', { err });
     return serverError();
   }

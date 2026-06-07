@@ -11,6 +11,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
 import { decryptLandingNotes, canDecryptSensitiveData } from '@/lib/sensitive-data-encryption';
+import { logger } from '@/lib/logger';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -18,7 +19,7 @@ export async function GET(_req: Request, { params }: Params) {
   try {
     // 1. 세션 및 권한 검증
     const session = await getMabizSession();
-    if (!session?.organizationId) {
+    if (!session) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -42,7 +43,7 @@ export async function GET(_req: Request, { params }: Params) {
     const contact = await prisma.contact.findFirst({
       where: {
         id,
-        organizationId: session.organizationId,
+        ...(session.organizationId ? { organizationId: session.organizationId } : {}),
         deletedAt: null
       },
       select: {
@@ -64,7 +65,7 @@ export async function GET(_req: Request, { params }: Params) {
     }
 
     // 4. adminMemo 복호화
-    let decryptedMemo: Record<string, any> = {};
+    let decryptedMemo: ReturnType<typeof decryptLandingNotes> = {};
     if (contact.adminMemo) {
       decryptedMemo = decryptLandingNotes(contact.adminMemo);
     }
@@ -85,7 +86,7 @@ export async function GET(_req: Request, { params }: Params) {
     });
 
   } catch (error) {
-    console.error('[admin-memo-decrypt-error]', error);
+    logger.error('[admin-memo-decrypt-error]', { error });
 
     return NextResponse.json(
       {

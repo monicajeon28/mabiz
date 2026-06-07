@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, CheckCircle, Clock, ChevronDown } from 'lucide-react';
 import { useToast } from '@/lib/api/use-toast';
+import { logger } from '@/lib/logger';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
@@ -16,7 +17,7 @@ interface Suspension {
   partnerRole: string;
   suspensionStatus: SuspensionStatus;
   suspensionReason: string;
-  reasonDetails: Record<string, any>;
+  reasonDetails: Record<string, unknown>;
   suspendedAt: string;
   appealedAt?: string;
   appealMessage?: string;
@@ -35,6 +36,7 @@ export default function PartnerSuspensionsPage() {
   const [processing, setProcessing] = useState(false);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // 권한 확인은 layout에서 처리 (GLOBAL_ADMIN만 접근 가능)
   useEffect(() => {
@@ -48,6 +50,7 @@ export default function PartnerSuspensionsPage() {
 
   const fetchSuspensions = async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch(
         `/api/admin/partner-suspensions?status=${filter}&limit=100`
@@ -57,7 +60,8 @@ export default function PartnerSuspensionsPage() {
         setSuspensions(data.data.suspensions);
       }
     } catch (err) {
-      console.error('조회 실패:', err);
+      logger.error('조회 실패', { error: err instanceof Error ? err.message : String(err) });
+      setError('파트너 정지 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
     } finally {
       setLoading(false);
     }
@@ -84,7 +88,7 @@ export default function PartnerSuspensionsPage() {
         toast({ title: '처리 실패', description: '다시 시도해주세요.', variant: 'destructive' });
       }
     } catch (err) {
-      console.error('오류:', err);
+      logger.error('정지 처리 오류', { error: err instanceof Error ? err.message : String(err) });
       toast({ title: '오류 발생', description: '잠시 후 다시 시도해주세요.', variant: 'destructive' });
     } finally {
       setProcessing(false);
@@ -126,11 +130,15 @@ export default function PartnerSuspensionsPage() {
     }
   };
 
-  const getReasonDetails = (reason: string, details: Record<string, any>) => {
+  const getReasonDetails = (reason: string, details: Record<string, unknown>) => {
     if (reason === 'HIGH_REFUND') {
-      return `환불율: ${details?.refundRate?.toFixed(1) || '?'}%`;
+      const refundRate = details?.refundRate;
+      const rate = typeof refundRate === 'number' ? refundRate.toFixed(1) : '?';
+      return `환불율: ${rate}%`;
     } else if (reason === 'NO_REVENUE') {
-      return `${details?.monthsAffected?.length || 5}개월 연속 매출 부진`;
+      const monthsAffected = details?.monthsAffected;
+      const count = Array.isArray(monthsAffected) ? monthsAffected.length : 5;
+      return `${count}개월 연속 매출 부진`;
     }
     return '-';
   };
@@ -161,6 +169,14 @@ export default function PartnerSuspensionsPage() {
           </button>
         ))}
       </div>
+
+      {/* 에러 배너 */}
+      {error && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          {error}
+        </div>
+      )}
 
       {/* 테이블 */}
       {loading ? (
