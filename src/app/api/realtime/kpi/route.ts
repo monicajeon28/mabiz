@@ -32,8 +32,15 @@ const connections = new Map<
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await getMabizSession();
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     const { searchParams } = new URL(request.url);
-    const organizationId = searchParams.get('org');
+    const orgParam = searchParams.get('org');
+    // GLOBAL_ADMIN: query param 허용, 일반: 세션 org 고정
+    const organizationId = session.role === 'GLOBAL_ADMIN'
+      ? (orgParam || session.organizationId)
+      : session.organizationId;
 
     if (!organizationId) {
       return NextResponse.json({ error: 'Organization ID required' }, { status: 400 });

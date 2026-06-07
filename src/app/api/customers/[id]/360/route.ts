@@ -45,8 +45,10 @@ export async function GET(
       );
     }
 
-    const organizationId = (request.nextUrl.searchParams.get("orgId") ||
-      session.organizationId) as string;
+    // GLOBAL_ADMIN: query param 허용, 일반: 세션 org 고정
+    const organizationId = (session.role === 'GLOBAL_ADMIN'
+      ? (request.nextUrl.searchParams.get("orgId") || session.organizationId)
+      : session.organizationId) as string;
 
     if (!organizationId) {
       return NextResponse.json(
