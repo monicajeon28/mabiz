@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { getAuthContext } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
+import prisma from '@/lib/prisma';
 
 export async function GET() {
   const ctx = await getAuthContext().catch(() => null);
@@ -9,10 +10,16 @@ export async function GET() {
     return NextResponse.json({ ok: false, message: '인증이 필요합니다' }, { status: 401 });
   }
 
+  const orgId = resolveOrgId(ctx);
+  const smsConfig = await prisma.orgSmsConfig.findUnique({
+    where: { organizationId: orgId },
+    select: { senderPhone: true, arsNum: true },
+  }).catch(() => null);
+
   return NextResponse.json({
     ok: true,
-    senderPhone:    process.env.ALIGO_SENDER_PHONE    ?? '',
-    arsNum:         process.env.ALIGO_ARS_NUM         ?? '',
-    kakaoOpenChat:  process.env.KAKAO_OPEN_CHAT_URL   ?? '',
+    senderPhone:   smsConfig?.senderPhone    ?? process.env.ALIGO_SENDER_PHONE  ?? '',
+    arsNum:        smsConfig?.arsNum          ?? process.env.ALIGO_ARS_NUM       ?? '',
+    kakaoOpenChat: process.env.KAKAO_OPEN_CHAT_URL ?? '',
   });
 }

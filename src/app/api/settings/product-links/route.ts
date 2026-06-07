@@ -28,6 +28,6 @@ export async function GET() {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg === 'UNAUTHORIZED') return NextResponse.json({ ok: false, links: [] }, { status: 401 });
     logger.error('[GET /api/settings/product-links]', { msg });
-    return NextResponse.json({ ok: true, links: [] });
+    return NextResponse.json({ ok: false, error: '서버 오류', links: [] }, { status: 500 });
   }
 }

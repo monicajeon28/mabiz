@@ -3,6 +3,26 @@ import prisma from "@/lib/prisma";
 import { getAuthContext, canManageSettings } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
+/** GET /api/settings/email-sender — 이메일 발신자 이름 조회 */
+export async function GET() {
+  try {
+    const ctx = await getAuthContext();
+    if (!ctx?.organizationId) {
+      return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
+    }
+
+    const config = await prisma.orgEmailConfig.findUnique({
+      where: { organizationId: ctx.organizationId },
+      select: { senderName: true, senderEmail: true },
+    });
+
+    return NextResponse.json({ ok: true, senderName: config?.senderName ?? "", senderEmail: config?.senderEmail ?? "" });
+  } catch (err) {
+    logger.error("[settings/email-sender] GET 오류", err);
+    return NextResponse.json({ ok: false, error: "서버 오류" }, { status: 500 });
+  }
+}
+
 /**
  * PATCH /api/settings/email-sender
  * 이메일 발신자 이름(senderName)만 업데이트
