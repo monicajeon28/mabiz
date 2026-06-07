@@ -146,19 +146,21 @@ export default function EditLandingPage() {
 
   // Task 1-5: 초기 데이터 로딩 — HTTP 에러 처리 추가
   useEffect(() => {
+    const ctrl = new AbortController();
+    const { signal } = ctrl;
     Promise.all([
-      fetch(`/api/landing-pages/${id}`).then((r) => {
+      fetch(`/api/landing-pages/${id}`, { signal }).then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
-      }).catch(() => ({ ok: false })),
-      fetch("/api/groups").then((r) => {
+      }).catch((e) => { if (e?.name === 'AbortError') throw e; return { ok: false }; }),
+      fetch("/api/groups", { signal }).then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
-      }).catch(() => ({ ok: false })),
-      fetch("/api/org/members").then((r) => {
+      }).catch((e) => { if (e?.name === 'AbortError') throw e; return { ok: false }; }),
+      fetch("/api/org/members", { signal }).then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
-      }).catch(() => ({ ok: false })),
+      }).catch((e) => { if (e?.name === 'AbortError') throw e; return { ok: false }; }),
     ]).then(([pageData, groupData, membersData]) => {
       if (pageData.ok && pageData.page) {
         setTitle(pageData.page.title ?? "");
@@ -218,8 +220,9 @@ export default function EditLandingPage() {
       if (membersData.ok && membersData.members) {
         setOrgMembers(membersData.members.filter((m: OrgMember) => m.role === "OWNER"));
       }
-      setLoading(false);
-    }).catch(() => setLoading(false));
+      if (!signal.aborted) setLoading(false);
+    }).catch((e) => { if (e?.name !== 'AbortError') setLoading(false); });
+    return () => ctrl.abort();
   }, [id]);
 
   // Task 1-5: loadStats — HTTP 에러 처리 추가

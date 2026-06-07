@@ -39,10 +39,12 @@ export default function GroupDetailPage() {
 
   useEffect(() => {
     if (!groupId) return;
+    const ctrl = new AbortController();
+    const { signal } = ctrl;
 
     const loadGroup = async () => {
       try {
-        const res = await fetch(`/api/groups/${groupId}`);
+        const res = await fetch(`/api/groups/${groupId}`, { signal });
         const data = await res.json() as {
           ok: boolean;
           group?: GroupDetail;
@@ -55,16 +57,18 @@ export default function GroupDetailPage() {
           setError(data.message || "그룹을 불러올 수 없습니다.");
           showError(data.message || "그룹을 불러올 수 없습니다.");
         }
-      } catch (err) {
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
         logger.error("[GroupDetailPage] loadGroup", { err });
         setError("데이터를 불러올 수 없습니다.");
         showError("데이터를 불러올 수 없습니다.");
       } finally {
-        setLoading(false);
+        if (!signal.aborted) setLoading(false);
       }
     };
 
     loadGroup();
+    return () => ctrl.abort();
   }, [groupId]);
 
   const handleJoin = async () => {

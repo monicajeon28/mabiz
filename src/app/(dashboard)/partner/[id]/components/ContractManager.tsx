@@ -41,27 +41,29 @@ export function ContractManager({ partnerId }: { partnerId: string }) {
 
   // Step 1: 초기 로드 (템플릿 + 적용된 계약서)
   useEffect(() => {
+    const ctrl = new AbortController();
+    const { signal } = ctrl;
+
     const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        // 1-1. 적용 가능한 템플릿 조회
         const templatesRes = await fetch(
-          `/api/partners/${partnerId}/contract-templates`
+          `/api/partners/${partnerId}/contract-templates`, { signal }
         );
         if (!templatesRes.ok) throw new Error("Failed to fetch templates");
         const templatesData = await templatesRes.json();
         setTemplates(templatesData.data || []);
 
-        // 1-2. 적용된 계약서 조회
         const contractsRes = await fetch(
-          `/api/partners/${partnerId}/contracts`
+          `/api/partners/${partnerId}/contracts`, { signal }
         );
         if (!contractsRes.ok) throw new Error("Failed to fetch contracts");
         const contractsData = await contractsRes.json();
         setContracts(contractsData.data || []);
-      } catch (err) {
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
         const message = err instanceof Error ? err.message : "An error occurred";
         setError(message);
         toast({
@@ -70,11 +72,12 @@ export function ContractManager({ partnerId }: { partnerId: string }) {
           variant: "destructive",
         });
       } finally {
-        setLoading(false);
+        if (!signal.aborted) setLoading(false);
       }
     };
 
     fetchData();
+    return () => ctrl.abort();
   }, [partnerId, toast]);
 
   // Step 2: 템플릿 적용

@@ -42,31 +42,34 @@ export default function PartnerDetailPage() {
 
   // 파트너 정보 로드
   useEffect(() => {
+    if (!partnerId) return;
+    const ctrl = new AbortController();
+    const { signal } = ctrl;
+
     const fetchPartnerData = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        // 1. 파트너 기본정보 조회
-        const partnerRes = await fetch(`/api/partner/${partnerId}`);
+        const partnerRes = await fetch(`/api/partner/${partnerId}`, { signal });
         if (!partnerRes.ok) {
           throw new Error("파트너 정보를 불러올 수 없습니다");
         }
         const partnerData = await partnerRes.json();
         setPartner(partnerData.data);
 
-        // 2. 파트너 성과 메트릭 조회 (선택사항)
         try {
-          const metricsRes = await fetch(`/api/partners/metrics/${partnerId}`);
+          const metricsRes = await fetch(`/api/partners/metrics/${partnerId}`, { signal });
           if (metricsRes.ok) {
             const metricsData = await metricsRes.json();
             setMetrics(metricsData.data);
           }
-        } catch (err) {
-          // 메트릭 실패는 무시
+        } catch (err: any) {
+          if (err?.name === 'AbortError') return;
           console.error("Failed to fetch metrics", err);
         }
-      } catch (err) {
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
         const message = err instanceof Error ? err.message : "오류가 발생했습니다";
         setError(message);
         toast({
@@ -75,13 +78,12 @@ export default function PartnerDetailPage() {
           variant: "destructive",
         });
       } finally {
-        setLoading(false);
+        if (!signal.aborted) setLoading(false);
       }
     };
 
-    if (partnerId) {
-      fetchPartnerData();
-    }
+    fetchPartnerData();
+    return () => ctrl.abort();
   }, [partnerId, toast]);
 
   if (loading) {
