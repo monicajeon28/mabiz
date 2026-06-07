@@ -84,7 +84,8 @@ async function loadSyncFunctions(): Promise<{
  * Process pending tasks in the APIS sync queue.
  * Should be called by Cron job.
  */
-import { notifyCruisedotPassportSent } from '@/lib/notify-cruisedot-ops';
+// TODO: notifyCruisedotPassportSent — batchId 핸드오프 방식 크루즈닷 협의 후 연결 예정
+// (GmApisSyncQueue에 batchId 컬럼 없어 현재 호출 불가)
 
 export async function processApisSyncQueue(batchSize = 10) {
   logger.log('[ApisSyncQueue] Starting queue processing...');
@@ -133,9 +134,7 @@ export async function processApisSyncQueue(batchSize = 10) {
           data: { status: 'COMPLETED', processedAt: new Date() },
         });
         logger.log(`[ApisSyncQueue] Task ${task.id} (${task.targetType}:${task.targetId}) completed.`);
-        if (task.targetType === 'TRIP_SHEET') {
-          void notifyCruisedotPassportSent(task.targetId);
-        }
+        // TODO: notifyCruisedotPassportSent(batchId, sentCount) — batchId 핸드오프 협의 후
       } else {
         throw new Error(result?.error || 'Unknown error during sync');
       }
