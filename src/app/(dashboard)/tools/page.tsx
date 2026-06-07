@@ -107,26 +107,29 @@ export default function ToolsPage() {
   }, [searchParams]);
 
   useEffect(() => {
+    const ctrl = new AbortController();
+    const { signal } = ctrl;
     setIsLoading(true);
     // 모든 도구 데이터 로드 (병렬)
     Promise.all([
-      fetch("/api/tools/sms-templates")
+      fetch("/api/tools/sms-templates", { signal })
         .then((r) => r.json())
         .then((d) => { if (d.ok) setTemplates(d.templates); })
-        .catch(() => {}),
-      fetch("/api/tools/playbook")
+        .catch((err) => { if (err instanceof Error && err.name !== 'AbortError') {} }),
+      fetch("/api/tools/playbook", { signal })
         .then((r) => r.json())
         .then((d) => { if (d.ok) setPlaybooks(d.items); })
-        .catch(() => {}),
-      fetch("/api/tools/product-training")
+        .catch((err) => { if (err instanceof Error && err.name !== 'AbortError') {} }),
+      fetch("/api/tools/product-training", { signal })
         .then((r) => r.json())
         .then((d) => { if (d.ok) setTraining(d.items); })
-        .catch(() => {}),
-      fetch("/api/tools/recommended")
+        .catch((err) => { if (err instanceof Error && err.name !== 'AbortError') {} }),
+      fetch("/api/tools/recommended", { signal })
         .then((r) => r.json())
         .then((d) => { if (d.ok) setRecommendations(d.recommendations); })
-        .catch(() => {}),
-    ]).finally(() => setIsLoading(false));
+        .catch((err) => { if (err instanceof Error && err.name !== 'AbortError') {} }),
+    ]).finally(() => { if (!signal.aborted) setIsLoading(false); });
+    return () => ctrl.abort();
   }, []);
 
   // 도구 조회 기록 (마지막 본 도구 추적)

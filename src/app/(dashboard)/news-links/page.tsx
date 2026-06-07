@@ -11,15 +11,22 @@ export default function NewsLinksPage() {
   const [syncing, setSyncing] = useState(false);
   const [copied,  setCopied]  = useState<string | null>(null);
 
-  const load = () => {
+  const load = (signal?: AbortSignal) => {
     setLoading(true);
-    fetch('/api/tools/news-links').then(r => r.json())
+    fetch('/api/tools/news-links', { signal }).then(r => r.json())
       .then(d => { if (d.ok) setLinks(d.links ?? []); })
-      .catch(() => showError('로드 실패'))
-      .finally(() => setLoading(false));
+      .catch(err => {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        showError('로드 실패');
+      })
+      .finally(() => { if (!signal?.aborted) setLoading(false); });
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const ctrl = new AbortController();
+    load(ctrl.signal);
+    return () => ctrl.abort();
+  }, []);
 
   const sync = async () => {
     setSyncing(true);
