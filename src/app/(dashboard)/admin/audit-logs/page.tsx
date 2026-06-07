@@ -1,8 +1,6 @@
 ﻿'use client';
 
 import { useEffect, useState } from 'react';
-import { getMabizSession } from '@/lib/auth';
-import type { MabizAuthContext } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 
 interface AuditLogEntry {
@@ -40,8 +38,6 @@ export default function AuditLogsPage() {
     startDate: '',
     endDate: '',
   });
-  const [ctx, setCtx] = useState<MabizAuthContext | null>(null);
-
   // 초기 로드
   useEffect(() => {
     loadData();
