@@ -12,12 +12,14 @@ import { userSmsSettingsSchema } from "@/lib/validations/settings";
 export async function GET() {
   try {
     const ctx = await getAuthContext();
-    if (!ctx.member?.id) {
+    // 발송 해석기(resolveUserSmsConfig)가 ctx.userId 기준이므로 저장도 ctx.userId로 통일.
+    // GLOBAL_ADMIN(관리자)은 member=null이라 기존 member.id 가드면 저장 자체가 막혔다.
+    if (!ctx.userId) {
       return NextResponse.json({ ok: false, message: "사용자 정보 없음" }, { status: 401 });
     }
 
     const orgId = resolveOrgId(ctx);
-    const userId = ctx.member.id;
+    const userId = ctx.userId;
 
     const config = await prisma.userSmsConfig.findUnique({
       where: {
@@ -75,7 +77,8 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
-    if (!ctx.member?.id) {
+    // 발송 해석기(resolveUserSmsConfig)와 동일한 ctx.userId로 저장 → GLOBAL_ADMIN 포함 전 역할 저장 가능.
+    if (!ctx.userId) {
       return NextResponse.json(
         { ok: false, message: "사용자 정보 없음" },
         { status: 401 }
@@ -83,7 +86,7 @@ export async function POST(req: Request) {
     }
 
     const orgId = resolveOrgId(ctx);
-    const userId = ctx.member.id;
+    const userId = ctx.userId;
 
     const body = await req.json();
 

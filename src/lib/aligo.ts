@@ -185,9 +185,17 @@ export async function resolveUserSmsConfig(
   }
 
   // 2. 조직 알리고 설정
+  // OrgSmsConfig.aligoKey는 settings/sms 저장 시 encrypt(_,"SMS_ENCRYPT_KEY")로 암호화된다
+  // (verify 라우트도 decrypt해서 사용). 개인 경로와 동일하게 복호화해야 평문 키가 나온다.
+  // 복호화 실패(키 회전/구평문 데이터) 시 env로 폴백.
   const orgCfg = await prisma.orgSmsConfig.findUnique({ where: { organizationId } });
   if (orgCfg?.isActive) {
-    return { key: orgCfg.aligoKey, userId: orgCfg.aligoUserId, sender: orgCfg.senderPhone };
+    try {
+      const orgKey = decrypt(orgCfg.aligoKey, "SMS_ENCRYPT_KEY");
+      return { key: orgKey, userId: orgCfg.aligoUserId, sender: orgCfg.senderPhone };
+    } catch (err) {
+      logger.error("[aligo] OrgSmsConfig aligoKey 복호화 실패 — env로 fallback", { organizationId, err });
+    }
   }
 
   // 3. 환경변수 fallback

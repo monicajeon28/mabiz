@@ -56,11 +56,15 @@ export async function processPendingSms(
     // 야간 발송 차단 확인 (21:00 ~ 08:00 KST)
     const isNightTime = isNightSmsBlocked();
 
-    // PENDING 상태 SMS 조회
+    // PENDING + NIGHT_BLOCKED 상태 SMS 조회
+    // [P0] 야간(21~08시)에 NIGHT_BLOCKED로 전환된 행을 아침에 반드시 재조회해야 발송된다.
+    // PENDING만 조회하면 야간 생성·진입 문자가 NIGHT_BLOCKED로 박제되어 영구 유실됨.
+    // 형제 cron(vip-care/email-funnel)과 동일하게 in 절 사용. 야간 재진입 시 다시
+    // NIGHT_BLOCKED로 두는 것은 멱등하므로 안전.
     const pendingSms = await prisma.scheduledSms.findMany({
       where: {
         organizationId,
-        status: 'PENDING',
+        status: { in: ['PENDING', 'NIGHT_BLOCKED'] },
         scheduledAt: { lte: new Date() },
       },
       orderBy: { scheduledAt: 'asc' },
@@ -91,14 +95,29 @@ export async function processPendingSms(
       return result;
     }
 
+    // [P1] 수신거부 테이블(SmsOptOut) 조회 — 수동/단체(aligo.ts sendSms.isOptedOut)와 동일 기준.
+    // Contact.optOutAt만 보면 SmsOptOut에만 등록된 번호로 발송되어 법적 리스크.
+    const optOutPhones = (() => pendingSmsWithContact
+      .map(s => s.contact?.phone?.trim())
+      .filter((p): p is string => !!p))();
+    const optOutRows = optOutPhones.length > 0
+      ? await prisma.smsOptOut.findMany({
+          where: { phone: { in: optOutPhones } },
+          select: { phone: true },
+        })
+      : [];
+    const optOutSet = new Set(optOutRows.map(r => r.phone));
+
     // 배치 그룹 생성 (수신거부 및 야간 차단 분리)
     const validSms: typeof pendingSmsWithContact = [];
     const optOutBlocked: typeof pendingSmsWithContact = [];
     const nightBlocked: typeof pendingSmsWithContact = [];
 
     for (const sms of pendingSmsWithContact) {
-      // 수신거부 확인 — 야간 여부와 무관하게 항상 BLOCKED
-      if (sms.contact?.optOutAt) {
+      // 수신거부 확인 — 야간 여부와 무관하게 항상 BLOCKED.
+      // Contact.optOutAt(연락처 플래그) 또는 SmsOptOut 테이블(번호 기준) 어느 쪽이든 차단.
+      const phone = sms.contact?.phone?.trim();
+      if (sms.contact?.optOutAt || (phone && optOutSet.has(phone))) {
         optOutBlocked.push(sms);
         continue;
       }

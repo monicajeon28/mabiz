@@ -3,7 +3,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 export function encrypt(plain: string, keyEnvVar: string): string {
   const rawKey = process.env[keyEnvVar];
   if (!rawKey || rawKey.length < 32) {
-    throw new Error('EMAIL_ENCRYPT_KEY required');
+    throw new Error(`${keyEnvVar} required (>=32 chars)`);
   }
   const key = Buffer.from(rawKey.substring(0, 32));
   const iv = randomBytes(16);
@@ -15,7 +15,7 @@ export function encrypt(plain: string, keyEnvVar: string): string {
 export function decrypt(encryptedStr: string, keyEnvVar: string): string {
   const rawKey = process.env[keyEnvVar];
   if (!rawKey || rawKey.length < 32) {
-    throw new Error('EMAIL_ENCRYPT_KEY required');
+    throw new Error(`${keyEnvVar} required (>=32 chars)`);
   }
   const parts = encryptedStr.split(":");
   const ivHex = parts[0];
