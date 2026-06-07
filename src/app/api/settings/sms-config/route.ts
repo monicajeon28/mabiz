@@ -220,12 +220,12 @@ export async function POST(req: Request) {
 export async function DELETE() {
   try {
     const ctx = await getAuthContext();
-    if (!ctx.member?.id) {
+    if (!ctx.userId) {
       return NextResponse.json({ ok: false, message: "사용자 정보 없음" }, { status: 401 });
     }
 
     const orgId = resolveOrgId(ctx);
-    const userId = ctx.member.id;
+    const userId = ctx.userId;
 
     // 설정 삭제
     await prisma.userSmsConfig.delete({
