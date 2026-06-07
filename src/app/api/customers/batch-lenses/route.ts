@@ -24,7 +24,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { detectCustomerLensesBatch } from "@/lib/customers/lens-detector";
 import { logger } from "@/lib/logger";
-import { getServerSession } from "next-auth";
+import { getMabizSession } from "@/lib/auth";
 
 interface BatchLensRequest {
   contactIds: string[];
@@ -33,7 +33,7 @@ interface BatchLensRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession();
+    const session = await getMabizSession();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

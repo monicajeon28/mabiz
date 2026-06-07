@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { getAuthContext } from '@/lib/rbac';
 
 /**
  * Loop 5: SMS 성과 추적 API
@@ -34,18 +35,16 @@ import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
+    const ctx = await getAuthContext().catch(() => null);
+    if (!ctx?.userId || !ctx?.organizationId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const searchParams = request.nextUrl.searchParams;
-    const organizationId = searchParams.get('organizationId');
+    const organizationId = ctx.organizationId;
     const segment = searchParams.get('segment') as 'A' | 'B' | 'C' | 'D' | 'E' | null;
     const daysParam = searchParams.get('days');
     const days = daysParam ? parseInt(daysParam) : 7;
-
-    if (!organizationId) {
-      return NextResponse.json(
-        { error: 'organizationId is required' },
-        { status: 400 }
-      );
-    }
 
     const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
