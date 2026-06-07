@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { SettlementSaga, SettlementSagaContext } from '@/lib/webhooks/settlement-saga';
 import { retryStrategy } from '@/lib/webhooks/retry-strategy';
+import { sendSmsViaAligo } from '@/lib/sms-service';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -262,11 +263,22 @@ export async function POST(req: NextRequest) {
     if (status === 'PAID') {
       const commissionAmount = Math.floor(amount - calculatedNetAmount);
 
-      // TODO: Slack 알림 (Commission 지급 완료)
-      // TODO: Email 알림 (Partner에게 정산 안내)
-      // TODO: SMS 알림 (선택적)
+      // SMS 알림: 파트너에게 정산 완료 안내
+      try {
+        const gmUser = await prisma.gmUser.findUnique({
+          where: { id: profileIdInt },
+          select: { phone: true, name: true },
+        });
+        if (gmUser?.phone) {
+          const msg = `[마비즈] ${gmUser.name ?? '파트너'}님, ${period} 정산이 완료되었습니다. 입금액: ${commissionAmount.toLocaleString()}원`;
+          await sendSmsViaAligo(gmUser.phone, msg);
+          logger.info('[SettlementWebhook] 정산 SMS 발송 완료', { partnerId: profileIdInt });
+        }
+      } catch (smsErr) {
+        logger.warn('[SettlementWebhook] 정산 SMS 발송 실패', { partnerId: profileIdInt, error: String(smsErr) });
+      }
 
-      logger.log('[SettlementWebhook] 알림 발송 대기', {
+      logger.log('[SettlementWebhook] 알림 발송 완료', {
         partnerId: profileIdInt,
         settlementId: settlementIdInt,
         commissionAmount,
