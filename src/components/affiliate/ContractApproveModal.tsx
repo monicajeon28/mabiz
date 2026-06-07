@@ -50,14 +50,19 @@ export default function ContractApproveModal({ contractId, onClose, onApproved }
 
   // 계약 정보 로드
   useEffect(() => {
-    fetch(`/api/affiliate/contracts/${contractId}/approve`)
+    const ctrl = new AbortController();
+    fetch(`/api/affiliate/contracts/${contractId}/approve`, { signal: ctrl.signal })
       .then((r) => r.json())
       .then((data) => {
         if (data.ok) setContractInfo(data.data);
         else setError(data.message || '계약 정보를 불러올 수 없습니다.');
       })
-      .catch(() => setError('네트워크 오류가 발생했습니다.'))
-      .finally(() => setIsLoading(false));
+      .catch((err) => {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        setError('네트워크 오류가 발생했습니다.');
+      })
+      .finally(() => { if (!ctrl.signal.aborted) setIsLoading(false); });
+    return () => ctrl.abort();
   }, [contractId]);
 
   const handleApprove = async () => {

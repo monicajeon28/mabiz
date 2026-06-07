@@ -53,41 +53,48 @@ export function PartnerContractsTab({ partnerId }: PartnerContractsTabProps) {
 
   // 적용 가능한 템플릿 목록 조회
   useEffect(() => {
+    const ctrl = new AbortController();
     const fetchTemplates = async () => {
       try {
         const response = await fetch(
-          `/api/partners/${partnerId}/contract-templates`
+          `/api/partners/${partnerId}/contract-templates`,
+          { signal: ctrl.signal }
         );
         if (!response.ok) throw new Error("Failed to fetch templates");
         const result = await response.json();
         setTemplates(result.data || []);
       } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') return;
         console.error("Error fetching templates:", error);
         toast.error("템플릿 목록을 불러올 수 없습니다");
       }
     };
 
     fetchTemplates();
+    return () => ctrl.abort();
   }, [partnerId]);
 
   // 적용된 계약서 목록 조회
   useEffect(() => {
+    const ctrl = new AbortController();
     const fetchContracts = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/partners/${partnerId}/contracts`);
+        const response = await fetch(`/api/partners/${partnerId}/contracts`, { signal: ctrl.signal });
         if (!response.ok) throw new Error("Failed to fetch contracts");
         const result = await response.json();
         setContracts(result.data || []);
       } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') return;
         console.error("Error fetching contracts:", error);
         toast.error("계약서를 불러올 수 없습니다");
       } finally {
-        setLoading(false);
+        if (!ctrl.signal.aborted) setLoading(false);
       }
     };
 
     fetchContracts();
+    return () => ctrl.abort();
   }, [partnerId]);
 
   // 템플릿 적용

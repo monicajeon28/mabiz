@@ -37,10 +37,10 @@ export default function FinalConfirmSection({ leadId, customerName, onStatusChan
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [note, setNote] = useState('');
 
-  const fetchStatus = useCallback(async () => {
+  const fetchStatus = useCallback(async (signal?: AbortSignal) => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/partner/customers/${leadId}/final-confirm`);
+      const res = await fetch(`/api/partner/customers/${leadId}/final-confirm`, { signal });
       const data = await res.json();
 
       if (data.ok) {
@@ -48,14 +48,17 @@ export default function FinalConfirmSection({ leadId, customerName, onStatusChan
         setConfirmStatus(data.finalConfirm);
       }
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') return;
       console.error('[FinalConfirmSection] Error:', error);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, [leadId]);
 
   useEffect(() => {
-    fetchStatus();
+    const ctrl = new AbortController();
+    fetchStatus(ctrl.signal);
+    return () => ctrl.abort();
   }, [fetchStatus]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

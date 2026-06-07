@@ -49,12 +49,14 @@ export default function CampaignWizard() {
 
   // 그룹 목록 로드
   useEffect(() => {
-    fetchGroups();
+    const ctrl = new AbortController();
+    fetchGroups(ctrl.signal);
+    return () => ctrl.abort();
   }, []);
 
-  const fetchGroups = async () => {
+  const fetchGroups = async (signal?: AbortSignal) => {
     try {
-      const res = await fetch('/api/groups');
+      const res = await fetch('/api/groups', { signal });
       if (!res.ok) throw new Error('그룹을 불러올 수 없습니다.');
 
       const data = await res.json();

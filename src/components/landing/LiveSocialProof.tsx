@@ -21,22 +21,27 @@ export default function LiveSocialProof({ pageId }: Props) {
   const toastTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const toastFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchStats = useCallback(async () => {
+  const fetchStats = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await fetch(`/api/landing-pages/${encodeURIComponent(pageId)}/live-stats`);
+      const res = await fetch(`/api/landing-pages/${encodeURIComponent(pageId)}/live-stats`, { signal });
       if (!res.ok) return;
       const data: LiveStats = await res.json();
       setStats(data);
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       // 네트워크 오류 시 조용히 무시
     }
   }, [pageId]);
 
   // 30초마다 폴링
   useEffect(() => {
-    fetchStats();
-    const interval = setInterval(fetchStats, 30_000);
-    return () => clearInterval(interval);
+    const ctrl = new AbortController();
+    fetchStats(ctrl.signal);
+    const interval = setInterval(() => fetchStats(), 30_000);
+    return () => {
+      ctrl.abort();
+      clearInterval(interval);
+    };
   }, [fetchStats]);
 
   // 토스트 순환 (5초마다)

@@ -33,7 +33,8 @@ export default function FunnelSmsHeader({ value, onChange }: Props) {
   const hasFilled = useRef(false);
 
   useEffect(() => {
-    fetch('/api/settings/sms-defaults')
+    const ctrl = new AbortController();
+    fetch('/api/settings/sms-defaults', { signal: ctrl.signal })
       .then((res) => res.json())
       .then((data: { ok: boolean; senderPhone: string; arsNum: string }) => {
         const connected = data.ok && !!data.senderPhone;
@@ -45,9 +46,11 @@ export default function FunnelSmsHeader({ value, onChange }: Props) {
           if (!value.arsNum && data.arsNum) onChange('arsNum', data.arsNum);
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        if (err instanceof Error && err.name === 'AbortError') return;
         setDefaults({ senderPhone: '', arsNum: '', connected: false });
       });
+    return () => ctrl.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

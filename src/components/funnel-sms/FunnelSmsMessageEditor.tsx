@@ -59,17 +59,20 @@ export default function FunnelSmsMessageEditor({ message, onChange, sendHour, se
 
   // 마운트 시 카톡방 링크 + 상품링크 미리 로드
   useEffect(() => {
-    fetch('/api/settings/sms-defaults')
+    const ctrl = new AbortController();
+    const { signal } = ctrl;
+    fetch('/api/settings/sms-defaults', { signal })
       .then(r => r.json())
       .then(d => { if (d.ok) setKakaoOpenChat(d.kakaoOpenChat ?? ''); })
-      .catch(() => {});
+      .catch(err => { if (err instanceof Error && err.name !== 'AbortError') {} });
 
     setLoadingLinks(true);
-    fetch('/api/settings/product-links')
+    fetch('/api/settings/product-links', { signal })
       .then(r => r.json())
       .then(d => { if (d.ok) setProductLinks(d.links ?? []); })
-      .catch(() => {})
-      .finally(() => setLoadingLinks(false));
+      .catch(err => { if (err instanceof Error && err.name !== 'AbortError') {} })
+      .finally(() => { if (!signal.aborted) setLoadingLinks(false); });
+    return () => ctrl.abort();
   }, []);
 
   /** 커서 위치에 변수 삽입 */

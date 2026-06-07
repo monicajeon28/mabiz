@@ -64,7 +64,7 @@ export function QaLibrary() {
 
   // 검색 수행
   const performSearch = useCallback(
-    async (q: string = query, cat: string = category, t: string = tone, p: number = 1) => {
+    async (q: string = query, cat: string = category, t: string = tone, p: number = 1, signal?: AbortSignal) => {
       setLoading(true);
       setError("");
       try {
@@ -75,7 +75,7 @@ export function QaLibrary() {
         params.append("page", p.toString());
         params.append("limit", "20");
 
-        const res = await fetch(`/api/tools/bot-guide-answers?${params}`);
+        const res = await fetch(`/api/tools/bot-guide-answers?${params}`, { signal });
         const data: ApiResponse = await res.json();
 
         if (data.ok) {
@@ -87,10 +87,11 @@ export function QaLibrary() {
           setError("검색 실패");
         }
       } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         setError("검색 중 오류 발생");
         console.error(err);
       } finally {
-        setLoading(false);
+        if (!signal?.aborted) setLoading(false);
       }
     },
     [query, category, tone]
@@ -98,7 +99,9 @@ export function QaLibrary() {
 
   // 초기 로드
   useEffect(() => {
-    performSearch(query, category, tone, 1);
+    const ctrl = new AbortController();
+    performSearch(query, category, tone, 1, ctrl.signal);
+    return () => ctrl.abort();
   }, []);
 
   const handleSearch = (q: string, cat: string, t: string) => {
