@@ -15,7 +15,7 @@ import { getMessageStatus, getMessagePercent } from '@/utils/delta-helpers';
  */
 
 interface MessageSelectorProps {
-  triggerType: 'PURCHASE' | 'ABANDONED';
+  triggerType: 'PURCHASE' | 'ABANDONED' | null;
   useDefault: boolean;
   onToggleDefault: (value: boolean) => void;
   messages: {

@@ -16,7 +16,7 @@ import { areAllMessagesValid } from '@/utils/delta-helpers';
 export interface WizardState {
   currentStep: number;
   campaignId: string;
-  triggerType: 'PURCHASE' | 'ABANDONED';
+  triggerType: 'PURCHASE' | 'ABANDONED' | null;
   messages: {
     day0: string;
     day1: string;
@@ -75,7 +75,7 @@ export function useDeltaWizard(campaignId: string) {
   const [state, setState] = useState<WizardState>({
     currentStep: 1,
     campaignId,
-    triggerType: 'PURCHASE',
+    triggerType: null,
     messages: {
       day0: '',
       day1: '',
@@ -89,8 +89,10 @@ export function useDeltaWizard(campaignId: string) {
   });
 
   // Default messages 계산 (triggerType 기반)
+  // triggerType이 null이면 PURCHASE 기본값으로 폴백
   const getDefaultMessages = useCallback((): DefaultMessages => {
-    const triggerConfig = deltaSequence.triggers[state.triggerType];
+    const effectiveTrigger = state.triggerType ?? 'PURCHASE';
+    const triggerConfig = deltaSequence.triggers[effectiveTrigger];
     return {
       day0: triggerConfig.days[0].message,
       day1: triggerConfig.days[1].message,
@@ -161,7 +163,8 @@ export function useDeltaWizard(campaignId: string) {
         setState((prev) => ({
           ...prev,
           isLoading: false,
-          triggerType: data.triggerType || 'PURCHASE',
+          // 기존 설정에서 triggerType을 그대로 복원 (null은 유지 안 함, 저장된 값은 신뢰)
+          triggerType: (data.triggerType as 'PURCHASE' | 'ABANDONED') ?? null,
           messages: loadedMessages,
           useDefaultMessages: false, // 기존 설정이 있으면 커스텀 모드
           error: null,
@@ -292,6 +295,16 @@ export function useDeltaWizard(campaignId: string) {
   // P0 1: CSRF 토큰 추가 + P0 2: organizationId IDOR 재검증
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const handleSave = useCallback(async () => {
+    // triggerType 미선택 시 저장 불가 (Step 1 건너뛰기 방어)
+    if (!state.triggerType) {
+      toast({
+        title: '오류',
+        description: '트리거 유형을 먼저 선택해주세요.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       setState((prev) => ({ ...prev, isSaving: true, error: null }));
 
@@ -302,7 +315,7 @@ export function useDeltaWizard(campaignId: string) {
 
       const payload = {
         campaignId: state.campaignId,
-        triggerType: state.triggerType,
+        triggerType: state.triggerType as 'PURCHASE' | 'ABANDONED',
         deltaDay0Message: messagesToSend.day0,
         deltaDay1Message: messagesToSend.day1,
         deltaDay2Message: messagesToSend.day2,
