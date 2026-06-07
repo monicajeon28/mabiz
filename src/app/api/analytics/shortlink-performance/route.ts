@@ -44,13 +44,16 @@ export async function GET(req: NextRequest): Promise<NextResponse<AnalyticsRespo
     }
 
     const searchParams = req.nextUrl.searchParams
-    const organizationId = searchParams.get('organizationId')
-    const createdBy = searchParams.get('createdBy')
+    // GLOBAL_ADMIN: query param 허용, 일반: 세션 org 고정
+    const organizationId = ctx.role === 'GLOBAL_ADMIN'
+      ? (searchParams.get('organizationId') || ctx.organizationId)
+      : ctx.organizationId
+    const createdBy = searchParams.get('createdBy') || ctx.userId
     const groupBy = searchParams.get('groupBy') || 'daily' // 'daily' | 'hourly'
     const daysParam = searchParams.get('days')
     const days = daysParam ? parseInt(daysParam, 10) : 7
 
-    if (!organizationId || !createdBy) {
+    if (!organizationId) {
       return NextResponse.json(
         { ok: false, data: null, error: 'Missing required parameters' },
         { status: 400 }

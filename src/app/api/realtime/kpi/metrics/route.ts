@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { realtimeMetricsService } from '@/lib/services/realtime-metrics-service';
+import { getMabizSession } from '@/lib/auth';
 
 /**
  * GET /api/realtime/kpi/metrics?org=<organizationId>
@@ -27,11 +28,15 @@ import { realtimeMetricsService } from '@/lib/services/realtime-metrics-service'
  */
 export async function GET(request: NextRequest) {
   try {
-    // Note: Authorization check is done via searchParams org parameter
-    // In production, validate organizationId matches user's organization
+    const session = await getMabizSession();
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { searchParams } = new URL(request.url);
-    const organizationId = searchParams.get('org');
+    const orgParam = searchParams.get('org');
+    // GLOBAL_ADMIN: query param 허용, 일반: 세션 org 고정
+    const organizationId = session.role === 'GLOBAL_ADMIN'
+      ? (orgParam || session.organizationId)
+      : session.organizationId;
 
     if (!organizationId) {
       return NextResponse.json(
