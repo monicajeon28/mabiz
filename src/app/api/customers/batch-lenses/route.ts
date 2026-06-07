@@ -39,7 +39,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body: BatchLensRequest = await request.json();
-    const { contactIds, orgId } = body;
+    const { contactIds } = body;
+    // GLOBAL_ADMIN: body orgId 허용, 일반: 세션 org 고정
+    const orgId = session.role === 'GLOBAL_ADMIN'
+      ? (body.orgId || session.organizationId || '')
+      : (session.organizationId || '');
 
     if (!contactIds || !Array.isArray(contactIds) || contactIds.length === 0) {
       return NextResponse.json(
