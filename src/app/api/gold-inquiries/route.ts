@@ -90,11 +90,12 @@ export async function GET(req: NextRequest) {
       if (ctx.role === 'GLOBAL_ADMIN') return Prisma.empty;
       if (!mallUserId) return Prisma.empty;
       if (ctx.role === 'OWNER') {
-        // OWNER = 자신이 managerId이거나 agentId인 문의 모두
-        return Prisma.sql`AND (pi."managerId" = ${mallUserId} OR pi."agentId" = ${mallUserId})`;
+        // OWNER = 자신이 managerId이거나 agentId이면서 동일 조직 문의만
+        return Prisma.sql`AND (pi."managerId" = ${mallUserId} OR pi."agentId" = ${mallUserId}) AND pi."organizationId" = ${ctx.organizationId}`;
       }
       if (ctx.role === 'AGENT') {
-        return Prisma.sql`AND pi."agentId" = ${mallUserId}`;
+        // AGENT = agentId=자신 AND 동일 조직만 (organizationId 격리 필수)
+        return Prisma.sql`AND pi."agentId" = ${mallUserId} AND pi."organizationId" = ${ctx.organizationId}`;
       }
       return Prisma.empty;
     })();

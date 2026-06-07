@@ -169,7 +169,7 @@ export async function GET(req: Request) {
     const passportPnr = passportPnrRows.map((r) => ({
       id: r.id, customerName: r.name ?? '-',
       passportStatus: r.passportStatus ?? 'NONE', pnrStatus: r.pnrStatus ?? 'NONE',
-      confirmedAt: r.finalConfirmStatus || null,
+      finalConfirmStatus: r.finalConfirmStatus || null,
       assignedName: r.assignedName || '-',
       commissionAmount: r.commissionAmount ?? 0,
       saleId: r.saleId || null,

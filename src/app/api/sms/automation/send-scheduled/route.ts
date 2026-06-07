@@ -48,7 +48,8 @@ export async function GET(request: NextRequest) {
         status: 'pending',
         scheduledTime: {
           lte: now
-        }
+        },
+        contact: { optOutAt: null } // 수신거부 고객 제외 (정보통신망법)
       },
       include: {
         contact: true,

@@ -330,7 +330,7 @@ export default function MembersPage() {
     // 현재 비밀번호 즉시 조회
     fetch(`/api/admin/members/${member.id}/password`)
       .then(r => r.json())
-      .then(d => { if (d.ok) setCurrentPassword(d.passwordPlain ?? '(미설정)'); })
+      .then(d => { if (d.ok) setCurrentPassword(d.hasPassword ? '(비밀번호 설정됨)' : '(미설정)'); })
       .catch(() => { setCurrentPassword('(조회 실패)'); });
   }
 

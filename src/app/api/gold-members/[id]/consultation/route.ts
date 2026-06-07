@@ -20,8 +20,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     if (!member) {
       return NextResponse.json({ ok: false, error: '골드회원을 찾을 수 없습니다.' }, { status: 404 });
     }
-    if (ctx.role !== 'GLOBAL_ADMIN' && ctx.organizationId && member.organizationId !== ctx.organizationId) {
-      return NextResponse.json({ ok: false, error: '접근 권한이 없습니다.' }, { status: 403 });
+    if (ctx.role !== 'GLOBAL_ADMIN') {
+      if (!ctx.organizationId || member.organizationId !== ctx.organizationId) {
+        return NextResponse.json({ ok: false, error: '접근 권한이 없습니다.' }, { status: 403 });
+      }
     }
 
     const consultation = await prisma.goldMemberConsultation.create({

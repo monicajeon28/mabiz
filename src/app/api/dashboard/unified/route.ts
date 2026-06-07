@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, resolveOrgId } from "@/lib/rbac";
 import { calculateHeroKPIs } from "@/lib/metrics-calculator";
@@ -26,18 +28,77 @@ export async function GET(request: NextRequest) {
     const orgId = resolveOrgId(ctx);
     const startTime = Date.now();
 
-    // Parallel execution for performance
-    const [hero, contactChurns, partnerChurns, upsells, activity, health] =
-      await Promise.all([
-        calculateHeroKPIs(orgId),
-        predictAllChurns(orgId),
-        detectAllChurnRisks(orgId),
+    // Parallel execution with graceful fallback — allSettled prevents one failure
+    // from crashing the entire dashboard response
+    const [
+      heroResult,
+      contactChurnsResult,
+      partnerChurnsResult,
+      upsellsResult,
+      activityResult,
+      healthResult,
+      partnerCountResult,
+    ] = await Promise.allSettled([
+      calculateHeroKPIs(orgId),
+      predictAllChurns(orgId),
+      detectAllChurnRisks(orgId),
+      // identifyAllUpsells uses N+1 queries — race against 8s to prevent Vercel 504
+      Promise.race([
         identifyAllUpsells(orgId),
-        getRecentActivity(orgId),
-        getSystemHealth(orgId),
-      ]);
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("upsells timeout")), 8000)
+        ),
+      ]),
+      getRecentActivity(orgId),
+      getSystemHealth(orgId),
+      prisma.partner.count({ where: { organizationId: orgId } }),
+    ]);
+
+    // Extract values with safe fallbacks
+    const hero =
+      heroResult.status === "fulfilled" ? heroResult.value : null;
+    const contactChurns =
+      contactChurnsResult.status === "fulfilled" ? contactChurnsResult.value : [];
+    const partnerChurns =
+      partnerChurnsResult.status === "fulfilled" ? partnerChurnsResult.value : [];
+    const upsells =
+      upsellsResult.status === "fulfilled" ? upsellsResult.value : [];
+    const activity =
+      activityResult.status === "fulfilled"
+        ? activityResult.value
+        : { lastContactCreated: null, lastSaleConfirmed: null, messagesSentToday: 0, callsMadeToday: 0 };
+    const health =
+      healthResult.status === "fulfilled"
+        ? healthResult.value
+        : { status: "WARNING" as const, checks: [] };
+    const partnerCount =
+      partnerCountResult.status === "fulfilled" ? partnerCountResult.value : 0;
 
     const duration = Date.now() - startTime;
+
+    // Log partial failures for operational visibility
+    const partialFailures = [
+      heroResult,
+      contactChurnsResult,
+      partnerChurnsResult,
+      upsellsResult,
+      activityResult,
+      healthResult,
+      partnerCountResult,
+    ]
+      .map((r, i) =>
+        r.status === "rejected"
+          ? { index: i, reason: r.reason?.message ?? String(r.reason) }
+          : null
+      )
+      .filter((x): x is { index: number; reason: string } => x !== null);
+
+    if (partialFailures.length > 0) {
+      logger.warn("[Unified Dashboard] Partial failures", {
+        organizationId: orgId,
+        failures: partialFailures,
+      });
+    }
 
     logger.log("[Unified Dashboard]", {
       organizationId: orgId,
@@ -68,7 +129,7 @@ export async function GET(request: NextRequest) {
 
         // Layer 3: Partner Management
         partnerInsights: {
-          totalPartners: (await prisma.partner.count({ where: { organizationId: orgId } })),
+          totalPartners: partnerCount,
           atRiskCount: partnerChurns.length,
           critical: partnerChurns.filter((p) => p.severity === "CRITICAL")
             .length,
@@ -92,6 +153,7 @@ export async function GET(request: NextRequest) {
       meta: {
         generatedAt: new Date().toISOString(),
         responseTime: `${duration}ms`,
+        ...(partialFailures.length > 0 && { partialFailures: partialFailures.length }),
       },
     });
   } catch (err) {

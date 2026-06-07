@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { logger } from '@/lib/logger';
+import { getMabizSession } from '@/lib/auth';
 
 /**
  * 예약 생성 API
@@ -17,12 +18,18 @@ import { logger } from '@/lib/logger';
  * APIS 코드는 dateOfBirth/passportExpiryDate도 지원하므로 입력 데이터에서 양쪽 모두 처리
  */
 export async function POST(req: NextRequest) {
+  const ctx = await getMabizSession();
+  if (!ctx) return NextResponse.json({ ok: false, message: '로그인이 필요합니다.' }, { status: 401 });
+  if (!['GLOBAL_ADMIN', 'OWNER', 'AGENT'].includes(ctx.role))
+    return NextResponse.json({ ok: false, message: '권한이 없습니다.' }, { status: 403 });
+
   try {
     const body = await req.json();
     const { tripId, mainUser, travelers, cabinType, pnrStatus } = body;
 
+    const parsedTripId = parseInt(String(tripId), 10);
     // ⚠️ 필수 필드 검증 완화: 여권 1명만 입력해도 저장 가능, 여권 0명이어도 저장 가능 (나중에 추가)
-    if (!tripId || !travelers || !Array.isArray(travelers)) {
+    if (!parsedTripId || isNaN(parsedTripId) || !travelers || !Array.isArray(travelers)) {
       return NextResponse.json(
         { ok: false, message: '필수 필드가 누락되었습니다. (tripId, travelers 필수)' },
         { status: 400 }
@@ -47,7 +54,7 @@ export async function POST(req: NextRequest) {
       days: number | null;
       itineraryPattern: string[] | null;
       productCode: string | null;
-    }>>`SELECT id, "cruiseLine", "shipName", nights, days, "itineraryPattern", "productCode" FROM "CruiseProduct" WHERE id = ${tripId}`;
+    }>>`SELECT id, "cruiseLine", "shipName", nights, days, "itineraryPattern", "productCode" FROM "CruiseProduct" WHERE id = ${parsedTripId}`;
 
     const cruiseProduct = cruiseProducts[0] ?? null;
 
@@ -469,7 +476,11 @@ export async function POST(req: NextRequest) {
             const { google } = await import('googleapis');
 
             // 여권 백업 폴더 ID 가져오기
-            const rootFolderId = process.env.GOOGLE_DRIVE_PASSPORT_FOLDER_ID || '1Nen5t7rE8WaT9e4xWswSiUNJIcgMiDRF';
+            const rootFolderId = process.env.GOOGLE_DRIVE_PASSPORT_FOLDER_ID;
+            if (!rootFolderId) {
+              logger.error('[Reservation Create] GOOGLE_DRIVE_PASSPORT_FOLDER_ID 환경변수가 설정되지 않았습니다.');
+              throw new Error('GOOGLE_DRIVE_PASSPORT_FOLDER_ID 미설정');
+            }
 
             // 여행 상품 폴더 생성/검색
             const trip = await prisma.gmTrip.findUnique({
@@ -488,7 +499,12 @@ export async function POST(req: NextRequest) {
               const tripFolderName = `${departureDate}_${shipName}`;
 
               // Drive 클라이언트 생성
-              const privateKey = (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? '').replace(/\\n/g, '\n');
+              const rawPrivateKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
+              if (!rawPrivateKey) {
+                logger.error('[Reservation Create] GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY 환경변수가 설정되지 않았습니다.');
+                throw new Error('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY 미설정');
+              }
+              const privateKey = rawPrivateKey.replace(/\\n/g, '\n');
               const auth = new google.auth.GoogleAuth({
                 credentials: {
                   client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,

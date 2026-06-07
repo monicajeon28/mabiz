@@ -44,12 +44,36 @@ export async function GET(req: Request) {
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "20", 10) || 20));
 
-    const where = {
+    const where: Record<string, unknown> = {
       ...(typeFilter ? { type: typeFilter } : {}),
       status: statusFilter,
     };
 
-    // 전체 개수와 페이지 데이터 병렬 조회
+    // q 검색: DB 레벨 필터링 (메모리 필터 제거)
+    if (q) {
+      // 1단계: GmUser 테이블에서 name/mallUserId ILIKE 검색
+      const matchedUsers = await prisma.gmUser.findMany({
+        where: {
+          OR: [
+            { name: { contains: q, mode: "insensitive" } },
+            { mallUserId: { contains: q, mode: "insensitive" } },
+          ],
+        },
+        select: { id: true },
+      });
+      const matchedUserIds = matchedUsers.map((u) => u.id);
+
+      // 2단계: OR [ displayName contains q | userId in matchedUserIds ]
+      // matchedUserIds가 비어있어도 displayName 조건만으로 검색 가능
+      where.OR = [
+        { displayName: { contains: q, mode: "insensitive" } },
+        ...(matchedUserIds.length > 0
+          ? [{ userId: { in: matchedUserIds } }]
+          : []),
+      ];
+    }
+
+    // 전체 개수와 페이지 데이터 병렬 조회 (동일한 확장 where 조건 사용)
     const [total, profiles] = await Promise.all([
       prisma.gmAffiliateProfile.count({ where }),
       prisma.gmAffiliateProfile.findMany({
@@ -73,7 +97,7 @@ export async function GET(req: Request) {
       }),
     ]);
 
-    // userId 목록으로 GmUser 일괄 조회
+    // userId 목록으로 GmUser 일괄 조회 (표시용)
     const userIds = profiles.map((p) => p.userId);
     const users = await prisma.gmUser.findMany({
       where: { id: { in: userIds } },
@@ -81,8 +105,8 @@ export async function GET(req: Request) {
     });
     const userMap = new Map(users.map((u) => [u.id, u]));
 
-    // 검색어 필터 (이름 또는 mallUserId)
-    let result = profiles.map((p) => {
+    // 메모리 필터 제거 — 모든 필터링은 DB에서 완료됨
+    const result = profiles.map((p) => {
       const u = userMap.get(p.userId);
       return {
         id: p.id,
@@ -99,16 +123,6 @@ export async function GET(req: Request) {
         createdAt: p.createdAt,
       };
     });
-
-    if (q) {
-      const lower = q.toLowerCase();
-      result = result.filter(
-        (r) =>
-          r.name?.toLowerCase().includes(lower) ||
-          r.mallUserId?.toLowerCase().includes(lower) ||
-          r.displayName?.toLowerCase().includes(lower)
-      );
-    }
 
     return NextResponse.json({ ok: true, profiles: result, total, page, limit });
   } catch (err) {

@@ -93,7 +93,6 @@ export async function PATCH(
 
     let slug: string;
     try {
-    const params = await context.params;
       const body = await req.json() as { slug?: unknown };
       if (typeof body.slug !== 'string') {
         return NextResponse.json({ ok: false, error: 'slug 값이 필요합니다.' }, { status: 400 });

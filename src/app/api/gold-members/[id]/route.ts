@@ -21,8 +21,10 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
     if (!member) return NextResponse.json({ ok: false, error: '없음' }, { status: 404 });
 
     // 조직 격리: GLOBAL_ADMIN이 아니면 자기 조직 회원만 조회 가능
-    if (ctx.role !== 'GLOBAL_ADMIN' && ctx.organizationId && member.organizationId !== ctx.organizationId) {
-      return NextResponse.json({ ok: false, error: '접근 권한이 없습니다.' }, { status: 403 });
+    if (ctx.role !== 'GLOBAL_ADMIN') {
+      if (!ctx.organizationId || member.organizationId !== ctx.organizationId) {
+        return NextResponse.json({ ok: false, error: '접근 권한이 없습니다.' }, { status: 403 });
+      }
     }
 
     return NextResponse.json({ ok: true, member });
@@ -86,12 +88,14 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     if (!existing) {
       return NextResponse.json({ ok: false, error: '없음' }, { status: 404 });
     }
-    if (ctx.role !== 'GLOBAL_ADMIN' && ctx.organizationId && existing.organizationId !== ctx.organizationId) {
-      return NextResponse.json({ ok: false, error: '접근 권한이 없습니다.' }, { status: 403 });
+    if (ctx.role !== 'GLOBAL_ADMIN') {
+      if (!ctx.organizationId || existing.organizationId !== ctx.organizationId) {
+        return NextResponse.json({ ok: false, error: '접근 권한이 없습니다.' }, { status: 403 });
+      }
     }
 
     const updated = await prisma.goldMember.updateMany({
-      where: { id, ...(ctx.role !== 'GLOBAL_ADMIN' && ctx.organizationId ? { organizationId: ctx.organizationId } : {}) },
+      where: { id, ...(ctx.role !== 'GLOBAL_ADMIN' ? { organizationId: ctx.organizationId ?? '__IMPOSSIBLE__' } : {}) },
       data,
     });
     if (updated.count === 0) {

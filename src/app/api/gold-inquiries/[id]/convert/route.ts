@@ -35,12 +35,21 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       return NextResponse.json({ ok: false, error: '코스는 A, B, C, 건강 중 하나여야 합니다.' }, { status: 400 });
     }
 
-    // ProductInquiry 원본 데이터 조회 (GMcruise 공유 DB)
+    // 조직 ID 결정 (SELECT 전에 확정 — organizationId 격리에 사용)
+    const organizationId = ctx.organizationId
+      ?? (await prisma.organization.findFirst({ select: { id: true } }))?.id;
+    if (!organizationId) {
+      return NextResponse.json({ ok: false, error: '조직 정보 없음' }, { status: 500 });
+    }
+
+    // ProductInquiry 원본 데이터 조회 (GMcruise 공유 DB) — organizationId로 격리
     const inquiries = await prisma.$queryRaw<Array<{ name: string; phone: string; message: string | null; agentId: number | null; managerId: number | null }>>(
       Prisma.sql`
         SELECT name, phone, message, "agentId", "managerId"
         FROM "CruiseProductInquiry"
-        WHERE id = ${inquiryId} AND "productCode" LIKE 'GOLD_MEMBERSHIP%'
+        WHERE id = ${inquiryId}
+          AND "productCode" LIKE 'GOLD_MEMBERSHIP%'
+          AND "organizationId" = ${organizationId}
         LIMIT 1
       `
     );
@@ -48,13 +57,6 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       return NextResponse.json({ ok: false, error: '문의를 찾을 수 없습니다.' }, { status: 404 });
     }
     const inquiry = inquiries[0];
-
-    // 조직 ID 결정
-    const organizationId = ctx.organizationId
-      ?? (await prisma.organization.findFirst({ select: { id: true } }))?.id;
-    if (!organizationId) {
-      return NextResponse.json({ ok: false, error: '조직 정보 없음' }, { status: 500 });
-    }
 
     // 전화번호 정규화
     const rawPhone = inquiry.phone.replace(/\D/g, '');

@@ -19,7 +19,7 @@ export async function GET(
 
     const member = await prisma.organizationMember.findUnique({
       where: { id: params.memberId },
-      select: { id: true, organizationId: true, displayName: true, passwordPlain: true, passwordHash: true },
+      select: { id: true, organizationId: true, displayName: true, passwordHash: true },
     });
 
     if (!member) return notFound('멤버를 찾을 수 없습니다.');
@@ -37,7 +37,6 @@ export async function GET(
     return NextResponse.json({
       ok: true,
       displayName: member.displayName,
-      passwordPlain: member.passwordPlain ?? null,
       hasPassword: !!member.passwordHash,
     });
   } catch (err: unknown) {

@@ -46,7 +46,7 @@ export async function POST(
 
     await prisma.organizationMember.update({
       where: { id: params.memberId },
-      data: { passwordHash: hashed, passwordPlain: tempPassword },
+      data: { passwordHash: hashed },
     });
 
     logger.info('[POST /admin/members/reset-password] 임시 비밀번호 발급', {
