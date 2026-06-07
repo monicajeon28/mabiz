@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCustomers360 } from "@/lib/customers/customer-aggregator";
 import { maskCustomer360, UserRole } from "@/lib/customers/pii-masker";
 import { getServerSession } from "next-auth";
+import { logger } from "@/lib/logger";
 
 export async function GET(request: NextRequest) {
   try {
@@ -90,7 +91,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("[Customer Search] Error:", error);
+    logger.error("[Customer Search] Error", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       {
         error: "서버 오류가 발생했습니다.",

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getAuthContext } from '@/lib/rbac'
+import { logger } from '@/lib/logger'
 
 export interface ShortLinkClickByContact {
   contactId: string | null
@@ -97,7 +98,7 @@ export async function GET(
       { status: 200 }
     )
   } catch (error) {
-    console.error('[shortlink-clicks-by-contact] Error:', error)
+    logger.error('[shortlink-clicks-by-contact] Error', { error: error instanceof Error ? error.message : String(error) })
     return NextResponse.json(
       {
         ok: false,
