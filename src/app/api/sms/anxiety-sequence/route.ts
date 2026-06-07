@@ -119,9 +119,15 @@ export async function POST(request: NextRequest) {
           message: schedule.template.content,
           scheduledAt: calculateScheduledTime(schedule.day, schedule.sendTime),
           status: 'PENDING',
-          failureReason: JSON.stringify(metadata), // 메타데이터 저장
+          // failureReason: PENDING 상태에서는 null 유지 — 실제 발송 실패 시 오류 메시지 저장 용도
         },
       });
+
+      logger.info('[anxiety-sequence] scheduled sms metadata', {
+        scheduledSmsId: scheduledSms.id,
+        ...metadata,
+      });
+
       scheduledMessages.push(scheduledSms);
     }
 

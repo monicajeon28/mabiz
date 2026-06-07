@@ -42,7 +42,7 @@ export async function PATCH(req: Request) {
     const newHash = await hashPassword(newPassword);
     await prisma.organizationMember.update({
       where: { id: member.id },
-      data: { passwordHash: newHash, passwordPlain: newPassword },
+      data: { passwordHash: newHash },
     });
 
     logger.info('[PATCH /api/settings/password] 비밀번호 변경', { userId: ctx.userId });

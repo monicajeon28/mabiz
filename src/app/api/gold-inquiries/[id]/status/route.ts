@@ -43,6 +43,15 @@ export async function PATCH(
       );
     }
 
+    // OWNER는 자신의 조직 문의만 상태 변경 가능 (organizationId 격리)
+    let orgScopeCondition: Prisma.Sql = Prisma.empty;
+    if (ctx.role === 'OWNER') {
+      if (!ctx.organizationId) {
+        return NextResponse.json({ ok: false, error: '조직 정보가 없습니다.' }, { status: 403 });
+      }
+      orgScopeCondition = Prisma.sql`AND "organizationId" = ${ctx.organizationId}`;
+    }
+
     // 테이블명은 CruiseProductInquiry (GET/convert 라우트와 동일), productCode는 LIKE로
     // 실제 값(GOLD_MEMBERSHIP_A 등)까지 매칭 — 정확일치는 404가 되어 상태변경이 막혔음.
     const rows = await prisma.$queryRaw<{ id: number }[]>(Prisma.sql`
@@ -51,6 +60,7 @@ export async function PATCH(
              "updatedAt" = NOW()
       WHERE  id = ${inquiryId}
         AND  "productCode" LIKE 'GOLD_MEMBERSHIP%'
+        ${orgScopeCondition}
       RETURNING id
     `);
 

@@ -171,6 +171,12 @@ export async function PUT(req: Request) {
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
+    if (!canManageSettings(ctx)) {
+      return NextResponse.json(
+        { ok: false, message: "OWNER 또는 관리자만 테스트 문자를 발송할 수 있습니다." },
+        { status: 403 }
+      );
+    }
     const orgId = resolveOrgId(ctx);
 
     const body = await req.json();

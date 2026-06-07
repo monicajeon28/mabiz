@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext, buildContactWhere } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
+import { sendFunnelEmail } from "@/lib/email";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -40,14 +41,27 @@ export async function POST(req: Request, { params }: Params) {
        <p>저희 크루즈 서비스를 이용해주셔서 감사합니다.</p>
        <p>더 많은 정보는 <a href="https://crm.mabiz.dev">여기</a>를 방문해주세요.</p>`;
 
-    logger.log("[POST /api/contacts/[id]/send-email] 이메일 발송", {
+    logger.log("[POST /api/contacts/[id]/send-email] 이메일 발송 시작", {
       contactId: contact.id,
-      email: contact.email,
       templateId: templateId || "custom",
     });
 
-    // NOTE: 실제 이메일 서비스 연결(SendGrid, AWS SES 등)은 별도 구현 필요
-    // (현재는 로깅만 수행, 실제 발송 미구현)
+    const result = await sendFunnelEmail({
+      organizationId: contact.organizationId,
+      contactId: contact.id,
+      to: contact.email,
+      subject: emailSubject,
+      html: emailBody,
+      channel: "MANUAL_EMAIL",
+    });
+
+    if (result.result_code !== 1) {
+      const status = result.result_code === -97 ? 503 : 502;
+      return NextResponse.json(
+        { ok: false, message: result.message },
+        { status }
+      );
+    }
 
     return NextResponse.json({
       ok: true,
@@ -55,7 +69,7 @@ export async function POST(req: Request, { params }: Params) {
       data: {
         contactId: contact.id,
         email: contact.email,
-        channel: "EMAIL",
+        channel: "MANUAL_EMAIL",
         status: "SENT",
         sentAt: new Date(),
       },

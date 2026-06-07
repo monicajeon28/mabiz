@@ -37,7 +37,7 @@ type B2CPassport = {
   customerName: string;
   passportStatus: string;
   pnrStatus: string;
-  confirmedAt: string | null;
+  finalConfirmStatus: string | null;
   assignedName?: string;
   commissionAmount?: number;
   saleId?: string | null;
@@ -772,7 +772,7 @@ function B2CTab({ data, loading, month, onDrilldown, onRefresh }: { data: B2CDat
                             </a>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-center">{p.confirmedAt ? <Badge status={p.confirmedAt} /> : '-'}</td>
+                        <td className="px-4 py-3 text-center">{p.finalConfirmStatus ? <Badge status={p.finalConfirmStatus} /> : '-'}</td>
                         <td className="px-4 py-3 text-gray-600 text-sm">{p.assignedName || '-'}</td>
                         <td className="px-4 py-3 text-right text-gray-700">{p.commissionAmount ? `₩${(p.commissionAmount).toLocaleString()}` : '-'}</td>
                         <td className="px-4 py-3 text-center">

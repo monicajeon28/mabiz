@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { checkRateLimitAsync } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 
 interface ClickEvent {
   messageId: string;
-  contactId?: string;
   timestamp?: string; // ISO 8601 format
+  // contactId는 body에서 받지 않음 — message.contactId만 사용 (외부 주입 차단)
 }
 
 /**
@@ -29,8 +30,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'RATE_LIMITED' }, { status: 429 });
     }
 
+    const ctx = await getAuthContext();
+    const orgId = resolveOrgId(ctx);
+
     const event: ClickEvent = await request.json();
-    const { messageId, contactId, timestamp } = event;
+    const { messageId, timestamp } = event;
 
     if (!messageId) {
       return NextResponse.json(
@@ -54,6 +58,11 @@ export async function POST(request: NextRequest) {
     });
     if (!existing) {
       return NextResponse.json({ error: 'Message not found' }, { status: 404 });
+    }
+
+    // 조직 격리 검증: GLOBAL_ADMIN 제외, 타 조직 메시지 접근 차단
+    if (ctx.role !== 'GLOBAL_ADMIN' && existing.organizationId !== orgId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // 메시지 조회 및 업데이트
@@ -87,11 +96,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 선택사항: 클릭한 고객의 리드 점수 증가
-    if (contactId || message.contactId) {
-      const cId = contactId || message.contactId;
+    // 선택사항: 클릭한 고객의 리드 점수 증가 (message.contactId만 사용 — body 주입 차단)
+    if (message.contactId) {
       await prisma.contact.update({
-        where: { id: cId },
+        where: { id: message.contactId },
         data: {
           leadScore: {
             increment: 10 // 클릭당 +10점
@@ -108,6 +116,9 @@ export async function POST(request: NextRequest) {
       trackedAt: clickTime.toISOString()
     });
   } catch (error) {
+    if (error instanceof Error && error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     logger.error('[POST /api/sms/automation/track-click]', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Internal server error' },

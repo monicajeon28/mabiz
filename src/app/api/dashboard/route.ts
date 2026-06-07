@@ -272,8 +272,8 @@ export async function GET() {
           FROM "AffiliateSale"
           WHERE "agentId" = ${profileId} AND status IN ('PENDING','PENDING_APPROVAL')
         `),
-        // CRM GoldMember 테이블 사용
-        prisma.goldMember.count({ where: { status: 'ACTIVE' } }),
+        // CRM GoldMember 테이블 사용 (자기 조직만, 소프트삭제 제외)
+        prisma.goldMember.count({ where: { status: 'ACTIVE', deletedAt: null, organizationId: ctx.organizationId ?? undefined } }),
         prisma.$queryRaw<CountRow[]>(Prisma.sql`
           SELECT COUNT(*)::bigint AS count FROM "CallLog"
           WHERE "userId" = ${ctx.userId}

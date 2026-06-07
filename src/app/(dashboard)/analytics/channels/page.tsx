@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   MessageSquare,
   Mail,
@@ -132,30 +132,31 @@ export default function ChannelsPage() {
     null
   );
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await fetch("/api/analytics/channels");
-        const result = await response.json();
-        if (result.ok) {
-          setData({
-            ...result,
-            periodStart: new Date(result.periodStart),
-            periodEnd: new Date(result.periodEnd),
-          });
-        } else {
-          setError(result.message || '데이터를 불러올 수 없습니다.');
-        }
-      } catch (err) {
-        setError('채널 데이터 로드 중 오류가 발생했습니다.');
-      } finally {
-        setLoading(false);
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/analytics/channels");
+      const result = await response.json();
+      if (result.ok) {
+        setData({
+          ...result,
+          periodStart: new Date(result.periodStart),
+          periodEnd: new Date(result.periodEnd),
+        });
+      } else {
+        setError(result.message || "데이터를 불러올 수 없습니다.");
       }
-    };
-    fetchData();
+    } catch {
+      setError("채널 데이터 로드 중 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const totalSent = data?.channels.reduce((sum, c) => sum + c.sent, 0) ?? 0;
   const totalConverted = data?.channels.reduce((sum, c) => sum + c.converted, 0) ?? 0;
@@ -177,8 +178,15 @@ export default function ChannelsPage() {
 
   if (error || !data) {
     return (
-      <div className="p-4 md:p-6 max-w-7xl mx-auto flex items-center justify-center min-h-64">
-        <div className="text-center text-red-500">{error ?? '데이터 없음'}</div>
+      <div className="p-4 md:p-6 max-w-7xl mx-auto flex flex-col items-center justify-center min-h-64 gap-4">
+        <div className="text-center text-red-500">{error ?? "데이터 없음"}</div>
+        <button
+          onClick={fetchData}
+          className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+        >
+          <RefreshCw className="w-4 h-4" />
+          다시 시도
+        </button>
       </div>
     );
   }
@@ -207,7 +215,7 @@ export default function ChannelsPage() {
           지난 90일
         </button>
         <button
-          onClick={() => setLoading(true)}
+          onClick={fetchData}
           className="ml-auto px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2"
         >
           <RefreshCw className="w-4 h-4" />

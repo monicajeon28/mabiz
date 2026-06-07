@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
 
       // Day별 메트릭
       if (metricsByDay[dayKey]) {
-        metricsByDay[dayKey].sent += msg.status === 'sent' ? 1 : msg.status === 'pending' ? 0 : 1;
+        metricsByDay[dayKey].sent += msg.status === 'sent' ? 1 : 0;
         if (msg.clickCount > 0) {
           metricsByDay[dayKey].clicked += 1;
         }
