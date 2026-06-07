@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getMabizSession } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 
@@ -11,6 +12,9 @@ export async function GET(
   { params }: { params: Promise<{ key: string }> }
 ) {
   try {
+    const session = await getMabizSession();
+    if (!session?.userId) return NextResponse.json({ ok: false, message: "Unauthorized" }, { status: 401 });
+
     const { key: rawKey } = await params;
     const key = decodeURIComponent(rawKey);
 
@@ -60,6 +64,9 @@ export async function PUT(
   { params }: { params: Promise<{ key: string }> }
 ) {
   try {
+    const session = await getMabizSession();
+    if (!session?.userId) return NextResponse.json({ ok: false, message: "Unauthorized" }, { status: 401 });
+
     const { key: rawKey } = await params;
     const key = decodeURIComponent(rawKey);
     const body = await req.json();
@@ -134,6 +141,11 @@ export async function DELETE(
   { params }: { params: Promise<{ key: string }> }
 ) {
   try {
+    const session = await getMabizSession();
+    if (!session?.userId || session.role !== 'GLOBAL_ADMIN') {
+      return NextResponse.json({ ok: false, message: "Unauthorized" }, { status: 401 });
+    }
+
     const { key: rawKey } = await params;
     const key = decodeURIComponent(rawKey);
     const { searchParams } = new URL(req.url);
