@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/prisma';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { sendSms, resolveUserSmsConfig } from '@/lib/aligo';
@@ -142,9 +142,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get SMS template (A/B variant)
+    // Get SMS template (contactId 기반 결정론적 A/B variant)
     const templates = SMS_TEMPLATES[targetRole][day];
-    const variantKey = Math.random() > 0.5 ? 'variant_a' : 'variant_b';
+    const hashByte = contactId.charCodeAt(contactId.length - 1);
+    const variantKey = hashByte % 2 === 0 ? 'variant_a' : 'variant_b';
     let messageTemplate = templates[variantKey];
 
     // Replace placeholders

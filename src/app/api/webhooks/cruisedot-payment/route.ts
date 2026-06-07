@@ -288,7 +288,9 @@ export async function POST(req: NextRequest) {
       try {
         // 세그먼트 자동 결정 (기본값: A, 나중에 Contact 정보로 개선)
         const segment: Segment = 'A';
-        const variant: ABVariant = Math.random() > 0.5 ? 'a' : 'b';
+        // contactId 기반 결정론적 A/B 분기 — 같은 고객은 항상 동일 variant
+        const hashByte = contact.id.charCodeAt(contact.id.length - 1);
+        const variant: ABVariant = hashByte % 2 === 0 ? 'a' : 'b';
 
         const smsResult = await sendDay0Sms(
           contact.organizationId,
