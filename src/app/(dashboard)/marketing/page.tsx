@@ -18,10 +18,10 @@ export default function MarketingDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = useCallback(() => {
+  const fetchData = useCallback((signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
-    fetch("/api/marketing/dashboard")
+    fetch("/api/marketing/dashboard", { signal })
       .then((r) => r.json())
       .then((d) => {
         if (d.ok) {
@@ -31,6 +31,7 @@ export default function MarketingDashboardPage() {
         }
       })
       .catch((err) => {
+        if (err instanceof Error && err.name === 'AbortError') return;
         logger.error('[fetchData]', { err });
         const isNetworkError = err instanceof TypeError || !navigator.onLine;
         setError(
@@ -39,11 +40,13 @@ export default function MarketingDashboardPage() {
             : "서버에 일시적 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
         );
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!signal?.aborted) setLoading(false); });
   }, []);
 
   useEffect(() => {
-    fetchData();
+    const ctrl = new AbortController();
+    fetchData(ctrl.signal);
+    return () => ctrl.abort();
   }, [fetchData]);
 
   return (
@@ -54,7 +57,7 @@ export default function MarketingDashboardPage() {
           <p className="text-gray-500 text-sm mt-1">랜딩페이지 성과 및 전환율 분석</p>
         </div>
         <button
-          onClick={fetchData}
+          onClick={() => fetchData()}
           disabled={loading}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed focus:ring-2 focus:ring-offset-1 focus:ring-navy-600"
           aria-label="새로고침"
@@ -70,7 +73,7 @@ export default function MarketingDashboardPage() {
         <div className="text-center py-16" role="alert">
           <p className="text-red-500 text-sm mb-3">{error}</p>
           <button
-            onClick={fetchData}
+            onClick={() => fetchData()}
             className="px-4 py-2 bg-navy-900 text-white rounded-lg text-sm hover:bg-navy-800"
           >
             다시 시도
