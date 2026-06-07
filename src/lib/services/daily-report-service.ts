@@ -393,16 +393,24 @@ export class DailyReportGenerator {
   }
 
   private async getChannelMetrics(channel: string, from: Date, to: Date) {
-    const logs =
-      channel === 'SMS'
-        ? await prisma.smsLog.findMany({
-            where: {
-              organizationId: this.orgId,
-              createdAt: { gte: from, lt: to },
-            },
-            select: { status: true, cost: true },
-          })
-        : [];
+    if (channel === 'KAKAO') {
+      return { sent: 0, openRate: 0, clickRate: 0, conversionRate: 0, cost: 0, cpa: 0 };
+    }
+
+    if (channel === 'EMAIL') {
+      const emailLogs = await prisma.emailLog.findMany({
+        where: { organizationId: this.orgId, sentAt: { gte: from, lt: to } },
+        select: { status: true },
+      });
+      const sent = emailLogs.length;
+      return { sent, openRate: 0, clickRate: 0, conversionRate: 0, cost: 0, cpa: 0 };
+    }
+
+    // SMS
+    const logs = await prisma.smsLog.findMany({
+      where: { organizationId: this.orgId, sentAt: { gte: from, lt: to } },
+      select: { status: true, cost: true },
+    });
 
     const sent = logs.length;
     const opened = logs.filter((l) => l.status === 'OPENED').length;
@@ -461,10 +469,9 @@ export class DailyReportGenerator {
       }
       lensMap[lens].count++;
 
-      // TODO: Need to fetch contact data separately
-      // if (c.contact.purchasedAt && c.contact.purchasedAt >= today) {
-      //   lensMap[lens].converted++;
-      // }
+      if (c.contact.purchasedAt && c.contact.purchasedAt >= today && c.contact.purchasedAt < tomorrow) {
+        lensMap[lens].converted++;
+      }
     }
 
     const byLens: Record<string, any> = {};
