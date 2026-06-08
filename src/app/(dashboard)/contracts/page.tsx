@@ -364,7 +364,7 @@ export default function ContractsPage() {
 
                   {selectedContract.status === 'completed' && selectedContract.driveUrl && (
                     <button
-                      onClick={() => window.open(selectedContract.driveUrl, '_blank')}
+                      onClick={() => window.open(selectedContract.driveUrl as string, '_blank')}
                       className="flex items-center justify-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 text-sm font-medium transition-colors col-span-2"
                     >
                       <Download className="h-4 w-4" />
