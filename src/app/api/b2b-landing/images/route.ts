@@ -30,6 +30,15 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
  * Response: { ok, image: { id, url, width, height, mimeType, sortOrder } }
  */
 export async function POST(req: Request) {
+  // Content-Length 사전 체크 (413 전에 명확한 에러)
+  const contentLength = req.headers.get('content-length');
+  if (contentLength && parseInt(contentLength) > 25 * 1024 * 1024) {
+    return NextResponse.json(
+      { ok: false, error: 'FILE_TOO_LARGE', message: '파일이 너무 큽니다. 20MB 이하 파일을 업로드해주세요.' },
+      { status: 413 }
+    );
+  }
+
   try {
     const ctx = await getAuthContext();
     const orgId = await getOrgId(ctx);
@@ -200,6 +209,16 @@ export async function POST(req: Request) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg === 'UNAUTHORIZED') {
       return NextResponse.json({ ok: false, error: 'UNAUTHORIZED', message: '인증이 필요합니다' }, { status: 401 });
+    }
+    // 413/크기 초과 감지
+    const isSizeError = msg.toLowerCase().includes('too large') ||
+                        msg.toLowerCase().includes('413') ||
+                        msg.toLowerCase().includes('payload');
+    if (isSizeError) {
+      return NextResponse.json(
+        { ok: false, error: 'FILE_TOO_LARGE', message: '파일이 너무 큽니다. 이미지를 압축하거나 20MB 이하 파일을 사용해주세요.' },
+        { status: 413 }
+      );
     }
     logger.error('[b2b-landing-images] 업로드 실패', { message: msg, stack: err instanceof Error ? err.stack : '' });
     return NextResponse.json({ ok: false, error: 'INTERNAL_ERROR', message: 'B2B 랜딩페이지 이미지 업로드 중 오류가 발생했습니다.' }, { status: 500 });
