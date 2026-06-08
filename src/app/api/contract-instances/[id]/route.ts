@@ -153,7 +153,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const { status, signToken } = body;
 
     // 상태 유효성 확인
-    const validStatuses = ["DRAFT", "SENT", "SIGNED", "COMPLETED"];
+    const validStatuses = ["DRAFT", "SENT", "SIGNED", "COMPLETED", "ARCHIVED"];
     if (status && !validStatuses.includes(status)) {
       return NextResponse.json(
         { ok: false, error: "유효하지 않은 상태입니다" },
@@ -164,10 +164,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // 상태머신 전환 매트릭스: 허용된 전환만 통과
     if (status) {
       const allowedTransitions: Record<string, string[]> = {
-        DRAFT:     ["SENT", "COMPLETED"],
-        SENT:      ["SIGNED", "DRAFT", "COMPLETED"],
-        SIGNED:    ["COMPLETED"],
-        COMPLETED: [],
+        DRAFT:     ["SENT", "COMPLETED", "ARCHIVED"],
+        SENT:      ["SIGNED", "DRAFT", "COMPLETED", "ARCHIVED"],
+        SIGNED:    ["COMPLETED", "ARCHIVED"],
+        COMPLETED: ["ARCHIVED"],
+        ARCHIVED:  ["DRAFT"],  // 복구 허용
       };
       const currentStatus = instance.status as string;
       const allowed = allowedTransitions[currentStatus] ?? [];
@@ -359,6 +360,80 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json(response);
   } catch (error) {
     logger.error("[PATCH /api/contract-instances/[id]]", { error: error instanceof Error ? error.message : String(error) });
+    return NextResponse.json(
+      { ok: false, error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/contract-instances/[id]
+ * 계약서 인스턴스 영구 삭제 (ARCHIVED 상태만 가능)
+ */
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  try {
+    const authContext = await getMabizSession();
+    if (!authContext) {
+      return NextResponse.json(
+        { ok: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const { organizationId, role } = authContext;
+    const { id } = await params;
+
+    // GLOBAL_ADMIN 또는 OWNER만 삭제 가능
+    if (role !== "GLOBAL_ADMIN" && role !== "OWNER") {
+      return NextResponse.json(
+        { ok: false, error: "권한 없음" },
+        { status: 403 }
+      );
+    }
+
+    const instance = await prisma.contractInstance.findUnique({
+      where: { id },
+      select: { status: true, organizationId: true },
+    });
+
+    if (!instance) {
+      return NextResponse.json(
+        { ok: false, error: "계약서를 찾을 수 없습니다" },
+        { status: 404 }
+      );
+    }
+
+    // 권한 확인
+    if (instance.organizationId !== organizationId) {
+      return NextResponse.json(
+        { ok: false, error: "접근 권한이 없습니다" },
+        { status: 403 }
+      );
+    }
+
+    // ARCHIVED 상태만 영구 삭제 가능 (SIGNED/COMPLETED는 법적 보관)
+    if (instance.status !== "ARCHIVED") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "휴지통의 계약서만 영구 삭제 가능합니다",
+        },
+        { status: 400 }
+      );
+    }
+
+    await prisma.contractInstance.delete({
+      where: { id, organizationId },
+    });
+
+    logger.log("[DELETE /api/contract-instances/[id]] 영구 삭제 완료", {
+      instanceId: id,
+    });
+
+    return NextResponse.json({ ok: true, message: "영구 삭제 완료" });
+  } catch (error) {
+    logger.error("[DELETE /api/contract-instances/[id]]", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { ok: false, error: "Internal server error" },
       { status: 500 }
