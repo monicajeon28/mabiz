@@ -243,7 +243,7 @@ export async function isDuplicateWithin24h(
   const { default: prisma } = await import("@/lib/prisma");
 
   const passportRequestLog = await prisma.gmPassportRequestLog.findUnique({
-    where: { id: passportRequestLogId },
+    where: { id: parseInt(passportRequestLogId, 10) },
     select: { id: true },
   });
 
