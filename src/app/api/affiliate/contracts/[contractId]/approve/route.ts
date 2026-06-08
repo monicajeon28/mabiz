@@ -212,13 +212,13 @@ export async function PUT(
     // 8.5. 계약서 PDF 생성 + Google Drive 저장 + 이메일 발송
     try {
       const contractMeta = contract.metadata as Record<string, any> | null;
-      const profileType = (contractMeta as any)?.type || 'SALES_AGENT';
+      const profileType = (contractMeta?.type as 'BRANCH_MANAGER' | 'SALES_AGENT' | 'PRE_SALES' | 'HQ') || 'SALES_AGENT';
 
       // PDF 생성
       const pdfUint8Array = await generatePartnerContractPDF(
         provisionResult.manager.crmMemberId,
         contract.name || '계약자',
-        (profileType as 'BRANCH_MANAGER' | 'SALES_AGENT' | 'PRE_SALES' | 'HQ'),
+        profileType,
         new Date(),
         undefined // signatureImageUrl은 나중에 서명 이미지가 있을 때 사용
       );
@@ -232,11 +232,6 @@ export async function PUT(
         pdfBuffer
       );
 
-      // PartnerContract 업데이트 (PDF 정보 저장)
-      // 주의: 이 시점에서는 Partner가 아직 생성되지 않았음
-      // Partner와 PartnerContract는 별도로 생성되어야 함
-      // 따라서 여기서는 PDF 정보만 저장하고, Partner는 별도 API로 생성
-
       // 이메일 발송 (Drive 링크 포함)
       if (contract.email) {
         const emailTemplate = renderPartnerContractSignedEmail({
@@ -249,17 +244,25 @@ export async function PUT(
 
         // 이메일 발송 (Drive 링크로 대체)
         try {
-          await sendFunnelEmail({
+          const emailResult = await sendFunnelEmail({
             organizationId,
             to: contract.email,
             subject: emailTemplate.subject,
             html: emailTemplate.html,
           });
-          logger.log('[AFFILIATE-PROVISION] 계약서 이메일 발송 완료', {
-            contractId,
-            email: contract.email,
-            driveFileId: driveResult.contractFileId,
-          });
+          if (emailResult.result_code === 1) {
+            logger.log('[AFFILIATE-PROVISION] 계약서 이메일 발송 완료', {
+              contractId,
+              email: contract.email,
+              driveFileId: driveResult.contractFileId,
+            });
+          } else {
+            logger.warn('[AFFILIATE-PROVISION] 계약서 이메일 발송 실패', {
+              contractId,
+              email: contract.email,
+              result_code: emailResult.result_code,
+            });
+          }
         } catch (emailErr) {
           logger.warn('[AFFILIATE-PROVISION] 계약서 이메일 발송 실패', {
             contractId,
@@ -350,7 +353,7 @@ export async function PUT(
             subject,
             html,
           });
-          emailSent = emailResult.result_code === 1;
+          emailSent = Number(emailResult.result_code) === 1;
         }
       }
     } catch (emailErr) {
