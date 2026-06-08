@@ -315,14 +315,19 @@ export default function ContactsPage() {
 
       // 그룹 생성 즉시 해당 고객에게 배정
       if (groupAddForContact) {
-        await fetch(`/api/groups/${newGroup.id}/members`, {
+        const assignRes = await fetch(`/api/groups/${newGroup.id}/members`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ contactIds: [groupAddForContact] }),
         });
+        const assignData = await assignRes.json();
+        if (!assignRes.ok || !assignData.ok) {
+          setGroupAddError(assignData.message ?? '그룹 배정 실패');
+          return;
+        }
         setContacts(prev => prev.map(c =>
           c.id === groupAddForContact && !(c.groups ?? []).some(g => g.group.id === newGroup.id)
-            ? { ...c, groups: [...(c.groups ?? []), { group: { id: newGroup.id, name: newGroup.name, color: null } }] }
+            ? { ...c, groups: [...(c.groups ?? []), { group: { id: newGroup.id, name: newGroup.name, color: newGroup.color ?? null } }] }
             : c
         ));
       }
@@ -588,12 +593,22 @@ export default function ContactsPage() {
     if (!bulkGroupId) return;
     const unassigned = contacts.filter((c) => (c.groups ?? []).length === 0);
     if (unassigned.length === 0) return;
-    // 단일 배치 API 호출 (그룹 없는 고객이므로 기존 그룹 제거 불필요)
-    await fetch(`/api/groups/${bulkGroupId}/members`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contactIds: unassigned.map((c) => c.id) }),
-    });
+    try {
+      // 단일 배치 API 호출 (그룹 없는 고객이므로 기존 그룹 제거 불필요)
+      const res = await fetch(`/api/groups/${bulkGroupId}/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactIds: unassigned.map((c) => c.id) }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        toast({ title: '일괄 배정 실패', description: data.message ?? '다시 시도해주세요.', variant: 'destructive' });
+        return;
+      }
+      toast({ title: `${data.successCount ?? unassigned.length}명 배정 완료`, variant: 'success' });
+    } catch {
+      toast({ title: '네트워크 오류', description: '다시 시도해주세요.', variant: 'destructive' });
+    }
     fetchContacts();
   };
 

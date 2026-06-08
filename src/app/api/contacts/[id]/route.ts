@@ -64,7 +64,7 @@ export async function GET(_req: Request, { params }: Params) {
       });
       for (const lc of linkedContacts) {
         sharedCallLogs.push(...lc.callLogs.map(log => ({
-          ...log, _sharedFrom: lc.organization.name, _authorName: null,
+          ...log, _sharedFrom: lc.organization.name, _authorName: null as string | null,
         })));
       }
       // 최신순 정렬

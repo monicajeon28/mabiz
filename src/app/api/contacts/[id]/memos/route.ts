@@ -88,7 +88,19 @@ export async function POST(req: Request, { params }: Params) {
     const memo = await prisma.contactMemo.create({
       data: { contactId: id, userId: ctx.userId, content },
     });
-    return NextResponse.json({ ok: true, memo }, { status: 201 });
+
+    let _authorName: string | null = null;
+    if (ctx.role === 'GLOBAL_ADMIN') {
+      const ga = await prisma.globalAdmin.findUnique({
+        where: { id: ctx.userId },
+        select: { displayName: true },
+      });
+      _authorName = ga?.displayName ?? '관리자';
+    } else {
+      _authorName = ctx.member?.displayName ?? null;
+    }
+
+    return NextResponse.json({ ok: true, memo: { ...memo, _authorName } }, { status: 201 });
   } catch (err) {
     logger.error("[POST memos]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });
