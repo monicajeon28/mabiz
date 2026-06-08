@@ -13,6 +13,7 @@ export default function CTASection() {
   });
 
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -20,11 +21,17 @@ export default function CTASection() {
       ...prev,
       [name]: value,
     }));
+    // Clear error message when user starts typing
+    if (submitStatus === 'error') {
+      setErrorMessage('');
+      setSubmitStatus('idle');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitStatus('loading');
+    setErrorMessage('');
 
     track('application_form_submit', {
       interest: formData.interest,
@@ -52,7 +59,15 @@ export default function CTASection() {
       setTimeout(() => setSubmitStatus('idle'), 5000);
     } catch (error) {
       setSubmitStatus('error');
+      setErrorMessage(
+        error instanceof Error ? error.message : '신청 중 오류가 발생했습니다. 다시 시도해주세요.'
+      );
     }
+  };
+
+  const handleRetry = () => {
+    setSubmitStatus('idle');
+    setErrorMessage('');
   };
 
   return (
@@ -153,6 +168,26 @@ export default function CTASection() {
                   감사합니다.
                 </p>
                 <div className="text-sm text-blue-600 font-semibold">신청만 해도 10-30% 할인 적용!</div>
+              </div>
+            ) : submitStatus === 'error' ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <div className="text-6xl mb-4">⚠️</div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">신청에 실패했습니다</h3>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 w-full">
+                  <p className="text-red-700 text-center font-semibold">{errorMessage}</p>
+                </div>
+                <p className="text-gray-600 text-center mb-6">
+                  잠시 후 다시 시도해주세요.
+                  <br />
+                  문제가 계속되면 전화로 문의하세요.
+                </p>
+                <button
+                  onClick={handleRetry}
+                  className="px-8 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-all mb-4"
+                >
+                  다시 시도하기
+                </button>
+                <p className="text-xs text-gray-500">입력하신 정보는 유지되고 있습니다.</p>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-6">
