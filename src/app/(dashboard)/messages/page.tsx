@@ -301,7 +301,8 @@ function SmsTab() {
         }),
       });
       const d = await res.json() as {
-        ok: boolean; count?: number; willSend?: number; sampleMessages?: string[]; linkNoCount?: number; rateLimitStatus?: any;
+        ok: boolean; count?: number; willSend?: number; sampleMessages?: string[]; linkNoCount?: number;
+        rateLimitStatus?: { used: number; remaining: number; resetAt: string | number } | null;
         error?: string; message?: string;
       };
       if (!d.ok) {

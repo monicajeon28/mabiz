@@ -65,12 +65,12 @@ export default function PartnerDetailPage() {
             const metricsData = await metricsRes.json();
             setMetrics(metricsData.data);
           }
-        } catch (err: any) {
-          if (err?.name === 'AbortError') return;
+        } catch (err: unknown) {
+          if (err instanceof Error && err.name === 'AbortError') return;
           logger.error("Failed to fetch metrics", { error: err instanceof Error ? err.message : String(err) });
         }
-      } catch (err: any) {
-        if (err?.name === 'AbortError') return;
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         const message = err instanceof Error ? err.message : "오류가 발생했습니다";
         setError(message);
         toast({

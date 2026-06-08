@@ -737,8 +737,7 @@ export default function AffiliateTeamDashboardPage() {
     } catch {
       showError('기록 삭제 중 오류가 발생했습니다.');
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [confirm]);
 
   // P2-3: interactionTypeLabels는 모듈 스코프로 이동됨 (컴포넌트 위 선언 참조)
 
