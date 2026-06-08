@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Mail, X, CheckCircle, Clock, XCircle, Pause, Play, RotateCcw } from "lucide-react";
 
 type ScheduledItem = {
@@ -33,15 +33,15 @@ export default function ScheduledEmailPage() {
   const [filter,    setFilter]    = useState("PENDING");
   const [cancelling, setCancelling] = useState<string | null>(null);
 
-  const load = async (status: string) => {
+  const load = useCallback(async (status: string) => {
     setLoading(true);
     const res = await fetch(`/api/email/schedule?status=${status}`);
     const data = await res.json();
     if (data.ok) setList(data.list);
     setLoading(false);
-  };
+  }, []);
 
-  useEffect(() => { load(filter); }, [filter]);
+  useEffect(() => { load(filter); }, [filter, load]);
 
   const cancel = async (id: string) => {
     setCancelling(id);
