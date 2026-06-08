@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { getSession } from '@/lib/auth';
@@ -28,15 +29,33 @@ export async function GET(req: NextRequest) {
     const cursor = searchParams.get('cursor') || undefined;
     const limit = Math.min(100, parseInt(searchParams.get('limit') || '50', 10));
 
-    let where: any = {};
+    const where: Prisma.PartnerRiskFlagsWhereInput = {};
     if (riskLevel && ['RED', 'YELLOW', 'GREEN'].includes(riskLevel)) {
-      // Map risk level to score ranges
       if (riskLevel === 'RED') {
         where.totalRiskScore = { gte: 67 };
       } else if (riskLevel === 'YELLOW') {
         where.totalRiskScore = { gte: 34, lte: 66 };
       } else {
         where.totalRiskScore = { lt: 34 };
+      }
+    }
+
+    // cursor 유효성 검사 — 파트너 삭제 시 Prisma cursor 에러 방지
+    if (cursor) {
+      const cursorExists = await prisma.partnerRiskFlags.findUnique({
+        where: { partnerId: cursor },
+        select: { partnerId: true },
+      });
+      if (!cursorExists) {
+        logger.warn('[partner-alert GET] cursor 만료됨, 첫 페이지로 fallback', { cursor });
+        return NextResponse.json({
+          ok: true,
+          data: [],
+          total: 0,
+          nextCursor: null,
+          hasNextPage: false,
+          cursorExpired: true,
+        });
       }
     }
 
