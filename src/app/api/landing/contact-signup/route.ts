@@ -141,7 +141,7 @@ export async function POST(request: Request) {
       session.organizationId
     );
 
-    // 8. Contact 생성
+    // 8. Contact 생성 + Lens Classification + SMS 스케줄을 Prisma Transaction으로 묶기
     // adminMemo: 민감 정보 암호화 (AES-256-GCM)
     const encryptedMemo = encryptLandingNotes({
       travelType,
@@ -149,55 +149,123 @@ export async function POST(request: Request) {
       problem
     });
 
-    const contact = await prisma.contact.create({
-      data: {
-        organizationId: session.organizationId,
-        name: name.trim(),
-        email: email.toLowerCase(),
-        phone: phoneClean,
-        type: 'INQUIRY',
-        channel: 'landing_page',
-        utmSource: 'LANDING_CRUISEDOT',
-        cruiseInterest: travelType || undefined,
-        budgetRange: budget || undefined,
-        adminMemo: encryptedMemo,
-        tags: tagsArray,
-        assignedUserId: assignedManagerId || undefined
-      }
-    });
+    // ARCH-03: 트랜잭션 통합 (Contact → ContactLensClassification → ScheduledSms)
+    // 실패 시 자동 롤백 — 부분적 생성 방지
+    // 타입 안전성: orgId는 이미 검증됨 (line 48)
+    const orgId = session.organizationId!;
 
-    // 9. Contact Lens Classification 자동 생성
-    // (Day 0-3 SMS 시퀀스 트리거)
-    await prisma.contactLensClassification.upsert({
-      where: {
-        organizationId_contactId_lensType: {
-          organizationId: session.organizationId,
-          contactId: contact.id,
-          lensType: lens
+    const { contact, classificationId, smsQueue } = await prisma.$transaction(
+      async (tx) => {
+        // 8-1. Contact 생성
+        const createdContact = await tx.contact.create({
+          data: {
+            organizationId: orgId,
+            name: name.trim(),
+            email: email.toLowerCase(),
+            phone: phoneClean,
+            type: 'INQUIRY',
+            channel: 'landing_page',
+            utmSource: 'LANDING_CRUISEDOT',
+            cruiseInterest: travelType ?? undefined,
+            budgetRange: budget ?? undefined,
+            adminMemo: encryptedMemo,
+            tags: tagsArray,
+            assignedUserId: assignedManagerId ?? undefined
+          }
+        });
+
+        // 8-2. Contact Lens Classification 자동 생성
+        // (Day 0-3 SMS 시퀀스 트리거)
+        const classification = await tx.contactLensClassification.upsert({
+          where: {
+            organizationId_contactId_lensType: {
+              organizationId: orgId,
+              contactId: createdContact.id,
+              lensType: lens
+            }
+          },
+          create: {
+            organizationId: orgId,
+            contactId: createdContact.id,
+            lensType: lens,
+            lensLabel: getLensLabel(lens),
+            confidenceScore: 75,
+            identificationMethod: 'LANDING_FORM',
+            status: 'ACTIVE',
+            decisionLevel: 1,
+            readinessScore: 50
+          },
+          update: {
+            confidenceScore: 75,
+            status: 'ACTIVE'
+          }
+        });
+
+        // 8-3. Day 0-3 SMS 자동화 큐 등록 (내부 함수 대신 inline 로직)
+        const smsList: Array<{ id: string; scheduledAt: Date; delayHours: number }> = [];
+        const templates = LENS_SMS_TEMPLATES[lens];
+
+        if (templates) {
+          const schedules = [
+            { day: 0, delayMinutes: 0, messageKey: 'day0' },
+            { day: 1, delayMinutes: 1440, messageKey: 'day1' },
+            { day: 2, delayMinutes: 2880, messageKey: 'day2' },
+            { day: 3, delayMinutes: 4320, messageKey: 'day3' }
+          ];
+
+          const now = new Date();
+
+          for (const schedule of schedules) {
+            const scheduledAt = new Date(now.getTime() + schedule.delayMinutes * 60 * 1000);
+            const message = templates[schedule.messageKey as keyof typeof templates] || templates.day0;
+
+            try {
+              const scheduledSms = await tx.scheduledSms.create({
+                data: {
+                  organizationId: orgId,
+                  contactId: createdContact.id,
+                  message,
+                  scheduledAt,
+                  status: 'PENDING',
+                  channel: 'GENERAL',
+                  createdByUserId: undefined as undefined
+                }
+              });
+
+              smsList.push({
+                id: scheduledSms.id,
+                scheduledAt: scheduledSms.scheduledAt,
+                delayHours: schedule.delayMinutes / 60
+              });
+
+              logger.log(`[landing-contact-signup-sms-tx] Day ${schedule.day} SMS created`, {
+                contactId: createdContact.id,
+                scheduledSmsId: scheduledSms.id,
+                lens,
+                scheduledAt: scheduledAt.toISOString(),
+              });
+            } catch (smsError) {
+              logger.error(`[landing-contact-signup-sms-tx-error] Failed to schedule Day ${schedule.day} SMS`, {
+                error: smsError instanceof Error ? smsError.message : String(smsError)
+              });
+              // SMS 생성 실패해도 트랜잭션 계속 진행 (비치명적)
+              // 트랜잭션 롤백하지 않음 → Contact는 생성됨
+            }
+          }
         }
-      },
-      create: {
-        organizationId: session.organizationId,
-        contactId: contact.id,
-        lensType: lens,
-        lensLabel: getLensLabel(lens),
-        confidenceScore: 75,
-        identificationMethod: 'LANDING_FORM',
-        status: 'ACTIVE',
-        decisionLevel: 1,
-        readinessScore: 50
-      },
-      update: {
-        confidenceScore: 75,
-        status: 'ACTIVE'
-      }
-    });
 
-    // 10. Day 0-3 SMS 자동화 큐 등록
-    const smsQueue = await scheduleDay0To3Sms(
-      session.organizationId,
-      contact.id,
-      lens as LandingLensType
+        return {
+          contact: createdContact,
+          classificationId: classification.id,
+          smsQueue: smsList
+        };
+      },
+      {
+        // 트랜잭션 설정
+        isolationLevel: 'Serializable', // 동시성 제어: 미리 생성 방지
+        maxWait: 5000, // 5초 대기
+        timeout: 30000 // 30초 타임아웃
+      }
     );
 
     // 11. 감사 로그 (PII 마스킹)
@@ -304,82 +372,6 @@ async function assignManagerByWeightedRoundRobin(
   }
 }
 
-/**
- * Day 0-3 SMS 자동화 큐 등록
- * 렌즈별 PASONA 템플릿을 사용하여 4건의 ScheduledSms 생성
- *
- * @param organizationId 조직 ID
- * @param contactId Contact ID
- * @param lens 감지된 렌즈 (L0|L1|L2|L6|L10)
- * @returns 생성된 ScheduledSms 배열
- */
-async function scheduleDay0To3Sms(
-  organizationId: string,
-  contactId: string,
-  lens: LandingLensType
-): Promise<Array<{ id: string; scheduledAt: Date; delayHours: number }>> {
-  try {
-    // 렌즈별 메시지 템플릿 가져오기
-    const templates = LENS_SMS_TEMPLATES[lens];
-    if (!templates) {
-      logger.warn(`[landing-contact-signup] Unknown lens: ${lens}`);
-      return [];
-    }
-
-    // Day 0-3 스케줄 (시간 단위)
-    const schedules = [
-      { day: 0, delayMinutes: 0, messageKey: 'day0' },      // 즉시
-      { day: 1, delayMinutes: 1440, messageKey: 'day1' },   // 24시간 후
-      { day: 2, delayMinutes: 2880, messageKey: 'day2' },   // 48시간 후
-      { day: 3, delayMinutes: 4320, messageKey: 'day3' }    // 72시간 후
-    ];
-
-    const createdSmsList: Array<{ id: string; scheduledAt: Date; delayHours: number }> = [];
-    const now = new Date();
-
-    // 각 일정에 따라 ScheduledSms 생성
-    for (const schedule of schedules) {
-      const scheduledAt = new Date(now.getTime() + schedule.delayMinutes * 60 * 1000);
-      const message = templates[schedule.messageKey as keyof typeof templates] || templates.day0;
-
-      try {
-        const scheduledSms = await prisma.scheduledSms.create({
-          data: {
-            organizationId,
-            contactId,
-            message,
-            scheduledAt,
-            status: 'PENDING',
-            channel: 'GENERAL',
-            // 메타데이터 추가 (향후 분석용)
-            createdByUserId: undefined
-          }
-        });
-
-        createdSmsList.push({
-          id: scheduledSms.id,
-          scheduledAt: scheduledSms.scheduledAt,
-          delayHours: schedule.delayMinutes / 60
-        });
-
-        logger.log(`[landing-contact-signup-sms] Day ${schedule.day} SMS created`, {
-          contactId,
-          scheduledSmsId: scheduledSms.id,
-          lens,
-          scheduledAt: scheduledAt.toISOString(),
-        });
-      } catch (smsError) {
-        logger.error(`[landing-contact-signup-sms-error] Failed to schedule Day ${schedule.day} SMS`, { error: smsError instanceof Error ? smsError.message : String(smsError) });
-        // SMS 생성 실패해도 Contact 생성은 유지 (비치명적)
-      }
-    }
-
-    return createdSmsList;
-  } catch (error) {
-    logger.error('[landing-contact-signup-sms-queue-error]', { error: error instanceof Error ? error.message : String(error) });
-    return [];
-  }
-}
 
 /**
  * 렌즈 타입별 레이블
@@ -424,7 +416,7 @@ function logLandingSignup(data: LandingSignupLogData) {
       ? `${data.phone.slice(0, 3)}****${data.phone.slice(-4)}`
       : undefined,
     email: data.email
-      ? `${data.email.slice(0, 2)}***@${data.email.split('@')[1] ?? ''}`
+      ? `${data.email.slice(0, 2)}***@${data.email.split('@')[1] ?? 'unknown'}`
       : undefined,
     level: 'INFO',
     service: 'landing-contact-signup',
