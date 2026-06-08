@@ -1,0 +1,5 @@
+$token = (npx dotenvx run -f .env.local -- node -e "process.stdout.write(process.env.SUPABASE_ACCESS_TOKEN)" 2>$null)
+$sql = 'ALTER TABLE "ShortLink" DROP CONSTRAINT IF EXISTS "ShortLink_contactId_fkey"; ALTER TABLE "ShortLink" ADD CONSTRAINT "ShortLink_contactId_fkey" FOREIGN KEY ("contactId") REFERENCES "Contact"("id") ON DELETE SET NULL ON UPDATE CASCADE; ALTER TABLE "ShortLinkClick" DROP CONSTRAINT IF EXISTS "ShortLinkClick_contactId_fkey"; ALTER TABLE "ShortLinkClick" ADD CONSTRAINT "ShortLinkClick_contactId_fkey" FOREIGN KEY ("contactId") REFERENCES "Contact"("id") ON DELETE SET NULL ON UPDATE CASCADE; ALTER TABLE "SalesDocument" DROP CONSTRAINT IF EXISTS "SalesDocument_contactId_fkey"; ALTER TABLE "SalesDocument" ADD CONSTRAINT "SalesDocument_contactId_fkey" FOREIGN KEY ("contactId") REFERENCES "Contact"("id") ON DELETE SET NULL ON UPDATE CASCADE;'
+$body = @{query=$sql} | ConvertTo-Json
+$result = Invoke-RestMethod -Method POST -Uri "https://api.supabase.com/v1/projects/cnynywuxapxvythbcagz/database/query" -Headers @{Authorization="Bearer $token"; "Content-Type"="application/json"} -Body $body
+Write-Host ($result | ConvertTo-Json)

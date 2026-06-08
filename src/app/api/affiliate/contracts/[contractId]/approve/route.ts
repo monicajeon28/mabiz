@@ -27,9 +27,11 @@ import {
 } from '@/lib/affiliate/priceTiers';
 import { sendSms, getOrgSmsConfig } from '@/lib/aligo';
 import { sendFunnelEmail } from '@/lib/email';
-import { renderPartnerWelcomeEmail } from '@/lib/email-templates';
+import { renderPartnerWelcomeEmail, renderPartnerContractSignedEmail } from '@/lib/email-templates';
 import { checkSmsRateLimit, checkEmailRateLimit } from '@/lib/affiliate-rate-limit';
 import { notifyCruisedotAffiliateCreated } from '@/lib/affiliate/notify-cruisedot';
+import { generatePartnerContractPDF } from '@/lib/contract-pdf-generator';
+import { backupPartnerContractToGoogleDrive } from '@/lib/google-drive';
 
 // ── PUT: 계약 승인 ────────────────────────────────────────────────
 export async function PUT(
@@ -205,6 +207,84 @@ export async function PUT(
         data: { status: 'submitted' },
       });
       throw provisionErr;
+    }
+
+    // 8.5. 계약서 PDF 생성 + Google Drive 저장 + 이메일 발송
+    try {
+      const profileType = contract.type || 'SALES_AGENT';
+
+      // PDF 생성
+      const pdfBuffer = await generatePartnerContractPDF(
+        provisionResult.manager?.id || 'unknown',
+        contract.name || '계약자',
+        (profileType as 'BRANCH_MANAGER' | 'SALES_AGENT' | 'PRE_SALES' | 'HQ'),
+        new Date(),
+        undefined // signatureImageUrl은 나중에 서명 이미지가 있을 때 사용
+      );
+
+      // Google Drive 저장
+      const driveResult = await backupPartnerContractToGoogleDrive(
+        provisionResult.manager?.id || 'unknown',
+        contract.name || '계약자',
+        pdfBuffer
+      );
+
+      // PartnerContract 업데이트 (PDF 정보 저장)
+      const partner = await prisma.partner.findFirst({
+        where: { organizationId, email: contract.email || undefined },
+      });
+
+      if (partner) {
+        await prisma.partner.update({
+          where: { id: partner.id },
+          data: {
+            contractDocumentUrl: `https://drive.google.com/file/d/${driveResult.contractFileId}/view`,
+            contractDriveFileId: driveResult.contractFileId,
+            contractDriveFolderId: driveResult.folderPath?.split('/')[0],
+            contractSignedAt: new Date(),
+            contractStatus: 'SIGNED',
+          },
+        });
+      }
+
+      // 이메일 발송 (계약서 첨부 + Drive 링크)
+      if (contract.email) {
+        const emailTemplate = renderPartnerContractSignedEmail({
+          partnerName: contract.name || '파트너',
+          partnerEmail: contract.email,
+          contractSignedAt: new Date().toLocaleDateString('ko-KR'),
+          driveLinkUrl: `https://drive.google.com/file/d/${driveResult.contractFileId}/view`,
+          adminEmail: 'admin@cruisedot.co.kr',
+        });
+
+        // 이메일 발송 (첨부 파일 포함)
+        try {
+          await sendFunnelEmail({
+            to: contract.email,
+            subject: emailTemplate.subject,
+            html: emailTemplate.html,
+            attachments: [{ filename: `contract_${provisionResult.manager?.id}.pdf`, content: pdfBuffer }],
+          });
+          logger.log('[AFFILIATE-PROVISION] 계약서 이메일 발송 완료', {
+            contractId,
+            email: contract.email,
+            driveFileId: driveResult.contractFileId,
+          });
+        } catch (emailErr) {
+          logger.warn('[AFFILIATE-PROVISION] 계약서 이메일 발송 실패', {
+            contractId,
+            email: contract.email,
+            error: emailErr instanceof Error ? emailErr.message : String(emailErr),
+          });
+          // 이메일 실패는 계약 승인을 취소하지 않음
+        }
+      }
+    } catch (contractPdfErr) {
+      logger.error('[AFFILIATE-PROVISION] 계약서 PDF 생성/저장 실패', {
+        contractId,
+        error: contractPdfErr instanceof Error ? contractPdfErr.message : String(contractPdfErr),
+      });
+      // PDF 실패는 계약 승인을 취소하지 않음 — 로그만 남김
     }
 
     // 9. SMS 발송 — 임시 비밀번호는 SMS로만 전달 (API 응답 절대 불포함)

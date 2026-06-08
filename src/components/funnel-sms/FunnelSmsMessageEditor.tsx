@@ -149,9 +149,22 @@ export default function FunnelSmsMessageEditor({ message, onChange, sendHour, se
           <span className="text-sm text-gray-500">일 후</span>
         </div>
         <div className="flex items-center gap-1 text-sm text-gray-500 bg-gray-50 rounded-lg px-3 py-1.5 border border-gray-200">
-          <span>고객 입장 후 Day {message.daysAfter} ({timeStr}) 발송</span>
+          {message.daysAfter === 0 ? (
+            <span>입장 즉시 발송</span>
+          ) : (
+            <span>고객 입장 후 Day {message.daysAfter} ({timeStr}) 발송</span>
+          )}
         </div>
       </div>
+
+      {/* Day 0 메시지 안내 */}
+      {message.daysAfter === 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+          <p className="text-xs text-blue-700 font-medium">
+            ✓ 이 메시지는 고객이 그룹에 입장하면 즉시 발송됩니다. (발송시간 설정 불필요)
+          </p>
+        </div>
+      )}
 
       {/* 메시지 입력 */}
       <div>
@@ -223,7 +236,9 @@ export default function FunnelSmsMessageEditor({ message, onChange, sendHour, se
 
         {/* 바이트 카운터 */}
         <div className="mt-1 flex items-center justify-between">
-          <span className="text-xs text-gray-400">발송: {timeStr}</span>
+          <span className="text-xs text-gray-400">
+            {message.daysAfter === 0 ? '즉시 발송' : `발송: ${timeStr}`}
+          </span>
           <span className={`text-xs font-medium ${
             overLimit ? 'text-red-500' : bytes > SMS_LIMIT ? 'text-purple-600' : 'text-gray-500'
           }`}>

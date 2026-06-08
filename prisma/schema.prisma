@@ -986,34 +986,36 @@ model SmsOptOut {
 }
 
 model SmsLog {
-  id             String    @id @default(cuid())
-  organizationId String
-  contactId      String?
-  phone          String
-  contentPreview String
-  msg            String    @default("") // 실제 메시지 내용 (배송 추적용)
-  status         String    @default("SENT")
-  blockReason    String?
-  resultCode     String?
-  msgId          String? // Aligo 메시지 ID (배송 상태 추적용)
-  channel        String    @default("FUNNEL")
-  sentAt         DateTime  @default(now())
+  id                  String    @id @default(cuid())
+  organizationId      String
+  contactId           String?
+  passportRequestId   String?   // 여권 요청 ID (여권 독촉 SMS 추적용)
+  phone               String
+  contentPreview      String
+  msg                 String    @default("") // 실제 메시지 내용 (배송 추적용)
+  status              String    @default("SENT")
+  blockReason         String?
+  resultCode          String?
+  msgId               String? // Aligo 메시지 ID (배송 상태 추적용)
+  channel             String    @default("FUNNEL")
+  sentAt              DateTime  @default(now())
   // A/B Test Tracking
-  abTestId       String? // Link to SmsABTest
-  abTestGroup    String? // "A" | "B" | null
-  openedAt       DateTime?
-  clickedAt      DateTime?
-  convertedAt    DateTime?
-  responseAt     DateTime?
-  segmentCode    String? // e.g., "L0_INACTIVE", "L1_PRICE", "L6_TIMING"
-  psychologyLens String? // e.g., "LOSS_AVERSION", "SCARCITY", "URGENCY"
-  trackingId     String?   @unique // SMS 추적 ID (메시지 수신/오픈/클릭 추적용)
-  trackingUrl    String? // SMS 내 클릭 추적 URL
-  createdAt      DateTime  @default(now()) // SMS 생성 시간
-  cost           Int? // SMS 비용 (센트 단위)
+  abTestId            String? // Link to SmsABTest
+  abTestGroup         String? // "A" | "B" | null
+  openedAt            DateTime?
+  clickedAt           DateTime?
+  convertedAt         DateTime?
+  responseAt          DateTime?
+  segmentCode         String? // e.g., "L0_INACTIVE", "L1_PRICE", "L6_TIMING"
+  psychologyLens      String? // e.g., "LOSS_AVERSION", "SCARCITY", "URGENCY"
+  trackingId          String?   @unique // SMS 추적 ID (메시지 수신/오픈/클릭 추적용)
+  trackingUrl         String? // SMS 내 클릭 추적 URL
+  createdAt           DateTime  @default(now()) // SMS 생성 시간
+  cost                Int? // SMS 비용 (센트 단위)
 
   @@index([organizationId, sentAt])
   @@index([contactId, sentAt])
+  @@index([passportRequestId, sentAt])
   @@index([msgId]) // Aligo msgId로 배송 상태 조회용
   @@index([abTestId])
   @@index([abTestGroup, sentAt])
@@ -2933,6 +2935,8 @@ model GmPassportSubmission {
   @@index([userId])
   @@index([isSubmitted, updatedAt])
   @@index([tripId])
+  @@index([tripId, isSubmitted], map: "idx_passport_tripId_isSubmitted")
+  @@index([tripId, userId], map: "idx_passport_tripId_userId")
   @@map("PassportSubmission")
 }
 
@@ -6129,6 +6133,15 @@ model PartnerContract {
 
   // 심리학 렌즈
   psychologyLenses String[] @default([])
+
+  // 계약서 PDF 저장 (파트너 수동 등록 시 추가됨)
+  contractDocumentUrl    String?   // PDF 다운로드 링크 (Google Drive)
+  contractDriveFileId    String?   // Google Drive 파일 ID
+  contractDriveFolderId  String?   // Google Drive 폴더 ID (파트너별)
+  contractSignedAt       DateTime? @db.Timestamptz(6) // 서명 완료 시각
+  signatureImageUrl      String?   // 서명 이미지 URL (Google Drive)
+  contractSignatureFileId String?  // 서명 이미지 파일 ID
+  contractStatus         String    @default("DRAFT") // "DRAFT" | "PENDING" | "SIGNED" | "APPROVED"
 
   // 타임스탬프
   appliedAt     DateTime @default(now()) @db.Timestamptz(6)

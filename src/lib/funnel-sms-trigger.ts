@@ -142,21 +142,28 @@ export async function triggerGroupFunnelSms(opts: TriggerOptions): Promise<boole
 
       // 5-3. 각 FunnelSmsMessage → ScheduledSms INSERT (단일 createMany)
       const data = funnelSms.messages.map((msg) => {
-        // KST 벽시계 시각(자정 기준 입장일 + daysAfter, sendHour:sendMinute)을 만든 뒤
-        // -9h 하여 UTC로 변환한다. Date.UTC 인자에 직접 utcHour를 넣던 기존 방식은
-        // sendHour < 9 (KST 0~8시)에서 일자가 어긋나는 자정 경계 버그가 있었다.
-        const kstTargetMs = Date.UTC(
-          kstYear, kstMonth, kstDay + msg.daysAfter, sendHour, sendMinute, 0, 0
-        );
-        let scheduledAt = new Date(kstTargetMs - 9 * 60 * 60 * 1000);
-        // P0-2: 과거시각 보정 — 기준 시각 이전(예: Day 0 + 설정시각이 현재시각보다 이른 경우)이면
-        // 다음 날 동일 설정시각으로 미뤄 과거 발송(Cron 즉시 발송)을 방지한다.
-        // 보정도 동일하게 'KST 자정 +1일 후 -9h' 방식으로 계산한다.
-        if (scheduledAt <= nowUtc) {
-          const kstNextMs = Date.UTC(
-            kstYear, kstMonth, kstDay + msg.daysAfter + 1, sendHour, sendMinute, 0, 0
+        // Day 0 (즉시발송): 현재 시각에 즉시 발송
+        // Day 1+: KST 벽시계 시각(자정 기준 입장일 + daysAfter, sendHour:sendMinute) 예약 발송
+        let scheduledAt: Date;
+
+        if (msg.daysAfter === 0) {
+          // 즉시발송: 현재 시각으로 설정 (Cron이 PENDING 상태를 즉시 감지하여 발송)
+          scheduledAt = new Date(nowUtc.getTime() + 1000); // 1초 뒤 (안전마진)
+        } else {
+          // 예약발송: KST 벽시계 시각 기준으로 계산
+          // sendHour < 9 (KST 0~8시)에서 일자가 어긋나는 자정 경계 버그 방지
+          const kstTargetMs = Date.UTC(
+            kstYear, kstMonth, kstDay + msg.daysAfter, sendHour, sendMinute, 0, 0
           );
-          scheduledAt = new Date(kstNextMs - 9 * 60 * 60 * 1000);
+          scheduledAt = new Date(kstTargetMs - 9 * 60 * 60 * 1000);
+
+          // 과거시각 보정 — 설정시각이 현재시각보다 이른 경우 다음 날로 미룸
+          if (scheduledAt <= nowUtc) {
+            const kstNextMs = Date.UTC(
+              kstYear, kstMonth, kstDay + msg.daysAfter + 1, sendHour, sendMinute, 0, 0
+            );
+            scheduledAt = new Date(kstNextMs - 9 * 60 * 60 * 1000);
+          }
         }
         // 유입 에피소드(anchorEpoch)를 포함해 재유입 시 새 시퀀스가 생성되도록 한다.
         // 같은 유입은 동일 channel → 부분 UNIQUE 인덱스로 race 중복 차단.

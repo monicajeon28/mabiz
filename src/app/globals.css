@@ -1,4 +1,12 @@
-@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css");
+/*
+  성능 주의: 외부 CDN @import는 5초 이상 블로킹할 수 있음.
+  대안: <link rel="preconnect"> 또는 <link rel="prefetch"> 활용
+  현재: next/font/google (Noto Sans KR)으로 최적화 완료
+
+  Pretendard는 사용하지 않는 경우 제거 권장.
+  필요시 preconnect로 우선순위 조정.
+*/
+/* @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css"); */
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";

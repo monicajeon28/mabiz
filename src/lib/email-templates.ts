@@ -5,6 +5,7 @@
  * 용도:
  *   renderPartnerJoinedEmail  — 신규 파트너 가입 시 OWNER 수신
  *   renderNewOrgEmail         — 신규 대리점(Organization) 생성 시 GLOBAL_ADMIN 수신
+ *   renderPartnerContractSignedEmail — 파트너 계약서 서명 완료 시 파트너 수신
  */
 
 // ── HTML 이스케이프 헬퍼 ──────────────────────────────────────────────
@@ -664,6 +665,67 @@ export function renderFunnelDay3Email(p: FunnelDay3EmailParams): { subject: stri
         <li style="margin:4px 0;">전문가 무료 상담 (1회)</li>
         <li style="margin:4px 0;">분할 결제 가능 (3-6개월)</li>
       </ul>
+    </div>
+  `;
+
+  return { subject, html: wrapEmail(body) };
+}
+
+// ── renderPartnerContractSignedEmail ──────────────────────────────────────
+export interface PartnerContractSignedEmailParams {
+  partnerName: string;
+  partnerEmail: string;
+  contractSignedAt: string;
+  driveLinkUrl: string;
+  adminEmail: string;
+}
+
+export function renderPartnerContractSignedEmail(
+  p: PartnerContractSignedEmailParams
+): { subject: string; html: string } {
+  const subject = '📄 파트너 어필리에이트 계약서 서명 완료';
+
+  const body = `
+    <p style="margin:0 0 16px;color:#333;font-size:15px;">
+      <strong>${escapeHtml(p.partnerName)}</strong> 파트너님,
+    </p>
+    <p style="margin:0 0 20px;color:#666;font-size:14px;line-height:1.6;">
+      어필리에이트 계약서가 정상적으로 서명되었습니다. <br />
+      아래 버튼을 클릭하여 계약서를 확인하실 수 있습니다.
+    </p>
+
+    <div style="margin:24px 0;padding:16px;background:#f0f7ff;border-left:4px solid #1e3a5f;border-radius:4px;">
+      <p style="margin:0 0 8px;color:#1e3a5f;font-weight:600;font-size:13px;">📋 계약서 정보</p>
+      <table style="width:100%;font-size:13px;color:#555;">
+        <tr>
+          <td style="padding:4px 0;"><strong>파트너명</strong></td>
+          <td style="padding:4px 0;text-align:right;">${escapeHtml(p.partnerName)}</td>
+        </tr>
+        <tr>
+          <td style="padding:4px 0;"><strong>서명완료일</strong></td>
+          <td style="padding:4px 0;text-align:right;">${escapeHtml(p.contractSignedAt)}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="margin:24px 0;text-align:center;">
+      <a href="${safeUrl(p.driveLinkUrl)}"
+         style="display:inline-block;padding:12px 24px;background:#1e3a5f;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;">
+        📥 계약서 다운로드
+      </a>
+      <p style="margin:12px 0 0;font-size:12px;color:#999;">
+        또는 <a href="${safeUrl(p.driveLinkUrl)}" style="color:#1e3a5f;text-decoration:underline;">${safeUrl(
+    p.driveLinkUrl
+  )}</a>로 이동
+      </p>
+    </div>
+
+    <div style="margin:32px 0 0;padding:16px 0;border-top:1px solid #e8eaed;font-size:12px;color:#999;">
+      <p style="margin:0 0 8px;">이 이메일에 첨부된 계약서도 함께 전송되었습니다.</p>
+      <p style="margin:0;">문의 사항이 있으시면 <a href="mailto:${safeUrl(
+        p.adminEmail
+      )}" style="color:#1e3a5f;text-decoration:none;">${escapeHtml(p.adminEmail)}</a>로 연락주시기 바랍니다.
+      </p>
     </div>
   `;
 

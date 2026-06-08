@@ -115,6 +115,120 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
   );
 }
 
+// ─── 여권 상태 배지 (아이콘 + 색상 + D-day) ────────────────────────
+
+function PassportStatusBadge({
+  status,
+  dday,
+}: {
+  status: 'submitted' | 'pending' | 'not_requested';
+  dday?: { label: string; urgent: boolean } | null;
+}) {
+  const config = {
+    submitted: {
+      cls: 'bg-green-100 text-green-700',
+      icon: '✓',
+      label: '제출 완료',
+    },
+    pending: {
+      cls: 'bg-amber-100 text-amber-700',
+      icon: '⏳',
+      label: '요청 전송됨',
+    },
+    not_requested: {
+      cls: 'bg-gray-100 text-gray-500',
+      icon: '—',
+      label: '요청 안 함',
+    },
+  }[status];
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className={`text-sm px-2 py-0.5 rounded-full font-medium flex items-center gap-1 whitespace-nowrap ${config.cls}`}>
+        <span className="text-xs">{config.icon}</span>
+        {config.label}
+      </span>
+      {dday && status !== 'submitted' && (
+        <span className={`text-xs px-1.5 py-0.5 rounded font-bold whitespace-nowrap ${
+          dday.urgent ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-gray-100 text-gray-500'
+        }`}>
+          {dday.label}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ─── 상품 드롭다운 (검색 기능 + 최근 선택 저장) ──────────────────────
+
+function ProductCodeSelect({
+  productCodes,
+  value,
+  onChange,
+}: {
+  productCodes: Array<{ code: string; cruiseName: string | null; customerCount: number }>;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+}) {
+  const [recentCodes, setRecentCodes] = useState<string[]>([]);
+
+  // localStorage에서 최근 선택 5개 로드
+  useEffect(() => {
+    const saved = localStorage.getItem('passport-recent-products');
+    if (saved) {
+      try {
+        const codes = JSON.parse(saved) as string[];
+        setRecentCodes(codes.filter(c => productCodes.some(p => p.code === c)).slice(0, 5));
+      } catch {
+        // Invalid JSON, ignore
+      }
+    }
+  }, [productCodes]);
+
+  // 선택 시 localStorage에 저장
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    onChange(e);
+    const code = e.target.value;
+    if (code && code !== 'all') {
+      const updated = [code, ...recentCodes.filter(c => c !== code)].slice(0, 5);
+      setRecentCodes(updated);
+      localStorage.setItem('passport-recent-products', JSON.stringify(updated));
+    }
+  };
+
+  // 최근 선택한 상품과 일반 상품 분리
+  const recentProducts = recentCodes.map(code => productCodes.find(p => p.code === code)).filter(p => p) as typeof productCodes;
+  const otherProducts = productCodes.filter(p => !recentCodes.includes(p.code));
+
+  return (
+    <select
+      value={value}
+      onChange={handleChange}
+      className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all"
+    >
+      <option value="all">전체 상품</option>
+      {recentProducts.length > 0 && (
+        <optgroup label="최근 선택">
+          {recentProducts.map(p => (
+            <option key={p.code} value={p.code}>
+              ⭐ {p.cruiseName || p.code} ({p.customerCount}명)
+            </option>
+          ))}
+        </optgroup>
+      )}
+      {otherProducts.length > 0 && (
+        <optgroup label="모든 상품">
+          {otherProducts.map(p => (
+            <option key={p.code} value={p.code}>
+              {p.cruiseName || p.code} ({p.customerCount}명)
+            </option>
+          ))}
+        </optgroup>
+      )}
+    </select>
+  );
+}
+
 // ─── 발송 확인 모달 (50대 안전장치) ─────────────────────────────────
 
 function ConfirmSendModal({
@@ -638,8 +752,9 @@ export default function PassportPage() {
 
         {/* 왼쪽: 고객 목록 */}
         <div className="lg:col-span-2 space-y-3">
-          {/* 검색/필터 */}
+          {/* 검색/필터 — 개선된 상품 드롭다운 + 검색 입력 */}
           <div className="bg-white border border-gray-200 rounded-xl p-3 flex flex-wrap gap-2">
+            {/* 이름/전화/이메일 검색 */}
             <div className="flex-1 min-w-[140px] flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
               <Search className="w-3.5 h-3.5 text-gray-600 shrink-0" />
               <input
@@ -649,27 +764,21 @@ export default function PassportPage() {
                 className="bg-transparent text-sm flex-1 focus:outline-none"
               />
               {search && (
-                <button onClick={() => { searchRef.current = ''; setSearch(''); setRefreshTick(t => t + 1); }} className="text-gray-600 hover:text-gray-600">
+                <button onClick={() => { searchRef.current = ''; setSearch(''); setRefreshTick(t => t + 1); }} className="text-gray-600 hover:text-gray-600 hover:bg-gray-200 rounded px-1">
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
-            <select
+            {/* 상품 필터 — 검색 + 최근 선택 지원 */}
+            <ProductCodeSelect
+              productCodes={productCodes}
               value={productFilter}
               onChange={e => setProductFilter(e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none"
-            >
-              <option value="all">전체 상품</option>
-              {productCodes.map(p => (
-                <option key={p.code} value={p.code}>
-                  {p.cruiseName || p.code} ({p.customerCount}명)
-                </option>
-              ))}
-            </select>
+            />
             {selectedIds.size > 0 && (
               <button
                 onClick={() => setSelectedIds(new Set())}
-                className="flex items-center gap-1 px-3 py-2 text-sm rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100"
+                className="flex items-center gap-1 px-3 py-2 text-sm rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
               >
                 <X className="w-3.5 h-3.5" /> 선택 해제 ({selectedIds.size})
               </button>
@@ -712,6 +821,15 @@ export default function PassportPage() {
               </div>
             ) : (
               <>
+                {/* 테이블 헤더 (데스크톱만 표시) */}
+                <div className="hidden md:grid md:grid-cols-12 gap-3 px-4 py-2 bg-gray-50 border-b border-gray-100 text-sm font-medium text-gray-600">
+                  <div className="col-span-1">선택</div>
+                  <div className="col-span-3">고객명</div>
+                  <div className="col-span-2">연락처</div>
+                  <div className="col-span-3">여행 정보</div>
+                  <div className="col-span-2">상태</div>
+                  <div className="col-span-1">상세</div>
+                </div>
                 <ul className="divide-y divide-gray-100 max-h-[55vh] overflow-y-auto">
                   {customers.map(c => (
                     <CustomerRow
@@ -1097,7 +1215,68 @@ function CustomerRow({
 
   return (
     <li className={`transition-colors ${selected ? 'bg-blue-50' : isSubmitted ? 'bg-green-50/30' : 'hover:bg-gray-50'}`}>
-      <div className="flex items-center gap-3 px-4 py-3">
+      {/* 데스크톱 테이블 뷰 */}
+      <div className="hidden md:grid md:grid-cols-12 gap-3 items-center px-4 py-3 border-b border-gray-100">
+        {/* 선택 */}
+        <div className="col-span-1">
+          <input
+            type="checkbox" checked={selected} onChange={isSubmitted ? undefined : onToggle}
+            disabled={isSubmitted}
+            title={isSubmitted ? '이미 여권을 제출한 고객입니다' : undefined}
+            className={`w-4 h-4 rounded border-gray-300 ${isSubmitted ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
+          />
+        </div>
+        {/* 고객명 */}
+        <div className="col-span-3 min-w-0">
+          <p className="text-sm font-semibold text-gray-900 truncate">{c.name ?? '이름 없음'}</p>
+          {c.email && <p className="text-xs text-gray-500 truncate">{c.email}</p>}
+        </div>
+        {/* 연락처 */}
+        <div className="col-span-2 min-w-0">
+          {hasPhone ? (
+            <div className="flex items-center gap-1">
+              <Phone className="w-3 h-3 text-green-500 shrink-0" />
+              <span className="text-sm text-gray-600 truncate">{c.phone}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              <PhoneOff className="w-3 h-3 text-red-400 shrink-0" />
+              <span className="text-xs text-red-400 font-medium">없음</span>
+            </div>
+          )}
+        </div>
+        {/* 여행 정보 */}
+        <div className="col-span-3 min-w-0">
+          {c.latestTrip ? (
+            <>
+              <p className="text-sm text-gray-900 truncate font-medium">{c.latestTrip.cruiseName || c.latestTrip.shipName}</p>
+              <p className="text-xs text-gray-500">
+                {c.latestTrip.departureDate?.split('T')[0]}
+                {dday && <span className="ml-1">{dday.label}</span>}
+              </p>
+            </>
+          ) : (
+            <span className="text-xs text-gray-400">정보 없음</span>
+          )}
+        </div>
+        {/* 상태 */}
+        <div className="col-span-2 min-w-0">
+          <PassportStatusBadge status={c.submissionStatus} dday={dday} />
+        </div>
+        {/* 상세 보기 버튼 */}
+        <div className="col-span-1 flex justify-end">
+          <button
+            onClick={() => setOpen(v => !v)}
+            title="상세 정보 보기"
+            className="p-1.5 rounded-lg text-gray-600 hover:text-gray-600 hover:bg-gray-100"
+          >
+            {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
+
+      {/* 모바일 카드 뷰 */}
+      <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-gray-100">
         <input
           type="checkbox" checked={selected} onChange={isSubmitted ? undefined : onToggle}
           disabled={isSubmitted}
@@ -1107,16 +1286,7 @@ function CustomerRow({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-semibold text-gray-900">{c.name ?? '이름 없음'}</span>
-            <span className={`text-sm px-2 py-0.5 rounded-full font-medium ${statusBadge.cls}`}>
-              {statusBadge.label}
-            </span>
-            {dday && !isSubmitted && (
-              <span className={`text-sm px-1.5 py-0.5 rounded font-bold ${
-                dday.urgent ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-gray-100 text-gray-500'
-              }`}>
-                {dday.label}
-              </span>
-            )}
+            <PassportStatusBadge status={c.submissionStatus} dday={dday} />
           </div>
           <div className="flex items-center gap-3 mt-0.5 flex-wrap">
             {hasPhone ? (
@@ -1127,17 +1297,13 @@ function CustomerRow({
             ) : (
               <span className="flex items-center gap-1 text-sm text-red-400 font-medium">
                 <PhoneOff className="w-3 h-3" />
-                전화번호 없음 (링크만 생성됩니다)
+                없음
               </span>
             )}
             {c.latestTrip?.cruiseName && (
               <span className="text-sm text-gray-600 truncate">
                 {c.latestTrip.cruiseName}
-                {c.latestTrip.departureDate && ` · ${c.latestTrip.departureDate.split('T')[0]}`}
               </span>
-            )}
-            {lastSentDate && c.submissionStatus === 'pending' && (
-              <span className="text-sm text-amber-600">{lastSentDate} 발송됨</span>
             )}
           </div>
         </div>

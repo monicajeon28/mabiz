@@ -1,0 +1,52 @@
+========================================
+누락된 API 경로 분석 보고서
+========================================
+
+분석 방법:
+1. src/app/(dashboard) 하위 모든 .tsx 파일에서 fetch('/api/...') 호출 추출
+2. src/app/api 하위의 실제 route.ts 파일 목록과 비교
+3. 일치하지 않는 경로만 필터링
+
+결과: 총 6개의 누락된 API 경로 발견 (404 가능성)
+
+========================================
+누락된 API 목록
+========================================
+
+1. /api/settings/email-sender
+   - 호출 위치: src/app/(dashboard)/messages/page.tsx:931
+   - 사용처: 이메일 발신자 설정 저장
+   - 기존 라우트: /api/settings/email, /api/settings/sms 등 존재
+
+2. /api/team/messages
+   - 호출 위치: src/app/(dashboard)/team/affiliate/page.tsx:457-625
+   - 사용처: 팀 메시지 조회, 송수신 (5개 하위 경로 호출)
+   - 코드 주석: "// /api/team/messages 미구현 — 향후 구현 시 활성화"
+
+3. /api/team/messages/recipients
+   - 호출 위치: src/app/(dashboard)/team/affiliate/page.tsx:485
+   - 사용처: 메시지 수신자 목록 조회
+
+4. /api/team/messages/send
+   - 호출 위치: src/app/(dashboard)/team/affiliate/page.tsx:502
+   - 사용처: 팀 메시지 발송
+
+5. /api/tools/news-links
+   - 호출 위치: src/app/(dashboard)/news-links/page.tsx:16
+   - 사용처: 뉴스 링크 목록 조회
+
+6. /api/tools/news-sync-trigger
+   - 호출 위치: src/app/(dashboard)/news-links/page.tsx:27
+   - 사용처: 뉴스 동기화 트리거 (POST)
+
+========================================
+특정 카테고리별 확인
+========================================
+
+✓ /api/partner/* - 모두 존재
+✓ /api/affiliate-issuance/* - 모두 존재
+✓ /api/links/* - 모두 존재
+✓ /api/analytics/* - 모두 존재
+✓ /api/contacts/* - 모두 존재
+
+========================================

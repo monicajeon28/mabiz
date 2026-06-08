@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
 
-interface AligoConfig {
+export interface AligoConfig {
   key: string;
   userId: string;
   sender: string;

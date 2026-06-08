@@ -231,3 +231,84 @@ export async function backupCallLogsToGoogleDrive(params: {
     viewUrl: meta.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view`,
   };
 }
+
+/**
+ * 파트너 어필리에이트 계약서 PDF + 서명 이미지를 Google Drive에 저장
+ *
+ * 폴더 구조:
+ *   {PARTNER_CONTRACTS_FOLDER_ID}/
+ *     └─ contracts_{partnerId}_{partnerName}/
+ *       ├─ contract.pdf
+ *       └─ signature.png (선택)
+ */
+export async function backupPartnerContractToGoogleDrive(
+  partnerId: string,
+  partnerName: string,
+  pdfBuffer: Buffer,
+  signatureImageBuffer?: Buffer
+): Promise<{ contractFileId: string; signatureFileId?: string; folderPath: string }> {
+  const PARTNER_CONTRACTS_FOLDER_ID =
+    process.env.PARTNER_CONTRACTS_FOLDER_ID ?? '1pWt8VN9WD_79eJcp4_SmFfbekMOcykTT';
+
+  const drive = getDriveClient();
+
+  // 1. 파트너별 폴더 생성/조회
+  const folderName = `contracts_${partnerId}_${partnerName.replace(/\s+/g, '_')}`;
+  const partnerFolderId = await findOrCreateFolder(folderName, PARTNER_CONTRACTS_FOLDER_ID);
+
+  // 2. 계약서 PDF 업로드
+  const pdfFileName = `contract_${partnerId}.pdf`;
+  const pdfResponse = await drive.files.create({
+    requestBody: {
+      name: pdfFileName,
+      mimeType: 'application/pdf',
+      parents: [partnerFolderId],
+      description: `Partner: ${partnerName}, Created: ${new Date().toISOString()}`,
+    },
+    media: {
+      mimeType: 'application/pdf',
+      body: Buffer.isBuffer(pdfBuffer) ? pdfBuffer : Buffer.from(pdfBuffer),
+    },
+    fields: 'id, webViewLink',
+    supportsAllDrives: true,
+  });
+
+  const contractFileId = pdfResponse.data.id!;
+
+  // 3. 서명 이미지 업로드 (선택)
+  let signatureFileId: string | undefined;
+  if (signatureImageBuffer) {
+    const sigFileName = `signature_${partnerId}.png`;
+    const sigResponse = await drive.files.create({
+      requestBody: {
+        name: sigFileName,
+        mimeType: 'image/png',
+        parents: [partnerFolderId],
+        description: `Signature for Partner: ${partnerName}`,
+      },
+      media: {
+        mimeType: 'image/png',
+        body: Buffer.isBuffer(signatureImageBuffer)
+          ? signatureImageBuffer
+          : Buffer.from(signatureImageBuffer),
+      },
+      fields: 'id, webViewLink',
+      supportsAllDrives: true,
+    });
+    signatureFileId = sigResponse.data.id!;
+  }
+
+  logger.log('[GoogleDrive] Partner 계약서 저장 완료', {
+    partnerId,
+    partnerName,
+    folderPath: `${PARTNER_CONTRACTS_FOLDER_ID}/${partnerFolderId}`,
+    contractFileId,
+    signatureFileId: signatureFileId || 'N/A',
+  });
+
+  return {
+    contractFileId,
+    signatureFileId,
+    folderPath: `${PARTNER_CONTRACTS_FOLDER_ID}/${partnerFolderId}`,
+  };
+}

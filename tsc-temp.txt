@@ -1,0 +1,4 @@
+src/app/api/landing-pages/images/finalize/route.ts(184,32): error TS2304: Cannot find name 'drive'.
+src/app/api/landing-pages/images/finalize/route.ts(205,13): error TS2304: Cannot find name 'drive'.
+src/app/api/landing-pages/images/finalize/route.ts(254,13): error TS2304: Cannot find name 'drive'.
+
