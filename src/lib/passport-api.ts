@@ -134,6 +134,10 @@ export async function sendPassportSms(
 ): Promise<PassportSmsLog> {
   const { smsConfig, userId, phone, message, adminId, tripId } = params;
 
+  if (!smsConfig) {
+    throw new Error('[PassportSms] SMS 설정 없음 - 발송 불가');
+  }
+
   try {
     const result = await sendSms({
       config: smsConfig,

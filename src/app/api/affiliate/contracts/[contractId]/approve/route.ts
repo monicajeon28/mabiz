@@ -211,43 +211,33 @@ export async function PUT(
 
     // 8.5. 계약서 PDF 생성 + Google Drive 저장 + 이메일 발송
     try {
-      const profileType = contract.type || 'SALES_AGENT';
+      const contractMeta = contract.metadata as Record<string, any> | null;
+      const profileType = (contractMeta as any)?.type || 'SALES_AGENT';
 
       // PDF 생성
-      const pdfBuffer = await generatePartnerContractPDF(
-        provisionResult.manager?.id || 'unknown',
+      const pdfUint8Array = await generatePartnerContractPDF(
+        provisionResult.manager.crmMemberId,
         contract.name || '계약자',
         (profileType as 'BRANCH_MANAGER' | 'SALES_AGENT' | 'PRE_SALES' | 'HQ'),
         new Date(),
         undefined // signatureImageUrl은 나중에 서명 이미지가 있을 때 사용
       );
+      // Uint8Array → Buffer 변환
+      const pdfBuffer = Buffer.from(pdfUint8Array);
 
       // Google Drive 저장
       const driveResult = await backupPartnerContractToGoogleDrive(
-        provisionResult.manager?.id || 'unknown',
+        provisionResult.manager.crmMemberId,
         contract.name || '계약자',
         pdfBuffer
       );
 
       // PartnerContract 업데이트 (PDF 정보 저장)
-      const partner = await prisma.partner.findFirst({
-        where: { organizationId, email: contract.email || undefined },
-      });
+      // 주의: 이 시점에서는 Partner가 아직 생성되지 않았음
+      // Partner와 PartnerContract는 별도로 생성되어야 함
+      // 따라서 여기서는 PDF 정보만 저장하고, Partner는 별도 API로 생성
 
-      if (partner) {
-        await prisma.partner.update({
-          where: { id: partner.id },
-          data: {
-            contractDocumentUrl: `https://drive.google.com/file/d/${driveResult.contractFileId}/view`,
-            contractDriveFileId: driveResult.contractFileId,
-            contractDriveFolderId: driveResult.folderPath?.split('/')[0],
-            contractSignedAt: new Date(),
-            contractStatus: 'SIGNED',
-          },
-        });
-      }
-
-      // 이메일 발송 (계약서 첨부 + Drive 링크)
+      // 이메일 발송 (Drive 링크 포함)
       if (contract.email) {
         const emailTemplate = renderPartnerContractSignedEmail({
           partnerName: contract.name || '파트너',
@@ -257,13 +247,13 @@ export async function PUT(
           adminEmail: 'admin@cruisedot.co.kr',
         });
 
-        // 이메일 발송 (첨부 파일 포함)
+        // 이메일 발송 (Drive 링크로 대체)
         try {
           await sendFunnelEmail({
+            organizationId,
             to: contract.email,
             subject: emailTemplate.subject,
             html: emailTemplate.html,
-            attachments: [{ filename: `contract_${provisionResult.manager?.id}.pdf`, content: pdfBuffer }],
           });
           logger.log('[AFFILIATE-PROVISION] 계약서 이메일 발송 완료', {
             contractId,

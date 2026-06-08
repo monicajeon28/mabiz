@@ -8,7 +8,6 @@ import "./globals.css";
 // 2. weight: ["400", "700"] - 필수 두 가지만 사용 (4가지 → 2가지)
 // 3. variable: CSS 변수로 동적 사용
 const notoSansKR = Noto_Sans_KR({
-  subsets: ["korean"],
   weight: ["400", "700"],
   variable: "--font-noto-sans-kr",
   display: "swap",
