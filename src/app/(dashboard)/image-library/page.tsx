@@ -46,7 +46,7 @@ const GOOGLE_DRIVE_LIMIT = 20;
 const UPLOAD_CATEGORIES = ['후기', '크루즈정보사진', '상품'];
 
 export default function ImageLibraryPage() {
-  const [activeTab, setActiveTab] = useState<'local' | 'drive'>('local');
+  const [activeTab, setActiveTab] = useState<'local'>('local');
 
   // 로컬 이미지 상태
   const [assets, setAssets] = useState<ImageAsset[]>([]);
@@ -184,15 +184,16 @@ export default function ImageLibraryPage() {
     }
   }, [selectedGdFolder, gdPage]);
 
-  useEffect(() => {
-    if (activeTab === 'drive') {
-      if (gdFolders.length === 0) {
-        fetchGdFolders();
-      } else {
-        fetchGdImages();
-      }
-    }
-  }, [activeTab, selectedGdFolder, gdPage, gdFolders.length, fetchGdFolders, fetchGdImages]);
+  // Google Drive useEffect removed - only local tab active
+  // useEffect(() => {
+  //   if (activeTab === 'drive') {
+  //     if (gdFolders.length === 0) {
+  //       fetchGdFolders();
+  //     } else {
+  //       fetchGdImages();
+  //     }
+  //   }
+  // }, [activeTab, selectedGdFolder, gdPage, gdFolders.length, fetchGdFolders, fetchGdImages]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 선택 관련
@@ -768,35 +769,11 @@ export default function ImageLibraryPage() {
     <div className="space-y-6 p-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">이미지 라이브러리</h1>
-        <p className="text-gray-600 mt-2">로컬 또는 구글 드라이브 이미지 관리</p>
-      </div>
-
-      {/* 탭 */}
-      <div className="flex gap-4 border-b">
-        <button
-          onClick={() => setActiveTab('local')}
-          className={`px-4 py-2 font-medium border-b-2 transition ${
-            activeTab === 'local'
-              ? 'border-blue-500 text-blue-600'
-              : 'border-transparent text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          로컬 이미지
-        </button>
-        <button
-          onClick={() => setActiveTab('drive')}
-          className={`px-4 py-2 font-medium border-b-2 transition ${
-            activeTab === 'drive'
-              ? 'border-blue-500 text-blue-600'
-              : 'border-transparent text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          구글 드라이브
-        </button>
+        <p className="text-gray-600 mt-2">로컬 이미지 관리</p>
       </div>
 
       {/* 콘텐츠 */}
-      {activeTab === 'local' ? renderLocalTab() : renderGdTab()}
+      {renderLocalTab()}
 
       {/* 업로드 카테고리 선택 모달 */}
       {showUploadModal && (

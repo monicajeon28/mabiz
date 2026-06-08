@@ -53,3 +53,18 @@ export {
   ALIGO_IP_WHITELIST_DOCS,
   type IPWhitelistStatus,
 } from './ip-whitelist';
+
+export {
+  validateKoreanMessage,
+  detectUnsupportedChars,
+  sanitizeForEucKr,
+  isSupportedInEucKr,
+  canEncodeToEucKr,
+  estimateEucKrByteLength,
+  calculateMessageType,
+  analyzeMessage,
+  validateMessageBatch,
+  sanitizeMessageBatch,
+  ENCODING_ISSUE_TYPES,
+  type EncodingValidation,
+} from './encoding';
