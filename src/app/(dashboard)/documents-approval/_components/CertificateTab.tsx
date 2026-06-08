@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   FileCheck2,
   FileX2,
@@ -60,6 +60,25 @@ type RefundData = {
   note?: string | null;
 };
 
+type ProductInfo = {
+  productCode: string;
+  productName: string;
+  cruiseLine: string;
+  shipName: string;
+  packageName: string;
+  nights: number;
+  days: number;
+  basePrice: number;
+  itineraryPattern: unknown;
+  includedItems: string[];
+  excludedItems: string[];
+  hasGuide: 'Y' | 'N';
+  isJapan?: boolean;
+  isDomestic?: boolean;
+  tourType?: string;
+  airlineName?: string | null;
+};
+
 type CertMode = 'purchase' | 'refund';
 
 const CONFIG = {
@@ -92,8 +111,36 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
   const [isIssuing, setIsIssuing] = useState(false);
   const [purchaseData, setPurchaseData] = useState<PurchaseData | null>(null);
   const [refundData, setRefundData] = useState<RefundData | null>(null);
+  const [productInfo, setProductInfo] = useState<ProductInfo | null>(null);
+  const [isLoadingProductInfo, setIsLoadingProductInfo] = useState(false);
 
   const hasIssued = mode === 'purchase' ? !!purchaseData : !!refundData;
+
+  // 고객 선택 시 상품 정보 조회
+  useEffect(() => {
+    if (!selectedSale?.productCode) {
+      setProductInfo(null);
+      return;
+    }
+
+    setIsLoadingProductInfo(true);
+    fetch(
+      `/api/admin/affiliate/documents/product-info?productCode=${encodeURIComponent(
+        selectedSale.productCode
+      )}`,
+      { credentials: 'include' }
+    )
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.ok && json.product) {
+          setProductInfo(json.product);
+        }
+      })
+      .catch((err) => {
+        console.warn('상품 정보 조회 실패', err);
+      })
+      .finally(() => setIsLoadingProductInfo(false));
+  }, [selectedSale?.productCode]);
 
   const handleIssue = async () => {
     if (!selectedSale) { showError('먼저 고객을 선택해주세요.'); return; }
@@ -152,29 +199,67 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
             setSelectedSale(s);
             setPurchaseData(null);
             setRefundData(null);
+            setProductInfo(null);
           }}
         />
 
         {/* 선택된 판매 건 요약 */}
         {selectedSale && (
-          <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm">
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-2 text-gray-700">
-                <User className="h-4 w-4 text-gray-400" />
-                <span className="font-medium">{selectedSale.buyerName || '(이름없음)'}</span>
-                {selectedSale.customerPhone && <span className="text-xs text-gray-400">{selectedSale.customerPhone}</span>}
+          <>
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm">
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-2 text-gray-700">
+                  <User className="h-4 w-4 text-gray-400" />
+                  <span className="font-medium">{selectedSale.buyerName || '(이름없음)'}</span>
+                  {selectedSale.customerPhone && <span className="text-xs text-gray-400">{selectedSale.customerPhone}</span>}
+                </div>
+                <div className="flex items-center gap-2 text-gray-700">
+                  <Package className="h-4 w-4 text-gray-400" />
+                  <span className="truncate text-sm">{selectedSale.productName || '(상품명 없음)'}</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-700">
+                  <CreditCard className="h-4 w-4 text-gray-400" />
+                  <span className="font-semibold">{formatMoney(selectedSale.saleAmount)}</span>
+                </div>
+                {selectedSale.orderId && <div className="text-xs text-gray-400">주문 {selectedSale.orderId}</div>}
               </div>
-              <div className="flex items-center gap-2 text-gray-700">
-                <Package className="h-4 w-4 text-gray-400" />
-                <span className="truncate text-sm">{selectedSale.productName || '(상품명 없음)'}</span>
-              </div>
-              <div className="flex items-center gap-2 text-gray-700">
-                <CreditCard className="h-4 w-4 text-gray-400" />
-                <span className="font-semibold">{formatMoney(selectedSale.saleAmount)}</span>
-              </div>
-              {selectedSale.orderId && <div className="text-xs text-gray-400">주문 {selectedSale.orderId}</div>}
             </div>
-          </div>
+
+            {/* 상품 정보 카드 (로딩 또는 성공) */}
+            {isLoadingProductInfo ? (
+              <div className="flex items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 p-4">
+                <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+                <span className="ml-2 text-sm text-indigo-600">상품 정보 조회 중...</span>
+              </div>
+            ) : (
+              productInfo && (
+                <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm">
+                  <p className="mb-2 text-xs font-bold text-indigo-600">📦 상품 정보</p>
+                  <div className="space-y-1 text-xs text-indigo-700">
+                    <p>
+                      <span className="font-medium">선박:</span> {productInfo.shipName || '-'}
+                    </p>
+                    <p>
+                      <span className="font-medium">포함 항목:</span>{' '}
+                      {productInfo.includedItems?.join(', ') || '-'}
+                    </p>
+                    {productInfo.excludedItems && productInfo.excludedItems.length > 0 && (
+                      <p>
+                        <span className="font-medium">불포함 항목:</span>{' '}
+                        {productInfo.excludedItems.join(', ')}
+                      </p>
+                    )}
+                    {productInfo.itineraryPattern ? (
+                      <p>
+                        <span className="font-medium">기항지:</span>{' '}
+                        {buildItinerary(productInfo.itineraryPattern as unknown) as React.ReactNode}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              )
+            )}
+          </>
         )}
 
         <button
@@ -202,19 +287,56 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
       {/* ═══ 우측: 미리보기 (항상 표시) ════════════════════════════════════ */}
       <div className="space-y-3">
         <p className="text-sm font-semibold text-gray-700">
-          미리보기 {hasIssued ? '(발급 완료)' : '(발급 후 표시)'}
+          미리보기 {hasIssued ? '(발급 완료)' : '(발급 전 요약)'}
         </p>
 
         {!hasIssued ? (
-          /* 발급 전 placeholder */
-          <div
-            ref={ref}
-            className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-20 text-center shadow-sm"
-          >
-            <cfg.Icon className="h-12 w-12 text-gray-200" />
-            <p className="mt-3 text-sm font-medium text-gray-400">{cfg.placeholderText}</p>
-            <p className="mt-1 text-xs text-gray-300">발급 후 증서 미리보기가 표시됩니다.</p>
-          </div>
+          selectedSale ? (
+            <>
+              {mode === 'purchase' && (
+                <div className="rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50 p-6">
+                  <p className="mb-4 text-sm font-medium text-emerald-700">
+                    📋 발급 전 미리보기 (발급 버튼을 누르면 확정됩니다)
+                  </p>
+                  <PurchasePreviewDraft
+                    data={{
+                      buyerName: selectedSale.buyerName,
+                      buyerTel: selectedSale.buyerTel,
+                      productName: selectedSale.productName,
+                      amount: selectedSale.saleAmount,
+                      paidAt: selectedSale.paidAt,
+                      paymentMethod: undefined,
+                    }}
+                  />
+                </div>
+              )}
+              {mode === 'refund' && (
+                <div className="rounded-2xl border-2 border-dashed border-red-300 bg-red-50 p-6">
+                  <p className="mb-4 text-sm font-medium text-red-700">
+                    📋 발급 전 미리보기 (발급 버튼을 누르면 확정됩니다)
+                  </p>
+                  <RefundPreviewDraft
+                    data={{
+                      buyerName: selectedSale.buyerName,
+                      productName: selectedSale.productName,
+                      amount: selectedSale.saleAmount,
+                      paidAt: selectedSale.paidAt,
+                    }}
+                  />
+                </div>
+              )}
+            </>
+          ) : (
+            /* 발급 전 placeholder */
+            <div
+              ref={ref}
+              className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-20 text-center shadow-sm"
+            >
+              <cfg.Icon className="h-12 w-12 text-gray-200" />
+              <p className="mt-3 text-sm font-medium text-gray-400">{cfg.placeholderText}</p>
+              <p className="mt-1 text-xs text-gray-300">발급 후 증서 미리보기가 표시됩니다.</p>
+            </div>
+          )
         ) : (
           <div className="space-y-3">
             {mode === 'purchase' && purchaseData && (
@@ -255,57 +377,57 @@ function PurchasePreview({
   return (
     <div
       ref={cardRef}
-      className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-8 py-6 shadow-md"
+      className="overflow-hidden rounded-xl border-4 border-gray-300 bg-white px-12 py-10 shadow-lg"
     >
       <DocumentLetterhead title="구매확인증서" accentClass="border-emerald-100" />
 
-      <div className="pt-5">
-        <p className="mb-4 text-sm leading-relaxed text-gray-600">
+      <div className="pt-8">
+        <p className="mb-8 text-lg leading-relaxed text-gray-700">
           아래와 같이 정상적으로 구매·결제가 완료되었음을 확인합니다.
         </p>
 
         {/* 구매자 정보 */}
-        <div className="mb-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
-          <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-gray-400">구매자 정보</p>
-          <dl className="divide-y divide-gray-100">
+        <div className="mb-6 rounded-lg border-2 border-gray-200 bg-gray-50 p-6">
+          <p className="mb-4 text-xs font-bold uppercase tracking-widest text-gray-600">구매자 정보</p>
+          <dl className="divide-y divide-gray-200 space-y-0">
             <InfoRow icon={User} label="구매자명" value={data.buyerName || '-'} />
             <InfoRow icon={Phone} label="연락처" value={data.buyerTel || '-'} />
           </dl>
         </div>
 
         {/* 상품 및 결제 정보 */}
-        <div className="mb-4 rounded-xl border border-emerald-100 bg-emerald-50 p-4">
-          <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-emerald-600">상품 · 결제 정보</p>
-          <dl className="divide-y divide-emerald-100">
+        <div className="mb-6 rounded-lg border-2 border-emerald-200 bg-emerald-50 p-6">
+          <p className="mb-4 text-xs font-bold uppercase tracking-widest text-emerald-700">상품 · 결제 정보</p>
+          <dl className="divide-y divide-emerald-200 space-y-0">
             <InfoRow icon={Package} label="상품명" value={data.productName || '-'} strong />
-            <InfoRow icon={CreditCard} label="결제금액" value={formatMoney(data.amount ?? null)} strong />
+            <InfoRow icon={CreditCard} label="결제금액" value={formatMoney(data.amount ?? null)} strong size="lg" />
             <InfoRow icon={Calendar} label="결제일" value={formatDate(data.paidAt)} />
             <InfoRow icon={CreditCard} label="결제방법" value={data.paymentMethod || '-'} />
           </dl>
         </div>
 
         {/* 취소·환불 정책 */}
-        <div className="mb-4 rounded-xl border border-orange-100 bg-orange-50 p-4">
-          <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-orange-700">
-            <ShieldCheck className="h-3.5 w-3.5" />취소·환불 규정
+        <div className="mb-8 rounded-lg border-2 border-orange-200 bg-orange-50 p-6">
+          <p className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-orange-700">
+            <ShieldCheck className="h-4 w-4" />취소·환불 규정
           </p>
-          <table className="w-full text-xs">
+          <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-orange-200">
-                <th className="pb-1 text-left font-medium text-orange-600">취소 시점</th>
-                <th className="pb-1 text-right font-medium text-orange-600">위약금</th>
+              <tr className="border-b-2 border-orange-300">
+                <th className="pb-3 text-left font-bold text-orange-700">취소 시점</th>
+                <th className="pb-3 text-right font-bold text-orange-700">위약금</th>
               </tr>
             </thead>
             <tbody>
               {CANCELLATION_POLICY.map((p) => (
                 <tr key={p.label} className="border-b border-orange-100 last:border-0">
-                  <td className="py-1 text-gray-600">{p.label}</td>
-                  <td className="py-1 text-right font-semibold text-gray-700">{p.value}</td>
+                  <td className="py-3 text-gray-700">{p.label}</td>
+                  <td className="py-3 text-right font-semibold text-gray-800">{p.value}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <p className="mt-2 text-[10px] text-gray-400">
+          <p className="mt-4 text-xs leading-relaxed text-gray-600">
             ※ 관광진흥법 시행령 기준 적용. 출발 당일 취소 시 여행 요금의 50% 위약금 발생.
           </p>
         </div>
@@ -335,21 +457,21 @@ function RefundPreview({
   return (
     <div
       ref={cardRef}
-      className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-8 py-6 shadow-md"
+      className="overflow-hidden rounded-xl border-4 border-gray-300 bg-white px-12 py-10 shadow-lg"
     >
       <DocumentLetterhead title={title} accentClass="border-red-100" />
 
-      <div className="pt-5">
-        <p className="mb-4 text-sm leading-relaxed text-gray-600">
+      <div className="pt-8">
+        <p className="mb-8 text-lg leading-relaxed text-gray-700">
           {data.isRefundPending
             ? '아래와 같이 환불이 예정되어 있음을 확인합니다.'
             : '아래와 같이 환불이 정상적으로 처리·완료되었음을 확인합니다.'}
         </p>
 
         {/* 상품 내역 */}
-        <div className="mb-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
-          <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-gray-400">상품 내역</p>
-          <dl className="divide-y divide-gray-100">
+        <div className="mb-6 rounded-lg border-2 border-gray-200 bg-gray-50 p-6">
+          <p className="mb-4 text-xs font-bold uppercase tracking-widest text-gray-600">상품 내역</p>
+          <dl className="divide-y divide-gray-200 space-y-0">
             <InfoRow icon={User} label="구매자명" value={data.buyerName || '-'} />
             <InfoRow icon={Package} label="상품명" value={data.productName || '-'} strong />
             <InfoRow icon={CreditCard} label="원결제금액" value={formatMoney(data.amount ?? null)} />
@@ -358,26 +480,26 @@ function RefundPreview({
         </div>
 
         {/* 환불금액 강조 */}
-        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-5 py-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-red-700">환불금액</span>
-            <span className="text-2xl font-extrabold text-red-600">{formatMoney(data.refundAmount ?? null)}</span>
+        <div className="mb-6 rounded-lg border-2 border-red-200 bg-red-50 px-6 py-6">
+          <div className="flex items-center justify-between mb-4 pb-4 border-b-2 border-red-200">
+            <span className="text-sm font-bold text-red-700 uppercase tracking-widest">환불금액</span>
+            <span className="text-4xl font-extrabold text-red-600">{formatMoney(data.refundAmount ?? null)}</span>
           </div>
           {hasPenalty && (
-            <div className="mt-2 flex items-center justify-between border-t border-red-200 pt-2 text-sm text-red-600">
-              <span className="flex items-center gap-1">
-                <AlertTriangle className="h-3.5 w-3.5" />
+            <div className="flex items-center justify-between text-base text-red-600">
+              <span className="flex items-center gap-2 font-semibold">
+                <AlertTriangle className="h-4 w-4" />
                 위약금 ({data.penaltyRate}%)
               </span>
-              <span className="font-semibold">- {formatMoney(data.penaltyAmount ?? null)}</span>
+              <span className="font-bold">- {formatMoney(data.penaltyAmount ?? null)}</span>
             </div>
           )}
         </div>
 
         {/* 환불 상세 */}
-        <div className="mb-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
-          <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-gray-400">환불 상세</p>
-          <dl className="divide-y divide-gray-100">
+        <div className="mb-8 rounded-lg border-2 border-gray-200 bg-gray-50 p-6">
+          <p className="mb-4 text-xs font-bold uppercase tracking-widest text-gray-600">환불 상세</p>
+          <dl className="divide-y divide-gray-200 space-y-0">
             {data.refundBasis && <InfoRow icon={AlertTriangle} label="환불기준" value={data.refundBasis} />}
             <InfoRow icon={Calendar} label="출발일" value={formatDate(data.departureDate)} />
             {data.daysBeforeDep != null && (
@@ -389,7 +511,7 @@ function RefundPreview({
         </div>
 
         {data.note && (
-          <p className="mb-4 rounded-lg bg-gray-50 px-4 py-3 text-xs leading-relaxed text-gray-500">{data.note}</p>
+          <p className="mb-8 rounded-lg bg-gray-50 px-6 py-5 text-sm leading-relaxed text-gray-600 border border-gray-200">{data.note}</p>
         )}
 
         <DocumentSeal agent={agent} />
@@ -403,19 +525,122 @@ function InfoRow({
   label,
   value,
   strong,
+  size = 'base',
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string;
   strong?: boolean;
+  size?: 'base' | 'lg';
 }) {
+  const sizeClasses = {
+    base: 'text-sm',
+    lg: 'text-xl',
+  };
+
   return (
-    <div className="flex items-center justify-between py-2.5">
-      <dt className="flex items-center gap-1.5 text-sm text-gray-500">
-        <Icon className="h-3.5 w-3.5 text-gray-400" />
+    <div className="flex items-center justify-between py-4">
+      <dt className={`flex items-center gap-1.5 ${size === 'lg' ? 'text-base font-semibold' : 'text-sm'} text-gray-600`}>
+        <Icon className="h-4 w-4 text-gray-400" />
         {label}
       </dt>
-      <dd className={`text-sm ${strong ? 'font-bold text-gray-900' : 'text-gray-800'}`}>{value}</dd>
+      <dd
+        className={`${sizeClasses[size]} ${
+          strong ? 'font-bold text-gray-900' : 'text-gray-800'
+        }`}
+      >
+        {value}
+      </dd>
     </div>
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 발급 전 미리보기 (구매확인증서 임시 정보)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function PurchasePreviewDraft({ data }: { data: PurchaseData }) {
+  return (
+    <div className="space-y-4 rounded-xl border border-emerald-200 bg-white p-5">
+      <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
+        <span className="font-semibold text-gray-600">구매자명</span>
+        <span className="text-base font-medium text-gray-900">{data.buyerName || '-'}</span>
+      </div>
+      <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
+        <span className="font-semibold text-gray-600">연락처</span>
+        <span className="text-base font-medium text-gray-900">{data.buyerTel || '-'}</span>
+      </div>
+      <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
+        <span className="font-semibold text-gray-600">상품명</span>
+        <span className="text-base font-medium text-gray-900 truncate">{data.productName || '-'}</span>
+      </div>
+      <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
+        <span className="font-semibold text-gray-600">결제금액</span>
+        <span className="text-xl font-extrabold text-emerald-600">{formatMoney(data.amount ?? null)}</span>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="font-semibold text-gray-600">결제일</span>
+        <span className="text-base font-medium text-gray-900">{formatDate(data.paidAt)}</span>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 발급 전 미리보기 (환불완료증서 임시 정보)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function RefundPreviewDraft({
+  data,
+}: {
+  data: {
+    buyerName?: string | null;
+    productName?: string | null;
+    amount?: number | null;
+    paidAt?: string | null;
+  };
+}) {
+  return (
+    <div className="space-y-4 rounded-xl border border-red-200 bg-white p-5">
+      <div className="flex items-center justify-between border-b border-red-100 pb-3">
+        <span className="font-semibold text-gray-600">구매자명</span>
+        <span className="text-base font-medium text-gray-900">{data.buyerName || '-'}</span>
+      </div>
+      <div className="flex items-center justify-between border-b border-red-100 pb-3">
+        <span className="font-semibold text-gray-600">상품명</span>
+        <span className="text-base font-medium text-gray-900 truncate">{data.productName || '-'}</span>
+      </div>
+      <div className="flex items-center justify-between border-b border-red-100 pb-3">
+        <span className="font-semibold text-gray-600">원결제금액</span>
+        <span className="text-xl font-extrabold text-red-600">{formatMoney(data.amount ?? null)}</span>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="font-semibold text-gray-600">결제일</span>
+        <span className="text-base font-medium text-gray-900">{formatDate(data.paidAt)}</span>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 기항지 패턴 포맷팅 헬퍼
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildItinerary(pattern: unknown): string {
+  if (!pattern) return '-';
+  if (typeof pattern === 'string') return pattern;
+  if (Array.isArray(pattern)) {
+    return (pattern as Array<{ port?: string; city?: string }>)
+      .map((p) => p.port || p.city || '?')
+      .join(' → ');
+  }
+  if (typeof pattern === 'object') {
+    const obj = pattern as Record<string, unknown>;
+    if ('ports' in obj && Array.isArray(obj.ports)) {
+      return (obj.ports as Array<{ name?: string; code?: string }>)
+        .map((p) => p.name || p.code || '?')
+        .join(' → ');
+    }
+  }
+  return '-';
 }

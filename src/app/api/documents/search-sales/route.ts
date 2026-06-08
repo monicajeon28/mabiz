@@ -66,7 +66,7 @@ export async function GET(req: Request) {
     const items      = hasMore ? sales.slice(0, limit) : sales;
     const nextCursor = hasMore ? items[items.length - 1].id : null;
 
-    // ── 3단계: Payment 배치 조회 (구매자명 + 상태 + 환불자명) ──
+    // ── 3단계: Payment 배치 조회 (구매자명 + 상태 + 환불자명 + productCode) ──
     const orderIds = items.filter(s => s.orderId).map(s => s.orderId as string);
     const payments = orderIds.length > 0
       ? await prisma.payment.findMany({
@@ -74,6 +74,7 @@ export async function GET(req: Request) {
           select: {
             orderId: true, buyerName: true, buyerTel: true,
             status: true, paidAt: true, cancelledAt: true, metadata: true,
+            productCode: true,
           },
         })
       : [];
@@ -89,6 +90,7 @@ export async function GET(req: Request) {
         saleId:        s.id,
         orderId:       s.orderId,
         productName:   s.productName,
+        productCode:   pay?.productCode ?? null,
         saleAmount:    s.saleAmount,
         buyerName:     pay?.buyerName ?? null,
         buyerTel:      pay?.buyerTel ?? null,
