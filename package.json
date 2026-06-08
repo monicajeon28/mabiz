@@ -36,7 +36,7 @@
     "@opentelemetry/core": "^2.7.1",
     "@opentelemetry/sdk-trace-base": "^2.7.1",
     "@prisma/adapter-pg": "^7.7.0",
-    "@prisma/client": "^7.7.0",
+    "@prisma/client": "^7.8.0",
     "@radix-ui/react-dialog": "^1.1.15",
     "@react-pdf/renderer": "^4.5.1",
     "@sentry/nextjs": "^10.53.1",
