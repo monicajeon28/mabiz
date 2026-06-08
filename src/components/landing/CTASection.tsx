@@ -3,6 +3,12 @@
 import React, { useState } from 'react';
 import { track } from '@/lib/landing/analytics';
 
+type FieldError = {
+  [key in 'name' | 'phone' | 'email' | 'interest' | 'message']?: string;
+};
+
+type FieldStatus = 'idle' | 'focus' | 'error' | 'success' | 'disabled';
+
 export default function CTASection() {
   const [formData, setFormData] = useState({
     name: '',
@@ -12,8 +18,42 @@ export default function CTASection() {
     message: '',
   });
 
+  const [fieldErrors, setFieldErrors] = useState<FieldError>({});
+  const [fieldStatus, setFieldStatus] = useState<Record<string, FieldStatus>>({
+    name: 'idle',
+    phone: 'idle',
+    email: 'idle',
+    interest: 'idle',
+    message: 'idle',
+  });
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string>('');
+
+  // Field-level validation logic
+  const validateField = (name: string, value: string): string => {
+    switch (name) {
+      case 'name':
+        if (!value.trim()) return '이름을 입력해주세요';
+        if (value.trim().length < 2) return '이름은 최소 2글자 이상이어야 합니다';
+        return '';
+      case 'phone':
+        if (!value.trim()) return '휴대폰 번호를 입력해주세요';
+        if (!/^\d{3}-\d{3,4}-\d{4}$/.test(value)) {
+          return '올바른 형식으로 입력해주세요 (010-1234-5678)';
+        }
+        return '';
+      case 'email':
+        if (value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+          return '올바른 이메일 형식으로 입력해주세요';
+        }
+        return '';
+      case 'interest':
+        if (!value.trim()) return '관심 상품을 선택해주세요';
+        return '';
+      default:
+        return '';
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -21,17 +61,144 @@ export default function CTASection() {
       ...prev,
       [name]: value,
     }));
-    // Clear error message when user starts typing
+
+    // Real-time validation
+    const error = validateField(name, value);
+    setFieldErrors((prev) => ({
+      ...prev,
+      [name]: error,
+    }));
+
+    // Update field status
+    if (error) {
+      setFieldStatus((prev) => ({
+        ...prev,
+        [name]: 'error',
+      }));
+    } else if (value.trim()) {
+      setFieldStatus((prev) => ({
+        ...prev,
+        [name]: 'success',
+      }));
+    } else {
+      setFieldStatus((prev) => ({
+        ...prev,
+        [name]: 'idle',
+      }));
+    }
+
+    // Clear submit error when user starts typing
     if (submitStatus === 'error') {
       setErrorMessage('');
       setSubmitStatus('idle');
     }
   };
 
+  const handleFocus = (e: React.FocusEvent<any>) => {
+    const { name } = e.target;
+    if (fieldErrors[name as keyof FieldError]) {
+      // Maintain error state
+      setFieldStatus((prev) => ({
+        ...prev,
+        [name]: 'error',
+      }));
+    } else {
+      setFieldStatus((prev) => ({
+        ...prev,
+        [name]: 'focus',
+      }));
+    }
+  };
+
+  const handleBlur = (e: React.FocusEvent<any>) => {
+    const { name, value } = e.target;
+    const error = validateField(name, value);
+
+    if (error) {
+      setFieldStatus((prev) => ({
+        ...prev,
+        [name]: 'error',
+      }));
+    } else if (value.trim()) {
+      setFieldStatus((prev) => ({
+        ...prev,
+        [name]: 'success',
+      }));
+    } else {
+      setFieldStatus((prev) => ({
+        ...prev,
+        [name]: 'idle',
+      }));
+    }
+  };
+
+  // Get dynamic CSS classes based on field status
+  const getFieldClasses = (fieldName: string, baseClasses: string = ''): string => {
+    const status = fieldStatus[fieldName];
+    const baseInput =
+      'w-full px-3 xs:px-4 py-2 xs:py-3 border rounded-lg text-sm xs:text-base outline-none transition-all duration-200';
+
+    const stateClasses: Record<FieldStatus, string> = {
+      idle: 'border-gray-300 text-gray-900 placeholder-gray-400 bg-white',
+      focus: 'border-blue-500 text-gray-900 ring-2 ring-blue-500 ring-opacity-50 bg-white',
+      error: 'border-red-500 text-gray-900 ring-2 ring-red-500 ring-opacity-50 bg-red-50 placeholder-red-300',
+      success: 'border-green-500 text-gray-900 ring-2 ring-green-500 ring-opacity-50 bg-green-50',
+      disabled: 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed',
+    };
+
+    return `${baseInput} ${stateClasses[status]} ${baseClasses}`;
+  };
+
+  // Render field-level error or success message
+  const renderFieldMessage = (fieldName: keyof FieldError) => {
+    const error = fieldErrors[fieldName];
+    const status = fieldStatus[fieldName];
+    const hasValue = Boolean(formData[fieldName]);
+
+    if (error) {
+      return (
+        <div className="flex items-start mt-1.5 xs:mt-2">
+          <span className="text-red-500 mr-1.5 flex-shrink-0 text-sm">⚠️</span>
+          <p className="text-red-600 text-xs font-medium">{error}</p>
+        </div>
+      );
+    }
+
+    if (status === 'success' && hasValue) {
+      return (
+        <div className="flex items-start mt-1.5 xs:mt-2">
+          <span className="text-green-600 mr-1.5 flex-shrink-0 text-sm">✓</span>
+          <p className="text-green-700 text-xs font-medium">완료됨</p>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitStatus('loading');
     setErrorMessage('');
+
+    // Validate all fields before submission
+    const errors: FieldError = {};
+    Object.keys(formData).forEach((key) => {
+      const error = validateField(key, formData[key as keyof typeof formData]);
+      if (error) errors[key as keyof FieldError] = error;
+    });
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      Object.keys(errors).forEach((key) => {
+        setFieldStatus((prev) => ({
+          ...prev,
+          [key]: 'error',
+        }));
+      });
+      setSubmitStatus('idle');
+      return;
+    }
 
     track('application_form_submit', {
       interest: formData.interest,
@@ -46,17 +213,35 @@ export default function CTASection() {
       });
       if (!res.ok) throw new Error('서버 오류');
 
-      setSubmitStatus('success');
-      setFormData({
-        name: '',
-        phone: '',
-        email: '',
-        interest: '',
-        message: '',
+      // Set all fields to success state
+      Object.keys(formData).forEach((key) => {
+        setFieldStatus((prev) => ({
+          ...prev,
+          [key]: 'success',
+        }));
       });
 
-      // Reset after 5 seconds
-      setTimeout(() => setSubmitStatus('idle'), 5000);
+      setSubmitStatus('success');
+
+      // Reset form after 5 seconds
+      setTimeout(() => {
+        setFormData({
+          name: '',
+          phone: '',
+          email: '',
+          interest: '',
+          message: '',
+        });
+        setFieldStatus({
+          name: 'idle',
+          phone: 'idle',
+          email: 'idle',
+          interest: 'idle',
+          message: 'idle',
+        });
+        setFieldErrors({});
+        setSubmitStatus('idle');
+      }, 5000);
     } catch (error) {
       setSubmitStatus('error');
       setErrorMessage(
@@ -204,10 +389,15 @@ export default function CTASection() {
                     name="name"
                     value={formData.name}
                     onChange={handleInputChange}
+                    onFocus={handleFocus}
+                    onBlur={handleBlur}
                     required
-                    className="w-full px-3 xs:px-4 py-2 xs:py-3 border border-gray-300 rounded-lg text-sm xs:text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                    className={getFieldClasses('name')}
                     placeholder="홍길동"
+                    aria-invalid={!!fieldErrors.name}
+                    aria-describedby={fieldErrors.name ? 'name-error' : undefined}
                   />
+                  {renderFieldMessage('name')}
                 </div>
 
                 {/* Phone */}
@@ -221,10 +411,15 @@ export default function CTASection() {
                     name="phone"
                     value={formData.phone}
                     onChange={handleInputChange}
+                    onFocus={handleFocus}
+                    onBlur={handleBlur}
                     required
-                    className="w-full px-3 xs:px-4 py-2 xs:py-3 border border-gray-300 rounded-lg text-sm xs:text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                    className={getFieldClasses('phone')}
                     placeholder="010-1234-5678"
+                    aria-invalid={!!fieldErrors.phone}
+                    aria-describedby={fieldErrors.phone ? 'phone-error' : undefined}
                   />
+                  {renderFieldMessage('phone')}
                 </div>
 
                 {/* Email */}
@@ -238,9 +433,14 @@ export default function CTASection() {
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="w-full px-3 xs:px-4 py-2 xs:py-3 border border-gray-300 rounded-lg text-sm xs:text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                    onFocus={handleFocus}
+                    onBlur={handleBlur}
+                    className={getFieldClasses('email')}
                     placeholder="example@email.com"
+                    aria-invalid={!!fieldErrors.email}
+                    aria-describedby={fieldErrors.email ? 'email-error' : undefined}
                   />
+                  {renderFieldMessage('email')}
                 </div>
 
                 {/* Interest */}
@@ -253,8 +453,12 @@ export default function CTASection() {
                     name="interest"
                     value={formData.interest}
                     onChange={handleInputChange}
+                    onFocus={handleFocus}
+                    onBlur={handleBlur}
                     required
-                    className="w-full px-3 xs:px-4 py-2 xs:py-3 border border-gray-300 rounded-lg text-sm xs:text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-white"
+                    className={getFieldClasses('interest', 'bg-white')}
+                    aria-invalid={!!fieldErrors.interest}
+                    aria-describedby={fieldErrors.interest ? 'interest-error' : undefined}
                   >
                     <option value="">선택해주세요</option>
                     <option value="korea">국내 플랜 (월 33,000원)</option>
@@ -262,6 +466,7 @@ export default function CTASection() {
                     <option value="premium">프리미엄 플랜 (월 157,500원)</option>
                     <option value="consulting">무료 상담만</option>
                   </select>
+                  {renderFieldMessage('interest')}
                 </div>
 
                 {/* Message */}
@@ -274,10 +479,14 @@ export default function CTASection() {
                     name="message"
                     value={formData.message}
                     onChange={handleInputChange}
+                    onFocus={handleFocus}
+                    onBlur={handleBlur}
                     rows={3}
-                    className="w-full px-3 xs:px-4 py-2 xs:py-3 border border-gray-300 rounded-lg text-sm xs:text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none"
+                    className={getFieldClasses('message', 'resize-none')}
                     placeholder="건강상태, 여행 경험, 특별 요청사항 등을 적어주세요"
+                    aria-describedby={fieldErrors.message ? 'message-error' : undefined}
                   />
+                  {renderFieldMessage('message')}
                 </div>
 
                 {/* Submit button */}
