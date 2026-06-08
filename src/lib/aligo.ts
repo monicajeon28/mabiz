@@ -6,6 +6,102 @@ export interface AligoConfig {
   sender: string;
 }
 
+/**
+ * 한글 메시지 인코딩 검증 결과
+ */
+export interface EncodingValidationResult {
+  valid: boolean;
+  encoding: 'UTF-8' | 'EUC-KR';
+  bytes: number;
+  messageType: 'SMS' | 'LMS';
+  issues: string[];
+}
+
+/**
+ * 메시지 바이트 수 계산 (Aligo EUC-KR 기준)
+ * 한글 1자 = 2바이트, ASCII 1자 = 1바이트
+ * @param msg 메시지 문자열
+ * @returns 바이트 수
+ */
+export function calculateMessageBytes(msg: string): number {
+  let bytes = 0;
+  for (const ch of msg) {
+    bytes += ch.charCodeAt(0) > 127 ? 2 : 1;
+  }
+  return bytes;
+}
+
+/**
+ * 메시지 타입 자동 감지 (EUC-KR 바이트 기준)
+ * 80바이트 초과 시 LMS, 이하 SMS
+ * @param msg 메시지 문자열
+ * @returns SMS | LMS
+ */
+export function detectMessageType(msg: string): 'SMS' | 'LMS' {
+  const bytes = calculateMessageBytes(msg);
+  return bytes > 80 ? 'LMS' : 'SMS';
+}
+
+/**
+ * 한글 메시지 인코딩 검증
+ * - EUC-KR 인코딩 가능 여부 확인
+ * - 바이트 길이 검증 (SMS: 최대 80바이트, LMS: 최대 2000바이트)
+ * - 특수 문자 검증
+ * @param msg 메시지 문자열
+ * @returns EncodingValidationResult
+ */
+export function validateKoreanMessage(msg: string): EncodingValidationResult {
+  const issues: string[] = [];
+
+  // 바이트 계산
+  const bytes = calculateMessageBytes(msg);
+  const messageType = detectMessageType(msg);
+
+  // LMS 최대 길이: 2000바이트 (약 1000자 한글)
+  const MAX_SMS_BYTES = 80;
+  const MAX_LMS_BYTES = 2000;
+
+  if (messageType === 'SMS' && bytes > MAX_SMS_BYTES) {
+    issues.push(`SMS 초과: ${bytes}바이트 > ${MAX_SMS_BYTES}바이트 (자동으로 LMS로 전환됩니다)`);
+  }
+
+  if (messageType === 'LMS' && bytes > MAX_LMS_BYTES) {
+    issues.push(`LMS 초과: ${bytes}바이트 > ${MAX_LMS_BYTES}바이트 (메시지를 단축해야 합니다)`);
+  }
+
+  // EUC-KR 인코딩 불가능한 문자 감지
+  // (일반적으로 최신 한글은 대부분 EUC-KR 지원하지만, 고급 한글 또는 Emoji는 문제 가능)
+  const problematicChars: string[] = [];
+  for (const ch of msg) {
+    const charCode = ch.charCodeAt(0);
+    // Emoji 범위 (U+1F300 ~ U+1F9FF) 또는 기타 확장 문자
+    if (charCode > 0xFFFF || (charCode >= 0xD800 && charCode <= 0xDBFF)) {
+      // Surrogate pair (Emoji, 고급 심볼 등)
+      problematicChars.push(ch);
+    }
+  }
+
+  if (problematicChars.length > 0) {
+    const uniqueChars = [...new Set(problematicChars)].slice(0, 5).join('');
+    issues.push(`EUC-KR 미지원 문자 감지: ${uniqueChars}... (이모지, 특수 심볼 등)`);
+  }
+
+  // 공백만 있는 메시지 검증
+  if (msg.trim().length === 0) {
+    issues.push('메시지가 비어있습니다');
+  }
+
+  const valid = issues.length === 0;
+
+  return {
+    valid,
+    encoding: 'EUC-KR', // Aligo는 EUC-KR 기반, UTF-8 입력은 자동 변환됨
+    bytes,
+    messageType,
+    issues,
+  };
+}
+
 interface SendSmsParams {
   config: AligoConfig;
   receiver: string;       // 수신 전화번호
@@ -71,9 +167,38 @@ async function recordSmsLog(params: {
 
 export async function sendSms(params: SendSmsParams): Promise<AligoResponse> {
   const {
-    config, receiver, msg, title, msgType = "SMS",
+    config, receiver, msg, title, msgType,
     organizationId, contactId, channel = "FUNNEL",
   } = params;
+
+  // 1️⃣ 한글 메시지 인코딩 검증
+  const encodingResult = validateKoreanMessage(msg);
+  if (!encodingResult.valid) {
+    logger.warn("[Aligo] 한글 인코딩 경고", {
+      receiver: receiver.substring(0, 4) + "***",
+      bytes: encodingResult.bytes,
+      messageType: encodingResult.messageType,
+      issues: encodingResult.issues,
+    });
+    // ⚠️ 경고만 출력하고 계속 진행 (사용자가 판단)
+    // Option: 심각한 오류(LMS 초과)는 발송 중단하도록 변경 가능
+    if (encodingResult.messageType === 'LMS' && encodingResult.bytes > 2000) {
+      logger.error("[Aligo] LMS 최대 길이 초과 — 발송 중단", {
+        receiver: receiver.substring(0, 4) + "***",
+        bytes: encodingResult.bytes,
+      });
+      if (organizationId) {
+        recordSmsLog({
+          organizationId, contactId, phone: receiver, msg,
+          status: "FAILED", blockReason: "LMS_BYTE_LIMIT_EXCEEDED", channel,
+        });
+      }
+      return { result_code: -97, message: "LMS 메시지 길이 초과 (2000바이트 이하여야 합니다)" };
+    }
+  }
+
+  // 2️⃣ msg_type 자동 감지 (명시적으로 지정되지 않으면)
+  const finalMsgType = msgType || detectMessageType(msg);
 
   // 수신거부 체크
   const optedOut = await isOptedOut(receiver);
@@ -108,8 +233,8 @@ export async function sendSms(params: SendSmsParams): Promise<AligoResponse> {
     sender:   config.sender,
     receiver,
     msg,
-    msg_type: msgType,
-    ...(title && msgType === "LMS" ? { title } : {}),
+    msg_type: finalMsgType,
+    ...(title && finalMsgType === "LMS" ? { title } : {}),
   });
 
   try {
@@ -131,6 +256,9 @@ export async function sendSms(params: SendSmsParams): Promise<AligoResponse> {
     logger.log("[Aligo] 발송 결과", {
       code:  data.result_code,
       phone: receiver.substring(0, 4) + "***",
+      bytes: encodingResult.bytes,
+      type:  finalMsgType,
+      msgId: data.msg_id,
     });
 
     if (organizationId) {
@@ -144,7 +272,11 @@ export async function sendSms(params: SendSmsParams): Promise<AligoResponse> {
     }
     return data;
   } catch (err) {
-    logger.error("[Aligo] 발송 실패", { err });
+    logger.error("[Aligo] 발송 실패", {
+      err,
+      bytes: encodingResult.bytes,
+      type: finalMsgType,
+    });
     if (organizationId) {
       recordSmsLog({ organizationId, contactId, phone: receiver, msg, status: "FAILED", resultCode: "-1", channel });
     }
@@ -427,11 +559,12 @@ export async function sendByChannel(params: SendByChannelParams): Promise<AligoR
 
     case "SMS":
     default: {
+      // msg_type 자동 감지로 변경 (바이트 기준, 문자 길이 아님)
       return sendSms({
         config: smsConfig,
         receiver,
         msg: finalMsg,
-        msgType: finalMsg.length > 90 ? "LMS" : "SMS",
+        msgType: detectMessageType(finalMsg),
         organizationId,
         contactId,
         channel: "FUNNEL",
