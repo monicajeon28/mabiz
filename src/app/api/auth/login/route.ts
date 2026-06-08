@@ -115,6 +115,13 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: false, error: '비밀번호가 올바르지 않습니다.' }, { status: 401 });
       }
 
+      // SHA-256 레거시 → bcrypt 자동 업그레이드
+      if (admin.passwordHash && !isBcryptHash(admin.passwordHash)) {
+        const upgraded = await bcrypt.hash(password, 12);
+        await prisma.globalAdmin.update({ where: { id: admin.id }, data: { passwordHash: upgraded } });
+        logger.log('[POST /api/auth/login] GlobalAdmin SHA-256→bcrypt 업그레이드', { adminId: admin.id });
+      }
+
       const session = await prisma.mabizSession.create({
         data: { adminId: admin.id, role: 'GLOBAL_ADMIN', expiresAt },
       });
@@ -139,6 +146,13 @@ export async function POST(req: Request) {
     if (member) {
       if (!await checkPassword(password, member.passwordHash ?? null)) {
         return NextResponse.json({ ok: false, error: '비밀번호가 올바르지 않습니다.' }, { status: 401 });
+      }
+
+      // SHA-256 레거시 → bcrypt 자동 업그레이드
+      if (member.passwordHash && !isBcryptHash(member.passwordHash)) {
+        const upgraded = await bcrypt.hash(password, 12);
+        await prisma.organizationMember.update({ where: { id: member.id }, data: { passwordHash: upgraded } });
+        logger.log('[POST /api/auth/login] OrganizationMember SHA-256→bcrypt 업그레이드', { memberId: member.id });
       }
 
       const role =
@@ -177,10 +191,20 @@ export async function POST(req: Request) {
       );
     }
 
-    // GMcruise User.password 검증 (bcrypt 또는 평문 레거시)
+    // GMcruise User.password 검증 (bcrypt 또는 SHA-256 레거시)
     const passwordOk = await checkPassword(password, mallUser.password);
     if (!passwordOk) {
       return NextResponse.json({ ok: false, error: '비밀번호가 올바르지 않습니다.' }, { status: 401 });
+    }
+
+    // SHA-256 레거시 → bcrypt 자동 업그레이드 (로그인 성공 시 한 번만)
+    if (!isBcryptHash(mallUser.password)) {
+      const upgraded = await bcrypt.hash(password, 12);
+      await prisma.$executeRawUnsafe(
+        `UPDATE "User" SET password = $1, "updatedAt" = NOW() WHERE id = $2`,
+        upgraded, mallUser.id
+      );
+      logger.log('[POST /api/auth/login] GmUser SHA-256→bcrypt 업그레이드', { mallUserId: mallUser.id });
     }
 
     const role = resolveRoleFromMallUser(mallUser.role, mallUser.mallUserId, mallUser.affiliateType);
