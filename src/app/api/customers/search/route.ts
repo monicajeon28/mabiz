@@ -8,8 +8,8 @@
  * - riskLevel: LOW|MEDIUM|HIGH|CRITICAL
  * - lensType: L0|L1|...|L10
  * - groupId: Filter by group membership
- * - limit: Default 50
- * - offset: Default 0
+ * - limit: Default 50, max 200
+ * - cursor: Last item ID from previous page (cursor-based pagination)
  * - orgId: Organization context
  */
 
@@ -49,19 +49,19 @@ export async function GET(request: NextRequest) {
     const lensType = request.nextUrl.searchParams.get("lensType");
     const groupId = request.nextUrl.searchParams.get("groupId");
     const limit = Math.min(parseInt(request.nextUrl.searchParams.get("limit") || "50"), 200);
-    const offset = parseInt(request.nextUrl.searchParams.get("offset") || "0");
+    const cursor = request.nextUrl.searchParams.get("cursor") || undefined;
     const maskLevel = (request.nextUrl.searchParams.get("maskLevel") || "AGENT") as UserRole;
 
     const startTime = Date.now();
 
-    // Get customers with filters
-    const { customers, total } = await getCustomers360(organizationId, {
+    // Get customers with cursor-based pagination
+    const { customers, total, nextCursor, hasNextPage } = await getCustomers360(organizationId, {
       searchQuery: searchQuery || undefined,
       riskLevel: riskLevel || undefined,
       lensType: lensType || undefined,
       groupId: groupId || undefined,
       limit,
-      offset,
+      cursor,
     });
 
     // Apply masking
@@ -84,8 +84,8 @@ export async function GET(request: NextRequest) {
       pagination: {
         total,
         limit,
-        offset,
-        hasMore: offset + limit < total,
+        nextCursor,
+        hasNextPage,
       },
       meta: {
         duration_ms: duration,

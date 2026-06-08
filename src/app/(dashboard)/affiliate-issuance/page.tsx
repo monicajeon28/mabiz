@@ -12,6 +12,7 @@ import {
   Check,
   RefreshCw,
   Search,
+  ChevronDown,
 } from 'lucide-react';
 
 /* ─────────────── Types ─────────────── */
@@ -610,6 +611,10 @@ const CONTRACT_LABELS: Record<string, string> = {
 
 function AffiliateListTab() {
   const [profiles, setProfiles] = useState<AffiliateProfile[]>([]);
+  const [total, setTotal] = useState(0);
+  const [nextCursor, setNextCursor] = useState<number | null>(null);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [filterType, setFilterType] = useState('');
@@ -630,14 +635,20 @@ function AffiliateListTab() {
     };
   }, []);
 
-  const fetchList = useCallback(async (signal?: AbortSignal) => {
-    setListLoading(true);
+  const fetchList = useCallback(async (signal?: AbortSignal, cursorId?: number) => {
+    if (cursorId) {
+      setLoadingMore(true);
+    } else {
+      setListLoading(true);
+      setProfiles([]);
+    }
     setListError(null);
     try {
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ limit: '20' });
       if (filterType) params.set('type', filterType);
       if (filterStatus) params.set('status', filterStatus);
       if (qRef.current.trim()) params.set('q', qRef.current.trim());
+      if (cursorId) params.set('cursor', String(cursorId));
 
       const res = await fetch(`/api/affiliate-issuance?${params.toString()}`, { signal });
       const data = await res.json();
@@ -645,12 +656,17 @@ function AffiliateListTab() {
         setListError(data.error ?? `오류 발생 (${res.status})`);
         return;
       }
-      setProfiles(data.profiles ?? []);
+      const newProfiles: AffiliateProfile[] = data.profiles ?? [];
+      setProfiles(prev => cursorId ? [...prev, ...newProfiles] : newProfiles);
+      setTotal(data.total ?? 0);
+      setNextCursor(data.nextCursor ?? null);
+      setHasNextPage(data.hasNextPage ?? false);
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       setListError('네트워크 오류가 발생했습니다.');
     } finally {
       setListLoading(false);
+      setLoadingMore(false);
     }
   }, [filterType, filterStatus]);
 
@@ -869,8 +885,24 @@ function AffiliateListTab() {
         )}
 
         {!listLoading && profiles.length > 0 && (
-          <div className="px-4 py-2.5 border-t border-gray-100 text-xs text-gray-400">
-            총 {profiles.length}명
+          <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+            <span className="text-xs text-gray-400">
+              {profiles.length}명 표시 / 전체 {total}명
+            </span>
+            {hasNextPage && (
+              <button
+                onClick={() => fetchList(undefined, nextCursor ?? undefined)}
+                disabled={loadingMore}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition"
+              >
+                {loadingMore ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <ChevronDown size={14} />
+                )}
+                다음 20개
+              </button>
+            )}
           </div>
         )}
       </div>

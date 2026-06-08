@@ -504,7 +504,7 @@ function extractRiskFlags(contact: Contact, lenses: LensClassification[]): strin
 }
 
 /**
- * Get multiple customers with pagination
+ * Get multiple customers with cursor-based pagination
  */
 export async function getCustomers360(
   organizationId: string,
@@ -514,14 +514,15 @@ export async function getCustomers360(
     groupId?: string;
     searchQuery?: string;
     limit?: number;
-    offset?: number;
+    /** Cursor-based pagination: ID of the last item from previous page */
+    cursor?: string;
   }
-): Promise<{ customers: Customer360View[]; total: number }> {
-  const limit = filters?.limit || 50;
-  const offset = filters?.offset || 0;
+): Promise<{ customers: Customer360View[]; total: number; nextCursor: string | null; hasNextPage: boolean }> {
+  const limit = Math.min(filters?.limit || 50, 200);
+  const cursor = filters?.cursor;
 
   // Build where clause
-  const where: any = { organizationId };
+  const where: any = { organizationId, deletedAt: null };
 
   if (filters?.searchQuery) {
     where.OR = [
@@ -537,7 +538,7 @@ export async function getCustomers360(
     };
   }
 
-  // Fetch contacts
+  // Fetch contacts with cursor pagination (take limit+1 to detect hasNextPage)
   const [contacts, total] = await Promise.all([
     prisma.contact.findMany({
       where,
@@ -546,15 +547,25 @@ export async function getCustomers360(
         partner: true,
       },
       orderBy: { updatedAt: "desc" },
-      take: limit,
-      skip: offset,
+      take: limit + 1,
+      ...(cursor
+        ? {
+            cursor: { id: cursor },
+            skip: 1,
+          }
+        : {}),
     }),
     prisma.contact.count({ where }),
   ]);
 
+  // Detect hasNextPage
+  const hasNextPage = contacts.length > limit;
+  const pageContacts = hasNextPage ? contacts.slice(0, limit) : contacts;
+  const nextCursor = hasNextPage ? (pageContacts[pageContacts.length - 1]?.id ?? null) : null;
+
   // Get 360 view for each contact and apply risk filter if needed
   const customers = await Promise.all(
-    contacts.map((contact) => getCustomer360(contact.id, organizationId))
+    pageContacts.map((contact) => getCustomer360(contact.id, organizationId))
   );
 
   let filtered = customers.filter((c) => c !== null) as Customer360View[];
@@ -572,5 +583,7 @@ export async function getCustomers360(
   return {
     customers: filtered,
     total,
+    nextCursor,
+    hasNextPage,
   };
 }
