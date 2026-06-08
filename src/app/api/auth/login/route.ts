@@ -148,6 +148,14 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: false, error: '비밀번호가 올바르지 않습니다.' }, { status: 401 });
       }
 
+      // 임시비밀번호 만료 체크
+      if (member.passwordExpiresAt && member.passwordExpiresAt < new Date()) {
+        return NextResponse.json(
+          { ok: false, error: '임시 비밀번호가 만료되었습니다. 관리자에게 새 비밀번호를 요청해주세요.' },
+          { status: 401 }
+        );
+      }
+
       // SHA-256 레거시 → bcrypt 자동 업그레이드
       if (member.passwordHash && !isBcryptHash(member.passwordHash)) {
         const upgraded = await bcrypt.hash(password, 12);

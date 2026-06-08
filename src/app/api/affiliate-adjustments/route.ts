@@ -36,9 +36,8 @@ export async function GET(req: NextRequest) {
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
-    const page      = Math.max(1, parseInt(searchParams.get('page')  ?? '1')  || 1);
+    const cursor    = searchParams.get('cursor') ? parseInt(searchParams.get('cursor')!, 10) || null : null;
     const limit     = Math.min(100, parseInt(searchParams.get('limit') ?? '20') || 20);
-    const offset    = (page - 1) * limit;
 
     const rawType      = searchParams.get('type');
     const rawYearMonth = searchParams.get('yearMonth')?.trim() ?? '';
@@ -68,6 +67,7 @@ export async function GET(req: NextRequest) {
     if (type)      conditions.push(Prisma.sql`aa.type = ${type}`);
     if (yearMonth) conditions.push(Prisma.sql`aa."yearMonth" = ${yearMonth}`);
     if (agentId)   conditions.push(Prisma.sql`aa."agentId" = ${agentId}`);
+    if (cursor)    conditions.push(Prisma.sql`aa.id < ${cursor}`);
 
     const whereClause = conditions.length > 0
       ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`
@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
         LEFT JOIN "User"             u  ON u.id  = ap."userId"
         ${whereClause}
         ORDER BY aa."createdAt" DESC
-        LIMIT ${limit} OFFSET ${offset}
+        LIMIT ${limit + 1}
       `),
       prisma.$queryRaw<[{ total: bigint }]>(Prisma.sql`
         SELECT COUNT(*) AS total
@@ -101,8 +101,11 @@ export async function GET(req: NextRequest) {
     ]);
 
     const total = Number(countRows[0]?.total ?? 0);
+    const hasNextPage = rows.length > limit;
+    const pageRows = hasNextPage ? rows.slice(0, limit) : rows;
+    const nextCursor = hasNextPage ? String(pageRows[pageRows.length - 1].id) : null;
 
-    const adjustments = rows.map((r) => ({
+    const adjustments = pageRows.map((r) => ({
       id:               r.id,
       agentId:          r.agentId,
       type:             r.type,
@@ -116,7 +119,7 @@ export async function GET(req: NextRequest) {
     }));
 
     logger.log('[GET /api/affiliate-adjustments]', { role: ctx.role, total });
-    return NextResponse.json({ ok: true, adjustments, total, page, totalPages: Math.ceil(total / limit) });
+    return NextResponse.json({ ok: true, adjustments, total, nextCursor, hasNextPage });
 
   } catch (err) {
     logger.error('[GET /api/affiliate-adjustments]', { err });

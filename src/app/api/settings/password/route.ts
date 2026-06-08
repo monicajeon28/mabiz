@@ -70,7 +70,7 @@ export async function PATCH(req: Request) {
       const newHash = await hashPassword(newPassword);
       await prisma.organizationMember.update({
         where: { id: member.id },
-        data: { passwordHash: newHash, passwordPlain: null },
+        data: { passwordHash: newHash, passwordPlain: null, passwordExpiresAt: null },
       });
     } else {
       // GMcruise User 세션 (mallUserId 기반): User 테이블 raw 쿼리

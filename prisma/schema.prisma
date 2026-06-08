@@ -156,6 +156,7 @@ model OrganizationMember {
   phone             String?
   passwordHash      String?
   passwordPlain     String?
+  passwordExpiresAt DateTime?    // 임시비밀번호 만료일 (null = 정상비밀번호)
   role              String       @default("AGENT")
   displayName       String?
   isActive          Boolean      @default(true)

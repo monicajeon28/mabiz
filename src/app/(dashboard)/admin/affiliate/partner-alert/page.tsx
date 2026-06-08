@@ -6,8 +6,6 @@ import {
   AlertCircle,
   CheckCircle,
   Send,
-  ChevronLeft,
-  ChevronRight,
   Loader2,
   TrendingUp,
 } from "lucide-react";
@@ -60,7 +58,9 @@ export default function PartnerAlertPage() {
   const { toast } = useToast();
   const [partners, setPartners] = useState<PartnerAlert[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasNextPage, setHasNextPage] = useState(false);
   const [riskLevel, setRiskLevel] = useState<"ALL" | "RED" | "YELLOW" | "GREEN">(
     "ALL"
   );
@@ -73,14 +73,10 @@ export default function PartnerAlertPage() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
 
-  const totalPages = Math.ceil(total / 50);
-
-  const load = useCallback((signal?: AbortSignal) => {
+  const load = useCallback((signal?: AbortSignal, loadCursor?: string | null) => {
     setLoading(true);
-    const params = new URLSearchParams({
-      page: String(page),
-      limit: "50",
-    });
+    const params = new URLSearchParams({ limit: "50" });
+    if (loadCursor) params.set("cursor", loadCursor);
     if (riskLevel !== "ALL") params.set("riskLevel", riskLevel);
 
     fetch(`/api/affiliate/partner-alert?${params}`, { signal })
@@ -89,6 +85,8 @@ export default function PartnerAlertPage() {
         if (d.ok) {
           setPartners(d.data);
           setTotal(d.total);
+          setNextCursor(d.nextCursor ?? null);
+          setHasNextPage(d.hasNextPage ?? false);
         } else {
           setPartners([]);
           setTotal(0);
@@ -110,7 +108,7 @@ export default function PartnerAlertPage() {
         });
       })
       .finally(() => { if (!signal?.aborted) setLoading(false); });
-  }, [page, riskLevel, toast]);
+  }, [riskLevel, toast]);
 
   // 통계 로드
   const loadStats = useCallback((signal?: AbortSignal) => {
@@ -130,10 +128,10 @@ export default function PartnerAlertPage() {
 
   useEffect(() => {
     const ctrl = new AbortController();
-    load(ctrl.signal);
+    load(ctrl.signal, cursor);
     loadStats(ctrl.signal);
     return () => ctrl.abort();
-  }, [load, loadStats]);
+  }, [load, loadStats, cursor]);
 
   const handleSendSms = async (partnerId: string) => {
     setSendingId(partnerId);
@@ -159,7 +157,7 @@ export default function PartnerAlertPage() {
         description: `${d.message?.substring(0, 50)}...`,
       });
 
-      load();
+      load(undefined, cursor);
     } catch (err) {
       toast({
         title: "오류",
@@ -241,7 +239,7 @@ export default function PartnerAlertPage() {
           value={riskLevel}
           onChange={(e) => {
             setRiskLevel(e.target.value as any);
-            setPage(1);
+            setCursor(null);
           }}
           className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
@@ -380,32 +378,29 @@ export default function PartnerAlertPage() {
           </div>
 
           {/* 페이지네이션 */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-              <p className="text-sm text-gray-500">
-                총 {total.toLocaleString()}명
-              </p>
-              <div className="flex gap-2">
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
+            <p className="text-sm text-gray-500">
+              총 {total.toLocaleString()}명
+            </p>
+            <div className="flex gap-2">
+              {cursor && (
                 <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30"
+                  onClick={() => setCursor(null)}
+                  className="px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 border border-gray-200"
                 >
-                  <ChevronLeft className="w-4 h-4" />
+                  처음으로
                 </button>
-                <span className="px-3 py-2 text-sm text-gray-600">
-                  {page} / {totalPages}
-                </span>
+              )}
+              {hasNextPage && (
                 <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30"
+                  onClick={() => setCursor(nextCursor)}
+                  className="px-3 py-1.5 rounded-lg text-sm text-blue-600 hover:bg-blue-50 border border-blue-200"
                 >
-                  <ChevronRight className="w-4 h-4" />
+                  다음 50개
                 </button>
-              </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       )}
     </div>

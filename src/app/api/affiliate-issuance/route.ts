@@ -41,7 +41,7 @@ export async function GET(req: Request) {
     const typeFilter = searchParams.get("type") ?? undefined;
     const statusFilter = searchParams.get("status") ?? "ACTIVE";
     const q = searchParams.get("q") ?? undefined;
-    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
+    const cursor = searchParams.get("cursor") ? parseInt(searchParams.get("cursor")!, 10) || undefined : undefined;
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "20", 10) || 20));
 
     const where: Record<string, unknown> = {
@@ -73,7 +73,7 @@ export async function GET(req: Request) {
       ];
     }
 
-    // 전체 개수와 페이지 데이터 병렬 조회 (동일한 확장 where 조건 사용)
+    // 전체 개수와 커서 기반 페이지 데이터 병렬 조회 (동일한 확장 where 조건 사용)
     const [total, profiles] = await Promise.all([
       prisma.gmAffiliateProfile.count({ where }),
       prisma.gmAffiliateProfile.findMany({
@@ -92,8 +92,9 @@ export async function GET(req: Request) {
           createdAt: true,
         },
         orderBy: { createdAt: "desc" },
-        skip: (page - 1) * limit,
-        take: limit,
+        cursor: cursor ? { id: cursor } : undefined,
+        skip: cursor ? 1 : 0,
+        take: limit + 1,
       }),
     ]);
 
@@ -105,8 +106,12 @@ export async function GET(req: Request) {
     });
     const userMap = new Map(users.map((u) => [u.id, u]));
 
+    const hasNextPage = profiles.length > limit;
+    const pageProfiles = hasNextPage ? profiles.slice(0, limit) : profiles;
+    const nextCursor = hasNextPage ? pageProfiles[pageProfiles.length - 1].id : null;
+
     // 메모리 필터 제거 — 모든 필터링은 DB에서 완료됨
-    const result = profiles.map((p) => {
+    const result = pageProfiles.map((p) => {
       const u = userMap.get(p.userId);
       return {
         id: p.id,
@@ -124,7 +129,7 @@ export async function GET(req: Request) {
       };
     });
 
-    return NextResponse.json({ ok: true, profiles: result, total, page, limit });
+    return NextResponse.json({ ok: true, profiles: result, total, nextCursor, hasNextPage, limit });
   } catch (err) {
     logger.error("affiliate-issuance GET 오류", err);
     return NextResponse.json({ ok: false, error: "서버 오류가 발생했습니다." }, { status: 500 });

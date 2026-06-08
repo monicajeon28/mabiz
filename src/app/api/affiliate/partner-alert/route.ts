@@ -25,10 +25,8 @@ export async function GET(req: NextRequest) {
 
     const searchParams = req.nextUrl.searchParams;
     const riskLevel = searchParams.get('riskLevel'); // RED, YELLOW, GREEN
-    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const cursor = searchParams.get('cursor') || undefined;
     const limit = Math.min(100, parseInt(searchParams.get('limit') || '50', 10));
-
-    const offset = (page - 1) * limit;
 
     let where: any = {};
     if (riskLevel && ['RED', 'YELLOW', 'GREEN'].includes(riskLevel)) {
@@ -65,15 +63,20 @@ export async function GET(req: NextRequest) {
           },
         },
         orderBy: { totalRiskScore: 'desc' },
-        skip: offset,
-        take: limit,
+        cursor: cursor ? { partnerId: cursor } : undefined,
+        skip: cursor ? 1 : 0,
+        take: limit + 1,
       }),
       prisma.partnerRiskFlags.count({
         where: { partner: { organizationId: session.organizationId }, ...where },
       }),
     ]);
 
-    const mapped = partners.map((p) => ({
+    const hasNextPage = partners.length > limit;
+    const pageData = hasNextPage ? partners.slice(0, limit) : partners;
+    const nextCursor = hasNextPage ? pageData[pageData.length - 1].partnerId : null;
+
+    const mapped = pageData.map((p) => ({
       partnerId: p.partnerId,
       name: p.partner.name,
       email: p.partner.email,
@@ -90,9 +93,9 @@ export async function GET(req: NextRequest) {
       ok: true,
       data: mapped,
       total,
-      page,
+      nextCursor,
+      hasNextPage,
       limit,
-      totalPages: Math.ceil(total / limit),
     });
   } catch (error: unknown) {
     logger.error('[partner-alert GET] 오류', {

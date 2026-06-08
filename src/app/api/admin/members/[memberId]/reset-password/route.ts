@@ -45,10 +45,11 @@ export async function POST(
 
     const tempPassword = randomTempPassword();
     const hashed = await hashPassword(tempPassword);
+    const passwordExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24시간 후 만료
 
     await prisma.organizationMember.update({
       where: { id: params.memberId },
-      data: { passwordHash: hashed },
+      data: { passwordHash: hashed, passwordExpiresAt },
     });
 
     logger.info('[POST /admin/members/reset-password] 임시 비밀번호 발급', {
