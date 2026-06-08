@@ -12,7 +12,7 @@ let browserInstance: Browser | null = null;
 async function getBrowser(): Promise<Browser> {
   if (!browserInstance) {
     browserInstance = await puppeteer.launch({
-      headless: 'new',
+      headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
   }
@@ -35,7 +35,7 @@ export async function generatePartnerContractPDF(
   partnerRole: 'BRANCH_MANAGER' | 'SALES_AGENT' | 'PRE_SALES' | 'HQ',
   contractSignedAt: Date,
   signatureImageUrl?: string
-): Promise<Buffer> {
+): Promise<Uint8Array> {
   const roleLabel = ROLE_LABELS[partnerRole] || partnerRole;
 
   // HTML 템플릿 생성
@@ -200,10 +200,10 @@ export async function generatePartnerContractPDF(
 
   try {
     const browser = await getBrowser();
-    const page = await browser.createPage();
+    const page = await browser.newPage();
 
     // HTML 콘텐츠 설정
-    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+    await page.setContent(htmlContent, { waitUntil: 'load' });
 
     // PDF 생성
     const pdfBuffer = await page.pdf({
