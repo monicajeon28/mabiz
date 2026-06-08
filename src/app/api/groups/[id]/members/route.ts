@@ -96,10 +96,36 @@ export async function POST(req: Request, { params }: Params) {
       return NextResponse.json({ ok: false }, { status: 403 });
     }
     const { id: groupId } = await params;
-    const { contactIds } = await req.json(); // string[]
+    const body = await req.json();
+    let { contactIds } = body as { contactIds?: string[] };
+    const { phone, name, sourceType, sourceId } = body as {
+      phone?: string;
+      name?: string;
+      sourceType?: string;
+      sourceId?: string;
+    };
+
+    // phone 기반 Contact upsert → contactIds 배열로 통일
+    if (phone) {
+      const upserted = await prisma.contact.upsert({
+        where: { phone_organizationId: { phone, organizationId: orgId } },
+        create: {
+          phone,
+          name: name ?? phone,
+          organizationId: orgId,
+          channel: 'MANUAL',
+          type: 'LEAD',
+          ...(sourceType ? { sourceType } : {}),
+          ...(sourceId   ? { sourceId   } : {}),
+        },
+        update: {},
+        select: { id: true },
+      });
+      contactIds = [upserted.id];
+    }
 
     if (!Array.isArray(contactIds) || contactIds.length === 0) {
-      return NextResponse.json({ ok: false, message: "contactIds 필수" }, { status: 400 });
+      return NextResponse.json({ ok: false, message: "contactIds 또는 phone 필수" }, { status: 400 });
     }
 
     // 그룹이 이 조직 소유이고, 내 그룹(ownerId === ctx.userId) 또는 공유 그룹(ownerId === null)인지 확인

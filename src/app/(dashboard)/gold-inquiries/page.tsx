@@ -1,8 +1,9 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ChevronLeft, ChevronRight, Search, Loader2, MessageSquare, UserPlus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, Loader2, MessageSquare, UserPlus, Users } from "lucide-react";
 import { logger } from "@/lib/logger";
+import { useToast } from "@/lib/api/use-toast";
 
 type GoldInquiry = {
   id: number;
@@ -14,6 +15,13 @@ type GoldInquiry = {
   submittedAt: string | null;
   createdAt: string;
   agentName: string | null;
+};
+
+type Group = {
+  id: string;
+  name: string;
+  color: string;
+  memberCount: number;
 };
 
 const TIER_LABELS: Record<number, string> = {
@@ -52,6 +60,12 @@ export default function GoldInquiriesPage() {
   const [convertedIds, setConvertedIds] = useState<Record<number, string>>({}); // id → memberId
   const abortRef = useRef<AbortController | null>(null);
 
+  // 그룹 배정 관련 상태
+  const { toast } = useToast();
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<Record<number, string>>({}); // inquiryId → groupId
+  const [assigning, setAssigning] = useState<number | null>(null); // 배정 중인 문의 id
+
   const totalPages = Math.ceil(total / 20);
 
   const load = useCallback(() => {
@@ -78,6 +92,60 @@ export default function GoldInquiriesPage() {
     load();
     return () => abortRef.current?.abort();
   }, [load]);
+
+  // 그룹 목록 로드 (최초 1회)
+  useEffect(() => {
+    fetch("/api/groups?limit=100")
+      .then((r) => r.json())
+      .then((d: { ok: boolean; groups?: Group[] }) => {
+        if (d.ok && d.groups) setGroups(d.groups);
+      })
+      .catch((e) => {
+        logger.error("[gold-inquiries] 그룹 목록 조회 실패", { error: e instanceof Error ? e.message : String(e) });
+      });
+  }, []);
+
+  // 그룹 빠른 배정
+  const quickAssign = async (inq: GoldInquiry) => {
+    const groupId = selectedGroupId[inq.id];
+    if (!groupId) {
+      toast({ title: "그룹 선택 필요", description: "배정할 그룹을 먼저 선택해 주세요.", variant: "warning" });
+      return;
+    }
+    setAssigning(inq.id);
+    try {
+      const r = await fetch(`/api/groups/${groupId}/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: inq.phone,
+          name: inq.name,
+          sourceType: "gold_inquiry",
+          sourceId: String(inq.id),
+        }),
+      });
+      if (!r.ok) {
+        const text = await r.text().catch(() => `HTTP ${r.status}`);
+        toast({ title: "배정 실패", description: `오류: ${text}`, variant: "destructive" });
+        return;
+      }
+      const d = await r.json() as { ok: boolean; successCount?: number; error?: string };
+      if (d.ok) {
+        const groupName = groups.find((g) => g.id === groupId)?.name ?? groupId;
+        toast({ title: "그룹 배정 완료", description: `${inq.name}님이 [${groupName}] 그룹에 배정되었습니다.`, variant: "success" });
+        // 드롭다운 초기화
+        setSelectedGroupId((prev) => { const next = { ...prev }; delete next[inq.id]; return next; });
+      } else {
+        toast({ title: "배정 실패", description: d.error ?? "알 수 없는 오류", variant: "destructive" });
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "네트워크 오류";
+      logger.error("[gold-inquiries] quickAssign 오류", { error: msg });
+      toast({ title: "배정 실패", description: msg, variant: "destructive" });
+    } finally {
+      setAssigning(null);
+    }
+  };
 
   const changeStatus = async (id: number, newStatus: string) => {
     setActing(id);
@@ -234,6 +302,7 @@ export default function GoldInquiriesPage() {
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">상태</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">액션</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">회원전환</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">그룹배정</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">접수일</th>
                 </tr>
               </thead>
@@ -307,6 +376,37 @@ export default function GoldInquiriesPage() {
                           </div>
                         ) : (
                           <span className="text-sm text-gray-300">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {assigning === inq.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-gray-600" />
+                        ) : (
+                          <div className="flex items-center gap-1.5 min-w-[180px]">
+                            <select
+                              value={selectedGroupId[inq.id] ?? ""}
+                              onChange={(e) =>
+                                setSelectedGroupId((prev) => ({ ...prev, [inq.id]: e.target.value }))
+                              }
+                              className="flex-1 text-sm border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-navy-900/20 bg-white text-gray-700"
+                            >
+                              <option value="">그룹 선택</option>
+                              {groups.map((g) => (
+                                <option key={g.id} value={g.id}>
+                                  {g.name}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={() => quickAssign(inq)}
+                              disabled={!selectedGroupId[inq.id]}
+                              className="flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-medium bg-indigo-100 text-indigo-700 hover:bg-indigo-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                              title="그룹 배정"
+                            >
+                              <Users className="w-3.5 h-3.5" />
+                              배정
+                            </button>
+                          </div>
                         )}
                       </td>
                       <td className="px-4 py-3 text-gray-600 text-sm">

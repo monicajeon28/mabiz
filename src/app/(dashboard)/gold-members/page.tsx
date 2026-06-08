@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   ChevronLeft, ChevronRight, Search, Star, X, Plus, Loader2
 } from "lucide-react";
+import { useToast } from "@/lib/api/use-toast";
 
 type GoldMember = {
   id: string;
@@ -44,6 +45,8 @@ const COURSE_BADGE: Record<string, string> = {
   HEALTH: "bg-emerald-100 text-emerald-700",
 };
 
+type Group = { id: string; name: string; color: string | null };
+
 const INITIAL_FORM = {
   name: "", phone: "", email: "",
   courseType: "A" as "A" | "B" | "C" | "HEALTH",
@@ -55,6 +58,7 @@ const INITIAL_FORM = {
 
 export default function GoldMembersPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const abortControllerRef = useRef<AbortController | null>(null);
   const [members, setMembers]     = useState<GoldMember[]>([]);
   const [total, setTotal]         = useState(0);
@@ -66,6 +70,10 @@ export default function GoldMembersPage() {
   const [loading, setLoading]     = useState(true);
   const [error, setError]           = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // 그룹 관련 상태
+  const [groups, setGroups]       = useState<Group[]>([]);
+  const [assigning, setAssigning] = useState<string | null>(null); // memberId
 
   // 등록 폼 상태
   const [form, setForm] = useState(INITIAL_FORM);
@@ -119,6 +127,40 @@ export default function GoldMembersPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // 그룹 목록 로드 (최초 1회)
+  useEffect(() => {
+    fetch('/api/groups')
+      .then((r) => r.json())
+      .then((d) => { if (d.ok) setGroups(d.groups ?? []); })
+      .catch(() => {});
+  }, []);
+
+  // 골드회원 → phone 기반 그룹 배정
+  const quickAssign = useCallback(async (memberId: string, phone: string, name: string, groupId: string) => {
+    if (!groupId) return;
+    setAssigning(memberId);
+    try {
+      const res = await fetch(`/api/groups/${groupId}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, name, sourceType: 'gold_member', sourceId: memberId }),
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json() as { ok?: boolean; message?: string };
+      if (!data.ok) throw new Error(data.message ?? '배정 실패');
+      const grp = groups.find((g) => g.id === groupId);
+      toast({ title: `"${grp?.name ?? '그룹'}" 배정 완료`, variant: 'success' });
+    } catch (err) {
+      toast({
+        title: '그룹 배정 실패',
+        description: err instanceof Error ? err.message : '다시 시도해주세요.',
+        variant: 'destructive',
+      });
+    } finally {
+      setAssigning(null);
+    }
+  }, [groups, toast]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -283,6 +325,7 @@ export default function GoldMembersPage() {
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">상태</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">가입일</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">상담</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">그룹 배정</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">액션</th>
                 </tr>
               </thead>
@@ -325,6 +368,25 @@ export default function GoldMembersPage() {
                       {m.consultationCount > 0 ? (
                         <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-sm">{m.consultationCount}건</span>
                       ) : "-"}
+                    </td>
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      {assigning === m.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                      ) : (
+                        <select
+                          className="text-sm border border-gray-200 rounded px-1.5 py-1 max-w-[160px] bg-white focus:outline-none"
+                          defaultValue=""
+                          onChange={(e) => {
+                            if (e.target.value) quickAssign(m.id, m.phone, m.name, e.target.value);
+                            e.target.value = "";
+                          }}
+                        >
+                          <option value="">그룹 배정...</option>
+                          {groups.map((g) => (
+                            <option key={g.id} value={g.id}>{g.name}</option>
+                          ))}
+                        </select>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <button
