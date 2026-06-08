@@ -71,14 +71,14 @@ export default function CTASection() {
   };
 
   return (
-    <section className="py-20 bg-white" id="application-form">
+    <section className="py-12 sm:py-16 md:py-20 lg:py-24 bg-white" id="application-form">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section header */}
-        <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900">
+        <div className="text-center mb-8 sm:mb-10 md:mb-12 lg:mb-16">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900">
             지금 신청하세요
           </h2>
-          <p className="text-xl text-gray-600 mt-4">
+          <p className="text-base sm:text-lg md:text-xl text-gray-600 mt-3 sm:mt-4">
             무료 상담 신청 → 24시간 내 매니저 연락
             <br />
             <strong className="text-blue-600">신청만 해도 10-30% 평생 할인</strong>
@@ -86,68 +86,68 @@ export default function CTASection() {
         </div>
 
         {/* Two column layout */}
-        <div className="grid md:grid-cols-2 gap-12 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-10 md:gap-12 lg:gap-16 items-start">
           {/* Left - Benefits */}
-          <div className="space-y-8">
+          <div className="space-y-6 sm:space-y-8">
             <div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-6">신청 후 다음 단계</h3>
-              <div className="space-y-4">
-                <div className="flex items-start space-x-4">
-                  <div className="flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-blue-600 text-white font-bold">
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">신청 후 다음 단계</h3>
+              <div className="space-y-3 sm:space-y-4">
+                <div className="flex items-start space-x-3 sm:space-x-4">
+                  <div className="flex-shrink-0 flex items-center justify-center h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-blue-600 text-white font-bold text-sm sm:text-base">
                     1
                   </div>
                   <div>
-                    <p className="font-bold text-gray-900">신청 폼 작성</p>
-                    <p className="text-gray-600 text-sm">이름, 연락처, 관심상품 선택</p>
+                    <p className="font-bold text-gray-900 text-sm sm:text-base">신청 폼 작성</p>
+                    <p className="text-gray-600 text-xs sm:text-sm">이름, 연락처, 관심상품 선택</p>
                   </div>
                 </div>
 
-                <div className="flex items-start space-x-4">
-                  <div className="flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-blue-600 text-white font-bold">
+                <div className="flex items-start space-x-3 sm:space-x-4">
+                  <div className="flex-shrink-0 flex items-center justify-center h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-blue-600 text-white font-bold text-sm sm:text-base">
                     2
                   </div>
                   <div>
-                    <p className="font-bold text-gray-900">24시간 내 매니저 연락</p>
-                    <p className="text-gray-600 text-sm">전화, 카톡, 이메일 중 선택</p>
+                    <p className="font-bold text-gray-900 text-sm sm:text-base">24시간 내 매니저 연락</p>
+                    <p className="text-gray-600 text-xs sm:text-sm">전화, 카톡, 이메일 중 선택</p>
                   </div>
                 </div>
 
-                <div className="flex items-start space-x-4">
-                  <div className="flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-blue-600 text-white font-bold">
+                <div className="flex items-start space-x-3 sm:space-x-4">
+                  <div className="flex-shrink-0 flex items-center justify-center h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-blue-600 text-white font-bold text-sm sm:text-base">
                     3
                   </div>
                   <div>
-                    <p className="font-bold text-gray-900">무료 상담</p>
-                    <p className="text-gray-600 text-sm">건강상태, 선호도, 예산 논의</p>
+                    <p className="font-bold text-gray-900 text-sm sm:text-base">무료 상담</p>
+                    <p className="text-gray-600 text-xs sm:text-sm">건강상태, 선호도, 예산 논의</p>
                   </div>
                 </div>
 
-                <div className="flex items-start space-x-4">
-                  <div className="flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-blue-600 text-white font-bold">
+                <div className="flex items-start space-x-3 sm:space-x-4">
+                  <div className="flex-shrink-0 flex items-center justify-center h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-blue-600 text-white font-bold text-sm sm:text-base">
                     4
                   </div>
                   <div>
-                    <p className="font-bold text-gray-900">예약 완료</p>
-                    <p className="text-gray-600 text-sm">10-30% 할인 적용된 가격으로</p>
+                    <p className="font-bold text-gray-900 text-sm sm:text-base">예약 완료</p>
+                    <p className="text-gray-600 text-xs sm:text-sm">10-30% 할인 적용된 가격으로</p>
                   </div>
                 </div>
 
-                <div className="flex items-start space-x-4">
-                  <div className="flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-green-600 text-white font-bold">
+                <div className="flex items-start space-x-3 sm:space-x-4">
+                  <div className="flex-shrink-0 flex items-center justify-center h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-green-600 text-white font-bold text-sm sm:text-base">
                     5
                   </div>
                   <div>
-                    <p className="font-bold text-gray-900">여행 준비 & 동반</p>
-                    <p className="text-gray-600 text-sm">인솔자와 함께 안전하게</p>
+                    <p className="font-bold text-gray-900 text-sm sm:text-base">여행 준비 & 동반</p>
+                    <p className="text-gray-600 text-xs sm:text-sm">인솔자와 함께 안전하게</p>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Trust badges */}
-            <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
-              <p className="font-bold text-gray-900 mb-4">100% 안심 보장</p>
-              <ul className="space-y-2 text-sm text-gray-600">
+            <div className="bg-blue-50 rounded-xl p-4 sm:p-6 border border-blue-200">
+              <p className="font-bold text-gray-900 text-sm sm:text-base mb-3 sm:mb-4">100% 안심 보장</p>
+              <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-gray-600">
                 <li>✓ 개인정보 100% 보호 (암호화)</li>
                 <li>✓ 무료 상담 (비용 청구 없음)</li>
                 <li>✓ 중도해지 수수료 0원</li>
@@ -305,15 +305,15 @@ export default function CTASection() {
         </div>
 
         {/* Bottom CTA */}
-        <div className="mt-16 text-center bg-gradient-to-r from-blue-50 to-blue-100 rounded-2xl p-8 border-2 border-blue-200">
-          <p className="text-gray-600 mb-4">신청이 어려운가요?</p>
-          <p className="text-2xl font-bold text-gray-900 mb-6">
+        <div className="mt-12 sm:mt-14 md:mt-16 text-center bg-gradient-to-r from-blue-50 to-blue-100 rounded-2xl p-6 sm:p-8 border-2 border-blue-200">
+          <p className="text-sm sm:text-base text-gray-600 mb-3 sm:mb-4">신청이 어려운가요?</p>
+          <p className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">
             전화로 바로 상담받으세요
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
             <a
               href="tel:02-1234-5678"
-              className="px-8 py-4 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-all"
+              className="px-6 sm:px-8 py-3 sm:py-4 bg-blue-600 text-white rounded-lg font-bold text-sm sm:text-base hover:bg-blue-700 transition-all"
             >
               📞 전화로 상담하기
             </a>
@@ -321,7 +321,7 @@ export default function CTASection() {
               href="http://pf.kakao.com/_"
               target="_blank"
               rel="noopener noreferrer"
-              className="px-8 py-4 bg-yellow-400 text-gray-900 rounded-lg font-bold hover:bg-yellow-500 transition-all"
+              className="px-6 sm:px-8 py-3 sm:py-4 bg-yellow-400 text-gray-900 rounded-lg font-bold text-sm sm:text-base hover:bg-yellow-500 transition-all"
             >
               💬 카톡 상담하기
             </a>

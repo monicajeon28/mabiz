@@ -21,8 +21,8 @@ export default function HeroSection() {
       </div>
 
       {/* Content */}
-      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="grid md:grid-cols-2 gap-12 items-center">
+      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 lg:py-24">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-10 md:gap-12 lg:gap-16 items-center">
           {/* Text Content */}
           <div className="space-y-8">
             {/* Main headline */}
@@ -30,7 +30,7 @@ export default function HeroSection() {
               <p className="text-blue-300 text-sm font-semibold uppercase tracking-wider">
                 크루즈 여행의 새로운 기준
               </p>
-              <h1 className="text-5xl md:text-6xl font-bold leading-tight">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
                 자유 여행이어도
                 <span className="block text-blue-400">인솔자와 함께</span>
               </h1>
@@ -77,25 +77,25 @@ export default function HeroSection() {
             </div>
 
             {/* Success metrics */}
-            <div className="pt-8 grid grid-cols-3 gap-6 border-t border-gray-700">
-              <div className="pt-6">
-                <p className="text-3xl font-bold text-blue-300">92%</p>
-                <p className="text-sm text-gray-400 mt-1">재구매율</p>
+            <div className="pt-6 sm:pt-8 grid grid-cols-3 gap-4 sm:gap-6 border-t border-gray-700">
+              <div className="pt-4 sm:pt-6">
+                <p className="text-2xl sm:text-3xl font-bold text-blue-300">92%</p>
+                <p className="text-xs sm:text-sm text-gray-400 mt-1">재구매율</p>
               </div>
-              <div className="pt-6">
-                <p className="text-3xl font-bold text-blue-300">78점</p>
-                <p className="text-sm text-gray-400 mt-1">고객만족도</p>
+              <div className="pt-4 sm:pt-6">
+                <p className="text-2xl sm:text-3xl font-bold text-blue-300">78점</p>
+                <p className="text-xs sm:text-sm text-gray-400 mt-1">고객만족도</p>
               </div>
-              <div className="pt-6">
-                <p className="text-3xl font-bold text-blue-300">5,200+</p>
-                <p className="text-sm text-gray-400 mt-1">신청자/년</p>
+              <div className="pt-4 sm:pt-6">
+                <p className="text-2xl sm:text-3xl font-bold text-blue-300">5,200+</p>
+                <p className="text-xs sm:text-sm text-gray-400 mt-1">신청자/년</p>
               </div>
             </div>
           </div>
 
           {/* Visual - Cruise Image/Video */}
-          <div className="relative">
-            <div className="relative h-full min-h-96 rounded-2xl overflow-hidden shadow-2xl">
+          <div className="relative mt-8 md:mt-0">
+            <div className="relative h-full min-h-72 sm:min-h-80 md:min-h-96 rounded-2xl overflow-hidden shadow-2xl">
               {/* Placeholder for cruise ship image */}
               <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
                 <div className="text-center">
