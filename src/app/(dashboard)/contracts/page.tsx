@@ -7,17 +7,18 @@ import { Copy, Trash2, RotateCcw, Download, AlertCircle, Loader2, Send } from 'l
 interface Contract {
   id: string;
   contractorName: string;
-  status: 'draft' | 'invited' | 'signed' | 'completed' | 'rejected';
+  status: 'draft' | 'invited' | 'signed' | 'completed' | 'archived';
   invitedAt: string | null;
   signedAt: string | null;
   completedAt: string | null;
-  submittedAt: string | null;
-  mentorCode: string | null;
+  submittedAt?: string | null;
+  mentorCode?: string | null;
   smsDay0Sent?: boolean;
   smsDay1Sent?: boolean;
   smsDay2Sent?: boolean;
   lastReminderAt?: string | null;
   contractType?: 'cruisedot-partners' | 'rental-partner' | 'other';
+  templateName?: string;
   driveUrl?: string | null;
 }
 
@@ -63,7 +64,7 @@ const STATUS_CONFIG: Record<string, { color: string; label: string; emoji: strin
   invited: { color: 'bg-red-100 text-red-800', label: '대기중', emoji: '🔴' },
   signed: { color: 'bg-blue-100 text-blue-800', label: '서명됨', emoji: '✓' },
   completed: { color: 'bg-green-100 text-green-800', label: '완료', emoji: '✅' },
-  rejected: { color: 'bg-gray-100 text-gray-800', label: '거절', emoji: '❌' },
+  archived: { color: 'bg-gray-100 text-gray-800', label: '보관됨', emoji: '📦' },
 };
 
 export default function ContractsPage() {
@@ -91,9 +92,9 @@ export default function ContractsPage() {
         } else if (activeTab === 'completed') {
           filtered = filtered.filter((c) => ['signed', 'completed'].includes(c.status));
         } else if (activeTab === 'archived') {
-          filtered = filtered.filter((c) => c.status === 'rejected');
+          filtered = filtered.filter((c) => c.status === 'archived');
         } else {
-          filtered = filtered.filter((c) => c.status !== 'rejected');
+          filtered = filtered.filter((c) => c.status !== 'archived');
         }
 
         // 최신순 정렬
@@ -157,43 +158,52 @@ export default function ContractsPage() {
     if (!deleteTargetId) return;
 
     try {
+      let url = `/api/contract-instances/${deleteTargetId}`;
+      let method = 'PATCH';
+      let body = null;
+
       if (action === 'trash') {
-        const res = await fetch(`/api/contract-instances/${deleteTargetId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'rejected' }),
-        });
-
-        if (res.ok) {
-          toast({
-            title: '삭제 완료',
-            description: '계약서가 보관됨으로 이동되었습니다',
-            variant: 'success',
-          });
-        }
+        body = JSON.stringify({ status: 'ARCHIVED' });
       } else if (action === 'restore') {
-        const res = await fetch(`/api/contract-instances/${deleteTargetId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'draft' }),
-        });
-
-        if (res.ok) {
-          toast({
-            title: '복구 완료',
-            description: '계약서가 복구되었습니다',
-            variant: 'success',
-          });
-        }
+        url = `${url}/restore`;
+        method = 'POST';
+        body = null;
       }
+
+      const res = await fetch(url, {
+        method,
+        ...(body && { headers: { 'Content-Type': 'application/json' } }),
+        ...(body && { body }),
+      });
+
+      // 에러 응답 처리
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        toast({
+          title: '작업 실패',
+          description: errorData.error || `작업 실패 (${res.status})`,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      toast({
+        title: action === 'trash' ? '삭제 완료' : '복구 완료',
+        description:
+          action === 'trash'
+            ? '계약서가 보관됨으로 이동되었습니다'
+            : '계약서가 복구되었습니다',
+        variant: 'success',
+      });
 
       setShowDeleteModal(false);
       setDeleteTargetId(null);
-      fetchContracts();
+      setSelectedId(null);
+      await fetchContracts();
     } catch (err) {
       toast({
         title: '오류',
-        description: '작업에 실패했습니다',
+        description: '오류 발생: ' + (err instanceof Error ? err.message : String(err)),
         variant: 'destructive',
       });
     }
@@ -372,7 +382,7 @@ export default function ContractsPage() {
                     </button>
                   )}
 
-                  {selectedContract.status !== 'rejected' && selectedContract.status !== 'completed' && (
+                  {selectedContract.status !== 'archived' && selectedContract.status !== 'completed' && (
                     <button
                       onClick={() => {
                         setDeleteTargetId(selectedContract.id);
@@ -386,7 +396,7 @@ export default function ContractsPage() {
                     </button>
                   )}
 
-                  {selectedContract.status === 'rejected' && (
+                  {selectedContract.status === 'archived' && (
                     <button
                       onClick={() => {
                         setDeleteTargetId(selectedContract.id);
