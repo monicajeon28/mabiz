@@ -18,6 +18,7 @@ export type SaleResult = {
   saleId: string;
   orderId: string | null;
   productName: string | null;
+  productCode: string | null;
   saleAmount: number;
   buyerName: string | null;
   buyerTel: string | null;
