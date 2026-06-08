@@ -44,10 +44,10 @@ export default function SignInContent() {
     <div className="min-h-screen flex">
       {/* 좌측: 브랜드 (데스크탑) */}
       <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between overflow-hidden"
-           style={{ backgroundColor: '#1E2D4E' }}>
-        <div className="absolute inset-0" style={{ backgroundColor: 'rgba(30,45,78,0.2)' }} />
+           style={{ backgroundColor: 'var(--color-navy-900)' }}>
+        <div className="absolute inset-0" style={{ backgroundColor: 'color-mix(in srgb, var(--color-navy-900) 20%, transparent)' }} />
         <div className="relative z-10 p-12 flex-1 flex flex-col justify-center">
-          <div className="text-4xl font-bold tracking-tight mb-3" style={{ color: '#C9A84C' }}>
+          <div className="text-4xl font-bold tracking-tight mb-3" style={{ color: 'var(--color-gold-500)' }}>
             크루즈닷파트너스
           </div>
           <h1 className="text-white text-3xl font-bold leading-tight mb-4">
@@ -60,17 +60,17 @@ export default function SignInContent() {
       </div>
 
       {/* 우측: 로그인 폼 */}
-      <div className="flex-1 flex items-center justify-center bg-[#FAF8F5] px-6 py-12">
+      <div className="flex-1 flex items-center justify-center px-6 py-12" style={{ backgroundColor: 'var(--color-cream)' }}>
         <div className="w-full max-w-sm">
           {/* 모바일 로고 */}
           <div className="lg:hidden text-center mb-8">
-            <div className="text-2xl font-bold mb-1" style={{ color: '#C9A84C' }}>
+            <div className="text-2xl font-bold mb-1" style={{ color: 'var(--color-gold-500)' }}>
               크루즈닷파트너스
             </div>
           </div>
 
           <div className="hidden lg:block mb-8">
-            <h2 className="text-2xl font-bold" style={{ color: '#1E2D4E' }}>로그인</h2>
+            <h2 className="text-2xl font-bold" style={{ color: 'var(--color-navy-900)' }}>로그인</h2>
             <p className="text-gray-500 text-sm mt-1">계정 아이디와 비밀번호를 입력하세요</p>
           </div>
 
@@ -111,8 +111,8 @@ export default function SignInContent() {
               disabled={loading}
               className="w-full rounded-xl font-semibold py-3.5 text-sm transition-all shadow-sm"
               style={{
-                backgroundColor: loading ? '#E8C96B' : '#C9A84C',
-                color: '#1E2D4E',
+                backgroundColor: loading ? 'var(--color-gold-300)' : 'var(--color-gold-500)',
+                color: 'var(--color-navy-900)',
                 cursor: loading ? 'not-allowed' : 'pointer',
               }}
             >
@@ -125,7 +125,7 @@ export default function SignInContent() {
             <a
               href="/landing"
               className="w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-all"
-              style={{ border: '2px solid #C9A84C', color: '#C9A84C', backgroundColor: 'white' }}
+              style={{ border: '2px solid var(--color-gold-500)', color: 'var(--color-gold-500)', backgroundColor: 'white' }}
             >
               프리마케터 간편 문의신청
             </a>
@@ -133,7 +133,7 @@ export default function SignInContent() {
           </div>
 
           <p className="mt-5 text-center text-xs text-slate-400">
-            문의: hyeseon28@naver.com
+            문의: {process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@cruisedot.com'}
           </p>
         </div>
       </div>

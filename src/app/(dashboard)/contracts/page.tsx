@@ -124,7 +124,7 @@ export default function ContractsPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, selectedId, toast]);
+  }, [activeTab, toast]);
 
   useEffect(() => {
     fetchContracts();

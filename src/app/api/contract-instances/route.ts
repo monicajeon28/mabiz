@@ -67,6 +67,12 @@ export async function GET(request: NextRequest) {
     }
 
     const { organizationId } = authContext;
+    if (!organizationId) {
+      return NextResponse.json(
+        { ok: false, error: "Organization not found" },
+        { status: 400 }
+      );
+    }
 
     // 쿼리 파라미터 파싱
     const searchParams = request.nextUrl.searchParams;
@@ -84,7 +90,7 @@ export async function GET(request: NextRequest) {
     const { status, templateId, contactId, page, limit } = validatedQuery;
 
     // 필터 조건 구성
-    const where: any = {
+    const where: Prisma.ContractInstanceWhereInput = {
       organizationId,
     };
 
@@ -224,8 +230,9 @@ export async function POST(request: NextRequest) {
       boundData as Record<string, string>
     );
 
-    // 유효기한 설정 (24시간 후, L10 렌즈)
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    // 유효기한 설정 (환경변수 기반, 기본값 24시간, L10 렌즈)
+    const expirationHours = parseInt(process.env.CONTRACT_EXPIRY_HOURS || '24');
+    const expiresAt = new Date(Date.now() + expirationHours * 60 * 60 * 1000);
 
     // 계약서 인스턴스 생성
     const instance = await prisma.contractInstance.create({
@@ -252,101 +259,109 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // SMS 자동화 큐잉 (Day 0-3)
+    // SMS 자동화 큐잉 (Day 0-3) - Transaction 래핑
     if (autoSendSms && contactId) {
-      // ContactLensClassification 또는 ContactLensSequence 생성
-      // 여러 렌즈가 있을 수 있으므로 각 렌즈별로 처리
+      await prisma.$transaction(async (tx) => {
+        // Step 1: Contact 상태 업데이트
+        await tx.contact.update({
+          where: { id: contactId },
+          data: { status: 'CONTRACTED' },
+        });
 
-      for (const lens of template.psychologyLenses) {
-        // ContactLensClassification 조회 또는 생성
-        let classification = await prisma.contactLensClassification.findUnique(
-          {
-            where: {
-              organizationId_contactId_lensType: {
+        // Step 2: ContactLensClassification 또는 ContactLensSequence 생성
+        // 여러 렌즈가 있을 수 있으므로 각 렌즈별로 처리
+        for (const lens of template.psychologyLenses) {
+          // ContactLensClassification 조회 또는 생성
+          let classification = await tx.contactLensClassification.findUnique(
+            {
+              where: {
+                organizationId_contactId_lensType: {
+                  organizationId,
+                  contactId,
+                  lensType: lens,
+                },
+              },
+            }
+          );
+
+          if (!classification) {
+            classification = await tx.contactLensClassification.create({
+              data: {
                 organizationId,
                 contactId,
                 lensType: lens,
+                status: "ACTIVE",
               },
-            },
+            });
           }
-        );
 
-        if (!classification) {
-          classification = await prisma.contactLensClassification.create({
+          // ContactLensSequence 생성 (SMS 자동화 추적용) - upsert로 중복 방지
+          try {
+            await tx.contactLensSequence.upsert({
+              where: {
+                uq_contact_sequence_type_lens: {
+                  contactId,
+                  sequenceType: "CONTRACTED",
+                  lensType: lens,
+                },
+              },
+              update: {}, // 이미 있으면 아무것도 안 함 (멱등성)
+              create: {
+                organizationId,
+                contactId,
+                classificationId: classification.id,
+                sequenceType: "CONTRACTED",
+                lensType: lens,
+                status: "PENDING",
+              },
+            });
+          } catch (err) {
+            const error = err as Record<string, unknown>;
+            if (error.code !== 'P2002') { // unique 제약 위반 아니면 로그
+              logger.error('[ContactLensSequence] 생성 실패', { lens, err });
+            }
+          }
+        }
+
+        // Step 3: ScheduledSms 큐잉 (Day 0-3)
+        const daySchedule: Array<{ templateId: string | null; daysOffset: number }> = [
+          { templateId: template.smsDay0TemplateId ?? null, daysOffset: 0 },
+          { templateId: template.smsDay1TemplateId ?? null, daysOffset: 1 },
+          { templateId: template.smsDay2TemplateId ?? null, daysOffset: 2 },
+          { templateId: template.smsDay3TemplateId ?? null, daysOffset: 3 },
+        ];
+
+        for (const { templateId: smsTplId, daysOffset } of daySchedule) {
+          if (!smsTplId) continue;
+          const smsTpl = await tx.smsTemplate.findUnique({ where: { id: smsTplId }, select: { content: true } });
+          if (!smsTpl) continue;
+
+          const scheduledAt = new Date();
+          if (daysOffset > 0) {
+            scheduledAt.setDate(scheduledAt.getDate() + daysOffset);
+            scheduledAt.setHours(10, 0, 0, 0); // 오전 10시 발송
+          }
+
+          await tx.scheduledSms.create({
             data: {
               organizationId,
               contactId,
-              lensType: lens,
-              status: "ACTIVE",
+              message: smsTpl.content,
+              scheduledAt,
+              status: 'PENDING',
+              channel: 'SMS',
+              createdByUserId: userId,
             },
           });
-        }
 
-        // ContactLensSequence 생성 (SMS 자동화 추적용) - upsert로 중복 방지
-        try {
-          await prisma.contactLensSequence.upsert({
-            where: {
-              uq_contact_sequence_type_lens: {
-                contactId,
-                sequenceType: "CONTRACTED",
-                lensType: lens,
-              },
-            },
-            update: {}, // 이미 있으면 아무것도 안 함 (멱등성)
-            create: {
-              organizationId,
-              contactId,
-              classificationId: classification.id,
-              sequenceType: "CONTRACTED",
-              lensType: lens,
-              status: "PENDING",
-            },
-          });
-        } catch (err: any) {
-          if (err.code !== 'P2002') { // unique 제약 위반 아니면 로그
-            logger.error('[ContactLensSequence] 생성 실패', { lens, err });
-          }
-        }
-      }
-
-      // ScheduledSms 큐잉 (Day 0-3)
-      const daySchedule: Array<{ templateId: string | null; daysOffset: number }> = [
-        { templateId: template.smsDay0TemplateId ?? null, daysOffset: 0 },
-        { templateId: template.smsDay1TemplateId ?? null, daysOffset: 1 },
-        { templateId: template.smsDay2TemplateId ?? null, daysOffset: 2 },
-        { templateId: template.smsDay3TemplateId ?? null, daysOffset: 3 },
-      ];
-
-      for (const { templateId: smsTplId, daysOffset } of daySchedule) {
-        if (!smsTplId) continue;
-        const smsTpl = await prisma.smsTemplate.findUnique({ where: { id: smsTplId }, select: { content: true } });
-        if (!smsTpl) continue;
-
-        const scheduledAt = new Date();
-        if (daysOffset > 0) {
-          scheduledAt.setDate(scheduledAt.getDate() + daysOffset);
-          scheduledAt.setHours(10, 0, 0, 0); // 오전 10시 발송
-        }
-
-        await prisma.scheduledSms.create({
-          data: {
-            organizationId,
+          logger.info('[ContractInstances] SMS Day 자동발송 스케줄링', {
+            daysOffset,
+            smsTplId,
             contactId,
-            message: smsTpl.content,
             scheduledAt,
-            status: 'PENDING',
-            channel: 'SMS',
-            createdByUserId: userId,
-          },
-        });
-
-        logger.info('[ContractInstances] SMS Day 자동발송 스케줄링', {
-          daysOffset,
-          smsTplId,
-          contactId,
-          scheduledAt,
-        });
-      }
+          });
+        }
+      });
     }
 
     // 응답
@@ -359,6 +374,8 @@ export async function POST(request: NextRequest) {
         renderedHtml,
         expiresAt: instance.expiresAt?.toISOString() || null,
         appliedLenses: instance.appliedLenses,
+        documentId: instance.id,
+        driveStatus: 'PENDING',
       },
       message: "계약서가 성공적으로 생성되었습니다",
     };

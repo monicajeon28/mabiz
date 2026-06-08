@@ -252,7 +252,7 @@ export async function POST(req: Request) {
       const signedAt = new Date().toISOString();
 
       // P1-5: 서명 후 signToken 무효화
-      await tx.salesDocument.update({
+      const doc = await tx.salesDocument.update({
         where: { id: docId },
         data: {
           status:     'APPROVED',
@@ -269,6 +269,17 @@ export async function POST(req: Request) {
           },
         },
       });
+
+      // Contact 상태 업데이트 (generatedData에서 contactId 찾기)
+      if (doc.generatedData && typeof doc.generatedData === 'object') {
+        const contactId = (doc.generatedData as { contactId?: string }).contactId;
+        if (contactId) {
+          await tx.contact.update({
+            where: { id: contactId },
+            data: { status: 'CONTRACTED_SIGNED' }
+          });
+        }
+      }
 
       const productName = typeof existingData.productName === 'string' ? existingData.productName : '크루즈 상품';
       return { signedAt, organizationId: current.organizationId, productName };

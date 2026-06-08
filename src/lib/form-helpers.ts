@@ -1,4 +1,4 @@
-import { useForm, UseFormProps } from 'react-hook-form';
+import { useForm, UseFormProps, FieldValues, UseFormRegister, FieldErrors } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -19,10 +19,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
  *   defaultValues: { name: '', phone: '' }
  * }));
  */
-export function createFormConfig(
-  schema: z.ZodSchema<any>,
-  options?: any
-): any {
+export function createFormConfig<T extends z.ZodSchema<FieldValues>>(
+  schema: T,
+  options?: UseFormProps<z.infer<T>>
+): UseFormProps<z.infer<T>> {
   return {
     resolver: zodResolver(schema as any),
     mode: 'onBlur',
@@ -70,10 +70,10 @@ export function getInputFieldClass(
  * <input {...phoneField.register} className={phoneField.className} />
  * {phoneField.error && <span className="text-red-500">{phoneField.error}</span>}
  */
-export function getFieldConfig(
-  register: any,
-  fieldName: string,
-  errors: Record<string, any>,
+export function getFieldConfig<T extends FieldValues>(
+  register: UseFormRegister<T>,
+  fieldName: keyof T,
+  errors: FieldErrors<T>,
   isDirtyCheck?: (field: string) => boolean,
   baseClass?: string
 ) {
@@ -82,7 +82,7 @@ export function getFieldConfig(
   const isDirty = isDirtyCheck?.(fieldPath);
 
   return {
-    register: register(fieldPath),
+    register: register(fieldPath as any),
     error: fieldError?.message,
     className: getInputFieldClass(!!fieldError, isDirty, baseClass),
   };
@@ -108,11 +108,11 @@ export function getFieldConfig(
  * );
  * <form onSubmit={form.handleSubmit(onSubmit)}>
  */
-export function createSubmitHandler(
-  onValidSubmit: (data: any) => Promise<void> | void,
-  onError?: (errors: Record<string, any>) => void
+export function createSubmitHandler<T extends FieldValues>(
+  onValidSubmit: (data: T) => Promise<void> | void,
+  onError?: (errors: FieldErrors<T>) => void
 ) {
-  return async (data: any) => {
+  return async (data: T) => {
     try {
       await onValidSubmit(data);
     } catch (error) {
@@ -226,11 +226,11 @@ export function getErrorMessage(
  * const form = useForm<CreateContactInput>({...});
  * const handleReset = () => resetForm(form, { name: '', phone: '' });
  */
-export function resetForm(
-  form: any,
-  defaultValues?: any
+export function resetForm<T extends FieldValues>(
+  form: ReturnType<typeof useForm<T>>,
+  defaultValues?: Partial<T>
 ) {
-  form.reset(defaultValues);
+  form.reset(defaultValues as any);
 }
 
 /**
@@ -242,9 +242,12 @@ export function resetForm(
  * @example
  * resetFields(form, ['phone', 'email']);
  */
-export function resetFields(form: any, fields: string[]) {
+export function resetFields<T extends FieldValues>(
+  form: ReturnType<typeof useForm<T>>,
+  fields: (keyof T)[]
+) {
   fields.forEach(field => {
-    form.resetField(field);
+    form.resetField(String(field) as any);
   });
 }
 
@@ -267,10 +270,10 @@ export function resetFields(form: any, fields: string[]) {
  *   );
  * };
  */
-export async function validateAndSubmit(
+export async function validateAndSubmit<T extends FieldValues>(
   data: unknown,
-  schema: z.ZodSchema<any>,
-  onSuccess: (data: any) => Promise<void> | void,
+  schema: z.ZodSchema<T>,
+  onSuccess: (data: T) => Promise<void> | void,
   onError: (errors: Record<string, string>) => void
 ) {
   const parsed = schema.safeParse(data);
