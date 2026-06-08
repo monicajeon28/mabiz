@@ -662,15 +662,22 @@ export async function POST(req: Request) {
       const vbankno = params.get("vbankno") ?? "";
 
       if (orderId) {
-        const waitResult = await prisma.payAppPayment.updateMany({
+        // 기존 metadata와 병합 (덮어쓰기 방지)
+        const existing = await prisma.payAppPayment.findFirst({
           where: { orderId },
-          data: {
-            status: "waiting",
-            metadata: { vbank, vbankno },
-          },
+          select: { metadata: true },
         });
-        if (waitResult.count === 0) {
+        if (!existing) {
           logger.warn("[PayApp Webhook] 가상계좌 대기 대상 없음 — orderId 미존재 (선(先)웹훅 가능성)", { orderId, vbank });
+        } else {
+          const existingMeta = (existing.metadata as Record<string, unknown>) ?? {};
+          await prisma.payAppPayment.updateMany({
+            where: { orderId },
+            data: {
+              status: "waiting",
+              metadata: { ...existingMeta, vbank, vbankno },
+            },
+          });
         }
       }
 

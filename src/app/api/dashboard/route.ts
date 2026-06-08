@@ -141,10 +141,12 @@ export async function GET() {
           prisma.$queryRaw<{ count: bigint }[]>(Prisma.sql`
             SELECT COUNT(*)::bigint AS count FROM "Contact"
             WHERE "organizationId" = ${orgId}
+              AND "deletedAt" IS NULL
           `),
           prisma.$queryRaw<{ count: bigint }[]>(Prisma.sql`
             SELECT COUNT(*)::bigint AS count FROM "Contact"
             WHERE "organizationId" = ${orgId}
+              AND "deletedAt" IS NULL
               AND "createdAt" >= ${startOfMonth}
           `),
           prisma.$queryRaw<CountRow[]>(Prisma.sql`

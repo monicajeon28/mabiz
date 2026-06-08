@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { randomBytes } from 'crypto';
 import prisma from '@/lib/prisma';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
@@ -136,7 +137,29 @@ export async function POST(req: Request) {
     }
 
     // ─── 일반결제 ───
-    const orderId = `pay_${orgId.slice(0, 8)}_${Date.now()}`;
+    const nonce = randomBytes(4).toString('hex');
+    const orderId = `pay_${orgId.slice(0, 8)}_${Date.now()}_${nonce}`;
+
+    // ─── P1-7: 취소 웹훅 금액 재검증 (결제 수신 시에도 원금 기록) ───
+    // 취소 요청 시 환불액이 원금을 초과하지 않는지 확인하기 위해 원금 저장
+    const originalAmount = price;
+
+    // ─── pre-webhook: DB 레코드를 requestPayment 이전에 생성 ───
+    // PayApp이 웹훅을 requestPayment 응답보다 먼저 보내는 race condition 방지
+    await prisma.payAppPayment.create({
+      data: {
+        orderId,
+        organizationId: orgId,
+        amount: originalAmount, // P1-7: 원금 저장 (취소 검증용)
+        customerName,
+        customerPhone: normalizedPhone,
+        customerEmail: customerEmail ?? null,
+        productName: goodname,
+        mulNo: null,
+        status: 'pending',
+        landingPageId: landingPageId ?? null,
+      },
+    });
 
     const result = await requestPayment({
       goodname,
@@ -149,28 +172,15 @@ export async function POST(req: Request) {
       smsuse: 'n',
     });
 
-    // ─── P1-7: 취소 웹훅 금액 재검증 (결제 수신 시에도 원금 기록) ───
-    // 취소 요청 시 환불액이 원금을 초과하지 않는지 확인하기 위해 원금 저장
-    const originalAmount = price;
-
     if (!result.ok) {
+      await prisma.payAppPayment.updateMany({ where: { orderId }, data: { status: 'failed' } });
       return NextResponse.json({ ok: false, message: result.error }, { status: 502 });
     }
 
-    await prisma.payAppPayment.create({
-      data: {
-        orderId,
-        organizationId: orgId,
-        amount: originalAmount, // P1-7: 원금 저장 (취소 검증용)
-        customerName,
-        customerPhone: normalizedPhone,
-        customerEmail: customerEmail ?? null,
-        productName: goodname,
-        mulNo: result.mulNo ?? null,
-        status: 'pending',
-        landingPageId: landingPageId ?? null,
-      },
-    });
+    // mulNo 업데이트 (PayApp으로부터 수신한 주문번호 기록)
+    if (result.mulNo) {
+      await prisma.payAppPayment.updateMany({ where: { orderId }, data: { mulNo: result.mulNo } });
+    }
 
     logger.log('[PayApp/Request] 일반결제 요청', {
       orderId,
