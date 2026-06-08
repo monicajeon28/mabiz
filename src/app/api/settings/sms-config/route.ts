@@ -17,6 +17,9 @@ export async function GET() {
     if (!ctx.userId) {
       return NextResponse.json({ ok: false, message: "사용자 정보 없음" }, { status: 401 });
     }
+    if (ctx.role === 'FREE_SALES') {
+      return NextResponse.json({ ok: false, message: "권한이 없습니다." }, { status: 403 });
+    }
 
     const orgId = resolveOrgId(ctx);
     const userId = ctx.userId;
@@ -83,6 +86,9 @@ export async function POST(req: Request) {
         { ok: false, message: "사용자 정보 없음" },
         { status: 401 }
       );
+    }
+    if (ctx.role === 'FREE_SALES') {
+      return NextResponse.json({ ok: false, message: "권한이 없습니다." }, { status: 403 });
     }
 
     const orgId = resolveOrgId(ctx);
@@ -222,6 +228,9 @@ export async function DELETE() {
     const ctx = await getAuthContext();
     if (!ctx.userId) {
       return NextResponse.json({ ok: false, message: "사용자 정보 없음" }, { status: 401 });
+    }
+    if (ctx.role === 'FREE_SALES') {
+      return NextResponse.json({ ok: false, message: "권한이 없습니다." }, { status: 403 });
     }
 
     const orgId = resolveOrgId(ctx);
