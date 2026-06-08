@@ -1,351 +1,387 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Phone, X, Trash2, ChevronRight, Search, MessageSquare } from "lucide-react";
+import { Search, Users, CheckCircle, Clock, XCircle } from "lucide-react";
 import { useToast } from "@/lib/api/use-toast";
 
-type Prospect = {
+type B2BProspect = {
   id: string;
   name: string;
   phone: string;
   email: string | null;
+  eduType: string;
+  productName: string | null;
+  paymentAmount: number | null;
+  paymentDate: string | null;
   notes: string | null;
   status: string;
   createdAt: string;
 };
 
-const STATUSES = [
-  { key: "잠재고객", color: "bg-blue-100 text-blue-700",    dot: "bg-blue-500"    },
-  { key: "문자",     color: "bg-sky-100 text-sky-700",      dot: "bg-sky-500"     },
-  { key: "부재",     color: "bg-yellow-100 text-yellow-700",dot: "bg-yellow-500"  },
-  { key: "3일부재",  color: "bg-orange-100 text-orange-700",dot: "bg-orange-500"  },
-  { key: "소통",     color: "bg-purple-100 text-purple-700",dot: "bg-purple-500"  },
-  { key: "구매완료", color: "bg-green-100 text-green-700",  dot: "bg-green-500"   },
-  { key: "VIP",      color: "bg-yellow-50 text-yellow-800 font-bold", dot: "bg-yellow-400" },
-  { key: "수신거부", color: "bg-gray-100 text-gray-500",    dot: "bg-gray-400"    },
+type Group = {
+  id: string;
+  name: string;
+  funnelId: string | null;
+};
+
+const STATUS_OPTIONS = [
+  { value: "", label: "전체 상태" },
+  { value: "LEAD",         label: "잠재고객" },
+  { value: "CONSULTING",   label: "상담중" },
+  { value: "CONTRACTED",   label: "계약완료" },
+  { value: "CANCELLED",    label: "취소" },
 ];
 
-const EMPTY_FORM = { name: "", phone: "", email: "", notes: "", status: "잠재고객" };
+const STATUS_META: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+  LEAD:       { label: "잠재고객", color: "bg-blue-100 text-blue-700",   icon: <Clock className="w-3 h-3" /> },
+  CONSULTING: { label: "상담중",   color: "bg-amber-100 text-amber-700", icon: <Clock className="w-3 h-3" /> },
+  CONTRACTED: { label: "계약완료", color: "bg-green-100 text-green-700", icon: <CheckCircle className="w-3 h-3" /> },
+  CANCELLED:  { label: "취소",     color: "bg-red-100 text-red-700",     icon: <XCircle className="w-3 h-3" /> },
+};
 
-export default function InquirersPage() {
+const NEXT_STATUS: Record<string, string> = {
+  LEAD:       "CONSULTING",
+  CONSULTING: "CONTRACTED",
+};
+
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit" });
+}
+
+export default function B2BInquirersPage() {
   const { toast } = useToast();
-  const [prospects, setProspects] = useState<Prospect[]>([]);
-  const [total,     setTotal]     = useState(0);
-  const [filter,    setFilter]    = useState("");
-  const [q,         setQ]         = useState("");
-  const [page,      setPage]      = useState(1);
-  const [loading,   setLoading]   = useState(true);
-  const [showForm,  setShowForm]  = useState(false);
-  const [form,      setForm]      = useState(EMPTY_FORM);
-  const [saving,    setSaving]    = useState(false);
-  const [detail,    setDetail]    = useState<Prospect | null>(null);
-  const [notesDraft,setNotesDraft]= useState("");
 
-  const load = useCallback(async () => {
+  const [prospects, setProspects]           = useState<B2BProspect[]>([]);
+  const [total, setTotal]                   = useState(0);
+  const [totalPages, setTotalPages]         = useState(1);
+  const [page, setPage]                     = useState(1);
+  const [q, setQ]                           = useState("");
+  const [statusFilter, setStatusFilter]     = useState("");
+  const [loading, setLoading]               = useState(true);
+  const [fetchError, setFetchError]         = useState("");
+
+  const [groups, setGroups]                 = useState<Group[]>([]);
+  const [assigning, setAssigning]           = useState<string | null>(null);
+  const [changingStatus, setChangingStatus] = useState<string | null>(null);
+
+  // ── 데이터 로드 ──────────────────────────────────────────────
+  const fetchProspects = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
+    setFetchError("");
+    const params = new URLSearchParams({
+      eduType: "INQUIRER",
+      page: String(page),
+      limit: "50",
+    });
+    if (q) params.set("q", q);
+    if (statusFilter) params.set("status", statusFilter);
+
     try {
-      const params = new URLSearchParams({ page: String(page), limit: "30", eduType: "INQUIRER" });
-      if (filter) params.set("status", filter);
-      if (q)      params.set("q", q);
-      const res  = await fetch(`/api/b2b?${params}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      if (data.ok) { setProspects(data.prospects); setTotal(data.total ?? 0); }
-    } catch {
-      // 조용히 실패 (목록 유지)
+      const res = await fetch(`/api/b2b-prospects?${params}`, { signal });
+      if (!res.ok) throw new Error("서버 오류");
+      const data = await res.json() as {
+        ok: boolean;
+        prospects?: B2BProspect[];
+        total?: number;
+        totalPages?: number;
+      };
+      if (!data.ok) throw new Error("데이터 로드 실패");
+      setProspects(data.prospects ?? []);
+      setTotal(data.total ?? 0);
+      setTotalPages(data.totalPages ?? 1);
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      setFetchError("목록을 불러오지 못했습니다");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
-  }, [filter, q, page]);
+  }, [q, page, statusFilter]);
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { if (detail) setNotesDraft(detail.notes ?? ""); }, [detail]);
+  useEffect(() => {
+    const ctrl = new AbortController();
+    fetchProspects(ctrl.signal);
+    return () => ctrl.abort();
+  }, [fetchProspects]);
 
-  const save = async () => {
-    if (!form.name.trim() || !form.phone.trim()) return;
-    setSaving(true);
+  // q / statusFilter 변경 시 페이지 초기화
+  useEffect(() => { setPage(1); }, [q, statusFilter]);
+
+  // 그룹 목록 로드
+  useEffect(() => {
+    const ctrl = new AbortController();
+    fetch("/api/groups", { signal: ctrl.signal })
+      .then(r => r.json())
+      .then(d => { if (d.ok) setGroups(d.groups ?? []); })
+      .catch(err => { if (err instanceof Error && err.name === "AbortError") return; });
+    return () => ctrl.abort();
+  }, []);
+
+  // ── 그룹 배정 ──────────────────────────────────────────────
+  const quickAssign = async (prospect: B2BProspect, groupId: string) => {
+    if (!groupId) return;
+    setAssigning(prospect.id);
     try {
-      const res = await fetch("/api/b2b", {
+      const res = await fetch(`/api/groups/${groupId}/members`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, eduType: "INQUIRER" }),
+        body: JSON.stringify({
+          phone: prospect.phone,
+          name: prospect.name,
+          sourceType: "education_inquiry",
+          sourceId: String(prospect.id),
+        }),
       });
       const data = await res.json();
-      if (data.ok) { setShowForm(false); setForm(EMPTY_FORM); load(); }
-    } catch {
-      // 저장 실패 시 폼 유지
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const updateStatus = async (id: string, status: string) => {
-    try {
-      const res = await fetch(`/api/b2b/${id}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setProspects(prev => prev.map(p => p.id === id ? { ...p, status } : p));
-        if (detail?.id === id) setDetail({ ...detail, status });
+      if (!res.ok || !data.ok) {
+        toast({ title: "그룹 배정 실패", description: data.message ?? "다시 시도해주세요.", variant: "destructive" });
+        return;
       }
+      toast({ title: "그룹 배정 완료", variant: "success" });
     } catch {
-      // 상태 업데이트 실패 시 롤백 없음
+      toast({ title: "네트워크 오류", description: "다시 시도해주세요.", variant: "destructive" });
+    } finally {
+      setAssigning(null);
     }
   };
 
-  const saveNotes = async () => {
-    if (!detail || notesDraft === detail.notes) return;
+  // ── 상태 변경 ──────────────────────────────────────────────
+  const changeStatus = async (prospect: B2BProspect, newStatus: string) => {
+    setChangingStatus(prospect.id);
     try {
-      const res = await fetch(`/api/b2b/${detail.id}`, {
+      const res = await fetch(`/api/b2b-prospects?id=${prospect.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes: notesDraft }),
+        body: JSON.stringify({ status: newStatus }),
       });
       const data = await res.json();
-      if (data.ok) {
-        setDetail({ ...detail, notes: notesDraft });
-        setProspects((prev) => prev.map((p) => p.id === detail.id ? { ...p, notes: notesDraft } : p));
-      } else {
-        toast({ title: '메모 저장 실패', description: '다시 시도해주세요.', variant: 'destructive' });
+      if (!res.ok || !data.ok) {
+        toast({ title: "상태 변경 실패", variant: "destructive" });
+        return;
       }
+      toast({ title: "상태 변경 완료", variant: "success" });
+      setProspects(prev =>
+        prev.map(p => p.id === prospect.id ? { ...p, status: newStatus } : p)
+      );
     } catch {
-      toast({ title: '오류 발생', description: '메모 저장 중 문제가 발생했습니다.', variant: 'destructive' });
+      toast({ title: "네트워크 오류", variant: "destructive" });
+    } finally {
+      setChangingStatus(null);
     }
   };
 
-  const remove = async (id: string) => {
-    if (!confirm("이 문의자를 삭제하시겠습니까?")) return;
-    try {
-      const res = await fetch(`/api/b2b/${id}`, { method: "DELETE" });
-      const data = await res.json();
-      if (data.ok) { setProspects(prev => prev.filter(p => p.id !== id)); if (detail?.id === id) setDetail(null); }
-    } catch {
-      // 삭제 실패 시 목록 유지
-    }
-  };
+  const statusMeta = (status: string) =>
+    STATUS_META[status] ?? { label: status, color: "bg-gray-100 text-gray-600", icon: null };
 
-  const getStatusInfo = (key: string) => STATUSES.find(s => s.key === key) ?? STATUSES[0];
-
+  // ── 렌더 ───────────────────────────────────────────────────
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
-      {/* 신규 등록 모달 */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-gray-900">교육 문의자 등록</h3>
-              <button onClick={() => setShowForm(false)} aria-label="닫기"><X className="w-5 h-5 text-gray-600" /></button>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { key: "name",  label: "이름 *",      placeholder: "홍길동" },
-                { key: "phone", label: "전화번호 *",  placeholder: "010-1234-5678" },
-                { key: "email", label: "이메일",      placeholder: "abc@example.com" },
-              ].map(f => (
-                <div key={f.key} className={f.key === "email" ? "" : ""}>
-                  <label className="text-sm font-medium text-gray-600 mb-1 block">{f.label}</label>
-                  <input
-                    value={form[f.key as keyof typeof form]}
-                    onChange={e => setForm({ ...form, [f.key]: e.target.value })}
-                    placeholder={f.placeholder}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500"
-                  />
-                </div>
-              ))}
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-600 mb-1 block">상태</label>
-              <select
-                value={form.status}
-                onChange={e => setForm({ ...form, status: e.target.value })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
-              >
-                {STATUSES.map(s => <option key={s.key} value={s.key}>{s.key}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-600 mb-1 block">메모</label>
-              <textarea
-                value={form.notes}
-                onChange={e => setForm({ ...form, notes: e.target.value })}
-                rows={3}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none"
-                placeholder="상담 내용, 특이사항 등"
-              />
-            </div>
-            <button
-              onClick={save}
-              disabled={saving || !form.name.trim() || !form.phone.trim()}
-              className="w-full bg-navy-900 text-white py-2.5 rounded-xl font-medium hover:bg-navy-700 disabled:opacity-40"
-            >
-              {saving ? "등록 중..." : "등록하기"}
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* 헤더 */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between mb-2">
         <div>
-          <h1 className="text-xl font-bold text-navy-900 flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-blue-500" /> 교육 문의자
-          </h1>
-          <p className="text-sm text-gray-500 mt-0.5">교육 관심 문의자 · 총 {total.toLocaleString()}명</p>
+          <h1 className="text-xl font-bold text-navy-900">교육문의자 관리</h1>
+          <p className="text-sm text-gray-500 mt-0.5">총 {total.toLocaleString()}명</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-1.5 bg-navy-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy-700"
-        >
-          <Plus className="w-4 h-4" /> 문의자 추가
-        </button>
       </div>
 
-      {/* 검색 */}
-      <div className="flex gap-2 mb-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
+      {/* 안내 배너 */}
+      <div className="mb-4 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+        B2B 랜딩페이지를 통해 교육 관련 문의를 남긴 잠재고객 목록입니다
+      </div>
+
+      {/* 검색 + 상태 필터 */}
+      <div className="flex gap-2 mb-4 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
-            placeholder="이름, 전화번호, 이메일 검색"
+            placeholder="이름, 연락처 검색"
             value={q}
-            onChange={e => { setQ(e.target.value); setPage(1); }}
+            onChange={(e) => { setQ(e.target.value); }}
             className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gold-500"
           />
         </div>
-      </div>
-
-      {/* 상태 필터 탭 */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        <button
-          onClick={() => { setFilter(""); setPage(1); }}
-          className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${!filter ? "bg-navy-900 text-white border-navy-900" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-gold-500"
         >
-          전체
-        </button>
-        {STATUSES.map(s => (
-          <button
-            key={s.key}
-            onClick={() => { setFilter(s.key === filter ? "" : s.key); setPage(1); }}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${filter === s.key ? s.color + " border-current" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}
-          >
-            {s.key}
-          </button>
-        ))}
+          {STATUS_OPTIONS.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
       </div>
 
-      {/* 목록 */}
-      {loading ? (
-        <div className="space-y-2">
-          {[...Array(5)].map((_, i) => <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />)}
+      {/* 에러 */}
+      {fetchError && (
+        <div className="text-center py-12">
+          <p className="text-red-500 text-sm mb-3">{fetchError}</p>
+          <button
+            onClick={() => fetchProspects()}
+            className="px-4 py-2 bg-navy-900 text-white rounded-lg text-sm"
+          >
+            다시 시도
+          </button>
         </div>
-      ) : prospects.length === 0 ? (
-        <div className="text-center py-16 text-gray-600">
-          <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-20" />
-          <p className="text-sm">문의자가 없습니다. 추가해보세요!</p>
+      )}
+
+      {/* 로딩 스켈레톤 */}
+      {!fetchError && loading && (
+        <div className="space-y-3">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />
+          ))}
         </div>
-      ) : (
-        <div className="space-y-2">
-          {prospects.map(p => {
-            const si = getStatusInfo(p.status);
-            return (
-              <div key={p.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-sm transition-shadow">
-                <div className="flex items-start gap-3">
-                  <span className={`w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 ${si.dot}`} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold text-gray-900">{p.name}</p>
-                      <span className={`text-sm px-2 py-0.5 rounded-full font-medium ${si.color}`}>{p.status}</span>
-                    </div>
-                    <div className="flex items-center gap-3 mt-1 text-sm text-gray-500 flex-wrap">
-                      <a href={`tel:${p.phone}`} className="text-blue-600 hover:underline flex items-center gap-1">
-                        <Phone className="w-3 h-3" /> {p.phone}
+      )}
+
+      {/* 목록 없음 */}
+      {!fetchError && !loading && prospects.length === 0 && (
+        <div className="text-center py-16 text-gray-400">
+          <p className="text-4xl mb-3">
+            <Users className="w-12 h-12 mx-auto text-gray-300" />
+          </p>
+          <p className="font-medium text-gray-500">교육 문의자가 없습니다</p>
+          <p className="text-sm mt-1">B2B 랜딩페이지 제출 시 자동으로 등록됩니다</p>
+        </div>
+      )}
+
+      {/* 목록 테이블 */}
+      {!fetchError && !loading && prospects.length > 0 && (
+        <div className="overflow-x-auto rounded-xl border border-gray-200">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-gray-600 text-left">
+              <tr>
+                <th className="px-4 py-3 font-semibold">이름</th>
+                <th className="px-4 py-3 font-semibold">연락처</th>
+                <th className="px-4 py-3 font-semibold hidden md:table-cell">이메일</th>
+                <th className="px-4 py-3 font-semibold hidden md:table-cell">상품명</th>
+                <th className="px-4 py-3 font-semibold">상태</th>
+                <th className="px-4 py-3 font-semibold hidden sm:table-cell">등록일</th>
+                <th className="px-4 py-3 font-semibold">그룹배정</th>
+                <th className="px-4 py-3 font-semibold">상태변경</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {prospects.map((p) => {
+                const meta = statusMeta(p.status);
+                const nextStatus = NEXT_STATUS[p.status];
+                const nextMeta = nextStatus ? statusMeta(nextStatus) : null;
+                return (
+                  <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+                    {/* 이름 */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-navy-900 text-white flex items-center justify-center text-xs font-bold shrink-0">
+                          {p.name[0]}
+                        </div>
+                        <span className="font-medium text-gray-900">{p.name}</span>
+                      </div>
+                    </td>
+
+                    {/* 연락처 */}
+                    <td className="px-4 py-3 text-gray-600">
+                      <a href={`tel:${p.phone}`} className="hover:text-blue-600 hover:underline">
+                        {p.phone}
                       </a>
-                      {p.email && <span>{p.email}</span>}
-                      <span>{new Date(p.createdAt).toLocaleDateString("ko-KR")}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <select
-                      value={p.status}
-                      onChange={e => updateStatus(p.id, e.target.value)}
-                      className={`text-sm px-2 py-1 rounded-lg border font-medium cursor-pointer bg-white ${si.color}`}
-                    >
-                      {STATUSES.map(s => <option key={s.key} value={s.key}>{s.key}</option>)}
-                    </select>
-                    <button onClick={() => setDetail(p)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-600">
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => remove(p.id)} className="p-1.5 hover:bg-red-50 rounded-lg text-gray-300 hover:text-red-500">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-                {p.notes && <p className="text-sm text-gray-600 mt-2 ml-5 line-clamp-1 italic">&quot;{p.notes}&quot;</p>}
-              </div>
-            );
-          })}
+                    </td>
+
+                    {/* 이메일 */}
+                    <td className="px-4 py-3 text-gray-500 hidden md:table-cell">
+                      {p.email ?? <span className="text-gray-300">-</span>}
+                    </td>
+
+                    {/* 상품명 */}
+                    <td className="px-4 py-3 text-gray-600 hidden md:table-cell">
+                      {p.productName ?? <span className="text-gray-300">-</span>}
+                    </td>
+
+                    {/* 상태 배지 */}
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${meta.color}`}>
+                        {meta.icon}
+                        {meta.label}
+                      </span>
+                    </td>
+
+                    {/* 등록일 */}
+                    <td className="px-4 py-3 text-gray-500 text-xs hidden sm:table-cell">
+                      {formatDate(p.createdAt)}
+                    </td>
+
+                    {/* 그룹 배정 드롭다운 */}
+                    <td className="px-4 py-3">
+                      {groups.length > 0 ? (
+                        <div className="flex items-center gap-1">
+                          <select
+                            className="text-xs border border-gray-200 rounded px-1.5 py-1 bg-white focus:outline-none focus:border-gold-500 max-w-[140px]"
+                            defaultValue=""
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                quickAssign(p, e.target.value);
+                                e.target.value = "";
+                              }
+                            }}
+                            disabled={assigning === p.id}
+                          >
+                            <option value="">그룹 선택...</option>
+                            {groups.map((g) => (
+                              <option key={g.id} value={g.id}>
+                                {g.name}{g.funnelId ? " 🔄" : ""}
+                              </option>
+                            ))}
+                          </select>
+                          {assigning === p.id && (
+                            <span className="text-xs text-gray-400">배정 중...</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-300">그룹 없음</span>
+                      )}
+                    </td>
+
+                    {/* 상태 변경 버튼 */}
+                    <td className="px-4 py-3">
+                      {nextMeta && nextStatus ? (
+                        <button
+                          type="button"
+                          disabled={changingStatus === p.id}
+                          onClick={() => changeStatus(p, nextStatus)}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${nextMeta.color} hover:opacity-80`}
+                        >
+                          {changingStatus === p.id ? "처리 중..." : `→ ${nextMeta.label}`}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-gray-300">-</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 
       {/* 페이지네이션 */}
-      {total > 30 && (
+      {totalPages > 1 && (
         <div className="flex justify-center gap-2 mt-6">
-          <button disabled={page === 1} onClick={() => setPage(p => p - 1)}
-            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50">이전</button>
-          <span className="px-3 py-1.5 text-sm text-gray-600">{page} / {Math.ceil(total / 30)}</span>
-          <button disabled={page >= Math.ceil(total / 30)} onClick={() => setPage(p => p + 1)}
-            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50">다음</button>
-        </div>
-      )}
-
-      {/* 상세 사이드패널 */}
-      {detail && (
-        <div className="fixed inset-0 bg-black/30 z-40 flex justify-end" onClick={() => setDetail(null)}>
-          <div className="bg-white w-full max-w-sm h-full overflow-y-auto p-6 space-y-4 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-gray-900">{detail.name}</h3>
-              <button onClick={() => setDetail(null)} aria-label="닫기" className="text-gray-600"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="space-y-2 text-sm">
-              {[
-                { label: "전화번호", value: detail.phone },
-                { label: "이메일",   value: detail.email },
-              ].filter(f => f.value).map(f => (
-                <div key={f.label} className="flex gap-2">
-                  <span className="text-gray-600 w-20 shrink-0">{f.label}</span>
-                  <span className="text-gray-900 font-medium">{f.value}</span>
-                </div>
-              ))}
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500 mb-1">메모</p>
-              <textarea
-                value={notesDraft}
-                onChange={e => setNotesDraft(e.target.value)}
-                onBlur={saveNotes}
-                rows={4}
-                className="w-full border border-gray-200 rounded-xl p-3 text-sm resize-none focus:outline-none focus:border-navy-900"
-                placeholder="메모 입력..."
-              />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500 mb-2">상태 변경</p>
-              <div className="grid grid-cols-1 gap-1.5">
-                {STATUSES.map(s => (
-                  <button key={s.key} onClick={() => updateStatus(detail.id, s.key)}
-                    className={`py-2 px-3 rounded-xl text-sm font-medium text-left flex items-center gap-2 transition-colors ${
-                      detail.status === s.key ? `${s.color} border border-current` : "bg-gray-50 text-gray-600 hover:bg-gray-100"
-                    }`}>
-                    <span className={`w-2 h-2 rounded-full ${s.dot}`} />
-                    {s.key}
-                    {detail.status === s.key && <span className="ml-auto text-sm">✓ 현재</span>}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+          <button
+            disabled={page === 1}
+            onClick={() => setPage((p) => p - 1)}
+            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+          >
+            이전
+          </button>
+          <span className="px-3 py-1.5 text-sm text-gray-500">
+            {page} / {totalPages}
+          </span>
+          <button
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+          >
+            다음
+          </button>
         </div>
       )}
     </div>
