@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect } from "react";
-import { ArrowLeft, MessageSquare, CheckCircle, AlertCircle, Loader2, User, Building2, Unlink } from "lucide-react";
+import { ArrowLeft, MessageSquare, CheckCircle, AlertCircle, Loader2, User, Building2, Unlink, Link2 } from "lucide-react";
 import Link from "next/link";
 
 type OrgConfig = {
@@ -52,6 +52,13 @@ export default function SmsSettingsPage() {
   const [userVerifyStep, setUserVerifyStep] = useState<"idle" | "requested" | "done">("idle");
   const [userMsg, setUserMsg]   = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
+  // ── 상담 링크 ──
+  const [consultingLink, setConsultingLink] = useState<{ id: string; title: string; targetUrl: string; code: string } | null>(null);
+  const [consultingForm, setConsultingForm] = useState({ targetUrl: '', title: '' });
+  const [consultingLoading, setConsultingLoading] = useState(true);
+  const [consultingSaving, setConsultingSaving] = useState(false);
+  const [consultingMsg, setConsultingMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
   // ── 초기 로드 ──
   useEffect(() => {
     const ctrl = new AbortController();
@@ -88,6 +95,17 @@ export default function SmsSettingsPage() {
       })
       .catch((e) => { if (e.name !== 'AbortError') { /* 개인 SMS 설정 로드 실패 무시 */ } })
       .finally(() => setUserLoading(false));
+
+    fetch('/api/settings/consulting-link', { signal: ctrl.signal })
+      .then(r => r.json())
+      .then(d => {
+        if (d.ok) {
+          setConsultingLink(d.link ?? null);
+          if (d.link) setConsultingForm({ targetUrl: d.link.targetUrl, title: d.link.title ?? '' });
+        }
+      })
+      .catch(() => {})
+      .finally(() => setConsultingLoading(false));
 
     return () => ctrl.abort();
   }, []);
@@ -251,6 +269,26 @@ export default function SmsSettingsPage() {
     }
   };
 
+  const saveConsultingLink = async () => {
+    if (!consultingForm.targetUrl.trim()) { setConsultingMsg({ type: 'err', text: 'URL을 입력하세요' }); return; }
+    setConsultingSaving(true); setConsultingMsg(null);
+    try {
+      const res = await fetch('/api/settings/consulting-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(consultingForm),
+      });
+      const data = await res.json() as { ok: boolean; link?: typeof consultingLink; message?: string };
+      if (data.ok) {
+        setConsultingLink(data.link ?? null);
+        setConsultingMsg({ type: 'ok', text: '상담 링크가 저장되었습니다.' });
+      } else {
+        setConsultingMsg({ type: 'err', text: data.message ?? '저장 실패' });
+      }
+    } catch { setConsultingMsg({ type: 'err', text: '저장 중 오류' }); }
+    finally { setConsultingSaving(false); }
+  };
+
   return (
     <div className="max-w-lg mx-auto p-4 md:p-6">
       {/* 헤더 */}
@@ -276,6 +314,70 @@ export default function SmsSettingsPage() {
           ⚠️ 알리고 콘솔의 <strong>‘발송 서버 IP’는 비워두세요.</strong> 특정 IP를 등록하면 문자 발송이 막힙니다
           (발송 서버 IP가 자주 바뀌고 여러 서버가 공유합니다). API Key·User ID·발신번호만 입력하면 됩니다.
         </p>
+      </div>
+
+      {/* ━━━━ 내 상담 링크 ━━━━ */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <Link2 className="w-4 h-4 text-emerald-500" />
+          <h2 className="text-base font-semibold text-gray-800">내 상담 링크</h2>
+          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-600 text-sm rounded-full">개인</span>
+        </div>
+        <p className="text-sm text-gray-500 mb-3">
+          퍼널 문자 만들기에서 [상담링크] 버튼 클릭 시 자동으로 표시됩니다.
+        </p>
+        {consultingLoading ? (
+          <div className="h-10 bg-gray-100 rounded-xl animate-pulse mb-3" />
+        ) : consultingLink ? (
+          <div className="border rounded-xl p-3 mb-3 bg-emerald-50 border-emerald-200 flex items-start gap-2">
+            <CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+            <div className="text-sm flex-1 min-w-0">
+              <p className="font-medium text-emerald-800">현재 상담 링크</p>
+              <p className="text-emerald-600 text-xs mt-0.5 truncate">{consultingLink.targetUrl}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="border rounded-xl p-3 mb-3 bg-amber-50 border-amber-200 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+            <p className="text-sm text-amber-700">상담 링크가 설정되지 않았습니다.</p>
+          </div>
+        )}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">상담 링크 URL <span className="text-red-500">*</span></label>
+            <input
+              type="url"
+              value={consultingForm.targetUrl}
+              onChange={e => setConsultingForm(f => ({ ...f, targetUrl: e.target.value }))}
+              placeholder="https://open.kakao.com/o/... 또는 https://..."
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-400"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">링크 이름 (선택)</label>
+            <input
+              type="text"
+              value={consultingForm.title}
+              onChange={e => setConsultingForm(f => ({ ...f, title: e.target.value }))}
+              placeholder="예: 카카오 오픈채팅, 상담 예약"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-emerald-400"
+            />
+          </div>
+          <button
+            onClick={saveConsultingLink}
+            disabled={consultingSaving}
+            className="w-full bg-emerald-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {consultingSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+            {consultingLink ? '상담 링크 업데이트' : '상담 링크 저장'}
+          </button>
+        </div>
+        {consultingMsg && (
+          <div className={`flex items-center gap-2 p-3 rounded-xl mt-2 text-sm ${consultingMsg.type === 'ok' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+            {consultingMsg.type === 'ok' ? <CheckCircle className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+            {consultingMsg.text}
+          </div>
+        )}
       </div>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
