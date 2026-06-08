@@ -262,21 +262,22 @@ export async function POST(req: Request, { params }: Params) {
       addLeadScore(id, scoreMap[result]).catch(err => logger.error('[addLeadScore failed]', { err, contactId: id }));
     }
 
+    // ★ 작성자 이름 조회 (응답에 _authorName 포함 → 클라이언트 즉시 표시)
+    let _authorName: string | null = null;
+    if (ctx.role === 'GLOBAL_ADMIN') {
+      const ga = await prisma.globalAdmin.findUnique({
+        where: { id: ctx.userId },
+        select: { displayName: true },
+      });
+      _authorName = ga?.displayName ?? '관리자';
+    } else {
+      _authorName = ctx.member?.displayName ?? null;
+    }
+
     // ★ Google Drive 자동 백업 (BackupJob 큐에 등록)
     if (ctx.userId && process.env.GOOGLE_DRIVE_CALL_LOG_FOLDER_ID) {
-      let userId: string;
-      let displayName: string;
-      if (ctx.role === 'GLOBAL_ADMIN') {
-        userId = 'admin';
-        const ga = await prisma.globalAdmin.findUnique({
-          where: { id: ctx.userId },
-          select: { displayName: true },
-        });
-        displayName = ga?.displayName ?? 'admin';
-      } else {
-        userId = ctx.userId;
-        displayName = ctx.member?.displayName ?? userId;
-      }
+      const backupUserId  = ctx.role === 'GLOBAL_ADMIN' ? 'admin' : ctx.userId;
+      const backupDisplay = _authorName ?? ctx.userId;
 
       // ✅ BackupJob에 등록 (바로 백업하지 않고, 크론이 나중에 처리)
       await prisma.backupJob.create({
@@ -284,8 +285,8 @@ export async function POST(req: Request, { params }: Params) {
           type: 'CALL_LOG',
           targetId: id,
           payload: {
-            userId,
-            displayName,
+            userId:       backupUserId,
+            displayName:  backupDisplay,
             customerName: contact.name,
             customerPhone: contact.phone,
           },
@@ -301,7 +302,7 @@ export async function POST(req: Request, { params }: Params) {
       });
     }
 
-    return NextResponse.json({ ok: true, log }, { status: 201 });
+    return NextResponse.json({ ok: true, log: { ...log, _authorName } }, { status: 201 });
   } catch (err) {
     logger.error("[POST call-logs]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });
