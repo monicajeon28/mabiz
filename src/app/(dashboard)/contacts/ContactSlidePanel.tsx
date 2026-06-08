@@ -18,6 +18,7 @@ import { logger } from "@/lib/logger";
 import { Contact, CallLog } from "@/types/contact";
 import { CallForm } from "@/types/call-form";
 import type { ObjectionData } from "@/lib/objections/validation";
+import { useContactOperations, EMPTY_CALL_FORM } from "./[id]/use-contact-operations";
 
 import ContactCallTab from "./[id]/ContactCallTab";
 import ContactMemoTab from "./[id]/ContactMemoTab";
@@ -413,11 +414,7 @@ export default function ContactSlidePanel({
 
   // 콜 기록 상태
   const [showCallForm, setShowCallForm] = useState(false);
-  const [callForm, setCallForm] = useState<CallForm>({
-    content: "", result: "INTERESTED", convictionScore: "5",
-    nextAction: "", scheduledAt: "", objectionId: "",
-    customerReaction: "neutral", recovered: false, recoveryTime: "",
-  });
+  const [callForm, setCallForm] = useState<CallForm>({ ...EMPTY_CALL_FORM });
   const [selectedObjectionModal, setSelectedObjectionModal] = useState<ObjectionData | null>(null);
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   const [copiedLogId, setCopiedLogId] = useState<string | null>(null);
@@ -431,130 +428,65 @@ export default function ContactSlidePanel({
     return () => clearTimeout(t);
   }, [copiedLogId]);
 
-  const addCallLog = useCallback(async () => {
-    if (!contact || savingCallLog) return;
-    if (!callForm.content.trim()) {
-      toast({ title: "통화 내용을 입력하세요.", variant: "destructive" });
-      return;
-    }
-    setSavingCallLog(true);
-    try {
-      const res = await fetch(`/api/contacts/${contact.id}/call-logs`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(callForm),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        const updated = { ...contact, callLogs: [data.log, ...contact.callLogs] };
-        setContact(updated); setShowCallForm(false);
-        setCallForm({ content: "", result: "INTERESTED", convictionScore: "5", nextAction: "", scheduledAt: "", objectionId: "", customerReaction: "neutral", recovered: false, recoveryTime: "" });
-        setSelectedObjectionModal(null);
-        onRefresh?.({ id: contact.id, callLogs: updated.callLogs });
-        toast({ title: "콜 기록 저장 완료", variant: "success" });
-        // Drive 백업 자동 실행 (백그라운드, 실패해도 무시)
-        fetch(`/api/contacts/${contact.id}/call-logs/backup`, { method: "POST" }).catch(() => {});
-      } else { toast({ title: "저장 실패", description: data.message, variant: "destructive" }); }
-    } catch (err) {
-      logger.error("[addCallLog failed]", { err });
-      toast({ title: "네트워크 오류", description: err instanceof Error ? err.message : "요청 실패", variant: "destructive" });
-    } finally { setSavingCallLog(false); }
-  }, [contact, callForm, savingCallLog, toast, onRefresh]);
-
-  const deleteCallLog = useCallback(async (logId: string) => {
-    if (!contact) return;
-    if (!confirm("이 콜 기록을 삭제할까요?")) return;
-    try {
-      const res = await fetch(`/api/contacts/${contact.id}/call-logs?logId=${logId}`, { method: "DELETE" });
-      const data = await res.json();
-      if (data.ok) {
-        const updated = { ...contact, callLogs: contact.callLogs.filter(l => l.id !== logId) };
-        setContact(updated);
-        if (expandedLogId === logId) setExpandedLogId(null);
-        onRefresh?.({ id: contact.id, callLogs: updated.callLogs });
-      } else { toast({ title: "삭제 실패", description: data.message, variant: "destructive" }); }
-    } catch (err) { logger.error("[deleteCallLog failed]", { err }); toast({ title: "네트워크 오류", variant: "destructive" }); }
-  }, [contact, expandedLogId, onRefresh, toast]);
-
-  const deleteAllCallLogs = useCallback(async () => {
-    if (!contact) return;
-    if (!confirm(`콜 기록 ${contact.callLogs.length}건을 전체 삭제할까요?`)) return;
-    try {
-      const res = await fetch(`/api/contacts/${contact.id}/call-logs`, { method: "DELETE" });
-      const data = await res.json();
-      if (data.ok) {
-        const updated = { ...contact, callLogs: [] };
-        setContact(updated); setExpandedLogId(null);
-        onRefresh?.({ id: contact.id, callLogs: [] });
-      } else { toast({ title: "삭제 실패", description: data.message, variant: "destructive" }); }
-    } catch (err) { logger.error("[deleteAllCallLogs failed]", { err }); toast({ title: "네트워크 오류", variant: "destructive" }); }
-  }, [contact, onRefresh, toast]);
-
-  const backupCallLogs = useCallback(async () => {
-    if (!contact) return;
-    setBacking(true); setBackupResult(null);
-    try {
-      const res = await fetch(`/api/contacts/${contact.id}/call-logs/backup`, { method: "POST" });
-      const data = await res.json();
-      if (data.ok) setBackupResult({ url: data.viewUrl, count: data.count });
-      else toast({ title: "백업 실패", description: data.message, variant: "destructive" });
-    } finally { setBacking(false); }
-  }, [contact, toast]);
-
-  const copyCallLog = useCallback((log: CallLog) => {
-    const RESULT_KO: Record<string, string> = { INTERESTED: "관심있음", PENDING: "보류", REJECTED: "거절", RESCHEDULED: "재콜예약" };
-    const dt = new Date(log.createdAt).toLocaleString("ko-KR");
-    const parts = [`[${dt}]`, log.result ? (RESULT_KO[log.result] ?? log.result) : "", log.convictionScore ? `확신도 ${log.convictionScore}점` : "", log.content ?? "", log.nextAction ? `→ ${log.nextAction}` : ""].filter(Boolean);
-    navigator.clipboard.writeText(parts.join(" | ")).then(() => setCopiedLogId(log.id));
-  }, []);
-
-  // 메모 상태
+  // 메모 상태 (훅 이전에 선언 필요)
   const [showMemoForm, setShowMemoForm] = useState(false);
   const [memoText, setMemoText] = useState("");
   const [savingMemo, setSavingMemo] = useState(false);
 
-  const addMemo = useCallback(async () => {
-    if (!contact || !memoText.trim() || savingMemo) return;
-    setSavingMemo(true);
-    try {
-      const res = await fetch(`/api/contacts/${contact.id}/memos`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: memoText }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        const updated = { ...contact, memos: [data.memo, ...contact.memos] };
-        setContact(updated); setShowMemoForm(false); setMemoText("");
-        onRefresh?.({ id: contact.id, memos: updated.memos });
-        toast({ title: "메모 저장 완료", variant: "success" });
-      } else { toast({ title: "저장 실패", description: data.message, variant: "destructive" }); }
-    } catch (err) {
-      toast({ title: "네트워크 오류", description: err instanceof Error ? err.message : "실패", variant: "destructive" });
-      logger.error("[SlidePanel addMemo]", { err });
-    } finally { setSavingMemo(false); }
-  }, [contact, memoText, savingMemo, toast, onRefresh]);
-
-  const deleteMemo = useCallback(async (memoId: string) => {
-    if (!contact) return;
-    if (!confirm("이 메모를 삭제할까요?")) return;
-    try {
-      const res = await fetch(`/api/contacts/${contact.id}/memos?memoId=${memoId}`, { method: "DELETE" });
-      const data = await res.json();
-      if (data.ok) {
-        const updated = { ...contact, memos: contact.memos.filter(m => m.id !== memoId) };
-        setContact(updated); onRefresh?.({ id: contact.id, memos: updated.memos });
-      } else { toast({ title: "삭제 실패", description: data.message, variant: "destructive" }); }
-    } catch (err) { logger.error("[deleteMemo failed]", { err }); toast({ title: "네트워크 오류", variant: "destructive" }); }
-  }, [contact, onRefresh, toast]);
-
-  const deleteAllMemos = useCallback(async () => {
-    if (!contact) return;
-    if (!confirm(`메모 ${contact.memos.length}건을 전체 삭제할까요?`)) return;
-    try {
-      const res = await fetch(`/api/contacts/${contact.id}/memos`, { method: "DELETE" });
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      const data = await res.json();
-      if (data.ok) { const updated = { ...contact, memos: [] }; setContact(updated); onRefresh?.({ id: contact.id, memos: [] }); }
-      else { toast({ title: "삭제 실패", description: data.message, variant: "destructive" }); }
-    } catch (err) { logger.error("[deleteAllMemos failed]", { err }); toast({ title: "네트워크 오류", variant: "destructive" }); }
-  }, [contact, onRefresh, toast]);
+  // useContactOperations 훅으로 공통 CRUD 위임
+  const { addCallLog, deleteCallLog, deleteAllCallLogs, copyCallLog, backupCallLogs, addMemo, deleteMemo, deleteAllMemos } = useContactOperations({
+    contactId: contact?.id ?? "",
+    savingCallLog, setSavingCallLog,
+    callForm, setCallForm,
+    setShowCallForm,
+    setSelectedObjectionModal,
+    expandedLogId, setExpandedLogId,
+    setCopiedLogId,
+    savingMemo, setSavingMemo,
+    memoText, setMemoText,
+    setShowMemoForm,
+    setBacking,
+    setBackupResult,
+    getCurrentCallLogs: () => contact?.callLogs ?? [],
+    getCurrentMemos: () => contact?.memos ?? [],
+    onCallLogAdded: (log, updatedLogs) => {
+      if (!contact) return;
+      const updated = { ...contact, callLogs: updatedLogs };
+      setContact(updated);
+      onRefresh?.({ id: contact.id, callLogs: updated.callLogs });
+    },
+    onCallLogDeleted: (_logId, remaining) => {
+      if (!contact) return;
+      const updated = { ...contact, callLogs: remaining };
+      setContact(updated);
+      onRefresh?.({ id: contact.id, callLogs: updated.callLogs });
+    },
+    onAllCallLogsDeleted: () => {
+      if (!contact) return;
+      const updated = { ...contact, callLogs: [] };
+      setContact(updated);
+      onRefresh?.({ id: contact.id, callLogs: [] });
+    },
+    onMemoAdded: (_memo, updatedMemos) => {
+      if (!contact) return;
+      const updated = { ...contact, memos: updatedMemos };
+      setContact(updated);
+      onRefresh?.({ id: contact.id, memos: updated.memos });
+    },
+    onMemoDeleted: (_memoId, remaining) => {
+      if (!contact) return;
+      const updated = { ...contact, memos: remaining };
+      setContact(updated);
+      onRefresh?.({ id: contact.id, memos: updated.memos });
+    },
+    onAllMemosDeleted: () => {
+      if (!contact) return;
+      const updated = { ...contact, memos: [] };
+      setContact(updated);
+      onRefresh?.({ id: contact.id, memos: [] });
+    },
+    autoBackupOnAdd: true,
+  });
 
   // 퍼널 상태
   const [funnels, setFunnels] = useState<Funnel[]>([]);
@@ -715,7 +647,7 @@ export default function ContactSlidePanel({
                   expandedLogId={expandedLogId} setExpandedLogId={setExpandedLogId}
                   copiedLogId={copiedLogId}
                   addCallLog={addCallLog} savingCallLog={savingCallLog}
-                  deleteCallLog={deleteCallLog} deleteAllCallLogs={deleteAllCallLogs}
+                  deleteCallLog={deleteCallLog} deleteAllCallLogs={() => deleteAllCallLogs(contact.callLogs.length)}
                   copyCallLog={copyCallLog}
                 />
               )}
@@ -724,7 +656,7 @@ export default function ContactSlidePanel({
                   contact={contact}
                   showMemoForm={showMemoForm} setShowMemoForm={setShowMemoForm}
                   memoText={memoText} setMemoText={setMemoText}
-                  addMemo={addMemo} deleteMemo={deleteMemo} deleteAllMemos={deleteAllMemos}
+                  addMemo={addMemo} deleteMemo={deleteMemo} deleteAllMemos={() => deleteAllMemos(contact.memos.length)}
                   savingMemo={savingMemo}
                 />
               )}
