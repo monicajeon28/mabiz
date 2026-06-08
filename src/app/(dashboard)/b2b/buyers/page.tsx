@@ -1,7 +1,8 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Phone, X, Trash2, ChevronRight, Search, GraduationCap } from "lucide-react";
+import { Plus, Phone, X, Trash2, ChevronRight, Search, GraduationCap, Users } from "lucide-react";
+import { useToast } from "@/lib/api/use-toast";
 
 type Prospect = {
   id: string;
@@ -14,6 +15,12 @@ type Prospect = {
   notes: string | null;
   status: string;
   createdAt: string;
+};
+
+type Group = {
+  id: string;
+  name: string;
+  color: string | null;
 };
 
 type FormData = {
@@ -228,18 +235,73 @@ function CreateProspectModal({
 }
 
 /**
+ * 그룹 배정 드롭다운 컴포넌트
+ */
+function GroupAssignCell({
+  prospect,
+  groups,
+  onAssign,
+}: {
+  prospect: Prospect;
+  groups: Group[];
+  onAssign: (prospect: Prospect, groupId: string) => void;
+}) {
+  const [selectedGroupId, setSelectedGroupId] = useState("");
+  const [assigning, setAssigning] = useState(false);
+
+  const handleAssign = async () => {
+    if (!selectedGroupId || assigning) return;
+    setAssigning(true);
+    await onAssign(prospect, selectedGroupId);
+    setAssigning(false);
+    setSelectedGroupId("");
+  };
+
+  if (groups.length === 0) return null;
+
+  return (
+    <div className="flex items-center gap-1 mt-2 ml-5">
+      <Users className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+      <select
+        value={selectedGroupId}
+        onChange={e => setSelectedGroupId(e.target.value)}
+        className="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-600 bg-white focus:outline-none focus:border-navy-900 cursor-pointer"
+      >
+        <option value="">그룹 배정...</option>
+        {groups.map(g => (
+          <option key={g.id} value={g.id}>{g.name}</option>
+        ))}
+      </select>
+      {selectedGroupId && (
+        <button
+          onClick={handleAssign}
+          disabled={assigning}
+          className="text-xs bg-navy-900 text-white px-2 py-1 rounded-lg hover:bg-navy-700 disabled:opacity-40 transition-colors"
+        >
+          {assigning ? "배정 중..." : "배정"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
  * 목록 항목 컴포넌트
  */
 function ProspectListItem({
   prospect,
+  groups,
   onStatusChange,
   onDetail,
   onDelete,
+  onGroupAssign,
 }: {
   prospect: Prospect;
+  groups: Group[];
   onStatusChange: (id: string, status: string) => void;
   onDetail: (prospect: Prospect) => void;
   onDelete: (id: string) => void;
+  onGroupAssign: (prospect: Prospect, groupId: string) => void;
 }) {
   const si = getStatusInfo(prospect.status);
 
@@ -284,6 +346,7 @@ function ProspectListItem({
         </div>
       </div>
       {prospect.notes && <p className="text-sm text-gray-600 mt-2 ml-5 line-clamp-1 italic">&quot;{prospect.notes}&quot;</p>}
+      <GroupAssignCell prospect={prospect} groups={groups} onAssign={onGroupAssign} />
     </div>
   );
 }
@@ -316,16 +379,20 @@ function EmptyState() {
  */
 function ProspectList({
   prospects,
+  groups,
   loading,
   onStatusChange,
   onDetail,
   onDelete,
+  onGroupAssign,
 }: {
   prospects: Prospect[];
+  groups: Group[];
   loading: boolean;
   onStatusChange: (id: string, status: string) => void;
   onDetail: (prospect: Prospect) => void;
   onDelete: (id: string) => void;
+  onGroupAssign: (prospect: Prospect, groupId: string) => void;
 }) {
   if (loading) return <ProspectListSkeleton />;
   if (prospects.length === 0) return <EmptyState />;
@@ -336,9 +403,11 @@ function ProspectList({
         <ProspectListItem
           key={p.id}
           prospect={p}
+          groups={groups}
           onStatusChange={onStatusChange}
           onDetail={onDetail}
           onDelete={onDelete}
+          onGroupAssign={onGroupAssign}
         />
       ))}
     </div>
@@ -461,6 +530,8 @@ function Pagination({
  * 메인 페이지 컴포넌트
  */
 export default function BuyersPage() {
+  const { toast } = useToast();
+
   // 상태 관리
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [total, setTotal] = useState(0);
@@ -474,6 +545,7 @@ export default function BuyersPage() {
   const [detail, setDetail] = useState<Prospect | null>(null);
   const [notesDraft, setNotesDraft] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [groups, setGroups] = useState<Group[]>([]);
 
   // 데이터 로드 함수 (P1: 의존성 체크 강화)
   const load = useCallback(async () => {
@@ -503,6 +575,16 @@ export default function BuyersPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // 그룹 목록 로드 (최초 1회)
+  useEffect(() => {
+    fetchWithErrorHandling<{ ok: boolean; groups: Group[] }>("/api/groups?limit=100")
+      .then(result => {
+        if (result.ok && result.data.ok) {
+          setGroups(result.data.groups ?? []);
+        }
+      });
+  }, []);
 
   // 상세 패널 메모 초기화
   useEffect(() => {
@@ -570,6 +652,34 @@ export default function BuyersPage() {
       setProspects(prev => prev.map(p => p.id === detail.id ? { ...p, notes: notesDraft } : p));
     } else {
       setFormError(result.ok ? "메모 저장 실패" : result.error);
+    }
+  };
+
+  // 그룹 배정 (quickAssign)
+  const quickAssign = async (prospect: Prospect, groupId: string) => {
+    const result = await fetchWithErrorHandling<{ ok: boolean; successCount?: number }>(
+      `/api/groups/${groupId}/members`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: prospect.phone,
+          name: prospect.name,
+          sourceType: "education_buyer",
+          sourceId: String(prospect.id),
+        }),
+      }
+    );
+
+    const groupName = groups.find(g => g.id === groupId)?.name ?? "그룹";
+    if (result.ok && result.data.ok) {
+      toast({ title: "그룹 배정 완료", description: `${prospect.name}님을 "${groupName}"에 배정했습니다.` });
+    } else {
+      toast({
+        title: "그룹 배정 실패",
+        description: result.ok ? "배정 중 오류가 발생했습니다." : result.error,
+        variant: "destructive",
+      });
     }
   };
 
@@ -659,10 +769,12 @@ export default function BuyersPage() {
       {/* 목록 */}
       <ProspectList
         prospects={prospects}
+        groups={groups}
         loading={loading}
         onStatusChange={updateStatus}
         onDetail={setDetail}
         onDelete={remove}
+        onGroupAssign={quickAssign}
       />
 
       {/* 페이지네이션 */}
