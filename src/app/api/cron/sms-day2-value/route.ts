@@ -189,7 +189,7 @@ ${isVip ? `⭐ VIP 멤버 할인 코드: ${discountCode} (추가 15% 할인)` : 
 
         const data = await res.json();
 
-        if (data.result_code === '1') {
+        if (Number(data.result_code) === 1) {
           // SmsLog 기록
           await prisma.smsLog.create({
             data: {

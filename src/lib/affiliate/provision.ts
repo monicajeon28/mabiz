@@ -15,10 +15,10 @@
  * - Neon + Supabase 자동 동기화
  */
 
+import { randomBytes } from 'crypto';
 import prisma from '@/lib/prisma';
 import { hashPassword } from '@/lib/password';
 import { logger } from '@/lib/logger';
-import { randomBytes } from 'crypto';
 import pg from 'pg';
 
 const { Client: PgClient } = pg;
@@ -95,10 +95,9 @@ export async function provisionAffiliateAccounts(
     throw new Error('CRUISEDOT_BASE_URL 환경변수가 설정되지 않았습니다.');
   }
 
-  // Phase 4: 비밀번호 1101로 통일 (GMcruise 동기화)
-  const sharedPassword = '1101';
+  // 8자 이상 무작위 비밀번호 생성 (SMS로 1회 전달, DB에는 해시만 저장)
+  const sharedPassword = randomBytes(6).toString('base64url').slice(0, 8);
   const passwordHash = await hashPassword(sharedPassword);
-  const passwordPlain = sharedPassword;
 
   // 단일 트랜잭션 — 전부 성공 or 전부 롤백
   const result = await prisma.$transaction(async (tx) => {
@@ -270,7 +269,6 @@ export async function provisionAffiliateAccounts(
         phone: contractorPhone || null,
         email: contractorEmail || null,
         passwordHash: passwordHash,
-        passwordPlain: passwordPlain,
         isActive: true,
       },
     });

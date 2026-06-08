@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { sendSmsWithAligoPublic } from "@/lib/aligo-sms-service";
+import { resolveUserSmsConfig } from "@/lib/aligo";
 
 /**
  * L8 렌즈: 재방문 습관화 SMS 자동 발송 (Cron Job)
@@ -210,20 +211,18 @@ async function sendSmsViaAligo(
   text: string
 ): Promise<boolean> {
   try {
-    // SMS 설정 가져오기
-    const config = await prisma.orgSmsConfig.findUnique({
-      where: { organizationId },
-    });
+    // SMS 설정 가져오기 (복호화된 키)
+    const config = await resolveUserSmsConfig(organizationId);
 
-    if (!config || !config.isActive) {
+    if (!config) {
       logger.warn("[SMS_CONFIG_INACTIVE]", { organizationId });
       return false;
     }
 
     const result = await sendSmsWithAligoPublic(
-      config.aligoUserId,
-      config.aligoKey,
-      config.senderPhone,
+      config.userId,
+      config.key,
+      config.sender,
       phone,
       text,
     );

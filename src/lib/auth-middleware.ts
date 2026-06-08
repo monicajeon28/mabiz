@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
+import { getMabizSession } from '@/lib/auth';
 
 export type UserRole = 'GLOBAL_ADMIN' | 'OWNER' | 'AGENT' | 'FREE_SALES';
 
@@ -209,23 +210,30 @@ export async function authMiddleware(
     errorMessage?: string;
   }
 ) {
-  const authHeaders = getAuthHeaders(req);
-
-  if (!authHeaders.userRole) {
-    logAuthEvent(req, 'denied', 'Missing user role');
+  // 세션 쿠키 기반으로 DB에서 직접 검증 (헤더 신뢰 X)
+  const session = await getMabizSession();
+  if (!session?.userId) {
+    logAuthEvent(req, 'denied', 'No valid session');
     return null;
   }
 
-  if (requiredRoles && !requiredRoles.includes(authHeaders.userRole)) {
-    logAuthEvent(req, 'denied', `Insufficient role: ${authHeaders.userRole}`);
+  const userRole = session.role as UserRole;
+
+  if (requiredRoles && !requiredRoles.includes(userRole)) {
+    logAuthEvent(req, 'denied', `Insufficient role: ${userRole}`);
     return null;
   }
 
-  if (options?.requireOrgId && !authHeaders.orgId) {
+  if (options?.requireOrgId && !session.organizationId) {
     logAuthEvent(req, 'denied', 'Missing organization ID');
     return null;
   }
 
-  logAuthEvent(req, 'allowed', `Authenticated as ${authHeaders.userRole}`);
-  return authHeaders;
+  logAuthEvent(req, 'allowed', `Authenticated as ${userRole}`);
+  return {
+    sessionId: session.userId,
+    userRole,
+    orgId: session.organizationId ?? null,
+    isAdmin: session.role === 'GLOBAL_ADMIN',
+  };
 }

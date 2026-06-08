@@ -33,24 +33,15 @@ import { logger } from '@/lib/logger';
 export async function GET(req: NextRequest) {
   // Vercel Cron 보안 검증
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const token = req.headers.get('authorization');
-    if (!token || !token.startsWith('Bearer ')) {
-      logger.error('[OnboardingCronApi] 인증 헤더 없음');
-      return NextResponse.json(
-        { ok: false, message: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const providedSecret = token.replace('Bearer ', '');
-    if (providedSecret !== cronSecret) {
-      logger.error('[OnboardingCronApi] 토큰 불일치');
-      return NextResponse.json(
-        { ok: false, message: 'Invalid token' },
-        { status: 401 }
-      );
-    }
+  if (!cronSecret) {
+    logger.error('[OnboardingCronApi] CRON_SECRET 환경변수 미설정');
+    return NextResponse.json({ ok: false, message: 'Unauthorized' }, { status: 401 });
+  }
+  const token = req.headers.get('authorization');
+  const providedSecret = token?.startsWith('Bearer ') ? token.slice(7) : '';
+  if (providedSecret !== cronSecret) {
+    logger.error('[OnboardingCronApi] 인증 실패');
+    return NextResponse.json({ ok: false, message: 'Unauthorized' }, { status: 401 });
   }
 
   try {

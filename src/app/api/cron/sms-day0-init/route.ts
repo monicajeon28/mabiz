@@ -71,7 +71,7 @@ async function sendSmsViaAligo(
 
     const data = await res.json();
 
-    if (data.result_code === '1') {
+    if (Number(data.result_code) === 1) {
       return { success: true, msgId: data.msg_id };
     } else {
       logger.error('[SMS/ALIGO] 발송 실패', {

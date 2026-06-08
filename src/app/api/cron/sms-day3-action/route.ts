@@ -180,7 +180,7 @@ ${isVip ? '⭐ VIP 멤버님께 감사드립니다!' : '🎁 처음 고객님은
 
         const data = await res.json();
 
-        if (data.result_code === '1') {
+        if (Number(data.result_code) === 1) {
           // SmsLog 기록
           await prisma.smsLog.create({
             data: {
