@@ -5,10 +5,11 @@ import "./globals.css";
 // 폰트 최적화: Noto Sans KR을 preload
 // 주요 개선:
 // 1. subsets: ["korean"] - 불필요한 latin 서브셋 제거 (용량 감소)
-// 2. weight: ["400", "700"] - 필수 두 가지만 사용 (4가지 → 2가지)
+// 2. weight: ["400", "600", "700"] - 헤딩용 600(세미볼드) 추가
 // 3. variable: CSS 변수로 동적 사용
+// 4. display: "swap" - FOUT 최소화 (Google 폰트 응답 시간 동안 시스템 폰트 표시)
 const notoSansKR = Noto_Sans_KR({
-  weight: ["400", "700"],
+  weight: ["400", "600", "700"],
   variable: "--font-noto-sans-kr",
   display: "swap",
   fallback: ["system-ui", "-apple-system"],

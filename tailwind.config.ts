@@ -55,7 +55,40 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ["Pretendard", "Inter", "system-ui", "sans-serif"],
+        /* 기본 폰트: Noto Sans KR (본문) */
+        sans: [
+          "var(--font-noto-sans-kr)",
+          "system-ui",
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "Segoe UI",
+          "sans-serif",
+        ],
+        /* 제목 폰트: Noto Sans KR Weight 600/700 (헤드라인) */
+        heading: [
+          "var(--font-noto-sans-kr)",
+          "system-ui",
+          "-apple-system",
+          "sans-serif",
+        ],
+        /* 고정폭 폰트: 코드 표시 */
+        mono: ["Menlo", "Monaco", "Courier New", "monospace"],
+      },
+      fontSize: {
+        /* 용도별 폰트 크기 + 라인높이 + 레터스페이싱 */
+        display: ["32px", { lineHeight: "1.3", letterSpacing: "-0.02em" }],
+        h1: ["28px", { lineHeight: "1.3", letterSpacing: "-0.02em" }],
+        h2: ["24px", { lineHeight: "1.4", letterSpacing: "-0.01em" }],
+        h3: ["20px", { lineHeight: "1.4", letterSpacing: "0" }],
+        body: ["16px", { lineHeight: "1.7" }],
+        "body-sm": ["14px", { lineHeight: "1.6" }],
+        label: ["13px", { lineHeight: "1.4" }],
+        caption: ["12px", { lineHeight: "1.4" }],
+      },
+      fontWeight: {
+        body: 400,
+        semibold: 600,
+        bold: 700,
       },
       borderRadius: {
         lg: "0.75rem",

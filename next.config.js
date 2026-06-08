@@ -36,6 +36,16 @@ const nextConfig = {
       source: '/_next/static/:path*',
       headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
     },
+    {
+      // Google Fonts CSS 변동 가능성 있음 (30일 캐시)
+      source: 'https://fonts.googleapis.com/:path*',
+      headers: [{ key: 'Cache-Control', value: 'public, max-age=2592000, immutable' }],
+    },
+    {
+      // Google Fonts 웹폰트 파일 (변경 없음, 1년 캐시)
+      source: 'https://fonts.gstatic.com/:path*',
+      headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+    },
   ],
 };
 

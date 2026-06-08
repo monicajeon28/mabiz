@@ -147,4 +147,62 @@
   html {
     @apply font-sans;
   }
+
+  /* 제목용 스타일 — 폰트 Weight 600/700 */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-noto-sans-kr), system-ui, -apple-system, sans-serif;
+    letter-spacing: -0.02em;
+  }
+
+  h1 {
+    @apply text-4xl font-bold leading-tight;
+  }
+
+  h2 {
+    @apply text-3xl font-bold leading-snug;
+  }
+
+  h3 {
+    @apply text-2xl font-semibold leading-snug;
+  }
+
+  h4 {
+    @apply text-xl font-semibold leading-normal;
+  }
+
+  h5, h6 {
+    @apply text-lg font-semibold leading-normal;
+  }
+
+  /* 본문 스타일 — 가독성 최적화 */
+  p {
+    @apply text-base leading-relaxed;
+  }
+
+  p.text-sm {
+    @apply text-sm leading-normal;
+  }
+
+  /* 버튼 스타일 */
+  button {
+    font-family: var(--font-noto-sans-kr), system-ui, -apple-system, sans-serif;
+    @apply font-semibold text-sm leading-tight min-h-11;
+  }
+
+  /* 테이블 스타일 — 숫자 정렬 */
+  table {
+    font-family: var(--font-noto-sans-kr), system-ui, -apple-system, sans-serif;
+    @apply text-sm;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* 캡션/라벨 스타일 */
+  label, .label {
+    @apply text-xs text-gray-600 leading-snug;
+  }
+
+  /* 코드 스타일 */
+  code, pre {
+    font-family: Menlo, Monaco, Courier New, monospace;
+  }
 }
