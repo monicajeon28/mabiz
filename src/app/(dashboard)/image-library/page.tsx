@@ -45,8 +45,43 @@ const CATEGORIES = ['후기', '크루즈정보사진', '상품'];
 const GOOGLE_DRIVE_LIMIT = 20;
 const UPLOAD_CATEGORIES = ['후기', '크루즈정보사진', '상품'];
 
+async function compressImageToBlob(file: File): Promise<Blob> {
+  const MAX_DIMENSION = 1920;
+  const MAX_BYTES = 3.5 * 1024 * 1024; // 3.5MB (여유 있게)
+
+  // 이미 작으면 그대로 반환
+  if (file.size <= MAX_BYTES && file.type === 'image/webp') return file;
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+        const ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { resolve(file); return; }
+      ctx.drawImage(img, 0, 0, width, height);
+      // WebP 80% quality로 압축
+      canvas.toBlob(blob => {
+        if (!blob) { resolve(file); return; }
+        resolve(blob);
+      }, 'image/webp', 0.8);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('이미지 로드 실패')); };
+    img.src = url;
+  });
+}
+
 export default function ImageLibraryPage() {
-  const [activeTab, setActiveTab] = useState<'local'>('local');
+  const [activeTab, setActiveTab] = useState<'local' | 'drive'>('local');
 
   // 로컬 이미지 상태
   const [assets, setAssets] = useState<ImageAsset[]>([]);
@@ -184,16 +219,15 @@ export default function ImageLibraryPage() {
     }
   }, [selectedGdFolder, gdPage]);
 
-  // Google Drive useEffect removed - only local tab active
-  // useEffect(() => {
-  //   if (activeTab === 'drive') {
-  //     if (gdFolders.length === 0) {
-  //       fetchGdFolders();
-  //     } else {
-  //       fetchGdImages();
-  //     }
-  //   }
-  // }, [activeTab, selectedGdFolder, gdPage, gdFolders.length, fetchGdFolders, fetchGdImages]);
+  useEffect(() => {
+    if (activeTab === 'drive') {
+      if (gdFolders.length === 0) {
+        fetchGdFolders();
+      } else {
+        fetchGdImages();
+      }
+    }
+  }, [activeTab, selectedGdFolder, gdPage, gdFolders.length, fetchGdFolders, fetchGdImages]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 선택 관련
@@ -338,14 +372,27 @@ export default function ImageLibraryPage() {
     setShowUploadModal(true);
   }
 
-  function doUpload(files: FileList, category: string) {
+  async function doUpload(files: FileList, category: string) {
     const file = files[0];
 
     setIsUploading(true);
     setUploadProgress(0);
 
+    // 압축 먼저 (GIF는 압축 스킵)
+    let fileToUpload: Blob;
+    try {
+      fileToUpload = file.type === 'image/gif'
+        ? file
+        : await compressImageToBlob(file);
+    } catch {
+      fileToUpload = file;
+    }
+    const fileName = file.type === 'image/gif'
+      ? file.name
+      : file.name.replace(/\.[^.]+$/, '.webp');
+
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', fileToUpload, fileName);
     formData.append('folder', category);
     formData.append('tags', selectedTags.join(','));
 
@@ -357,11 +404,17 @@ export default function ImageLibraryPage() {
     });
 
     xhr.addEventListener('load', () => {
-      if (xhr.status === 200) {
+      if (xhr.status >= 200 && xhr.status < 300) {
         fetchAssets();
         setUploadProgress(0);
       } else {
-        alert('업로드 실패');
+        try {
+          const body = JSON.parse(xhr.responseText);
+          const errMsg = body.error || body.message || '업로드에 실패했습니다.';
+          alert(errMsg);
+        } catch {
+          alert(xhr.status === 413 ? '파일이 너무 큽니다. 자동 압축 중 오류가 발생했습니다.' : '업로드에 실패했습니다.');
+        }
       }
       setIsUploading(false);
       if (fileInputRef.current) {
@@ -781,7 +834,7 @@ export default function ImageLibraryPage() {
           <div className="bg-white rounded-xl p-6 w-80">
             <h3 className="font-bold text-lg mb-4">저장 폴더 선택</h3>
             <p className="text-sm text-gray-500 mb-3">
-              {pendingFiles?.[0]?.name} → WebP로 압축 후 저장됩니다
+              {pendingFiles?.[0]?.name ?? '선택된 파일'} → WebP로 압축 후 저장됩니다
             </p>
             <select
               value={uploadCategory}

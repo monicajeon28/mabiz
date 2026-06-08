@@ -6,14 +6,8 @@ import { uploadImageToDrive } from "@/lib/image-sync";
 import { getDriveClient } from "@/lib/drive-client";
 import sharp from "sharp";
 
-// ✅ Next.js 기본 제한(1MB) 무시 → 20MB 이미지 업로드 허용
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: "25mb", // 20MB 이미지 + overhead
-    },
-  },
-};
+// App Router에서 formData 크기 제한 설정
+export const maxDuration = 60; // Vercel Pro: 60초
 
 // GET /api/image-library?q=검색어&folder=폴더
 export async function GET(req: Request) {
@@ -133,6 +127,15 @@ export async function GET(req: Request) {
 
 // POST /api/image-library  (multipart/form-data: file, folder?, title?)
 export async function POST(req: Request) {
+  // Content-Length 사전 체크 (413 전에 명확한 에러)
+  const contentLength = req.headers.get('content-length');
+  if (contentLength && parseInt(contentLength) > 25 * 1024 * 1024) {
+    return NextResponse.json(
+      { ok: false, error: '파일이 너무 큽니다. 20MB 이하 파일을 업로드해주세요.' },
+      { status: 413 }
+    );
+  }
+
   let ctx: any;
   try {
     ctx = await getAuthContext();
@@ -288,7 +291,19 @@ export async function POST(req: Request) {
     const message = err instanceof Error ? err.message : String(err);
     const stack = err instanceof Error ? err.stack : undefined;
 
-    // ✅ FormData 파싱 오류인 경우 명확한 에러 메시지
+    // 413/크기 초과 감지
+    const isSizeError = message.toLowerCase().includes('too large') ||
+                        message.toLowerCase().includes('size') ||
+                        message.toLowerCase().includes('413') ||
+                        message.toLowerCase().includes('payload');
+    if (isSizeError) {
+      return NextResponse.json(
+        { ok: false, error: '파일이 너무 큽니다. 이미지를 압축하거나 20MB 이하 파일을 사용해주세요.' },
+        { status: 413 }
+      );
+    }
+
+    // FormData 파싱 오류인 경우 명확한 에러 메시지
     const isFormDataError = message.includes("FormData") || message.includes("multipart");
     const userMessage = isFormDataError
       ? "파일 형식이 잘못되었거나 크기가 너무 큽니다"
