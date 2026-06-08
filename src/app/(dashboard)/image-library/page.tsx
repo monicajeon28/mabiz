@@ -312,7 +312,9 @@ export default function ImageLibraryPage() {
   };
 
   const copyLocalImgSrc = (asset: ImageAsset) => {
-    const imgSrc = `<img src="${asset.fullUrl}" alt="${asset.title}" />`;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const absoluteUrl = asset.fullUrl.startsWith('http') ? asset.fullUrl : `${origin}${asset.fullUrl}`;
+    const imgSrc = `<img src="${absoluteUrl}" alt="${asset.title}" />`;
     navigator.clipboard.writeText(imgSrc).then(() => {
       setCopiedId(asset.id);
       setTimeout(() => setCopiedId(null), 2000);
@@ -320,7 +322,10 @@ export default function ImageLibraryPage() {
   };
 
   const copyGdImgSrc = (image: GoogleDriveImage) => {
-    const imgSrc = `<img src="${image.publicUrl ?? image.downloadUrl}" alt="${image.name}" />`;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const rawUrl = image.publicUrl ?? image.downloadUrl;
+    const absoluteUrl = rawUrl.startsWith('http') ? rawUrl : `${origin}${rawUrl}`;
+    const imgSrc = `<img src="${absoluteUrl}" alt="${image.name}" />`;
     navigator.clipboard.writeText(imgSrc).then(() => {
       setCopiedId(image.id);
       setTimeout(() => setCopiedId(null), 2000);
