@@ -44,6 +44,7 @@ export async function GET() {
         SENT:      'invited',
         SIGNED:    'signed',
         COMPLETED: 'completed',
+        ARCHIVED:  'archived',
         REJECTED:  'rejected',
       };
 
@@ -78,6 +79,7 @@ export async function GET() {
         lastReminderAt: inst.smsDay2SentAt?.toISOString() ?? null,
         contractType,
         driveUrl,
+        templateName:   inst.template?.name ?? '',  // 신규 필드
       };
     });
 

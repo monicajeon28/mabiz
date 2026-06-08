@@ -88,7 +88,12 @@ export async function GET(request: NextRequest) {
       organizationId,
     };
 
-    if (status) where.status = status;
+    if (status) {
+      where.status = status;
+    } else {
+      // status 없을 때 기본: ARCHIVED 제외
+      where.status = { not: "ARCHIVED" };
+    }
     if (templateId) where.templateId = templateId;
     if (contactId) where.contactId = contactId;
 
