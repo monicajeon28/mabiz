@@ -282,6 +282,78 @@ export async function POST(req: Request) {
       }
 
       const productName = typeof existingData.productName === 'string' ? existingData.productName : '크루즈 상품';
+
+      // ============================================================
+      // SMS Day 0-3 자동 예약 (새로 추가)
+      // ============================================================
+
+      const contactId = (doc.generatedData as { contactId?: string }).contactId;
+      if (contactId && current.organizationId) {
+        try {
+          // 1. 계약 템플릿에서 SMS 템플릿 ID 조회
+          const template = await tx.contractTemplate.findFirst({
+            where: { organizationId: current.organizationId },
+            select: {
+              smsDay0TemplateId: true,
+              smsDay1TemplateId: true,
+              smsDay2TemplateId: true,
+              smsDay3TemplateId: true,
+            },
+          });
+
+          if (!template) {
+            logger.debug('[SMS] 계약 템플릿 없음', { organizationId: current.organizationId });
+          } else {
+            // 2. SMS 일정 정의
+            const now = new Date();
+            const smsSchedules = [
+              { day: 0, templateId: template.smsDay0TemplateId, offset: 2 * 3600 * 1000 },
+              { day: 1, templateId: template.smsDay1TemplateId, offset: 24 * 3600 * 1000 },
+              { day: 2, templateId: template.smsDay2TemplateId, offset: 48 * 3600 * 1000 },
+              { day: 3, templateId: template.smsDay3TemplateId, offset: 72 * 3600 * 1000 },
+            ];
+
+            // 3. SMS 예약 생성
+            for (const schedule of smsSchedules) {
+              if (!schedule.templateId) continue;
+
+              const smsTemplate = await tx.smsTemplate.findUnique({
+                where: { id: schedule.templateId },
+                select: { content: true },
+              });
+
+              if (!smsTemplate) {
+                logger.warn('[SMS] 템플릿 없음', { templateId: schedule.templateId });
+                continue;
+              }
+
+              const scheduledAt = new Date(now.getTime() + schedule.offset);
+
+              await tx.scheduledSms.create({
+                data: {
+                  organizationId: current.organizationId,
+                  contactId,
+                  message: smsTemplate.content,
+                  scheduledAt,
+                  status: 'PENDING',
+                  channel: 'SMS',
+                  createdByUserId: undefined,
+                },
+              });
+
+              logger.log('[SMS] Day ' + schedule.day + ' 예약됨', { contactId, scheduledAt });
+            }
+          }
+        } catch (err) {
+          // SMS 생성 실패 → 경고만 (서명은 성공)
+          logger.error('[SMS] 생성 실패', {
+            contactId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          // Transaction 롤백 하지 않음
+        }
+      }
+
       return { signedAt, organizationId: current.organizationId, productName };
     });
 
