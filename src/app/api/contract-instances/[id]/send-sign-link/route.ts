@@ -62,7 +62,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       process.env.NEXTAUTH_URL ||
       "https://mabizcruisedot.com";
 
-    const signUrl = `${baseUrl}/contract/sign/${id}`;
+    const signUrl = `${baseUrl}/contract/sign/instance/${id}`;
 
     logger.log("[POST /api/contract-instances/[id]/send-sign-link]", {
       instanceId: id,
