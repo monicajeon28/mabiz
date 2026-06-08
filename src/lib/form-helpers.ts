@@ -19,10 +19,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
  *   defaultValues: { name: '', phone: '' }
  * }));
  */
-export function createFormConfig<T extends z.ZodSchema<FieldValues>>(
+export function createFormConfig<T extends z.ZodSchema<any>>(
   schema: T,
-  options?: UseFormProps<z.infer<T>>
-): UseFormProps<z.infer<T>> {
+  options?: UseFormProps<any>
+): UseFormProps<any> {
   return {
     resolver: zodResolver(schema as any),
     mode: 'onBlur',
