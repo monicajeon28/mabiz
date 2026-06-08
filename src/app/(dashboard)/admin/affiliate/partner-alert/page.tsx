@@ -82,6 +82,14 @@ export default function PartnerAlertPage() {
     fetch(`/api/affiliate/partner-alert?${params}`, { signal })
       .then((r) => r.json())
       .then((d: any) => {
+        if (d.cursorExpired) {
+          // cursor가 만료된 경우 (파트너 삭제 등) → 처음부터 다시 로드
+          setCursor(null);
+          setNextCursor(null);
+          setPartners([]);
+          setHasNextPage(false);
+          return;
+        }
         if (d.ok) {
           setPartners(d.data);
           setTotal(d.total);
