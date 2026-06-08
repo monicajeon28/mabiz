@@ -304,7 +304,7 @@ export default function ToolsPage() {
               <button
                 key={rec.toolId}
                 onClick={() => {
-                  setMainTab(rec.category as any);
+                  setMainTab(rec.category as typeof mainTab);
                   trackToolView(rec.toolId);
                 }}
                 className="bg-white p-3 rounded-lg text-left border border-amber-100 hover:border-amber-300 hover:shadow transition-all"
@@ -335,7 +335,7 @@ export default function ToolsPage() {
                 <button
                   key={rec.toolId}
                   onClick={() => {
-                    setMainTab(rec.category as any);
+                    setMainTab(rec.category as typeof mainTab);
                     trackToolView(rec.toolId);
                   }}
                   className="bg-white p-4 rounded-xl border-2 border-gray-200 hover:border-navy-900 hover:shadow-md transition-all text-left"

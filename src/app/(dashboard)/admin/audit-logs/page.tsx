@@ -38,12 +38,13 @@ export default function AuditLogsPage() {
     startDate: '',
     endDate: '',
   });
-  // 초기 로드
+  // 초기 로드 (객체 참조 대신 primitive 값들을 dependency로 사용해 무한루프 방지)
   useEffect(() => {
     const ctrl = new AbortController();
     loadData(ctrl.signal);
     return () => ctrl.abort();
-  }, [filter]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter.action, filter.status, filter.severity, filter.startDate, filter.endDate]);
 
   async function loadData(signal?: AbortSignal) {
     try {
