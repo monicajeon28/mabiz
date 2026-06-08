@@ -112,13 +112,25 @@ export async function POST(req: Request) {
       );
     }
 
-    // NOTE: Product table does not exist in schema
-    // Using mock product data for demonstration
-    const mockProduct = {
-      id: productId,
-      title: `상품 ${productId}`,
-      description: "상품 설명",
-      price: 100000,
+    // CruiseProduct DB 조회 (productCode 우선, 없으면 숫자 id)
+    const numericId = /^\d+$/.test(productId) ? parseInt(productId, 10) : null;
+    const cruiseProduct = await prisma.cruiseProduct.findFirst({
+      where: {
+        deletedAt: null,
+        isActive: true,
+        ...(numericId !== null
+          ? { id: numericId }
+          : { productCode: productId }),
+      },
+      select: { packageName: true, description: true, basePrice: true, shipName: true, cruiseLine: true },
+    }).catch(() => null);
+
+    const product = {
+      title: cruiseProduct
+        ? `${cruiseProduct.cruiseLine} ${cruiseProduct.packageName}`
+        : `크루즈 상품 ${productId}`,
+      description: cruiseProduct?.description ?? "크루즈 여행 상품",
+      price: cruiseProduct?.basePrice ?? 0,
     };
 
     // 카피 생성 프롬프트 구성 (안전하게)
@@ -127,9 +139,9 @@ export async function POST(req: Request) {
     const lensDesc = safeLensType ? `심리학 렌즈: ${safeLensType}` : "";
 
     const prompt = [
-      `상품명: ${mockProduct.title}`,
-      `가격: ${mockProduct.price}`,
-      `설명: ${mockProduct.description || "없음"}`,
+      `상품명: ${product.title}`,
+      `가격: ${product.price}`,
+      `설명: ${product.description || "없음"}`,
       toneDesc,
       segmentDesc,
       lensDesc,
@@ -144,18 +156,6 @@ export async function POST(req: Request) {
       "- JSON만 반환 (설명 없음)",
     ].join("\n");
 
-    // Claude API 호출 (또는 캐시된 템플릿 사용)
-    // 주의: 실제 구현에서는 Anthropic SDK 사용
-    // const copy = await generateWithClaude(prompt);
-
-    // 렌즈·세그먼트 기반 카피 템플릿 (Claude API 미연동 환경 fallback)
-    const LENS_COPY: Record<string, { headline: string; body: string; cta: string }> = {
-      l6_timing:      { headline: `${mockProduct.title} — 오늘 마감!`, body: "지금 신청하지 않으면 내년 선착순 마감될 수 있습니다. 한정 기회를 놓치지 마세요.", cta: "오늘 바로 예약" },
-      l10_immediate:  { headline: `${mockProduct.title} — 지금 결정하면 특별 혜택`, body: "오늘 바로 신청하시면 추가 선물 증정. 망설이지 마세요!", cta: "지금 신청하기" },
-      l1_price_objection: { headline: `${mockProduct.title} — 가격 걱정 NO`, body: "월 소액으로 시작할 수 있습니다. 가격보다 훨씬 큰 가치를 경험하세요.", cta: "가격 확인하기" },
-      l7_companion:   { headline: `${mockProduct.title} — 가족과 함께`, body: "소중한 가족과 평생 추억을 만드세요. 동반 혜택으로 더 특별하게.", cta: "가족 혜택 보기" },
-      l9_medical:     { headline: `${mockProduct.title} — 전문가 추천`, body: "크루즈 전문 컨설턴트가 맞춤 상품을 안내합니다. 믿을 수 있는 서비스.", cta: "전문가 상담" },
-    };
     const SEGMENT_BODY: Record<string, string> = {
       price_sensitive:  "가격 대비 최고의 혜택을 드립니다.",
       quality_focused:  "최상의 품질로 특별한 경험을 약속합니다.",
@@ -164,7 +164,16 @@ export async function POST(req: Request) {
       group_planner:    "그룹 특별 혜택으로 더욱 경제적입니다.",
     };
 
-    const lensTemplate = LENS_COPY[safeLensType] ?? LENS_COPY.l6_timing;
+    const buildLensCopy = (title: string) => ({
+      l6_timing:          { headline: `${title} — 오늘 마감!`, body: "지금 신청하지 않으면 선착순 마감됩니다. 한정 기회를 놓치지 마세요.", cta: "오늘 바로 예약" },
+      l10_immediate:      { headline: `${title} — 지금 결정하면 특별 혜택`, body: "오늘 바로 신청하시면 추가 선물 증정. 망설이지 마세요!", cta: "지금 신청하기" },
+      l1_price_objection: { headline: `${title} — 가격 걱정 NO`, body: "월 소액으로 시작할 수 있습니다. 가격보다 훨씬 큰 가치를 경험하세요.", cta: "가격 확인하기" },
+      l7_companion:       { headline: `${title} — 가족과 함께`, body: "소중한 가족과 평생 추억을 만드세요. 동반 혜택으로 더 특별하게.", cta: "가족 혜택 보기" },
+      l9_medical:         { headline: `${title} — 전문가 추천`, body: "크루즈 전문 컨설턴트가 맞춤 상품을 안내합니다. 믿을 수 있는 서비스.", cta: "전문가 상담" },
+    } as Record<string, { headline: string; body: string; cta: string }>);
+
+    const lensCopyMap = buildLensCopy(product.title);
+    const lensTemplate = lensCopyMap[safeLensType] ?? lensCopyMap.l6_timing;
     const segmentBody = SEGMENT_BODY[safeSegment];
     const copy = {
       headline: lensTemplate.headline,
