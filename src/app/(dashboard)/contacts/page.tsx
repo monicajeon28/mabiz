@@ -136,7 +136,7 @@ export default function ContactsPage() {
   const [type, setType] = useState("");
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
-  const [groups, setGroups] = useState<{ id: string; name: string; funnelId: string | null }[]>([]);
+  const [groups, setGroups] = useState<{ id: string; name: string; color: string | null; funnelId: string | null }[]>([]);
   const [bulkGroupId, setBulkGroupId] = useState<string>("");
   const [assigning, setAssigning] = useState<string | null>(null);
 
@@ -310,7 +310,7 @@ export default function ContactsPage() {
       });
       const data = await res.json();
       if (!data.ok) { setGroupAddError(data.error ?? "그룹 생성 실패"); return; }
-      const newGroup = { id: data.group.id, name: data.group.name, funnelId: data.group.funnelId ?? null };
+      const newGroup = { id: data.group.id, name: data.group.name, color: data.group.color ?? null, funnelId: data.group.funnelId ?? null };
       setGroups((prev) => [...prev, newGroup]);
 
       // 그룹 생성 즉시 해당 고객에게 배정
@@ -475,12 +475,17 @@ export default function ContactsPage() {
 
   // 할당 통계 + 그룹 목록 로드
   useEffect(() => {
-    fetch("/api/groups").then(r => r.json()).then(d => { if (d.ok) setGroups(d.groups ?? []); });
-    fetch("/api/contacts/assign-stats").then(r => r.json()).then(d => {
-      if (d.ok) { setAssignStats(d.stats ?? []); setUnassignedCount(d.unassigned ?? 0); }
+    const ctrl = new AbortController();
+    Promise.all([
+      fetch("/api/groups", { signal: ctrl.signal }).then(r => r.json()),
+      fetch("/api/contacts/assign-stats", { signal: ctrl.signal }).then(r => r.json()),
+    ]).then(([g, a]) => {
+      if (g.ok) setGroups(g.groups ?? []);
+      if (a.ok) { setAssignStats(a.stats ?? []); setUnassignedCount(a.unassigned ?? 0); }
     }).catch(err => {
-      logger.error('[assign-stats failed]', { err });
+      if (err instanceof Error && err.name !== 'AbortError') logger.error('[assign-stats failed]', { err });
     });
+    return () => ctrl.abort();
   }, []);
 
   // [L6] setTimeout cleanup (공유 결과 메시지 자동 숨김)
@@ -561,11 +566,12 @@ export default function ContactsPage() {
       if (grp) {
         setContacts(prev => prev.map(c =>
           c.id === contactId
-            ? { ...c, groups: [{ group: { id: grp.id, name: grp.name, color: null } }] }
+            ? { ...c, groups: [{ group: { id: grp.id, name: grp.name, color: grp.color ?? null } }] }
             : c
         ));
       }
       toast({ title: `"${grp?.name ?? '그룹'}" 배정 완료`, variant: 'success' });
+      fetchContacts().catch(() => {});
     } catch (err) {
       logger.error('[quickAssign failed]', { err });
       toast({
@@ -649,21 +655,14 @@ export default function ContactsPage() {
   const [loadingTags, setLoadingTags] = useState(false);
 
   useEffect(() => {
-    const loadTags = async () => {
-      setLoadingTags(true);
-      try {
-        const res = await fetch('/api/contacts/tags?limit=1000');
-        const data = await res.json();
-        if (data.ok) {
-          setAllTags(data.tags ?? []);
-        }
-      } catch (err) {
-        logger.error('[loadTags failed]', { err });
-      } finally {
-        setLoadingTags(false);
-      }
-    };
-    loadTags();
+    const ctrl = new AbortController();
+    setLoadingTags(true);
+    fetch('/api/contacts/tags?limit=1000', { signal: ctrl.signal })
+      .then(r => r.json())
+      .then(data => { if (data.ok) setAllTags(data.tags ?? []); })
+      .catch(err => { if (err instanceof Error && err.name !== 'AbortError') logger.error('[loadTags failed]', { err }); })
+      .finally(() => { if (!ctrl.signal.aborted) setLoadingTags(false); });
+    return () => ctrl.abort();
     // Load tags once on mount (cache in Redis server-side)
   }, []);
 

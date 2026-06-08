@@ -51,8 +51,6 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="//fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        {/* Lighthouse 최적화: Preload critical resources */}
-        <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" />
       </head>
       <body className={`min-h-full font-sans ${notoSansKR.className}`} suppressHydrationWarning>
         {children}
