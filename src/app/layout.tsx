@@ -20,8 +20,18 @@ import "./globals.css";
  */
 
 export const metadata: Metadata = {
-  title: "크루즈닷파트너스 — 파트너 CRM",
-  description: "크루즈닷 파트너 전용 CRM. 고객관리, 수당확인, 영업도구를 한 곳에서.",
+  title: "마비즈 크루즈닷파트너스 — 파트너 CRM",
+  description: "크루즈닷 파트너 전용 CRM. 고객관리, 수당확인, 영업도구를 한 곳에서. 즉시 가능, 무료 사용.",
+  keywords: [
+    "크루즈 판매",
+    "파트너 CRM",
+    "고객관리",
+    "수당 확인",
+    "영업도구",
+    "크루즈 여행",
+    "파트너 플랫폼",
+    "판매 자동화",
+  ],
   metadataBase: new URL("https://mabizcruisedot.com"),
   manifest: "/manifest.json",
   icons: {
@@ -29,21 +39,48 @@ export const metadata: Metadata = {
     shortcut: "/favicon.png",
     apple: "/favicon.png",
   },
+  alternates: {
+    canonical: "https://mabizcruisedot.com",
+  },
   openGraph: {
-    title: "크루즈닷파트너스 — 파트너 CRM",
+    title: "마비즈 크루즈닷파트너스 — 파트너 CRM",
     description: "크루즈닷 파트너 전용 CRM. 고객관리, 수당확인, 영업도구를 한 곳에서.",
     url: "https://mabizcruisedot.com",
-    siteName: "크루즈닷파트너스",
+    siteName: "마비즈 크루즈닷파트너스",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "크루즈닷파트너스 파트너 CRM",
+        alt: "마비즈 크루즈닷파트너스 파트너 CRM 솔루션",
+        type: "image/png",
       },
     ],
     locale: "ko_KR",
     type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "마비즈 크루즈닷파트너스",
+    description: "파트너 전용 CRM. 고객관리, 수당확인, 영업도구를 한 곳에서.",
+    images: ["/og-image.png"],
+  },
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 5,
+    userScalable: true,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
   },
 };
 

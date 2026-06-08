@@ -1,0 +1,47 @@
+# robots.txt — 검색 봇 크롤링 규칙
+#
+# 목적:
+# 1. Google/Naver 검색 봇에 크롤링 경로 명시
+# 2. 비공개 페이지 제외 (관리자, 대시보드 등)
+# 3. Sitemap 위치 명시
+#
+# 참고: https://www.robotstxt.org
+
+# 모든 봇 허용
+User-agent: *
+Allow: /
+Allow: /landing
+Allow: /join
+Allow: /register
+Allow: /p/
+Allow: /l/
+
+# 대시보드, 관리자 페이지 제외
+Disallow: /(dashboard)/
+Disallow: /admin/
+Disallow: /api/
+Disallow: /auth/
+
+# API 제외
+Disallow: /*.json
+Disallow: /*.mjs
+Disallow: /*.ts
+
+# 쿼리 파라미터 제외 (정렬, 필터링 등)
+Disallow: /*?*
+
+# Google 봇 특화 규칙
+User-agent: Googlebot
+Allow: /
+Disallow: /private/
+Crawl-delay: 0
+
+# Naver 봇 특화 규칙
+User-agent: Yeti
+Allow: /
+Disallow: /private/
+Crawl-delay: 1
+
+# Sitemap 위치
+Sitemap: https://mabizcruisedot.com/sitemap.xml
+Sitemap: https://mabizcruisedot.com/sitemap-public.xml
