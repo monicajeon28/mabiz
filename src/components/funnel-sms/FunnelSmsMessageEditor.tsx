@@ -23,6 +23,7 @@ interface ProductLink {
   targetUrl: string;
   code: string;
   category: string | null;
+  isConsulting?: boolean;
 }
 
 /** EUC-KR 기준 바이트 수 계산 (한글 2B, ASCII 1B) */
@@ -185,7 +186,7 @@ export default function FunnelSmsMessageEditor({ message, onChange, sendHour, se
             <button type="button"
               onClick={() => setShowProductLinks(v => !v)}
               className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-800 border border-emerald-200 rounded px-2 py-0.5 hover:bg-emerald-50 transition-colors">
-              [상품링크] <ChevronDown className="w-3 h-3" />
+              [상담링크] <ChevronDown className="w-3 h-3" />
             </button>
             {showProductLinks && (
               <div className="absolute top-full left-0 mt-1 z-20 bg-white border border-gray-200 rounded-xl shadow-lg min-w-[220px] max-h-52 overflow-y-auto">
@@ -194,20 +195,41 @@ export default function FunnelSmsMessageEditor({ message, onChange, sendHour, se
                 ) : productLinks.length === 0 ? (
                   <div className="p-3">
                     <p className="text-xs text-gray-500 mb-2">등록된 상담링크가 없습니다.</p>
-                    <a href="/links" target="_blank" rel="noreferrer"
-                      className="text-xs text-blue-600 flex items-center gap-1 hover:underline">
-                      단축링크 관리 <ExternalLink className="w-3 h-3" />
+                    <a href="/settings/sms" target="_blank" className="text-xs text-emerald-600 underline">
+                      상담 링크 설정하기 →
                     </a>
                   </div>
                 ) : (
-                  productLinks.map(link => (
-                    <button key={link.id} type="button"
-                      onClick={() => handleSelectProductLink(link)}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0">
-                      <p className="font-medium text-gray-800 truncate">{link.title ?? link.code}</p>
-                      <p className="text-xs text-gray-400 truncate">{link.targetUrl}</p>
-                    </button>
-                  ))
+                  <>
+                    {productLinks.map(link => (
+                      <button
+                        key={link.id}
+                        type="button"
+                        onClick={() => handleSelectProductLink(link)}
+                        className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-0"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          {link.isConsulting && (
+                            <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium">
+                              상담
+                            </span>
+                          )}
+                          <p className="text-xs font-medium text-gray-800 truncate">
+                            {link.title ?? link.code}
+                          </p>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-0.5 truncate">{link.targetUrl}</p>
+                      </button>
+                    ))}
+                    {!productLinks.some(l => l.isConsulting) && (
+                      <div className="px-3 py-2 border-t border-dashed border-gray-200">
+                        <a href="/settings/sms" target="_blank"
+                          className="text-xs text-emerald-600 hover:underline">
+                          + 상담 링크 설정하기
+                        </a>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
