@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   FileCheck2,
   FileX2,
@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { showError, showSuccess } from '@/components/ui/Toast';
 import { CANCELLATION_POLICY } from '@/lib/company-info';
+import { calcRefundAmount, type RefundPolicyJson } from '@/lib/refund-calculator';
 import {
   SaleResult,
   CurrentAgent,
@@ -77,6 +78,8 @@ type ProductInfo = {
   isDomestic?: boolean;
   tourType?: string;
   airlineName?: string | null;
+  startDate?: string | null;
+  refundPolicy?: RefundPolicyJson | null;
 };
 
 type CertMode = 'purchase' | 'refund';
@@ -307,6 +310,7 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
                       paidAt: selectedSale.paidAt,
                       paymentMethod: undefined,
                     }}
+                    productInfo={productInfo}
                   />
                 </div>
               )}
@@ -322,6 +326,7 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
                       amount: selectedSale.saleAmount,
                       paidAt: selectedSale.paidAt,
                     }}
+                    productInfo={productInfo}
                   />
                 </div>
               )}
@@ -340,7 +345,7 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
         ) : (
           <div className="space-y-3">
             {mode === 'purchase' && purchaseData && (
-              <PurchasePreview cardRef={ref} data={purchaseData} agent={agent} />
+              <PurchasePreview cardRef={ref} data={purchaseData} agent={agent} productInfo={productInfo} />
             )}
             {mode === 'refund' && refundData && (
               <RefundPreview cardRef={ref} data={refundData} agent={agent} />
@@ -369,10 +374,12 @@ function PurchasePreview({
   cardRef,
   data,
   agent,
+  productInfo,
 }: {
   cardRef: React.RefObject<HTMLDivElement | null>;
   data: PurchaseData;
   agent: CurrentAgent;
+  productInfo?: ProductInfo | null;
 }) {
   return (
     <div
@@ -409,7 +416,9 @@ function PurchasePreview({
         {/* 취소·환불 정책 */}
         <div className="mb-8 rounded-lg border-2 border-orange-200 bg-orange-50 p-6">
           <p className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-orange-700">
-            <ShieldCheck className="h-4 w-4" />취소·환불 규정
+            <ShieldCheck className="h-4 w-4" />
+            취소·환불 규정
+            {productInfo?.refundPolicy?.slots && <span className="ml-2 rounded-full bg-orange-300 px-2 py-0.5 text-[10px] text-white">상품별 정책</span>}
           </p>
           <table className="w-full text-sm">
             <thead>
@@ -419,16 +428,28 @@ function PurchasePreview({
               </tr>
             </thead>
             <tbody>
-              {CANCELLATION_POLICY.map((p) => (
-                <tr key={p.label} className="border-b border-orange-100 last:border-0">
-                  <td className="py-3 text-gray-700">{p.label}</td>
-                  <td className="py-3 text-right font-semibold text-gray-800">{p.value}</td>
-                </tr>
-              ))}
+              {(productInfo?.refundPolicy?.slots ?? CANCELLATION_POLICY.map((p) => ({
+                daysBeforeDep: parseInt(p.label.match(/\d+/)?.[0] ?? '0'),
+                penaltyRate: parseInt(p.value.match(/\d+/)?.[0] ?? '0'),
+                label: p.label,
+                value: p.value,
+              }))).map((slot, idx) => {
+                const isPolicy = productInfo?.refundPolicy?.slots;
+                return (
+                  <tr key={idx} className="border-b border-orange-100 last:border-0">
+                    <td className="py-3 text-gray-700">
+                      {isPolicy ? `출발 ${slot.daysBeforeDep}일 이전` : (slot as any).label}
+                    </td>
+                    <td className="py-3 text-right font-semibold text-gray-800">
+                      {isPolicy ? `${slot.penaltyRate}%` : (slot as any).value}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           <p className="mt-4 text-xs leading-relaxed text-gray-600">
-            ※ 관광진흥법 시행령 기준 적용. 출발 당일 취소 시 여행 요금의 50% 위약금 발생.
+            ※ {productInfo?.refundPolicy?.isStructured ? '상품별 환불정책 적용' : '관광진흥법 시행령 기준'}
           </p>
         </div>
 
@@ -559,7 +580,13 @@ function InfoRow({
 // 발급 전 미리보기 (구매확인증서 임시 정보)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function PurchasePreviewDraft({ data }: { data: PurchaseData }) {
+function PurchasePreviewDraft({
+  data,
+  productInfo,
+}: {
+  data: PurchaseData;
+  productInfo?: ProductInfo | null;
+}) {
   return (
     <div className="space-y-4 rounded-xl border border-emerald-200 bg-white p-5">
       <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
@@ -592,6 +619,7 @@ function PurchasePreviewDraft({ data }: { data: PurchaseData }) {
 
 function RefundPreviewDraft({
   data,
+  productInfo,
 }: {
   data: {
     buyerName?: string | null;
@@ -599,25 +627,64 @@ function RefundPreviewDraft({
     amount?: number | null;
     paidAt?: string | null;
   };
+  productInfo?: ProductInfo | null;
 }) {
+  const refundCalc = useMemo(() => {
+    if (!data.amount || !productInfo?.startDate) return null;
+    try {
+      return calcRefundAmount(
+        data.amount,
+        new Date(productInfo.startDate),
+        productInfo.refundPolicy ?? null,
+      );
+    } catch {
+      return null;
+    }
+  }, [data.amount, productInfo?.startDate, productInfo?.refundPolicy]);
+
   return (
-    <div className="space-y-4 rounded-xl border border-red-200 bg-white p-5">
-      <div className="flex items-center justify-between border-b border-red-100 pb-3">
-        <span className="font-semibold text-gray-600">구매자명</span>
-        <span className="text-base font-medium text-gray-900">{data.buyerName || '-'}</span>
+    <div className="space-y-4 text-sm">
+      <div className="flex items-center justify-between border-b border-red-200 pb-2">
+        <span className="font-medium text-gray-600">구매자명</span>
+        <span className="text-gray-900">{data.buyerName || '-'}</span>
       </div>
-      <div className="flex items-center justify-between border-b border-red-100 pb-3">
-        <span className="font-semibold text-gray-600">상품명</span>
-        <span className="text-base font-medium text-gray-900 truncate">{data.productName || '-'}</span>
+      <div className="flex items-center justify-between border-b border-red-200 pb-2">
+        <span className="font-medium text-gray-600">상품명</span>
+        <span className="text-gray-900">{data.productName || '-'}</span>
       </div>
-      <div className="flex items-center justify-between border-b border-red-100 pb-3">
-        <span className="font-semibold text-gray-600">원결제금액</span>
-        <span className="text-xl font-extrabold text-red-600">{formatMoney(data.amount ?? null)}</span>
+      <div className="flex items-center justify-between border-b border-red-200 pb-2">
+        <span className="font-medium text-gray-600">결제금액</span>
+        <span className="text-lg font-bold text-red-700">{formatMoney(data.amount ?? null)}</span>
       </div>
       <div className="flex items-center justify-between">
-        <span className="font-semibold text-gray-600">결제일</span>
-        <span className="text-base font-medium text-gray-900">{formatDate(data.paidAt)}</span>
+        <span className="font-medium text-gray-600">결제일</span>
+        <span className="text-gray-900">{formatDate(data.paidAt)}</span>
       </div>
+
+      {/* 환불 계산 결과 */}
+      {refundCalc && (
+        <div className="mt-4 rounded-lg border-2 border-red-400 bg-red-50 p-4">
+          <p className="text-xs font-bold text-red-700">💰 오늘 기준 예상 환불액</p>
+          <div className="mt-2 text-3xl font-extrabold text-red-600">
+            {formatMoney(refundCalc.refundAmount)}
+          </div>
+          {refundCalc.penaltyRate > 0 && (
+            <p className="mt-2 text-sm text-red-700">
+              위약금 <span className="font-bold">{refundCalc.penaltyRate}%</span> ({formatMoney(refundCalc.penaltyAmount)})
+            </p>
+          )}
+          <p className="mt-2 text-xs text-gray-600">
+            출발 <span className="font-semibold">{refundCalc.daysBeforeDep}일 전</span> · {refundCalc.basis}
+          </p>
+        </div>
+      )}
+
+      {/* 출발일 없으면 안내 */}
+      {!productInfo?.startDate && (
+        <div className="mt-3 rounded-lg border-l-4 border-amber-400 bg-amber-50 px-4 py-3">
+          <p className="text-xs text-amber-700">⚠️ 출발일 정보 없음 — 발급 버튼을 눌러 정확한 환불액 확인</p>
+        </div>
+      )}
     </div>
   );
 }
