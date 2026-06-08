@@ -62,6 +62,40 @@ const config: Config = {
         md: "0.5rem",
         sm: "0.375rem",
       },
+      keyframes: {
+        fadeInUp: {
+          '0%': { opacity: '0', transform: 'translateY(20px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        fadeInDown: {
+          '0%': { opacity: '0', transform: 'translateY(-20px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        fadeInLeft: {
+          '0%': { opacity: '0', transform: 'translateX(-30px)' },
+          '100%': { opacity: '1', transform: 'translateX(0)' },
+        },
+        fadeInRight: {
+          '0%': { opacity: '0', transform: 'translateX(30px)' },
+          '100%': { opacity: '1', transform: 'translateX(0)' },
+        },
+        scaleIn: {
+          '0%': { opacity: '0', transform: 'scale(0.9)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+        slideInUp: {
+          '0%': { opacity: '0', transform: 'translateY(40px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        fadeInUp: 'fadeInUp 0.6s ease-out forwards',
+        fadeInDown: 'fadeInDown 0.6s ease-out forwards',
+        fadeInLeft: 'fadeInLeft 0.6s ease-out forwards',
+        fadeInRight: 'fadeInRight 0.6s ease-out forwards',
+        scaleIn: 'scaleIn 0.6s ease-out forwards',
+        slideInUp: 'slideInUp 0.7s ease-out forwards',
+      },
     },
   },
   plugins: [],
