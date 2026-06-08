@@ -157,19 +157,19 @@ export default function SegmentAnalyticsDashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="text-gray-500">Loading segments...</div>
+        <div className="text-gray-500">세그먼트 불러오는 중...</div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header */}
+      {/* 헤더 */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Segment Analytics</h1>
+          <h1 className="text-3xl font-bold">세그먼트 분석</h1>
           <p className="text-gray-600 mt-1">
-            {segments.length} segments, {segments.reduce((s, seg) => s + seg.size, 0)} total contacts
+            {segments.length}개 세그먼트, 전체 {segments.reduce((s, seg) => s + seg.size, 0)}명
           </p>
         </div>
         <Button
@@ -178,11 +178,11 @@ export default function SegmentAnalyticsDashboard() {
           disabled={loading}
         >
           <Zap className="w-4 h-4 mr-2" />
-          Re-cluster Contacts
+          세그먼트 재분류
         </Button>
       </div>
 
-      {/* Segment Overview Cards */}
+      {/* 세그먼트 요약 카드 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {sortedSegments.slice(0, 4).map((segment) => (
           <Card
@@ -198,11 +198,11 @@ export default function SegmentAnalyticsDashboard() {
             <CardContent>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Size</span>
-                  <span className="font-bold">{segment.size} contacts</span>
+                  <span className="text-gray-600">인원수</span>
+                  <span className="font-bold">{segment.size}명</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Churn Risk</span>
+                  <span className="text-gray-600">이탈 위험</span>
                   <span
                     className={`font-bold ${
                       segment.churnRisk > 60
@@ -216,16 +216,16 @@ export default function SegmentAnalyticsDashboard() {
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Avg LTV</span>
-                  <span className="font-bold">${Math.round(segment.avgLtv)}</span>
+                  <span className="text-gray-600">평균 LTV</span>
+                  <span className="font-bold">{Math.round(segment.avgLtv).toLocaleString()}원</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Engagement</span>
+                  <span className="text-gray-600">참여율</span>
                   <span className="font-bold">{Math.round(segment.avgEngagement)}%</span>
                 </div>
                 <div className="pt-2 mt-2 border-t">
                   <span className="text-sm font-semibold text-blue-600">
-                    {segment.profile?.recommendedAction || 'Support'}
+                    {segment.profile?.recommendedAction || '지원'}
                   </span>
                 </div>
               </div>
@@ -234,13 +234,13 @@ export default function SegmentAnalyticsDashboard() {
         ))}
       </div>
 
-      {/* Charts Section */}
+      {/* 차트 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Segment Distribution */}
+        {/* 세그먼트 분포 */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg font-semibold flex items-center">
-              <Users className="w-5 h-5 mr-2" /> Segment Distribution
+              <Users className="w-5 h-5 mr-2" /> 세그먼트 분포
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -267,11 +267,11 @@ export default function SegmentAnalyticsDashboard() {
           </CardContent>
         </Card>
 
-        {/* Churn Risk Assessment */}
+        {/* 세그먼트별 이탈 위험 */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg font-semibold flex items-center">
-              <AlertCircle className="w-5 h-5 mr-2" /> Churn Risk by Segment
+              <AlertCircle className="w-5 h-5 mr-2" /> 세그먼트별 이탈 위험
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -288,11 +288,11 @@ export default function SegmentAnalyticsDashboard() {
         </Card>
       </div>
 
-      {/* Detailed Segment Comparison */}
+      {/* 세그먼트 비교 */}
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
-            <CardTitle className="text-lg font-semibold">Segment Comparison</CardTitle>
+            <CardTitle className="text-lg font-semibold">세그먼트 비교</CardTitle>
             <div className="flex gap-2">
               <button
                 onClick={() => setSortBy('size')}
@@ -300,7 +300,7 @@ export default function SegmentAnalyticsDashboard() {
                   sortBy === 'size' ? 'bg-blue-600 text-white' : 'bg-gray-200'
                 }`}
               >
-                Size
+                인원수
               </button>
               <button
                 onClick={() => setSortBy('churn')}
@@ -308,7 +308,7 @@ export default function SegmentAnalyticsDashboard() {
                   sortBy === 'churn' ? 'bg-blue-600 text-white' : 'bg-gray-200'
                 }`}
               >
-                Churn
+                이탈위험
               </button>
               <button
                 onClick={() => setSortBy('ltv')}
@@ -324,7 +324,7 @@ export default function SegmentAnalyticsDashboard() {
                   sortBy === 'engagement' ? 'bg-blue-600 text-white' : 'bg-gray-200'
                 }`}
               >
-                Engagement
+                참여율
               </button>
             </div>
           </div>
@@ -334,13 +334,13 @@ export default function SegmentAnalyticsDashboard() {
             <table className="w-full text-sm">
               <thead className="bg-gray-100 border-b">
                 <tr>
-                  <th className="text-left py-3 px-4">Segment</th>
-                  <th className="text-center py-3 px-4">Size</th>
-                  <th className="text-center py-3 px-4">Churn Risk</th>
-                  <th className="text-center py-3 px-4">Avg LTV</th>
-                  <th className="text-center py-3 px-4">Engagement</th>
-                  <th className="text-center py-3 px-4">Est. Conv. Rate</th>
-                  <th className="text-center py-3 px-4">Recommended Action</th>
+                  <th className="text-left py-3 px-4">세그먼트</th>
+                  <th className="text-center py-3 px-4">인원수</th>
+                  <th className="text-center py-3 px-4">이탈 위험</th>
+                  <th className="text-center py-3 px-4">평균 LTV</th>
+                  <th className="text-center py-3 px-4">참여율</th>
+                  <th className="text-center py-3 px-4">예상 전환율</th>
+                  <th className="text-center py-3 px-4">권장 액션</th>
                 </tr>
               </thead>
               <tbody>
@@ -351,7 +351,7 @@ export default function SegmentAnalyticsDashboard() {
                     onClick={() => setSelectedSegment(segment)}
                   >
                     <td className="py-3 px-4 font-semibold">{segment.name}</td>
-                    <td className="py-3 px-4 text-center">{segment.size}</td>
+                    <td className="py-3 px-4 text-center">{segment.size}명</td>
                     <td className="py-3 px-4 text-center">
                       <span
                         className={`px-2 py-1 rounded text-sm font-bold ${
@@ -366,7 +366,7 @@ export default function SegmentAnalyticsDashboard() {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-center font-semibold">
-                      ${Math.round(segment.avgLtv)}
+                      {Math.round(segment.avgLtv).toLocaleString()}원
                     </td>
                     <td className="py-3 px-4 text-center">{Math.round(segment.avgEngagement)}%</td>
                     <td className="py-3 px-4 text-center">
@@ -380,7 +380,7 @@ export default function SegmentAnalyticsDashboard() {
                             ACTION_COLORS[segment.profile?.recommendedAction || 'Support'],
                         }}
                       >
-                        {segment.profile?.recommendedAction || 'Support'}
+                        {segment.profile?.recommendedAction || '지원'}
                       </span>
                     </td>
                   </tr>
@@ -395,65 +395,65 @@ export default function SegmentAnalyticsDashboard() {
       {selectedSegment && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg font-semibold">{selectedSegment.name} - Detailed View</CardTitle>
+            <CardTitle className="text-lg font-semibold">{selectedSegment.name} - 상세 보기</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Demographics */}
+              {/* 인구통계 */}
               <div>
-                <h3 className="font-semibold text-base mb-3">Demographics</h3>
+                <h3 className="font-semibold text-base mb-3">인구통계</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Avg Age</span>
+                    <span className="text-gray-600">평균 나이</span>
                     <span className="font-semibold">
-                      {selectedSegment.profile?.demographicProfile?.avgAge || 'N/A'}
+                      {selectedSegment.profile?.demographicProfile?.avgAge || '미입력'}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Male %</span>
+                    <span className="text-gray-600">남성 비율</span>
                     <span className="font-semibold">
                       {selectedSegment.profile?.demographicProfile?.malePercent || 0}%
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Married %</span>
+                    <span className="text-gray-600">기혼 비율</span>
                     <span className="font-semibold">
                       {selectedSegment.profile?.demographicProfile?.mariedPercent || 0}%
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Avg Children</span>
+                    <span className="text-gray-600">평균 자녀수</span>
                     <span className="font-semibold">
-                      {selectedSegment.profile?.demographicProfile?.avgChildrenCount || 0}
+                      {selectedSegment.profile?.demographicProfile?.avgChildrenCount || 0}명
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Behavioral */}
+              {/* 행동 특성 */}
               <div>
-                <h3 className="font-semibold text-base mb-3">Behavioral Traits</h3>
+                <h3 className="font-semibold text-base mb-3">행동 특성</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Avg Recency</span>
+                    <span className="text-gray-600">평균 최근접촉</span>
                     <span className="font-semibold">
-                      {selectedSegment.profile?.behavioralProfile?.avgRecency || 0} days
+                      {selectedSegment.profile?.behavioralProfile?.avgRecency || 0}일 전
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Purchase Frequency</span>
+                    <span className="text-gray-600">구매 빈도</span>
                     <span className="font-semibold">
-                      {selectedSegment.profile?.behavioralProfile?.avgFrequency || 0}
+                      {selectedSegment.profile?.behavioralProfile?.avgFrequency || 0}회
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Avg Monetary Value</span>
+                    <span className="text-gray-600">평균 구매금액</span>
                     <span className="font-semibold">
-                      ${selectedSegment.profile?.behavioralProfile?.avgMonetaryValue || 0}
+                      {(selectedSegment.profile?.behavioralProfile?.avgMonetaryValue || 0).toLocaleString()}원
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Engagement Rate</span>
+                    <span className="text-gray-600">참여율</span>
                     <span className="font-semibold">
                       {selectedSegment.profile?.behavioralProfile?.avgEngagementRate || 0}%
                     </span>
@@ -462,32 +462,31 @@ export default function SegmentAnalyticsDashboard() {
               </div>
             </div>
 
-            {/* Action Buttons */}
+            {/* 액션 버튼 */}
             <div className="flex gap-3 mt-6">
               <Button
                 className="bg-blue-600 hover:bg-blue-700"
                 onClick={() => {
-                  // Navigate to campaign recommendation
                   window.location.href = `/analytics/segments/${selectedSegment.id}/recommendation`;
                 }}
               >
                 <Target className="w-4 h-4 mr-2" />
-                View Campaign Recommendation
+                캠페인 추천 보기
               </Button>
               <Button variant="outline">
                 <TrendingUp className="w-4 h-4 mr-2" />
-                View Contacts ({selectedSegment.size})
+                고객 보기 ({selectedSegment.size}명)
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Engagement Trend */}
+      {/* 참여율 추이 */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg font-semibold flex items-center">
-            <TrendingUp className="w-5 h-5 mr-2" /> Engagement vs LTV vs Conversion
+            <TrendingUp className="w-5 h-5 mr-2" /> 참여율 vs LTV vs 전환율
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -502,10 +501,10 @@ export default function SegmentAnalyticsDashboard() {
                 type="monotone"
                 dataKey="engagement"
                 stroke="#10b981"
-                name="Engagement %"
+                name="참여율 %"
               />
-              <Line type="monotone" dataKey="ltv" stroke="#3b82f6" name="LTV ($1000s)" />
-              <Line type="monotone" dataKey="conversion" stroke="#f59e0b" name="Conv. Rate x10" />
+              <Line type="monotone" dataKey="ltv" stroke="#3b82f6" name="LTV (천 원)" />
+              <Line type="monotone" dataKey="conversion" stroke="#f59e0b" name="전환율 x10" />
             </LineChart>
           </ResponsiveContainer>
         </CardContent>

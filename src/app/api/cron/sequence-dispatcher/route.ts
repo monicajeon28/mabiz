@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { resolveUserSmsConfig } from '@/lib/aligo';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -76,19 +77,16 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        // Get contact and org SMS config
+        // Get contact and org SMS config (복호화된 키 사용)
         const [contact, smsConfig] = await Promise.all([
           prisma.contact.findUnique({
             where: { id: instance.contactId },
             select: { id: true, phone: true, name: true, optOutAt: true },
           }),
-          prisma.orgSmsConfig.findUnique({
-            where: { organizationId: instance.organizationId },
-            select: { aligoUserId: true, aligoKey: true, senderPhone: true, isActive: true },
-          }),
+          resolveUserSmsConfig(instance.organizationId),
         ]);
 
-        if (!contact?.phone || contact.optOutAt || !smsConfig?.isActive) {
+        if (!contact?.phone || contact.optOutAt || !smsConfig) {
           await prisma.contactSequenceInstance.update({
             where: { id: instance.id },
             data: {
@@ -99,11 +97,11 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        // Send via Aligo
+        // Send via Aligo (복호화된 key/userId/sender 사용)
         const formData = new URLSearchParams();
-        formData.append('user_id', smsConfig.aligoUserId);
-        formData.append('key', smsConfig.aligoKey);
-        formData.append('sender', smsConfig.senderPhone);
+        formData.append('user_id', smsConfig.userId);
+        formData.append('key', smsConfig.key);
+        formData.append('sender', smsConfig.sender);
         formData.append('receiver', contact.phone.replace(/[^0-9]/g, ''));
         formData.append('msg', variant.messageContent.replace(/\{이름\}/g, contact.name ?? '고객'));
         formData.append('msg_type', variant.messageContent.length > 90 ? 'LMS' : 'SMS');

@@ -269,7 +269,7 @@ export async function POST(req: Request) {
 
             const data = await res.json();
 
-            if (data.result_code === '1') {
+            if (Number(data.result_code) === 1) {
               // SmsLog 기록
               await prisma.smsLog.create({
                 data: {

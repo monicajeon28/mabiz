@@ -70,8 +70,9 @@ export async function GET(req: NextRequest) {
       year = String(new Date().getFullYear());
     }
     const yearLike = year + '%';
-    const yearStart = new Date(`${year}-01-01T00:00:00.000Z`);
-    const yearEnd   = new Date(`${year}-12-31T23:59:59.999Z`);
+    // KST(UTC+9) 기준으로 연도 범위 계산 — UTC 기준으로 하면 한국 기준 9시간이 틀림
+    const yearStart = new Date(`${year}-01-01T00:00:00+09:00`);
+    const yearEnd   = new Date(`${year}-12-31T23:59:59+09:00`);
 
     // agentId 필터 — GLOBAL_ADMIN + AffiliateProfile.id 기준
     const rawAgentId = searchParams.get('agentId');
@@ -89,6 +90,9 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ ok: false, error: '파트너 프로필이 없습니다.' }, { status: 403 });
       }
       ownerOrgId = ctx.organizationId ?? null;
+      if (!ownerOrgId) {
+        return NextResponse.json({ ok: false, error: '조직 정보를 확인할 수 없습니다.' }, { status: 403 });
+      }
       affiliateRelationFilter = Prisma.sql`
         AND ap.id IN (
           SELECT ar."agentId" FROM "AffiliateRelation" ar

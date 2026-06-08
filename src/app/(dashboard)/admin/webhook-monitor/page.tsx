@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -72,6 +72,12 @@ interface WebhookMonitoringData {
   timestamp: string;
 }
 
+const STATUS_KO: Record<string, string> = {
+  healthy: '정상',
+  warning: '주의',
+  critical: '위험',
+};
+
 export default function WebhookMonitorPage() {
   const [data, setData] = useState<WebhookMonitoringData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -83,13 +89,13 @@ export default function WebhookMonitorPage() {
     try {
       setLoading(true);
       const response = await fetch(`/api/admin/webhook-stats-advanced?days=${dayCount}`, { signal });
-      if (!response.ok) throw new Error('Failed to fetch webhook stats');
+      if (!response.ok) throw new Error('웹훅 통계를 불러오지 못했습니다');
       const result = await response.json();
       setData(result.data);
       setError(null);
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return;
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : '알 수 없는 오류');
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -112,7 +118,7 @@ export default function WebhookMonitorPage() {
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
           <Activity className="mx-auto h-8 w-8 animate-spin text-blue-500" />
-          <p className="mt-4 text-gray-600">Loading webhook metrics...</p>
+          <p className="mt-4 text-gray-600">웹훅 지표 불러오는 중...</p>
         </div>
       </div>
     );
@@ -135,27 +141,19 @@ export default function WebhookMonitorPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'healthy':
-        return 'text-green-600';
-      case 'warning':
-        return 'text-yellow-600';
-      case 'critical':
-        return 'text-red-600';
-      default:
-        return 'text-gray-600';
+      case 'healthy': return 'text-green-600';
+      case 'warning': return 'text-yellow-600';
+      case 'critical': return 'text-red-600';
+      default: return 'text-gray-600';
     }
   };
 
   const getStatusBgColor = (status: string) => {
     switch (status) {
-      case 'healthy':
-        return 'bg-green-100';
-      case 'warning':
-        return 'bg-yellow-100';
-      case 'critical':
-        return 'bg-red-100';
-      default:
-        return 'bg-gray-100';
+      case 'healthy': return 'bg-green-100';
+      case 'warning': return 'bg-yellow-100';
+      case 'critical': return 'bg-red-100';
+      default: return 'bg-gray-100';
     }
   };
 
@@ -163,19 +161,19 @@ export default function WebhookMonitorPage() {
     <div className="space-y-6 p-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Webhook Monitoring</h1>
-          <p className="mt-1 text-gray-600">Real-time webhook performance tracking and alerts</p>
+          <h1 className="text-3xl font-bold">웹훅 모니터링</h1>
+          <p className="mt-1 text-gray-600">실시간 웹훅 성능 추적 및 알림</p>
         </div>
         <div className="flex gap-3">
           <Select value={days} onValueChange={setDays}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-36">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1">Last 24 hours</SelectItem>
-              <SelectItem value="7">Last 7 days</SelectItem>
-              <SelectItem value="30">Last 30 days</SelectItem>
-              <SelectItem value="90">Last 90 days</SelectItem>
+              <SelectItem value="1">최근 24시간</SelectItem>
+              <SelectItem value="7">최근 7일</SelectItem>
+              <SelectItem value="30">최근 30일</SelectItem>
+              <SelectItem value="90">최근 90일</SelectItem>
             </SelectContent>
           </Select>
           <Button
@@ -184,112 +182,112 @@ export default function WebhookMonitorPage() {
             className="gap-2"
           >
             <Activity className="h-4 w-4" />
-            {autoRefresh ? 'Auto' : 'Manual'}
+            {autoRefresh ? '자동 갱신 중' : '수동 갱신'}
           </Button>
           <Button onClick={() => fetchData(days)} variant="outline">
-            Refresh
+            새로고침
           </Button>
         </div>
       </div>
 
-      {/* Health Status Card */}
+      {/* 시스템 상태 카드 */}
       <Card className={`border-2 ${getStatusBgColor(health.status)}`}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Activity className={`h-5 w-5 ${getStatusColor(health.status)}`} />
-            System Health
+            시스템 상태
           </CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-6">
           <div>
             <p className={`text-2xl font-bold ${getStatusColor(health.status)}`}>
-              {health.status.toUpperCase()}
+              {STATUS_KO[health.status] ?? health.status}
             </p>
             <p className="text-gray-600">{health.message}</p>
           </div>
           <div className="space-y-2">
             <div className="flex justify-between">
-              <span className="text-gray-600">1h Success Rate:</span>
+              <span className="text-gray-600">1시간 성공률:</span>
               <span className="font-semibold">{health.metrics.last1hSuccessRate}%</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">24h Success Rate:</span>
+              <span className="text-gray-600">24시간 성공률:</span>
               <span className="font-semibold">{health.metrics.last24hSuccessRate}%</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Avg Latency:</span>
+              <span className="text-gray-600">평균 지연시간:</span>
               <span className="font-semibold">{health.metrics.avgLatency}ms</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Pending Events:</span>
+              <span className="text-gray-600">대기 중 이벤트:</span>
               <span className={`font-semibold ${health.metrics.pendingCount > 50 ? 'text-orange-600' : ''}`}>
-                {health.metrics.pendingCount}
+                {health.metrics.pendingCount}건
               </span>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Key Metrics Grid */}
+      {/* 핵심 지표 */}
       <div className="grid grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Events</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">전체 이벤트</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{monitoring.overall.totalEvents.toLocaleString()}</div>
-            <p className="text-sm text-gray-500 mt-1">in {monitoring.period.days} days</p>
+            <div className="text-2xl font-bold">{monitoring.overall.totalEvents.toLocaleString()}건</div>
+            <p className="text-sm text-gray-500 mt-1">최근 {monitoring.period.days}일</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Success Rate</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">성공률</CardTitle>
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${monitoring.overall.successRate >= 95 ? 'text-green-600' : 'text-orange-600'}`}>
               {monitoring.overall.successRate.toFixed(2)}%
             </div>
             <p className="text-sm text-gray-500 mt-1">
-              {monitoring.overall.successCount} successful
+              성공 {monitoring.overall.successCount.toLocaleString()}건
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Avg Execution Time</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">평균 처리 시간</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{monitoring.overall.avgExecutionTimeMs.toFixed(0)}ms</div>
             <p className="text-sm text-gray-500 mt-1">
-              P95: {monitoring.overall.p95ExecutionTimeMs.toFixed(0)}ms
+              상위 5% 기준: {monitoring.overall.p95ExecutionTimeMs.toFixed(0)}ms
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Retry Success</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">재시도 성공률</CardTitle>
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${monitoring.overall.autoRetrySuccessRate >= 80 ? 'text-green-600' : 'text-orange-600'}`}>
               {monitoring.overall.autoRetrySuccessRate.toFixed(2)}%
             </div>
             <p className="text-sm text-gray-500 mt-1">
-              {monitoring.overall.retryRate.toFixed(2)}% retry rate
+              재시도율 {monitoring.overall.retryRate.toFixed(2)}%
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Alerts */}
+      {/* 알림 */}
       {monitoring.alerts.length > 0 && (
         <Card className="border-red-200">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-red-600" />
-              Active Alerts ({monitoring.alerts.length})
+              발생 중인 알림 ({monitoring.alerts.length}건)
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -300,7 +298,7 @@ export default function WebhookMonitorPage() {
                   <div className="flex justify-between">
                     <span>{alert.message}</span>
                     <span className="text-sm text-gray-500">
-                      Current: {alert.current.toFixed(2)} | Threshold: {alert.threshold.toFixed(2)}
+                      현재: {alert.current.toFixed(2)} | 기준: {alert.threshold.toFixed(2)}
                     </span>
                   </div>
                 </AlertDescription>
@@ -310,13 +308,13 @@ export default function WebhookMonitorPage() {
         </Card>
       )}
 
-      {/* Recommendations */}
+      {/* 개선 권고사항 */}
       {monitoring.recommendations.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-blue-600" />
-              Recommendations
+              개선 권고사항
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -332,38 +330,38 @@ export default function WebhookMonitorPage() {
         </Card>
       )}
 
-      {/* Webhook Type Performance */}
+      {/* 웹훅 유형별 성능 */}
       <Card>
         <CardHeader>
-          <CardTitle>Webhook Type Performance</CardTitle>
-          <CardDescription>Success rate and volume by webhook type</CardDescription>
+          <CardTitle>웹훅 유형별 성능</CardTitle>
+          <CardDescription>웹훅 유형별 성공률 및 처리량</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left py-2 px-2 font-semibold">Type</th>
-                  <th className="text-right py-2 px-2 font-semibold">Total</th>
-                  <th className="text-right py-2 px-2 font-semibold">Success Rate</th>
-                  <th className="text-right py-2 px-2 font-semibold">Avg Latency</th>
-                  <th className="text-right py-2 px-2 font-semibold">Monthly Volume</th>
-                  <th className="text-right py-2 px-2 font-semibold">Total Calls</th>
+                  <th className="text-left py-2 px-2 font-semibold">유형</th>
+                  <th className="text-right py-2 px-2 font-semibold">전체</th>
+                  <th className="text-right py-2 px-2 font-semibold">성공률</th>
+                  <th className="text-right py-2 px-2 font-semibold">평균 지연시간</th>
+                  <th className="text-right py-2 px-2 font-semibold">월 예상량</th>
+                  <th className="text-right py-2 px-2 font-semibold">총 호출수</th>
                 </tr>
               </thead>
               <tbody>
                 {Object.entries(monitoring.byType).map(([type, metrics]) => (
                   <tr key={type} className="border-b hover:bg-gray-50">
                     <td className="py-2 px-2 font-medium">{type}</td>
-                    <td className="text-right py-2 px-2">{metrics.totalEvents.toLocaleString()}</td>
+                    <td className="text-right py-2 px-2">{metrics.totalEvents.toLocaleString()}건</td>
                     <td className="text-right py-2 px-2">
                       <span className={metrics.successRate >= 95 ? 'text-green-600' : 'text-orange-600'}>
                         {metrics.successRate.toFixed(2)}%
                       </span>
                     </td>
                     <td className="text-right py-2 px-2">{metrics.avgExecutionTimeMs.toFixed(0)}ms</td>
-                    <td className="text-right py-2 px-2">{metrics.estimatedMonthlyVolume.toLocaleString()}</td>
-                    <td className="text-right py-2 px-2">{metrics.totalCalls.toLocaleString()}</td>
+                    <td className="text-right py-2 px-2">{metrics.estimatedMonthlyVolume.toLocaleString()}건</td>
+                    <td className="text-right py-2 px-2">{metrics.totalCalls.toLocaleString()}회</td>
                   </tr>
                 ))}
               </tbody>
@@ -372,35 +370,35 @@ export default function WebhookMonitorPage() {
         </CardContent>
       </Card>
 
-      {/* Daily Trend Chart */}
+      {/* 일별 추이 */}
       {monitoring.dailyTrend && monitoring.dailyTrend.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Daily Trend</CardTitle>
-            <CardDescription>Webhook events and performance over time</CardDescription>
+            <CardTitle>일별 추이</CardTitle>
+            <CardDescription>날짜별 웹훅 이벤트 및 성능</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left py-2 px-2 font-semibold">Date</th>
-                    <th className="text-right py-2 px-2 font-semibold">Total Events</th>
-                    <th className="text-right py-2 px-2 font-semibold">Success</th>
-                    <th className="text-right py-2 px-2 font-semibold">Failed</th>
-                    <th className="text-right py-2 px-2 font-semibold">Avg Latency</th>
+                    <th className="text-left py-2 px-2 font-semibold">날짜</th>
+                    <th className="text-right py-2 px-2 font-semibold">전체 이벤트</th>
+                    <th className="text-right py-2 px-2 font-semibold">성공</th>
+                    <th className="text-right py-2 px-2 font-semibold">실패</th>
+                    <th className="text-right py-2 px-2 font-semibold">평균 지연시간</th>
                   </tr>
                 </thead>
                 <tbody>
                   {monitoring.dailyTrend.map((trend) => (
                     <tr key={trend.date} className="border-b hover:bg-gray-50">
                       <td className="py-2 px-2">{trend.date}</td>
-                      <td className="text-right py-2 px-2">{trend.totalEvents.toLocaleString()}</td>
+                      <td className="text-right py-2 px-2">{trend.totalEvents.toLocaleString()}건</td>
                       <td className="text-right py-2 px-2 text-green-600">
-                        {trend.successCount.toLocaleString()}
+                        {trend.successCount.toLocaleString()}건
                       </td>
                       <td className="text-right py-2 px-2 text-red-600">
-                        {trend.failureCount.toLocaleString()}
+                        {trend.failureCount.toLocaleString()}건
                       </td>
                       <td className="text-right py-2 px-2">{trend.avgExecutionTimeMs.toFixed(0)}ms</td>
                     </tr>
@@ -412,9 +410,9 @@ export default function WebhookMonitorPage() {
         </Card>
       )}
 
-      {/* Last Updated */}
+      {/* 마지막 업데이트 */}
       <div className="text-sm text-gray-500 text-right">
-        Last updated: {new Date(data.timestamp).toLocaleString()}
+        마지막 업데이트: {new Date(data.timestamp).toLocaleString('ko-KR')}
       </div>
     </div>
   );

@@ -4,7 +4,7 @@ export const maxDuration = 60;
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
 import prisma from "@/lib/prisma";
-import { sendSms, getOrgSmsConfig } from "@/lib/aligo";
+import { sendSms, resolveUserSmsConfig, getOrgSmsConfig } from "@/lib/aligo";
 import { logger } from "@/lib/logger";
 
 /**
@@ -92,8 +92,9 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: true, processed: 0 });
   }
 
-  // 조직별 SMS 설정 캐시
-  const smsConfigCache: Record<string, Awaited<ReturnType<typeof getOrgSmsConfig>>> = {};
+  // 조직별 SMS 설정 캐시 (인증키: 복호화, 메시지템플릿: 원본)
+  const aligoConfigCache: Record<string, Awaited<ReturnType<typeof resolveUserSmsConfig>>> = {};
+  const orgConfigCache: Record<string, Awaited<ReturnType<typeof getOrgSmsConfig>>> = {};
 
   let sentCount     = 0;
   let skippedCount  = 0;
@@ -104,12 +105,16 @@ export async function GET(req: Request) {
       const orgId = contact.organizationId;
 
       // SMS 설정 캐시 (동일 조직은 1회만 조회)
-      if (!(orgId in smsConfigCache)) {
-        smsConfigCache[orgId] = await getOrgSmsConfig(orgId);
+      if (!(orgId in aligoConfigCache)) {
+        [aligoConfigCache[orgId], orgConfigCache[orgId]] = await Promise.all([
+          resolveUserSmsConfig(orgId),
+          getOrgSmsConfig(orgId),
+        ]);
       }
-      const smsConfig = smsConfigCache[orgId];
+      const aligoConfig = aligoConfigCache[orgId];
+      const orgConfig   = orgConfigCache[orgId];
 
-      if (!smsConfig) {
+      if (!aligoConfig) {
         skippedCount++;
         continue;
       }
@@ -117,15 +122,15 @@ export async function GET(req: Request) {
       // 재진입 메시지 선택 (조직 커스텀 > 시스템 기본)
       const isFirst  = contact.reEngageCount === 0;
       const template = isFirst
-        ? (smsConfig.reEngageMsg1 || DEFAULT_MSG_1)
-        : (smsConfig.reEngageMsg2 || DEFAULT_MSG_2);
+        ? ((orgConfig as any)?.reEngageMsg1 || DEFAULT_MSG_1)
+        : ((orgConfig as any)?.reEngageMsg2 || DEFAULT_MSG_2);
 
       const msg = template
         .replace(/\[고객명\]/g, contact.name)
         .replace(/\[이름\]/g,   contact.name);
 
       const result = await sendSms({
-        config:         { key: smsConfig.aligoKey, userId: smsConfig.aligoUserId, sender: smsConfig.senderPhone },
+        config:         aligoConfig,
         receiver:       contact.phone,
         msg,
         organizationId: orgId,

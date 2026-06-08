@@ -4,7 +4,7 @@ export const maxDuration = 60;
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
-import { sendByChannel, getOrgSmsConfig } from "@/lib/aligo";
+import { sendByChannel, resolveUserSmsConfig } from "@/lib/aligo";
 
 // Vercel Cron: 매시간 실행
 // vercel.json: { "crons": [{ "path": "/api/cron/vip-care", "schedule": "0 * * * *" }] }
@@ -39,7 +39,7 @@ export async function GET(req: Request) {
   let earlyExit      = false;
 
   // 조직별 SMS 설정 캐시 (같은 조직 반복 조회 방지)
-  const smsConfigCache: Record<string, Awaited<ReturnType<typeof getOrgSmsConfig>> | null> = {};
+  const smsConfigCache: Record<string, Awaited<ReturnType<typeof resolveUserSmsConfig>>> = {};
 
   // ─── 핵심 변경: 시퀀스 루프 제거 ──────────────────────────────────
   // 오늘 발송해야 할 VipCareLog를 직접 JOIN 쿼리로 한 번에 조회.
@@ -96,10 +96,10 @@ export async function GET(req: Request) {
 
       // 조직 SMS 설정 캐시 조회
       if (!(contact.organizationId in smsConfigCache)) {
-        smsConfigCache[contact.organizationId] = await getOrgSmsConfig(contact.organizationId);
+        smsConfigCache[contact.organizationId] = await resolveUserSmsConfig(contact.organizationId);
       }
       const smsConfig = smsConfigCache[contact.organizationId];
-      if (!smsConfig?.isActive) {
+      if (!smsConfig) {
         skippedCount++;
         continue;
       }
@@ -127,9 +127,9 @@ export async function GET(req: Request) {
         const result = await sendByChannel({
           channel:  ch,
           smsConfig: {
-            key:    smsConfig.aligoKey,
-            userId: smsConfig.aligoUserId,
-            sender: smsConfig.senderPhone,
+            key:    smsConfig.key,
+            userId: smsConfig.userId,
+            sender: smsConfig.sender,
           },
           receiver:       contact.phone,
           email:          contact.email,
