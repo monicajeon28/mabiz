@@ -21,23 +21,23 @@ export default function HeroSection() {
       </div>
 
       {/* Content */}
-      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 lg:py-24">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-10 md:gap-12 lg:gap-16 items-center">
+      <div className="relative z-10 max-w-5xl mx-auto px-3 xs:px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 lg:py-24">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 md:gap-12 lg:gap-16 items-center">
           {/* Text Content */}
-          <div className="space-y-8">
+          <div className="space-y-6 xs:space-y-7 sm:space-y-8">
             {/* Main headline */}
-            <div className="space-y-4">
-              <p className="text-blue-300 text-sm font-semibold uppercase tracking-wider">
+            <div className="space-y-3 xs:space-y-4">
+              <p className="text-blue-300 text-xs xs:text-sm font-semibold uppercase tracking-wider">
                 크루즈 여행의 새로운 기준
               </p>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
+              <h1 className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
                 자유 여행이어도
                 <span className="block text-blue-400">인솔자와 함께</span>
               </h1>
             </div>
 
             {/* Subheading */}
-            <p className="text-xl text-gray-300 leading-relaxed">
+            <p className="text-base xs:text-lg sm:text-lg md:text-xl text-gray-300 leading-relaxed">
               혼자 떠나는 불안함은 이제 그만.
               <br />
               <strong className="text-white">베테랑 인솔자의 세심한 동반</strong>으로
@@ -45,57 +45,57 @@ export default function HeroSection() {
             </p>
 
             {/* Trust indicators */}
-            <div className="pt-4 space-y-3">
-              <div className="flex items-center space-x-3">
-                <span className="text-blue-300">✓</span>
-                <span className="text-gray-300">매일 142명이 신청하는 크루즈닷</span>
+            <div className="pt-2 xs:pt-3 space-y-2 xs:space-y-2.5">
+              <div className="flex items-start xs:items-center space-x-2 xs:space-x-3">
+                <span className="text-blue-300 text-sm xs:text-base flex-shrink-0">✓</span>
+                <span className="text-xs xs:text-sm sm:text-base text-gray-300">매일 142명이 신청하는 크루즈닷</span>
               </div>
-              <div className="flex items-center space-x-3">
-                <span className="text-blue-300">✓</span>
-                <span className="text-gray-300">선사 직결 → 100% 환금 보장</span>
+              <div className="flex items-start xs:items-center space-x-2 xs:space-x-3">
+                <span className="text-blue-300 text-sm xs:text-base flex-shrink-0">✓</span>
+                <span className="text-xs xs:text-sm sm:text-base text-gray-300">선사 직결 → 100% 환금 보장</span>
               </div>
-              <div className="flex items-center space-x-3">
-                <span className="text-blue-300">✓</span>
-                <span className="text-gray-300">고객 만족도 78점, 재구매율 92%</span>
+              <div className="flex items-start xs:items-center space-x-2 xs:space-x-3">
+                <span className="text-blue-300 text-sm xs:text-base flex-shrink-0">✓</span>
+                <span className="text-xs xs:text-sm sm:text-base text-gray-300">고객 만족도 78점, 재구매율 92%</span>
               </div>
             </div>
 
             {/* Primary CTA */}
-            <div className="pt-8 flex flex-col sm:flex-row gap-4">
+            <div className="pt-6 xs:pt-7 flex flex-col xs:flex-row gap-2 xs:gap-3 sm:gap-4">
               <button
                 onClick={handleCTAClick}
-                className="px-8 py-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-lg font-bold text-white transition-all transform hover:scale-105 active:scale-95 shadow-lg"
+                className="px-4 xs:px-6 sm:px-8 py-3 xs:py-4 text-sm xs:text-base bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-lg font-bold text-white transition-all transform hover:scale-105 active:scale-95 shadow-lg"
               >
                 신청만 해도 10-30% 할인
               </button>
               <button
                 onClick={handleCTAClick}
-                className="px-8 py-4 border-2 border-white text-white hover:bg-white/10 rounded-lg font-bold transition-all"
+                className="px-4 xs:px-6 sm:px-8 py-3 xs:py-4 text-sm xs:text-base border-2 border-white text-white hover:bg-white/10 rounded-lg font-bold transition-all"
               >
                 무료 상담받기
               </button>
             </div>
 
             {/* Success metrics */}
-            <div className="pt-6 sm:pt-8 grid grid-cols-3 gap-4 sm:gap-6 border-t border-gray-700">
-              <div className="pt-4 sm:pt-6">
-                <p className="text-2xl sm:text-3xl font-bold text-blue-300">92%</p>
-                <p className="text-xs sm:text-sm text-gray-400 mt-1">재구매율</p>
+            <div className="pt-4 xs:pt-6 sm:pt-8 grid grid-cols-3 gap-2 xs:gap-3 sm:gap-6 border-t border-gray-700">
+              <div className="pt-3 xs:pt-4 sm:pt-6">
+                <p className="text-xl xs:text-2xl sm:text-3xl font-bold text-blue-300">92%</p>
+                <p className="text-xs xs:text-sm text-gray-400 mt-0.5 xs:mt-1">재구매율</p>
               </div>
-              <div className="pt-4 sm:pt-6">
-                <p className="text-2xl sm:text-3xl font-bold text-blue-300">78점</p>
-                <p className="text-xs sm:text-sm text-gray-400 mt-1">고객만족도</p>
+              <div className="pt-3 xs:pt-4 sm:pt-6">
+                <p className="text-xl xs:text-2xl sm:text-3xl font-bold text-blue-300">78점</p>
+                <p className="text-xs xs:text-sm text-gray-400 mt-0.5 xs:mt-1">고객만족도</p>
               </div>
-              <div className="pt-4 sm:pt-6">
-                <p className="text-2xl sm:text-3xl font-bold text-blue-300">5,200+</p>
-                <p className="text-xs sm:text-sm text-gray-400 mt-1">신청자/년</p>
+              <div className="pt-3 xs:pt-4 sm:pt-6">
+                <p className="text-xl xs:text-2xl sm:text-3xl font-bold text-blue-300">5,200+</p>
+                <p className="text-xs xs:text-sm text-gray-400 mt-0.5 xs:mt-1">신청자/년</p>
               </div>
             </div>
           </div>
 
           {/* Visual - Cruise Image/Video */}
-          <div className="relative mt-8 md:mt-0">
-            <div className="relative h-full min-h-72 sm:min-h-80 md:min-h-96 rounded-2xl overflow-hidden shadow-2xl">
+          <div className="relative mt-6 xs:mt-7 sm:mt-8 md:mt-0">
+            <div className="relative h-full min-h-56 xs:min-h-64 sm:min-h-80 md:min-h-96 rounded-2xl overflow-hidden shadow-2xl">
               {/* Placeholder for cruise ship image */}
               <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
                 <div className="text-center">
