@@ -34,14 +34,14 @@ export default async function AdminLayout({ children }: AdminLayoutProps) {
   const ctx = await getMabizSession();
 
   // 세션 없음 → 로그인 페이지로
-  if (!ctx?.organizationId && ctx?.role !== 'GLOBAL_ADMIN') {
-    logger.warn('admin.layout: unauthorized access attempt - no session');
+  if (!ctx) {
+    logger.warn('admin.layout: 세션 없음 → 로그인으로');
     redirect('/sign-in');
   }
 
   // GLOBAL_ADMIN이 아님 → 대시보드로
   if (ctx.role !== 'GLOBAL_ADMIN') {
-    logger.warn(`admin.layout: unauthorized access - role=${ctx.role}, userId=${ctx.userId}`);
+    logger.warn(`admin.layout: 권한 없음 — role=${ctx.role}, userId=${ctx.userId}`);
     redirect('/dashboard');
   }
 

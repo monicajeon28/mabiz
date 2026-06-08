@@ -31,8 +31,8 @@ export async function GET() {
       throw err;
     }
 
-    // 단일 쿼리: LEFT JOIN으로 담당자별 고객 수 + 미배정 카운트
-    const [memberStats, unassignedCount] = await Promise.all([
+    // 단일 쿼리: LEFT JOIN으로 담당자별 고객 수 + 미배정 카운트 + 전체 카운트
+    const [memberStats, unassignedCount, totalCountResult] = await Promise.all([
       prisma.$queryRaw<{ userId: string; displayName: string | null; role: string; count: bigint }[]>(
         Prisma.sql`
           SELECT
@@ -53,6 +53,9 @@ export async function GET() {
       prisma.contact.count({
         where: { organizationId: orgId, deletedAt: null, assignedUserId: null },
       }),
+      prisma.contact.count({
+        where: { organizationId: orgId, deletedAt: null },
+      }),
     ]);
 
     const stats = memberStats.map((row) => ({
@@ -64,7 +67,8 @@ export async function GET() {
 
     const unassigned = unassignedCount;
 
-    const total = stats.reduce((a, b) => a + b.count, 0) + unassigned;
+    // 비활성 멤버에게 배정된 고객도 포함한 실제 전체 수 사용
+    const total = totalCountResult;
 
     logger.log('[GET /api/contacts/assign-stats]', { orgId, total, unassigned });
 

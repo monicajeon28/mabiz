@@ -13,7 +13,7 @@ import { encryptSmtpPassword, sendEmail } from "@/lib/email";
 export async function GET() {
   try {
     const ctx = await getAuthContext();
-    if (!ctx || !ctx.organizationId) {
+    if (!ctx) {
       return NextResponse.json(
         { ok: false, error: "UNAUTHORIZED", message: "인증되지 않음" },
         { status: 401 }
@@ -21,6 +21,11 @@ export async function GET() {
     }
     if (!canManageSettings(ctx)) {
       return NextResponse.json({ ok: false, message: "OWNER 또는 관리자만 이메일 설정을 조회할 수 있습니다." }, { status: 403 });
+    }
+
+    // GLOBAL_ADMIN은 organizationId가 없으므로 빈 설정 반환
+    if (!ctx.organizationId) {
+      return NextResponse.json({ ok: true, config: null });
     }
 
     const config = await prisma.orgEmailConfig.findUnique({
@@ -63,7 +68,7 @@ export async function GET() {
 export async function PUT(req: Request) {
   try {
     const ctx = await getAuthContext();
-    if (!ctx || !ctx.organizationId) {
+    if (!ctx) {
       return NextResponse.json(
         { ok: false, error: "UNAUTHORIZED", message: "인증되지 않음" },
         { status: 401 }
@@ -72,6 +77,10 @@ export async function PUT(req: Request) {
 
     if (!canManageSettings(ctx)) {
       return NextResponse.json({ ok: false, message: 'OWNER 또는 관리자만 이메일 설정을 변경할 수 있습니다.' }, { status: 403 });
+    }
+
+    if (!ctx.organizationId) {
+      return NextResponse.json({ ok: false, message: '조직 정보가 없습니다' }, { status: 400 });
     }
 
     const body = await req.json();
@@ -174,7 +183,7 @@ export async function PUT(req: Request) {
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
-    if (!ctx || !ctx.organizationId) {
+    if (!ctx) {
       return NextResponse.json(
         { ok: false, error: "UNAUTHORIZED", message: "인증되지 않음" },
         { status: 401 }
@@ -183,6 +192,10 @@ export async function POST(req: Request) {
 
     if (!canManageSettings(ctx)) {
       return NextResponse.json({ ok: false, message: 'OWNER 또는 관리자만 이메일 설정을 변경할 수 있습니다.' }, { status: 403 });
+    }
+
+    if (!ctx.organizationId) {
+      return NextResponse.json({ ok: false, message: '조직 정보가 없습니다' }, { status: 400 });
     }
 
     const body = await req.json();
