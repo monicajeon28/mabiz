@@ -1,9 +1,9 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { Copy, Check, ChevronDown, BookOpen, Loader2 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Copy, Check, BookOpen, Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
 import { detectSegment, SEGMENT_PROFILES, SEGMENT_RECOMMENDED_TECHNIQUES } from "@/lib/segment-detector";
 import { CRUISE_PRODUCTS, PRODUCT_CODES } from "@/constants/products";
 import { ERROR_MESSAGES } from "@/lib/error-messages";
@@ -148,17 +148,15 @@ export default function PlaybookViewerPage() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const [items, setItems] = useState<PlaybookItem[]>([]);
-  const [selectedPhase, setSelectedPhase] = useState<number | null>(null);
+  const [selectedPhase, setSelectedPhase] = useState<number | null>(0);
   const [selectedSegment, setSelectedSegment] = useState("ALL");
   const [selectedProductCode, setSelectedProductCode] = useState<ProductCode | "ALL">("ALL");
-  const [selectedItem, setSelectedItem] = useState<PlaybookItem | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [closingSignals, setClosingSignals] = useState<ClosingSignal[]>(CLOSING_SIGNALS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
   const [detectedSegment, setDetectedSegment] = useState<Segment>("A");
   const [selectedPsychologyLens, setSelectedPsychologyLens] = useState<"L6" | "L10" | null>(null);
-  const [showDay03Preview, setShowDay03Preview] = useState(false);
   const [contactLens, setContactLens] = useState<LensType | null>(null);
   const [selectedSituation, setSelectedSituation] = useState<CallSituation | null>(null);
   const [sampleCustomer, setSampleCustomer] = useState({
@@ -174,8 +172,6 @@ export default function PlaybookViewerPage() {
     roomType: "",
   });
 
-  // URL 파라미터로 Contact 정보를 받아 세그먼트 자동 감지
-  // 예: /tools/playbook-viewer?age=42&maritalStatus=MARRIED&childrenCount=2
   useEffect(() => {
     const ageStr = searchParams.get("age") || "0";
     const age = /^\d+$/.test(ageStr) ? parseInt(ageStr, 10) : undefined;
@@ -191,16 +187,21 @@ export default function PlaybookViewerPage() {
       logger.log("[PlaybookViewer] URL 파라미터로 세그먼트 자동 감지", { detected, age, maritalStatus, childrenCount });
     }
 
-    // lens URL 파라미터 감지 (예: ?lens=L6)
     const lensParam = searchParams.get("lens") as LensType | null;
     const validLenses: LensType[] = ["L0","L1","L2","L3","L4","L5","L6","L7","L8","L9","L10"];
     if (lensParam && validLenses.includes(lensParam)) {
       setContactLens(lensParam);
     }
+
+    const phaseParam = searchParams.get("phase");
+    if (phaseParam !== null && /^\d+$/.test(phaseParam)) {
+      setSelectedPhase(parseInt(phaseParam, 10));
+    }
   }, [searchParams]);
 
   useEffect(() => {
     fetchPlaybooks();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPhase, selectedSegment, selectedProductCode]);
 
   const fetchPlaybooks = async () => {
@@ -220,20 +221,9 @@ export default function PlaybookViewerPage() {
       const data = await res.json();
       if (data.ok) {
         setItems((data.items || []) as PlaybookItem[]);
-        // 현재 선택 아이템 유지 (가능한 경우)
-        const isCurrentItemInResults = (data.items || []).some((item: PlaybookItem) => item.id === selectedItem?.id);
-        if (!isCurrentItemInResults && data.items?.length > 0) {
-          setSelectedItem(data.items[0]);
-        } else if (!data.items?.length) {
-          setSelectedItem(null);
-        }
       } else {
         setError(ERROR_MESSAGES.PLAYBOOK_PARSE_ERROR);
-        logger.error("[PlaybookViewer]", {
-          action: "fetch-playbooks",
-          status: "error",
-          error: "API returned error",
-        });
+        logger.error("[PlaybookViewer]", { action: "fetch-playbooks", status: "error", error: "API returned error" });
       }
     } catch (err) {
       logger.error("[PlaybookViewer]", {
@@ -247,7 +237,6 @@ export default function PlaybookViewerPage() {
     }
   };
 
-  // ToolClickTracker: 스크립트 사용(복사) 시 클릭 기록 (fire-and-forget, PII 없음)
   const trackScriptClick = useCallback((scriptId: string) => {
     if (!scriptId) return;
     fetch("/api/tools/click-tracker", {
@@ -255,146 +244,110 @@ export default function PlaybookViewerPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ scriptId, event: "click" }),
       keepalive: true,
-    }).catch(() => {
-      // 추적 실패는 사용자 경험에 영향 없음 (무시)
-    });
+    }).catch(() => {});
   }, []);
 
-  const copy = useCallback((text: string) => {
-    if (selectedItem?.id) trackScriptClick(selectedItem.id);
+  const copy = useCallback((text: string, scriptId?: string) => {
+    if (scriptId) trackScriptClick(scriptId);
     navigator.clipboard.writeText(text)
       .then(() => {
         setCopied(text);
-        toast({
-          title: "복사 완료",
-          description: "스크립트가 클립보드에 복사되었습니다.",
-          variant: "success",
-        });
+        toast({ title: "복사 완료", description: "스크립트가 클립보드에 복사되었습니다.", variant: "success" });
         setTimeout(() => setCopied(null), 2000);
-        logger.log("[PlaybookViewer]", {
-          action: "copy-script",
-          textLength: text.length,
-          status: "success",
-        });
+        logger.log("[PlaybookViewer]", { action: "copy-script", textLength: text.length, status: "success" });
       })
       .catch((err) => {
-        logger.error("[PlaybookViewer]", {
-          action: "copy-script",
-          error: err instanceof Error ? err.message : "Unknown error",
-          status: "failed",
-        });
-        toast({
-          title: "복사 실패",
-          description: "클립보드 접근 권한이 없거나 HTTPS 환경이 아닙니다.",
-          variant: "destructive",
-        });
+        logger.error("[PlaybookViewer]", { action: "copy-script", error: err instanceof Error ? err.message : "Unknown error", status: "failed" });
+        toast({ title: "복사 실패", description: "클립보드 접근 권한이 없거나 HTTPS 환경이 아닙니다.", variant: "destructive" });
       });
-  }, [toast, selectedItem, trackScriptClick]);
+  }, [toast, trackScriptClick]);
 
   const toggleClosingSignal = useCallback((id: string) => {
-    setClosingSignals((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, checked: !s.checked } : s))
-    );
-
-    logger.log("[PlaybookViewer]", {
-      action: "toggle-closing-signal",
-      signalId: id,
-      status: "success",
-    });
+    setClosingSignals((prev) => prev.map((s) => (s.id === id ? { ...s, checked: !s.checked } : s)));
+    logger.log("[PlaybookViewer]", { action: "toggle-closing-signal", signalId: id, status: "success" });
   }, []);
 
-  const closingCount = useMemo(
-    () => closingSignals.filter((s) => s.checked).length,
-    [closingSignals]
-  );
+  const closingCount = useMemo(() => closingSignals.filter((s) => s.checked).length, [closingSignals]);
 
-  /** 렌즈 기반 상황 추천 목록 (contactLens 있을 때 순위 재정렬) */
   const recommendedSituations = useMemo<CallSituation[]>(() => {
     if (contactLens) return suggestCallSituations(contactLens);
-    // 렌즈 없으면 Core 4가지 먼저
     return ["PRICE_OBJECTION", "HEALTH_CONCERN", "REFUND_REQUEST", "COMPLAINT",
             "FOOD_CONSULTATION", "UPSELL", "REBOOKING", "CONTRACT_RENEWAL"] as CallSituation[];
   }, [contactLens]);
 
   const handleSegmentChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedSegment(e.target.value);
-
     const segmentName = e.target.options?.[e.target.selectedIndex]?.text || e.target.value;
-    toast({
-      title: "필터 변경",
-      description: `세그먼트: ${segmentName}로 변경했습니다.`,
-      variant: "default",
-    });
-
-    logger.log("[PlaybookViewer]", {
-      action: "filter-segment",
-      segment: e.target.value,
-      status: "success",
-    });
+    toast({ title: "필터 변경", description: `세그먼트: ${segmentName}로 변경했습니다.`, variant: "default" });
+    logger.log("[PlaybookViewer]", { action: "filter-segment", segment: e.target.value, status: "success" });
   }, [toast]);
 
   const handlePhaseChange = useCallback((phase: number | null) => {
     setSelectedPhase(phase);
-
     const phaseName = phase === null ? "전체 Phase" : `Phase ${phase}`;
-    toast({
-      title: "필터 변경",
-      description: `${phaseName}로 변경했습니다.`,
-      variant: "default",
-    });
-
-    logger.log("[PlaybookViewer]", {
-      action: "filter-phase",
-      phase,
-      status: "success",
-    });
+    toast({ title: "필터 변경", description: `${phaseName}로 변경했습니다.`, variant: "default" });
+    logger.log("[PlaybookViewer]", { action: "filter-phase", phase, status: "success" });
   }, [toast]);
 
   const handleProductChange = useCallback((code: ProductCode | "ALL") => {
     setSelectedProductCode(code);
-
     const productName = code === "ALL" ? "전체 상품" : (CRUISE_PRODUCTS[code]?.name || code);
-    toast({
-      title: "필터 변경",
-      description: `상품: ${productName}로 변경했습니다.`,
-      variant: "default",
-    });
-
-    logger.log("[PlaybookViewer]", {
-      action: "filter-product",
-      product: code,
-      status: "success",
-    });
+    toast({ title: "필터 변경", description: `상품: ${productName}로 변경했습니다.`, variant: "default" });
+    logger.log("[PlaybookViewer]", { action: "filter-product", product: code, status: "success" });
   }, [toast]);
 
   const personalizeContent = useCallback((content: string): string => {
-    let result = content;
-    result = result.replace(/\[이름\]/g, sampleCustomer.name);
-    result = result.replace(/\[전화번호\]/g, sampleCustomer.phone);
-    result = result.replace(/\[담당자\]/g, sampleCustomer.agentName);
-    result = result.replace(/\[상품명\]/g, sampleCustomer.productName);
-    result = result.replace(/\[출발일\]/g, sampleCustomer.departDate);
-    result = result.replace(/\[가격\]/g, sampleCustomer.price);
-    result = result.replace(/\[출발지\]/g, sampleCustomer.departure);
-    result = result.replace(/\[목적지\]/g, sampleCustomer.destination);
-    result = result.replace(/\[일정\]/g, sampleCustomer.duration);
-    result = result.replace(/\[객실유형\]/g, sampleCustomer.roomType);
-    return result;
+    return content
+      .replace(/\[이름\]/g, sampleCustomer.name)
+      .replace(/\[전화번호\]/g, sampleCustomer.phone)
+      .replace(/\[담당자\]/g, sampleCustomer.agentName)
+      .replace(/\[상품명\]/g, sampleCustomer.productName)
+      .replace(/\[출발일\]/g, sampleCustomer.departDate)
+      .replace(/\[가격\]/g, sampleCustomer.price)
+      .replace(/\[출발지\]/g, sampleCustomer.departure)
+      .replace(/\[목적지\]/g, sampleCustomer.destination)
+      .replace(/\[일정\]/g, sampleCustomer.duration)
+      .replace(/\[객실유형\]/g, sampleCustomer.roomType);
   }, [sampleCustomer]);
 
-  // Phase 버튼들
   const phases = Array.from({ length: 10 }, (_, i) => i);
 
-  // 고객세그먼트별 필터링
   const filteredItems = selectedPhase !== null
     ? items.filter((i) => i.sectionOrder === selectedPhase)
     : items;
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-4xl mx-auto">
+
+        {/* 헤더 */}
+        <div className="bg-white rounded-xl shadow-sm p-5 mb-5">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <BookOpen className="w-7 h-7 text-navy-900 flex-shrink-0" />
+              <div>
+                <h1 className="text-xl md:text-2xl font-bold text-navy-900 leading-tight">크루즈닷 콜 플레이북 v1.0</h1>
+                <p className="text-sm text-gray-600 mt-0.5">신민형 5단계 통합 스크립트 라이브러리</p>
+              </div>
+            </div>
+            <div className="relative w-full sm:w-auto">
+              <label htmlFor="segment-select" className="block text-sm font-medium text-gray-700 mb-1">세그먼트</label>
+              <select
+                id="segment-select"
+                value={selectedSegment}
+                onChange={handleSegmentChange}
+                className="w-full appearance-none bg-white border-2 border-gray-300 rounded-lg px-4 py-2 pr-8 text-sm font-medium text-gray-900 hover:border-navy-900 focus:outline-none focus:border-navy-900"
+              >
+                {CUSTOMER_SEGMENTS.map((seg) => (
+                  <option key={seg.key} value={seg.key}>{seg.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
         {/* 세그먼트 감지 박스 */}
-        <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+        <div className="mb-5 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-semibold text-gray-900">
@@ -406,30 +359,81 @@ export default function PlaybookViewerPage() {
           </div>
           <div className="mt-3 flex gap-2 flex-wrap">
             {SEGMENT_RECOMMENDED_TECHNIQUES[detectedSegment].map((tech) => (
-              <span key={tech} className="inline-block px-2 py-1 bg-indigo-100 text-indigo-700 text-sm rounded font-medium">
-                {tech}
-              </span>
+              <span key={tech} className="inline-block px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded font-medium">{tech}</span>
             ))}
           </div>
         </div>
 
-        {/* 8가지 상황별 추천 패널 */}
-        <div className="mb-6 bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+        {/* Phase 필터 */}
+        <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <label className="text-sm font-semibold text-gray-700">Phase:</label>
+            <button
+              onClick={() => handlePhaseChange(null)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 ${
+                selectedPhase === null ? "bg-navy-900 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              전체
+            </button>
+            {phases.map((p) => (
+              <button
+                key={p}
+                onClick={() => handlePhaseChange(p)}
+                className={`w-10 h-10 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-offset-1 ${
+                  selectedPhase === p ? "bg-navy-900 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 상품 필터 */}
+        <div className="bg-white rounded-xl shadow-sm p-4 mb-5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <label className="text-sm font-semibold text-gray-700">상품:</label>
+            <button
+              onClick={() => handleProductChange("ALL")}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                selectedProductCode === "ALL" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              전체
+            </button>
+            {PRODUCT_CODES.map((code) => {
+              const product = CRUISE_PRODUCTS[code as ProductCode];
+              return product ? (
+                <button
+                  key={code}
+                  onClick={() => handleProductChange(code as ProductCode)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 ${
+                    selectedProductCode === code ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  <span>{product.emoji}</span>
+                  {product.name}
+                </button>
+              ) : null;
+            })}
+          </div>
+        </div>
+
+        {/* 상황별 오프닝 패널 */}
+        <div className="mb-5 bg-white rounded-xl shadow-sm p-4 border border-gray-100">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-bold text-gray-900">
+            <h2 className="text-sm font-bold text-gray-900">
               📌 상황별 오프닝 라인
               {contactLens && (
-                <span className="ml-2 px-2 py-0.5 text-sm bg-indigo-100 text-indigo-700 rounded font-semibold">
-                  {contactLens} 추천순
-                </span>
+                <span className="ml-2 px-2 py-0.5 text-xs bg-indigo-100 text-indigo-700 rounded font-semibold">{contactLens} 추천순</span>
               )}
             </h2>
-            {/* 렌즈 빠른 선택 */}
             <select
               value={contactLens ?? ""}
               onChange={(e) => setContactLens((e.target.value as LensType) || null)}
               aria-label="렌즈 선택"
-              className="text-sm border border-gray-300 rounded px-2 py-1 bg-white text-gray-700 focus:outline-none focus:border-indigo-500"
+              className="text-xs border border-gray-300 rounded px-2 py-1 bg-white text-gray-700 focus:outline-none focus:border-indigo-500"
             >
               <option value="">렌즈 선택 안 함</option>
               {(["L0","L1","L2","L3","L4","L5","L6","L7","L8","L9","L10"] as LensType[]).map((l) => (
@@ -446,34 +450,29 @@ export default function PlaybookViewerPage() {
                 <button
                   key={situation}
                   onClick={() => setSelectedSituation(isSelected ? null : situation)}
-                  className={`text-left p-3 rounded-lg border-2 transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-400 ${
-                    isSelected
-                      ? "border-indigo-500 bg-indigo-50"
-                      : "border-gray-200 hover:border-indigo-300 hover:bg-gray-50"
+                  className={`text-left p-2 rounded-lg border-2 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
+                    isSelected ? "border-indigo-500 bg-indigo-50" : "border-gray-200 hover:border-indigo-300"
                   }`}
                 >
                   <div className="flex items-center gap-1 mb-1">
-                    <span className="text-lg">{script.emoji}</span>
-                    <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
-                      script.tier === "CORE"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-green-100 text-green-700"
+                    <span className="text-base">{script.emoji}</span>
+                    <span className={`text-xs font-semibold px-1 py-0.5 rounded ${
+                      script.tier === "CORE" ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
                     }`}>
                       {script.tier === "CORE" ? "필수" : "성장"}
                     </span>
                   </div>
-                  <p className="text-sm font-semibold text-gray-800 mb-1">{getSituationLabel(situation)}</p>
+                  <p className="text-xs font-semibold text-gray-800 mb-0.5">{getSituationLabel(situation)}</p>
                   <p className="text-xs text-gray-500 line-clamp-2">{script.openingLines[0].text}</p>
                 </button>
               );
             })}
           </div>
 
-          {/* 선택된 상황 상세 오프닝 라인 */}
           {selectedSituation && (
             <div className="mt-4 p-4 bg-indigo-50 rounded-lg border border-indigo-200 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-indigo-900">
+                <h3 className="font-bold text-indigo-900 text-sm">
                   {CALL_SITUATIONS[selectedSituation].emoji} {getSituationLabel(selectedSituation)} — 오프닝 3가지
                 </h3>
                 <span className="text-xs text-indigo-600 font-medium">
@@ -485,9 +484,7 @@ export default function PlaybookViewerPage() {
                   <div key={idx} className="bg-white rounded-lg p-3 border border-indigo-100">
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <span className="text-sm font-bold text-gray-800">{idx + 1}. {line.text}</span>
-                      <span className="flex-shrink-0 text-xs px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded font-medium">
-                        {line.lensLabel}
-                      </span>
+                      <span className="flex-shrink-0 text-xs px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded font-medium">{line.lensLabel}</span>
                     </div>
                     <p className="text-xs text-gray-500 italic">{line.rationale}</p>
                   </div>
@@ -501,552 +498,249 @@ export default function PlaybookViewerPage() {
           )}
         </div>
 
-        {/* 헤더 */}
-        <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
-              <BookOpen className="w-8 h-8 text-navy-900 flex-shrink-0" />
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-navy-900 leading-tight">크루즈닷 콜 플레이북 v1.0</h1>
-                <p className="text-base text-gray-600 mt-1">신민형 5단계 통합 스크립트 라이브러리</p>
-              </div>
+        {/* 유틸리티 패널: 클로징 신호 + 심리학 렌즈 + Day 0-3 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          {/* 클로징 신호 */}
+          <div className="bg-white rounded-xl shadow-sm p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-gray-900 text-sm">클로징 신호 7종</h3>
+              <span className={`inline-block px-2 py-1 text-xs font-bold rounded-full ${
+                closingCount >= 3 ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700"
+              }`}>
+                {closingCount}/7
+              </span>
             </div>
-
-            {/* 고객세그먼트 드롭다운 */}
-            <div className="relative w-full sm:w-auto">
-              <label htmlFor="segment-select" className="block text-sm font-medium text-gray-700 mb-1">
-                세그먼트
-              </label>
-              <select
-                id="segment-select"
-                value={selectedSegment}
-                onChange={handleSegmentChange}
-                className="w-full appearance-none bg-white border-2 border-gray-300 rounded-lg px-4 py-2 pr-10 text-base font-medium text-gray-900 hover:border-navy-900 focus:outline-none focus:border-navy-900 focus:ring-2 focus:ring-navy-900 focus:ring-offset-2"
-              >
-                {CUSTOMER_SEGMENTS.map((seg) => (
-                  <option key={seg.key} value={seg.key}>
-                    {seg.label}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600 pointer-events-none" />
+            <div className="space-y-1.5">
+              {closingSignals.map((signal) => (
+                <div key={signal.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                  <input
+                    id={`signal-${signal.id}`}
+                    type="checkbox"
+                    checked={signal.checked}
+                    onChange={() => toggleClosingSignal(signal.id)}
+                    className="w-4 h-4 rounded text-green-600 cursor-pointer flex-shrink-0"
+                  />
+                  <label htmlFor={`signal-${signal.id}`} className="text-xs text-gray-700 flex-1 cursor-pointer">{signal.text}</label>
+                </div>
+              ))}
             </div>
+            {closingCount >= 3 && (
+              <p className="mt-2 text-xs font-semibold text-green-700 text-center">✅ 지금이 클로징 타이밍!</p>
+            )}
           </div>
-        </div>
 
-        {/* Phase 필터 */}
-        <motion.div
-          className="bg-white rounded-xl shadow-sm p-4 mb-6"
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          <div className="flex items-center gap-2 flex-wrap">
-            <label className="text-base font-semibold text-gray-700">Phase:</label>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => handlePhaseChange(null)}
-              className={`px-3 py-2 rounded-lg text-base font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                selectedPhase === null
-                  ? "bg-navy-900 text-white focus:ring-navy-900"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 focus:ring-gray-400"
-              }`}
-            >
-              ALL
-            </motion.button>
-            {phases.map((p) => (
-              <motion.button
-                key={p}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => handlePhaseChange(p)}
-                className={`w-12 h-12 rounded-lg text-base font-semibold transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                  selectedPhase === p
-                    ? "bg-navy-900 text-white focus:ring-navy-900"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 focus:ring-gray-400"
+          {/* 심리학 렌즈 */}
+          <div className="bg-white rounded-xl shadow-sm p-4">
+            <h3 className="font-bold text-gray-900 text-sm mb-3">🎯 심리학 렌즈</h3>
+            <div className="space-y-2 mb-3">
+              <button
+                onClick={() => setSelectedPsychologyLens(selectedPsychologyLens === "L6" ? null : "L6")}
+                className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  selectedPsychologyLens === "L6" ? "bg-orange-500 text-white" : "bg-orange-100 text-orange-800 hover:bg-orange-200"
                 }`}
               >
-                {p}
-              </motion.button>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* 상품 필터 */}
-        <motion.div
-          className="bg-white rounded-xl shadow-sm p-4 mb-6"
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-        >
-          <div className="flex items-center gap-2 flex-wrap">
-            <label className="text-base font-semibold text-gray-700">상품:</label>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => handleProductChange("ALL")}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                selectedProductCode === "ALL"
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              전체 상품
-            </motion.button>
-            {PRODUCT_CODES.map((code) => {
-              const product = CRUISE_PRODUCTS[code as ProductCode];
-              return product ? (
-                <motion.button
-                  key={code}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => handleProductChange(code as ProductCode)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                    selectedProductCode === code
-                      ? "bg-blue-500 text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  <span>{product.emoji}</span>
-                  {product.name}
-                </motion.button>
-              ) : null;
-            })}
-          </div>
-        </motion.div>
-
-        {/* 메인 레이아웃 */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* 좌측: 스크립트 카드 목록 */}
-          <div className="lg:col-span-2 space-y-3">
-            {loading && (
-              <div className="flex items-center justify-center h-64">
-                <Loader2 className="w-6 h-6 animate-spin text-navy-900 mr-3" />
-                <span className="text-gray-600 font-medium">스크립트 로드 중...</span>
+                ⏰ L6 손실회피/타이밍
+              </button>
+              <button
+                onClick={() => setSelectedPsychologyLens(selectedPsychologyLens === "L10" ? null : "L10")}
+                className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  selectedPsychologyLens === "L10" ? "bg-red-500 text-white" : "bg-red-100 text-red-800 hover:bg-red-200"
+                }`}
+              >
+                ⚡ L10 즉시구매 클로징
+              </button>
+            </div>
+            {selectedPsychologyLens === "L6" && (
+              <div className="p-2 bg-orange-50 border-l-4 border-orange-500 rounded text-xs text-orange-700 space-y-1">
+                {L6_LOSS_AVERSION_TECHNIQUES.map((tech, i) => <p key={i}>{tech}</p>)}
               </div>
             )}
-
-            {error && (
-              <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
-                <p className="text-sm text-red-800">
-                  <span className="font-semibold">⚠️ 오류:</span> {error}
-                </p>
+            {selectedPsychologyLens === "L10" && (
+              <div className="p-2 bg-red-50 border-l-4 border-red-500 rounded text-xs text-red-700 space-y-1">
+                {L10_IMMEDIATE_CLOSING_TECHNIQUES.map((tech, i) => <p key={i}>{tech}</p>)}
               </div>
             )}
-
-            {!loading && !error && filteredItems.length === 0 && (
-              <div className="text-center p-8">
-                <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                <p className="text-gray-500">검색 결과가 없습니다.</p>
-                <p className="text-sm text-gray-600 mt-1">다른 필터를 시도해주세요.</p>
-              </div>
-            )}
-
-            {!loading && !error && filteredItems.length > 0 && (
-              filteredItems.map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => setSelectedItem(item)}
-                  className={`bg-white rounded-xl border-2 p-4 cursor-pointer transition-all ${
-                    selectedItem?.id === item.id
-                      ? "border-navy-900 shadow-md"
-                      : "border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  <div className="flex items-start gap-3 justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-2">
-                        <span className="inline-block px-3 py-1.5 bg-navy-900 text-white text-base font-semibold rounded">
-                          Phase {item.sectionOrder}
-                        </span>
-                        <span className="inline-block px-3 py-1.5 bg-gray-200 text-gray-700 text-base rounded font-medium">
-                          {item.type}
-                        </span>
-                        {item.productCode !== "ALL" && (
-                          <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-sm rounded">
-                            {item.productCode}
-                          </span>
-                        )}
-                        {item.pasonaStage && PASONA_STAGE_BADGES[item.pasonaStage] && (
-                          <span className={`inline-block px-2 py-1 text-sm rounded font-medium ${PASONA_STAGE_BADGES[item.pasonaStage].color}`}>
-                            {PASONA_STAGE_BADGES[item.pasonaStage].icon} {PASONA_STAGE_BADGES[item.pasonaStage].label}
-                          </span>
-                        )}
-                        {item.effectivenessScore && (
-                          <span className="inline-block px-2 py-1 rounded text-sm font-medium bg-purple-100 text-purple-800">
-                            효과도 {item.effectivenessScore}%
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="font-semibold text-gray-900 text-base mb-2 leading-tight">{item.title}</h3>
-                      <p className="text-base text-gray-600 line-clamp-2 leading-relaxed">{item.content}</p>
-                    </div>
-                  </div>
-                </div>
-              ))
+            {!selectedPsychologyLens && (
+              <p className="text-xs text-gray-400 text-center">렌즈를 선택하면 기법이 표시됩니다</p>
             )}
           </div>
 
-          {/* 우측: 고정 패널 */}
-          <div className="lg:col-span-1 space-y-4">
-            {/* 상세 정보 패널 */}
-            {selectedItem ? (
-              <div className="bg-white rounded-xl shadow-sm p-5 sticky top-6 max-h-[calc(100vh-120px)] overflow-y-auto space-y-5">
-                <div>
-                  <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-3 leading-tight">{selectedItem.title}</h2>
-                  {/* Voice Playback */}
-                  <VoicePlayback text={selectedItem.content} scriptId={selectedItem.id} title="스크립트 음성 재생" />
-                </div>
-
-                {/* Script */}
-                <div>
-                  <h3 className="text-base font-semibold text-gray-700 uppercase mb-3 tracking-wide">상담사 멘트</h3>
-                  <div className="bg-gray-50 rounded-lg p-4 mb-3 border border-gray-200">
-                    <p className="text-base text-gray-800 whitespace-pre-wrap leading-relaxed">
-                      {selectedItem.content}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => copy(selectedItem.content)}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-navy-900 text-white rounded-lg text-sm font-medium hover:bg-navy-800 transition-colors"
-                  >
-                    {copied === selectedItem.content ? (
-                      <>
-                        <Check className="w-4 h-4" /> 복사됨
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4" /> 클립보드 복사
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {/* PASONA 단계 배지 */}
-                {selectedItem?.pasonaStage && PASONA_STAGE_BADGES[selectedItem.pasonaStage] && (
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-700 uppercase mb-3 tracking-wide">모니카 멘트 단계</h3>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`inline-block px-3 py-1.5 rounded-lg text-sm font-semibold ${PASONA_STAGE_BADGES[selectedItem.pasonaStage].color}`}>
-                        {PASONA_STAGE_BADGES[selectedItem.pasonaStage].icon} {PASONA_STAGE_BADGES[selectedItem.pasonaStage].label}
-                      </span>
-                      {selectedItem.effectivenessScore && (
-                        <span className="inline-block px-3 py-1.5 rounded-lg text-sm font-semibold bg-purple-100 text-purple-800">
-                          효과도 {selectedItem.effectivenessScore}%
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* 신민형 5단계 배지 */}
-                {selectedItem?.shinminStep && SHINMIN_STEPS[selectedItem.shinminStep] && (
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-700 uppercase mb-3 tracking-wide">신민형 5단계</h3>
-                    <span className={`inline-block px-3 py-1.5 rounded-lg text-sm font-semibold ${SHINMIN_STEPS[selectedItem.shinminStep].color}`}>
-                      {SHINMIN_STEPS[selectedItem.shinminStep].emoji} {SHINMIN_STEPS[selectedItem.shinminStep].label}
-                    </span>
-                  </div>
-                )}
-
-                {/* 모니카 욕망 증폭 레벨 */}
-                {selectedItem?.type === "AMPLIFY" && selectedItem?.monikaAmplifyLevel && MONIKA_AMPLIFY_LEVELS[selectedItem.monikaAmplifyLevel] && (
-                  <div className="bg-purple-50 border-l-4 border-purple-500 rounded p-4">
-                    <p className="text-base font-semibold text-purple-900 uppercase mb-2">모니카 욕망 증폭</p>
-                    <p className="text-base font-bold text-purple-900">
-                      레벨 {selectedItem.monikaAmplifyLevel}: {MONIKA_AMPLIFY_LEVELS[selectedItem.monikaAmplifyLevel]}
-                    </p>
-                    <ul className="text-base text-purple-700 mt-3 list-disc list-inside space-y-1">
-                      {selectedItem.monikaAmplifyLevel === "1" && (
-                        <>
-                          <li>호기심 유발로 고객의 관심 끌기</li>
-                          <li>"이것도 포함되나요?" 형식의 질문</li>
-                        </>
-                      )}
-                      {selectedItem.monikaAmplifyLevel === "2" && (
-                        <>
-                          <li>사회적 증거로 필요성 공감</li>
-                          <li>"다른 분들도..." 멘트 활용</li>
-                        </>
-                      )}
-                      {selectedItem.monikaAmplifyLevel === "3" && (
-                        <>
-                          <li>5감각 앵커링으로 감정 증폭</li>
-                          <li>럭셔리/가족 이미지 자극</li>
-                        </>
-                      )}
-                      {selectedItem.monikaAmplifyLevel === "4" && (
-                        <>
-                          <li>희소성으로 행동 유도</li>
-                          <li>"지금 신청하면..." 클로징</li>
-                        </>
-                      )}
-                    </ul>
-                  </div>
-                )}
-
-                {/* 심리학 배지 */}
-                {selectedItem?.psychology && PSYCHOLOGY_BADGES[selectedItem.psychology] && (
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-700 uppercase mb-3 tracking-wide">심리학 이론</h3>
-                    <div className={`inline-block px-3 py-2 rounded-lg text-base font-medium ${PSYCHOLOGY_BADGES[selectedItem.psychology].bg} ${PSYCHOLOGY_BADGES[selectedItem.psychology].text}`}>
-                      {PSYCHOLOGY_BADGES[selectedItem.psychology].label}
-                    </div>
-                    <p className="text-base text-gray-600 mt-2">{PSYCHOLOGY_BADGES[selectedItem.psychology].desc}</p>
-                  </div>
-                )}
-
-                {/* Loop 3: Psychology Lens 선택 */}
-                <div>
-                  <h3 className="text-base font-semibold text-gray-700 uppercase mb-3 tracking-wide">🎯 심리학 렌즈 적용</h3>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => setSelectedPsychologyLens(selectedPsychologyLens === "L6" ? null : "L6")}
-                      className={`flex-1 px-3 py-2 rounded-lg text-base font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                        selectedPsychologyLens === "L6"
-                          ? "bg-orange-500 text-white focus:ring-orange-500"
-                          : "bg-orange-100 text-orange-800 hover:bg-orange-200 focus:ring-orange-300"
-                      }`}
-                    >
-                      ⏰ L6 (손실회피/타이밍)
-                    </button>
-                    <button
-                      onClick={() => setSelectedPsychologyLens(selectedPsychologyLens === "L10" ? null : "L10")}
-                      className={`flex-1 px-3 py-2 rounded-lg text-base font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                        selectedPsychologyLens === "L10"
-                          ? "bg-red-500 text-white focus:ring-red-500"
-                          : "bg-red-100 text-red-800 hover:bg-red-200 focus:ring-red-300"
-                      }`}
-                    >
-                      ⚡ L10 (즉시구매)
-                    </button>
-                  </div>
-                </div>
-
-                {/* L6 손실회피/타이밍 기법 */}
-                {selectedPsychologyLens === "L6" && (
-                  <div className="p-4 bg-orange-50 border-l-4 border-orange-500 rounded">
-                    <h3 className="text-base font-semibold text-orange-900 uppercase mb-3 tracking-wide">⏰ L6: 손실회피 + 타이밍</h3>
-                    <p className="text-base text-orange-700 mb-3">고객이 지금 바로 결정해야 하는 심리적 이유를 강조합니다.</p>
-                    <ul className="text-base text-orange-700 space-y-1.5">
-                      {L6_LOSS_AVERSION_TECHNIQUES.map((tech, idx) => (
-                        <li key={idx} className="list-none">{tech}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* L10 즉시구매 클로징 기법 */}
-                {selectedPsychologyLens === "L10" && (
-                  <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded">
-                    <h3 className="text-base font-semibold text-red-900 uppercase mb-3 tracking-wide">⚡ L10: 즉시구매 클로징</h3>
-                    <p className="text-base text-red-700 mb-3">구매 결정을 최대한 간편하게 만드는 강력한 클로징 기법입니다.</p>
-                    <ul className="text-base text-red-700 space-y-1.5">
-                      {L10_IMMEDIATE_CLOSING_TECHNIQUES.map((tech, idx) => (
-                        <li key={idx} className="list-none">{tech}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* PASONA 프레임워크 설명 */}
-                <div className="p-4 bg-indigo-50 border-l-4 border-indigo-500 rounded">
-                  <h3 className="text-base font-semibold text-indigo-900 uppercase mb-3 tracking-wide">📊 모니카 멘트 (고객 마음 여는 6단계)</h3>
-                  <div className="space-y-2 text-base text-indigo-700 leading-relaxed">
-                    <p><span className="font-semibold">①</span> 문제 짚기: 고객의 고민을 먼저 알아주기 → <span className="font-semibold">②</span> 마음 흔들기: 그 고민이 왜 중요한지 강조</p>
-                    <p><span className="font-semibold">③</span> 해결책 보여주기: 우리 상품으로 풀어드리기 → <span className="font-semibold">④</span> 구체적 제안: 가격·혜택 명확히</p>
-                    <p><span className="font-semibold">⑤</span> 선택 좁히기: 결정하기 쉽게 정리 → <span className="font-semibold">⑥</span> 행동 권하기: 지금 바로 결정하도록</p>
-                  </div>
-                </div>
-
-                {/* Day 0-3 PASONA 일정 */}
-                <div>
-                  <h3 className="text-base font-semibold text-gray-700 uppercase mb-3 tracking-wide">📅 Day 0-3 모니카 멘트 일정</h3>
-                  <div className="space-y-2">
-                    {DAY_0_3_SCHEDULE.map((day) => (
-                      <div key={day.day} className={`p-2 rounded-lg border border-gray-200 ${day.color}`}>
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-2xl">{day.icon}</span>
-                            <div>
-                              <p className="text-base font-semibold text-gray-900">{day.label}: {day.stage}</p>
-                              <p className="text-sm text-gray-600">{day.time}</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <button
-                    onClick={() => setShowDay03Preview(!showDay03Preview)}
-                    className="w-full mt-3 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm font-medium rounded-lg transition-colors"
-                  >
-                    {showDay03Preview ? "미리보기 닫기" : "🔍 동적 내용 미리보기"}
-                  </button>
-                </div>
-
-                {/* Day 0-3 동적 미리보기 */}
-                {showDay03Preview && selectedItem && (
-                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 space-y-4">
-                    <h3 className="text-base font-semibold text-blue-900 uppercase tracking-wide">📝 개인화된 메시지 미리보기</h3>
-
-                    {/* 샘플 고객 정보 편집 */}
-                    <div className="space-y-3">
-                      <p className="text-base font-medium text-gray-700">샘플 고객 정보 (미리보기용)</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="text"
-                          value={sampleCustomer.name}
-                          onChange={(e) => setSampleCustomer({ ...sampleCustomer, name: e.target.value })}
-                          placeholder="고객 이름"
-                          className="col-span-2 px-2 py-1 text-sm border rounded bg-white"
-                        />
-                        <input
-                          type="text"
-                          value={sampleCustomer.productName}
-                          onChange={(e) => setSampleCustomer({ ...sampleCustomer, productName: e.target.value })}
-                          placeholder="상품명"
-                          className="col-span-2 px-2 py-1 text-sm border rounded bg-white"
-                        />
-                        <input
-                          type="text"
-                          value={sampleCustomer.price}
-                          onChange={(e) => setSampleCustomer({ ...sampleCustomer, price: e.target.value })}
-                          placeholder="가격"
-                          className="px-2 py-1 text-sm border rounded bg-white"
-                        />
-                        <input
-                          type="text"
-                          value={sampleCustomer.departDate}
-                          onChange={(e) => setSampleCustomer({ ...sampleCustomer, departDate: e.target.value })}
-                          placeholder="출발일"
-                          className="px-2 py-1 text-sm border rounded bg-white"
-                        />
-                      </div>
-                    </div>
-
-                    {/* 개인화된 메시지 */}
-                    <div className="bg-white rounded p-3 border border-blue-200">
-                      <p className="text-base text-gray-700 whitespace-pre-wrap leading-relaxed">
-                        {personalizeContent(selectedItem.content)}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(personalizeContent(selectedItem.content))
-                          .then(() => {
-                            toast({
-                              title: "복사 완료",
-                              description: "개인화된 메시지가 클립보드에 복사되었습니다.",
-                              variant: "success",
-                            });
-                          })
-                          .catch((err) => {
-                            logger.error("[PlaybookViewer]", {
-                              action: "copy-personalized-content",
-                              error: err instanceof Error ? err.message : "Unknown error",
-                            });
-                            toast({
-                              title: "복사 실패",
-                              description: "클립보드 접근 권한이 없거나 HTTPS 환경이 아닙니다.",
-                              variant: "destructive",
-                            });
-                          });
-                      }}
-                      className="w-full px-2 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded transition-colors"
-                    >
-                      복사 (개인화됨)
-                    </button>
-
-                    {/* 사용된 변수 목록 */}
+          {/* Day 0-3 일정 */}
+          <div className="bg-white rounded-xl shadow-sm p-4">
+            <h3 className="font-bold text-gray-900 text-sm mb-3">📅 Day 0-3 문자 일정</h3>
+            <div className="space-y-2">
+              {DAY_0_3_SCHEDULE.map((day) => (
+                <div key={day.day} className={`p-2 rounded-lg border border-gray-200 ${day.color}`}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">{day.icon}</span>
                     <div>
-                      <p className="text-base font-medium text-gray-700 mb-2">사용 가능한 변수:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {PERSONALIZATION_VARS.map((var_) => (
-                          <span
-                            key={var_.key}
-                            className="px-2 py-1 bg-gray-200 text-gray-700 text-sm rounded font-mono"
-                            title={var_.label}
-                          >
-                            {var_.key}
-                          </span>
-                        ))}
-                      </div>
+                      <p className="text-xs font-semibold text-gray-900">{day.label}: {day.stage}</p>
+                      <p className="text-xs text-gray-500">{day.time}</p>
                     </div>
                   </div>
-                )}
-
-                {/* Type Badge */}
-                <div>
-                  <h3 className="text-base font-semibold text-gray-700 uppercase mb-3 tracking-wide">스크립트 유형</h3>
-                  <span className="inline-block px-4 py-2 bg-blue-100 text-blue-800 text-base rounded-full font-medium">
-                    {selectedItem.type}
-                  </span>
                 </div>
-
-                {/* Customer Segment Badge */}
-                <div>
-                  <h3 className="text-base font-semibold text-gray-700 uppercase mb-3 tracking-wide">고객 세그먼트</h3>
-                  <span className="inline-block px-4 py-2 bg-purple-100 text-purple-800 text-base rounded-full font-medium">
-                    {selectedItem.productCode === "ALL" ? "모든 고객" : selectedItem.productCode}
-                  </span>
-                </div>
-
-                {/* Phase */}
-                <div>
-                  <h3 className="text-base font-semibold text-gray-700 uppercase mb-3 tracking-wide">Phase</h3>
-                  <span className="inline-block px-4 py-2 bg-navy-900 text-white text-base rounded-full font-medium">
-                    Phase {selectedItem.sectionOrder}
-                  </span>
-                </div>
-
-                {/* ScriptNotes 추가 */}
-                <ScriptNotes scriptId={selectedItem.id} />
-
-                {/* 데이터 소스 */}
-                {selectedItem?.source && (
-                  <div className="text-base text-gray-600 bg-gray-50 rounded p-3 border border-gray-200">
-                    출처: <span className="font-medium text-gray-700">{selectedItem.source}</span>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="bg-white rounded-xl shadow-sm p-5 sticky top-6">
-                <p className="text-center text-gray-600 py-8">스크립트를 선택해주세요</p>
-              </div>
-            )}
-
-            {/* 클로징 신호 위젯 */}
-            <div className="bg-white rounded-xl shadow-sm p-5 sticky top-0">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-gray-900 text-lg">클로징 신호 7종</h3>
-                <span className="inline-block px-3 py-1.5 bg-green-100 text-green-800 text-base font-bold rounded-full">
-                  {closingCount}/7
-                </span>
-              </div>
-              <div className="space-y-2">
-                {closingSignals.map((signal) => (
-                  <div key={signal.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <input
-                      id={`signal-${signal.id}`}
-                      type="checkbox"
-                      checked={signal.checked}
-                      onChange={() => toggleClosingSignal(signal.id)}
-                      className="w-5 h-5 rounded text-green-600 cursor-pointer flex-shrink-0"
-                    />
-                    <label
-                      htmlFor={`signal-${signal.id}`}
-                      className="text-base text-gray-700 flex-1 cursor-pointer"
-                    >
-                      {signal.text}
-                    </label>
-                  </div>
-                ))}
-              </div>
+              ))}
             </div>
           </div>
         </div>
+
+        {/* 개인화 미리채우기 */}
+        <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+          <h3 className="text-sm font-bold text-gray-900 mb-3">✏️ 고객 정보 미리 채우기 (선택사항 — 스크립트 [변수] 자동 치환)</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-2">
+            <input type="text" value={sampleCustomer.name} onChange={(e) => setSampleCustomer({ ...sampleCustomer, name: e.target.value })} placeholder="이름" className="px-2 py-1.5 text-xs border rounded bg-white focus:outline-none focus:border-indigo-400" />
+            <input type="text" value={sampleCustomer.productName} onChange={(e) => setSampleCustomer({ ...sampleCustomer, productName: e.target.value })} placeholder="상품명" className="px-2 py-1.5 text-xs border rounded bg-white focus:outline-none focus:border-indigo-400" />
+            <input type="text" value={sampleCustomer.price} onChange={(e) => setSampleCustomer({ ...sampleCustomer, price: e.target.value })} placeholder="가격(만원)" className="px-2 py-1.5 text-xs border rounded bg-white focus:outline-none focus:border-indigo-400" />
+            <input type="text" value={sampleCustomer.departDate} onChange={(e) => setSampleCustomer({ ...sampleCustomer, departDate: e.target.value })} placeholder="출발일" className="px-2 py-1.5 text-xs border rounded bg-white focus:outline-none focus:border-indigo-400" />
+            <input type="text" value={sampleCustomer.agentName} onChange={(e) => setSampleCustomer({ ...sampleCustomer, agentName: e.target.value })} placeholder="담당자명" className="px-2 py-1.5 text-xs border rounded bg-white focus:outline-none focus:border-indigo-400" />
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {PERSONALIZATION_VARS.map((v) => (
+              <span key={v.key} className="px-1.5 py-0.5 bg-gray-100 text-gray-500 text-xs rounded font-mono" title={v.label}>{v.key}</span>
+            ))}
+          </div>
+        </div>
+
+        {/* 스크립트 카드 목록 — 전체 펼쳐짐 */}
+        <div className="space-y-4">
+          {loading && (
+            <div className="flex items-center justify-center h-48 bg-white rounded-xl">
+              <Loader2 className="w-5 h-5 animate-spin text-navy-900 mr-2" />
+              <span className="text-gray-600 text-sm font-medium">스크립트 로드 중...</span>
+            </div>
+          )}
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-sm text-red-800"><span className="font-semibold">⚠️ 오류:</span> {error}</p>
+            </div>
+          )}
+
+          {!loading && !error && filteredItems.length === 0 && (
+            <div className="text-center p-8 bg-white rounded-xl">
+              <BookOpen className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+              <p className="text-gray-500 text-sm">검색 결과가 없습니다.</p>
+              <p className="text-xs text-gray-400 mt-1">다른 필터를 시도해주세요.</p>
+            </div>
+          )}
+
+          {!loading && !error && filteredItems.length > 0 &&
+            filteredItems.map((item, index) => (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2, delay: index * 0.03 }}
+                className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"
+              >
+                {/* 카드 헤더 — 배지 모음 */}
+                <div className="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2 flex-wrap">
+                  <span className="inline-block px-2.5 py-1 bg-navy-900 text-white text-xs font-semibold rounded">
+                    Phase {item.sectionOrder}
+                  </span>
+                  <span className="inline-block px-2.5 py-1 bg-gray-200 text-gray-700 text-xs rounded font-medium">
+                    {item.type}
+                  </span>
+                  {item.productCode !== "ALL" && (
+                    <span className="inline-block px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">{item.productCode}</span>
+                  )}
+                  {item.pasonaStage && PASONA_STAGE_BADGES[item.pasonaStage] && (
+                    <span className={`inline-block px-2 py-0.5 text-xs rounded font-medium ${PASONA_STAGE_BADGES[item.pasonaStage].color}`}>
+                      {PASONA_STAGE_BADGES[item.pasonaStage].icon} {PASONA_STAGE_BADGES[item.pasonaStage].label}
+                    </span>
+                  )}
+                  {item.shinminStep && SHINMIN_STEPS[item.shinminStep] && (
+                    <span className={`inline-block px-2 py-0.5 text-xs rounded font-medium ${SHINMIN_STEPS[item.shinminStep].color}`}>
+                      {SHINMIN_STEPS[item.shinminStep].emoji} {SHINMIN_STEPS[item.shinminStep].label}
+                    </span>
+                  )}
+                  {item.effectivenessScore && (
+                    <span className="inline-block px-2 py-0.5 bg-purple-100 text-purple-800 text-xs rounded font-medium">
+                      효과도 {item.effectivenessScore}%
+                    </span>
+                  )}
+                  {item.psychology && PSYCHOLOGY_BADGES[item.psychology] && (
+                    <span className={`inline-block px-2 py-0.5 text-xs rounded font-medium ${PSYCHOLOGY_BADGES[item.psychology].bg} ${PSYCHOLOGY_BADGES[item.psychology].text}`}>
+                      {PSYCHOLOGY_BADGES[item.psychology].label}
+                    </span>
+                  )}
+                </div>
+
+                {/* 카드 본문 */}
+                <div className="p-5">
+                  <h3 className="font-bold text-gray-900 text-base mb-4 leading-tight">{item.title}</h3>
+
+                  {/* 음성 재생 */}
+                  <div className="mb-3">
+                    <VoicePlayback text={item.content} scriptId={item.id} title="음성 재생" />
+                  </div>
+
+                  {/* 스크립트 전문 (전체 펼침) */}
+                  <div className="bg-gray-50 rounded-lg p-4 mb-3 border border-gray-200">
+                    <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
+                      {personalizeContent(item.content)}
+                    </p>
+                  </div>
+
+                  {/* 복사 버튼 */}
+                  <button
+                    onClick={() => copy(personalizeContent(item.content), item.id)}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-navy-900 text-white rounded-lg text-sm font-medium hover:bg-navy-800 transition-colors mb-4"
+                  >
+                    {copied === personalizeContent(item.content) ? (
+                      <><Check className="w-4 h-4" /> 복사됨</>
+                    ) : (
+                      <><Copy className="w-4 h-4" /> 클립보드 복사</>
+                    )}
+                  </button>
+
+                  {/* 모니카 욕망 증폭 레벨 */}
+                  {item.type === "AMPLIFY" && item.monikaAmplifyLevel && MONIKA_AMPLIFY_LEVELS[item.monikaAmplifyLevel] && (
+                    <div className="bg-purple-50 border-l-4 border-purple-500 rounded p-3 mb-4">
+                      <p className="text-sm font-semibold text-purple-900 mb-1">모니카 욕망 증폭</p>
+                      <p className="text-sm font-bold text-purple-900">
+                        레벨 {item.monikaAmplifyLevel}: {MONIKA_AMPLIFY_LEVELS[item.monikaAmplifyLevel]}
+                      </p>
+                      <ul className="text-xs text-purple-700 mt-2 list-disc list-inside space-y-0.5">
+                        {item.monikaAmplifyLevel === "1" && (<><li>호기심 유발로 고객의 관심 끌기</li><li>"이것도 포함되나요?" 형식의 질문</li></>)}
+                        {item.monikaAmplifyLevel === "2" && (<><li>사회적 증거로 필요성 공감</li><li>"다른 분들도..." 멘트 활용</li></>)}
+                        {item.monikaAmplifyLevel === "3" && (<><li>5감각 앵커링으로 감정 증폭</li><li>럭셔리/가족 이미지 자극</li></>)}
+                        {item.monikaAmplifyLevel === "4" && (<><li>희소성으로 행동 유도</li><li>"지금 신청하면..." 클로징</li></>)}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* 심리학 이론 설명 */}
+                  {item.psychology && PSYCHOLOGY_BADGES[item.psychology] && (
+                    <p className="text-xs text-gray-400 mb-3 italic">{PSYCHOLOGY_BADGES[item.psychology].desc}</p>
+                  )}
+
+                  {/* 출처 */}
+                  {item.source && (
+                    <p className="text-xs text-gray-400 mb-3">출처: <span className="font-medium text-gray-500">{item.source}</span></p>
+                  )}
+
+                  {/* 메모 */}
+                  <ScriptNotes scriptId={item.id} />
+                </div>
+              </motion.div>
+            ))
+          }
+        </div>
+
+        {/* 모니카 멘트 6단계 참고 (하단) */}
+        <div className="mt-6 p-4 bg-indigo-50 border-l-4 border-indigo-500 rounded-xl">
+          <h3 className="text-sm font-semibold text-indigo-900 mb-2">📊 모니카 멘트 — 고객 마음 여는 6단계</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-indigo-700">
+            <p><span className="font-semibold">① 문제 짚기</span> — 고객 고민 먼저 알아주기</p>
+            <p><span className="font-semibold">② 마음 흔들기</span> — 고민의 중요성 강조</p>
+            <p><span className="font-semibold">③ 해결책 보여주기</span> — 상품으로 풀어드리기</p>
+            <p><span className="font-semibold">④ 구체적 제안</span> — 가격·혜택 명확히</p>
+            <p><span className="font-semibold">⑤ 선택 좁히기</span> — 결정하기 쉽게 정리</p>
+            <p><span className="font-semibold">⑥ 행동 권하기</span> — 지금 바로 결정하도록</p>
+          </div>
+        </div>
+
       </div>
     </div>
   );
