@@ -12,7 +12,7 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { AligoClient, createAligoClient } from './client';
 import { replaceMessagePlaceholders } from '@/lib/message-replacements';
-import { resolveUserSmsConfig } from '@/lib/aligo';
+import { resolveUserSmsConfig, calculateMessageBytes } from '@/lib/aligo';
 
 /**
  * Aligo EUC-KR 바이트 기준 LMS/SMS 분류
@@ -244,8 +244,20 @@ export async function processPendingSms(
         messageType: getAligoMessageType(resolvedMessages[i]),
       }));
 
+      // [인코딩 검증] msg_type별 분류 통계
+      const smsCount = batchRequests.filter(r => r.messageType === 'SMS').length;
+      const lmsCount = batchRequests.filter(r => r.messageType === 'LMS').length;
+
       // Aligo 배치 발송 (이 그룹의 발신번호로)
       const sendResponse = await aligoClient.sendSmsBatch(batchRequests);
+
+      logger.log('[BatchSender] msg_type 분류 통계', {
+        organizationId,
+        sender,
+        total: batchRequests.length,
+        sms: smsCount,
+        lms: lmsCount,
+      });
 
       if (sendResponse.resultCode === 1) {
         // 배치 전체 성공
@@ -361,10 +373,21 @@ async function sendOneSms(
 ): Promise<'sent' | 'failed'> {
   try {
     const resolvedMessage = replaceMessagePlaceholders(sms.message, sms.contact ?? {});
+    const msgType = getAligoMessageType(resolvedMessage);
+    const msgBytes = calculateMessageBytes(resolvedMessage);
+
     const response = await aligoClient.sendSms({
       receiver: sms.contact?.phone || '',
       message: resolvedMessage,
-      messageType: getAligoMessageType(resolvedMessage),
+      messageType: msgType,
+    });
+
+    logger.log('[sendOneSms] 개별 발송', {
+      smsId: sms.id,
+      receiver: sms.contact?.phone?.substring(0, 4) + '***',
+      bytes: msgBytes,
+      type: msgType,
+      resultCode: response.resultCode,
     });
 
     if (response.resultCode === 1) {
@@ -405,7 +428,7 @@ async function sendOneSms(
       return 'failed';
     }
   } catch (error) {
-    logger.error('[processIndividualSms] 오류', {
+    logger.error('[sendOneSms] 오류', {
       smsId: sms.id,
       error: error instanceof Error ? error.message : String(error),
     });
