@@ -16,6 +16,11 @@ import pg from 'pg';
 
 const { Client } = pg;
 
+function maskPhone(p: string | null | undefined): string {
+  if (!p) return 'none';
+  return `${p.slice(0, 2)}***${p.slice(-2)}`;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const ctx = await getMabizSession();
@@ -121,7 +126,7 @@ export async function POST(req: NextRequest) {
             user.isLocked,
           ]);
           synced++;
-          logger.log('[Sync] User 동기화 완료', { id: user.id, phone: user.phone });
+          logger.log('[Sync] User 동기화 완료', { id: user.id, phone: maskPhone(user.phone) });
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           errors.push(`ID ${user.id}: ${msg}`);

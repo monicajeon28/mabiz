@@ -25,8 +25,8 @@ export default async function MonthlyReportsPage() {
   });
 
   // 총 통계 계산
-  const totalAmount = settlements.reduce((sum: number, s: any) => {
-    const summary = s.summary as any;
+  const totalAmount = settlements.reduce((sum: number, s) => {
+    const summary = s.summary as { totalCommission?: number; settledCommission?: number; unsettledCommission?: number } | null;
     return sum + (summary?.totalCommission || 0);
   }, 0);
 
@@ -104,8 +104,8 @@ export default async function MonthlyReportsPage() {
             </thead>
             <tbody className="divide-y">
               {settlements.length > 0 ? (
-                settlements.map((settlement: any) => {
-                  const summary = settlement.summary as any;
+                settlements.map((settlement) => {
+                  const summary = settlement.summary as { totalCommission?: number; settledCommission?: number; unsettledCommission?: number } | null;
                   const totalComm = summary?.totalCommission || 0;
                   const settledComm = summary?.settledCommission || 0;
                   const unsettledComm = summary?.unsettledCommission || 0;

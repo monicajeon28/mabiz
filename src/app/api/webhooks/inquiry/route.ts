@@ -7,6 +7,7 @@ import { enqueueDLQ } from '@/lib/mabiz-dlq';
 import { normalizePhone } from '@/lib/phone-normalize';
 import { sanitizeHtml } from '@/lib/html-sanitizer';
 import { LensDetectionEngine } from '@/lib/services/lens-detection-engine';
+import { maskPhone } from '@/lib/pii-masker';
 
 /**
  * Loop 6 - Agent C: Customer Inquiry Webhook with Lens Detection
@@ -248,7 +249,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, message: 'phone, name 필수' }, { status: 400 });
   }
 
-  logger.log('[InquiryWebhook] 수신', { phone: phone.slice(0, 4) + '***', inquiryType, lensDetectionEnabled: true });
+  logger.log('[InquiryWebhook] 수신', { phone: maskPhone(phone), inquiryType, lensDetectionEnabled: true });
 
   // [P0-SEC-103] organizationId 검증 — 테넌트 격리
   let organizationId = bodyOrgId;

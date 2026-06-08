@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
 
       // 필드 검증
       if (!customerId || !email || !name) {
-        logger.warn('[customer-created] 필수 필드 누락', { customerId, email, name });
+        logger.warn('[customer-created] 필수 필드 누락', { customerId, email: email ? email.slice(0, 2) + '***' : 'none', name: maskName(name) });
         throw new Error('Missing required fields: customerId, email, name');
       }
 

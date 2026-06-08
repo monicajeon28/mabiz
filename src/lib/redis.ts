@@ -40,7 +40,7 @@ export async function setCache(
   const redis = getRedis();
   if (!redis) return;
   try {
-    await redis.set(key, JSON.stringify(data), { ex: ttlSeconds });
+    await redis.set(key, data, { ex: ttlSeconds });
   } catch {
     /* silent fail */
   }

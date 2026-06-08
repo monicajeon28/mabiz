@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { enqueueDLQ } from '@/lib/mabiz-dlq';
 import { normalizePhone } from '@/lib/phone-normalize';
+import { maskPhone } from '@/lib/pii-masker';
 
 /**
  * POST /api/webhooks/gold-inquiry
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, message: 'phone, name 필수' }, { status: 400 });
   }
 
-  logger.log('[GoldInquiryWebhook] 수신', { phone: phone.slice(0, 4) + '***', courseType, productCode });
+  logger.log('[GoldInquiryWebhook] 수신', { phone: maskPhone(phone), courseType, productCode });
 
   // 1. Organization 결정 (findFirst 제거 — 비결정적 배정 방지)
   let organizationId = bodyOrgId;

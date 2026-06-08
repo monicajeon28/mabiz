@@ -33,6 +33,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, TrendingUp, Users, Target, Zap } from 'lucide-react';
 
+interface SegmentProfile {
+  recommendedAction?: string;
+  demographicProfile?: {
+    avgAge?: number;
+    malePercent?: number;
+    mariedPercent?: number;
+    avgChildrenCount?: number;
+  };
+  behavioralProfile?: {
+    avgRecency?: number;
+    avgFrequency?: number;
+    avgMonetaryValue?: number;
+    avgEngagementRate?: number;
+  };
+}
+
 interface Segment {
   id: string;
   name: string;
@@ -41,7 +57,7 @@ interface Segment {
   avgLtv: number;
   avgEngagement: number;
   predictedConversion: number;
-  profile: any;
+  profile: SegmentProfile | null;
 }
 
 interface SegmentMetrics {

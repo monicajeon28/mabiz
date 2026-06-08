@@ -91,7 +91,10 @@ export default function MembersPage() {
   // 모달 관련 상태
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [detailData, setDetailData] = useState<{ user: any; changeHistory: ContactChangeLog[] } | null>(null);
+  const [detailData, setDetailData] = useState<{
+    user: { groupMemberships?: { groupId: number }[]; [key: string]: unknown };
+    changeHistory: ContactChangeLog[];
+  } | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [staffLoading, setStaffLoading] = useState(false);
@@ -210,7 +213,7 @@ export default function MembersPage() {
       if (detailJson.ok) {
         setDetailData(detailJson);
         // groupMemberships에서 배정된 그룹 ID 추출
-        const groupIds = new Set<number>(detailJson.user.groupMemberships?.map((m: any) => m.groupId as number) ?? []);
+        const groupIds = new Set<number>(detailJson.user.groupMemberships?.map((m: { groupId: number }) => m.groupId) ?? []);
         setSelectedGroups(groupIds);
       }
 
