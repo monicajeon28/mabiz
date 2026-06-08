@@ -26,6 +26,23 @@ function escHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// Drive 저장 재시도 헬퍼 함수 (exponential backoff)
+async function retryWithExponentialBackoff<T>(
+  fn: () => Promise<T>,
+  options: { maxRetries: number; baseDelayMs: number }
+): Promise<T> {
+  for (let attempt = 0; attempt <= options.maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt === options.maxRetries) throw err;
+      const delayMs = options.baseDelayMs * Math.pow(2, attempt);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
+
 // P2-1: 동행자 관계 허용 목록
 const ALLOWED_RELATIONS = ['배우자', '자녀', '부모', '형제자매', '친구', '기타'];
 const birthDateRegex = /^\d{4}-\d{2}-\d{2}$/;
@@ -337,9 +354,9 @@ export async function POST(req: Request) {
       organizationId,
     });
 
-    // Google Drive 계약서 저장 (fire-and-forget)
-    void (async () => {
-      try {
+    // Google Drive 계약서 저장 (재시도 로직 포함)
+    const drivePromise = retryWithExponentialBackoff(
+      async () => {
         // 최신 generatedData로 계약서 HTML 생성
         const freshDoc = await prisma.salesDocument.findUnique({
           where: { id: docId },
@@ -347,7 +364,7 @@ export async function POST(req: Request) {
         });
         if (!freshDoc) {
           logger.error('[PurchaseContractSign] Drive 저장용 문서 없음', { docId });
-          return;
+          throw new Error('Document not found for Drive save');
         }
         const data = freshDoc.generatedData as Record<string, unknown>;
 
@@ -427,18 +444,19 @@ export async function POST(req: Request) {
             driveFileId: driveResult.driveFileId,
           });
         } else {
-          logger.error('[PurchaseContractSign] Drive 저장 실패', {
-            docId,
-            error: driveResult.error,
-          });
+          throw new Error(`Drive save failed: ${driveResult.error}`);
         }
-      } catch (driveErr) {
-        logger.error('[PurchaseContractSign] Drive 저장 예외', {
-          docId,
-          error: driveErr instanceof Error ? driveErr.message : String(driveErr),
-        });
-      }
-    })();
+      },
+      { maxRetries: 3, baseDelayMs: 1000 }
+    ).catch(err => {
+      logger.error('[Critical] Contract Drive 저장 최종 실패', {
+        docId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+
+    // 사용자 응답은 먼저 반환 (비동기 재시도는 백그라운드)
+    // drivePromise는 백그라운드에서 처리됨
 
     // 구매계약서 PDF 생성 + 이메일 발송 (fire-and-forget)
     void (async () => {

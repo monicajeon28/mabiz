@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { sanitizeHtml } from '@/lib/html-sanitizer';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -35,13 +36,18 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     // 이미 서명 확인
     const alreadySigned = instance.status === 'SIGNED' || instance.status === 'COMPLETED';
 
-    // boundData에서 {{변수명}} 치환
+    // boundData에서 {{변수명}} 치환 (XSS 방지 - 각 값 sanitize)
     let renderedHtml = instance.template?.htmlContent ?? '';
     if (instance.boundData && typeof instance.boundData === 'object') {
       Object.entries(instance.boundData).forEach(([key, value]) => {
-        renderedHtml = renderedHtml.replace(new RegExp(`{{${key}}}`, 'g'), String(value ?? ''));
+        // 각 치환 값을 먼저 sanitize하여 XSS 방지
+        const sanitizedValue = sanitizeHtml(String(value ?? ''));
+        renderedHtml = renderedHtml.replace(new RegExp(`{{${key}}}`, 'g'), sanitizedValue);
       });
     }
+
+    // 최종 HTML 전체 sanitize (다층 방어)
+    renderedHtml = sanitizeHtml(renderedHtml);
 
     return NextResponse.json({
       ok: true,

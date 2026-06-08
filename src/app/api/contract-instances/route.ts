@@ -282,17 +282,31 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        // ContactLensSequence 생성 (SMS 자동화 추적용)
-        await prisma.contactLensSequence.create({
-          data: {
-            organizationId,
-            contactId,
-            classificationId: classification.id,
-            sequenceType: "CONTRACTED",
-            lensType: lens,
-            status: "PENDING",
-          },
-        });
+        // ContactLensSequence 생성 (SMS 자동화 추적용) - upsert로 중복 방지
+        try {
+          await prisma.contactLensSequence.upsert({
+            where: {
+              uq_contact_sequence_type_lens: {
+                contactId,
+                sequenceType: "CONTRACTED",
+                lensType: lens,
+              },
+            },
+            update: {}, // 이미 있으면 아무것도 안 함 (멱등성)
+            create: {
+              organizationId,
+              contactId,
+              classificationId: classification.id,
+              sequenceType: "CONTRACTED",
+              lensType: lens,
+              status: "PENDING",
+            },
+          });
+        } catch (err: any) {
+          if (err.code !== 'P2002') { // unique 제약 위반 아니면 로그
+            logger.error('[ContactLensSequence] 생성 실패', { lens, err });
+          }
+        }
       }
 
       // ScheduledSms 큐잉 (Day 0-3)

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { showError, showSuccess } from '@/components/ui/Toast';
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import DOMPurify from 'dompurify';
 
 interface ContractData {
   status: string;
@@ -262,7 +263,21 @@ export default function ContractSignPage({ params }: { params: { id: string } })
             </div>
 
             <div className="border-2 border-gray-300 rounded-lg p-8 bg-white">
-              <div dangerouslySetInnerHTML={{ __html: contract.renderedHtml }} />
+              <div
+                dangerouslySetInnerHTML={{
+                  __html: DOMPurify.sanitize(contract.renderedHtml, {
+                    ALLOWED_TAGS: [
+                      'div', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                      'table', 'tr', 'td', 'th', 'thead', 'tbody', 'br',
+                      'strong', 'em', 'b', 'i', 'u', 'img', 'a',
+                      'ul', 'ol', 'li', 'blockquote', 'code', 'pre',
+                    ],
+                    ALLOWED_ATTR: ['class', 'id', 'style', 'src', 'alt', 'href', 'target', 'rel'],
+                    FORCE_BODY: true,
+                    RETURN_DOM: false,
+                  }),
+                }}
+              />
             </div>
 
             <div className="flex items-center gap-2">
