@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { track } from '@/lib/landing/analytics';
+import { useIntersectionObserver } from '@/lib/landing/useIntersectionObserver';
 
 const testimonials = [
   {
@@ -63,6 +64,7 @@ const stats = [
 
 export default function ProofSection() {
   const [activeTestimonial, setActiveTestimonial] = useState(0);
+  const [sectionRef, sectionVisible] = useIntersectionObserver({ threshold: 0.1 });
 
   const handleTestimonialClick = (id: number) => {
     setActiveTestimonial(id);
@@ -70,14 +72,23 @@ export default function ProofSection() {
   };
 
   return (
-    <section className="py-20 bg-gradient-to-br from-slate-900 to-slate-800 text-white">
+    <section
+      ref={sectionRef}
+      className="py-20 bg-gradient-to-br from-slate-900 to-slate-800 text-white"
+      data-scroll-animation="proof"
+    >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section header */}
-        <div className="text-center mb-16">
+        <div className={`text-center mb-16 ${sectionVisible ? 'animate-fadeInDown' : 'opacity-0'}`}>
           <p className="text-blue-300 font-semibold text-sm uppercase tracking-wider">
             📊 검증된 성과
           </p>
-          <h2 className="text-4xl md:text-5xl font-bold mt-4">
+          <h2
+            className="text-4xl md:text-5xl font-bold mt-4"
+            style={{
+              animation: sectionVisible ? 'fadeInUp 0.6s ease-out 0.1s forwards' : 'none',
+            }}
+          >
             실제 고객들의 목소리
           </h2>
           <p className="text-xl text-gray-300 mt-4">
@@ -90,7 +101,10 @@ export default function ProofSection() {
           {stats.map((stat, idx) => (
             <div
               key={idx}
-              className="bg-white/10 backdrop-blur-sm rounded-xl p-6 text-center border border-white/20"
+              className={`bg-white/10 backdrop-blur-sm rounded-xl p-6 text-center border border-white/20 ${sectionVisible ? 'animate-slideInUp' : 'opacity-0'}`}
+              style={{
+                animation: sectionVisible ? `slideInUp 0.7s ease-out ${idx * 0.08}s forwards` : 'none',
+              }}
             >
               <p className="text-gray-400 text-sm font-semibold uppercase tracking-wider mb-2">
                 {stat.label}

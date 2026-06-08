@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { track } from '@/lib/landing/analytics';
+import { useIntersectionObserver } from '@/lib/landing/useIntersectionObserver';
 
 const problems = [
   {
@@ -55,19 +56,30 @@ const problems = [
 ];
 
 export default function ProblemSection() {
+  const [sectionRef, sectionVisible] = useIntersectionObserver({ threshold: 0.1 });
+
   const handleExpand = (id: number) => {
     track('problem_card_expand', { problem_id: id });
   };
 
   return (
-    <section className="py-20 bg-gray-50">
+    <section
+      ref={sectionRef}
+      className="py-20 bg-gray-50"
+      data-scroll-animation="problems"
+    >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section header */}
-        <div className="text-center mb-16">
+        <div className={`text-center mb-16 ${sectionVisible ? 'animate-fadeInDown' : 'opacity-0'}`}>
           <p className="text-blue-600 font-semibold text-sm uppercase tracking-wider">
             🎯 고객 실제 문제
           </p>
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mt-4">
+          <h2
+            className="text-4xl md:text-5xl font-bold text-gray-900 mt-4"
+            style={{
+              animation: sectionVisible ? 'fadeInUp 0.6s ease-out 0.1s forwards' : 'none',
+            }}
+          >
             이런 경험 있으신가요?
           </h2>
           <p className="text-xl text-gray-600 mt-4 max-w-2xl mx-auto">
@@ -79,11 +91,14 @@ export default function ProblemSection() {
 
         {/* Problems grid */}
         <div className="grid md:grid-cols-2 gap-6">
-          {problems.map((problem) => (
+          {problems.map((problem, index) => (
             <div
               key={problem.id}
               onClick={() => handleExpand(problem.id)}
-              className="bg-white rounded-xl p-6 shadow-md hover:shadow-xl transition-all cursor-pointer border-l-4 border-red-500"
+              className={`bg-white rounded-xl p-6 shadow-md hover:shadow-xl transition-all cursor-pointer border-l-4 border-red-500 ${sectionVisible ? 'animate-slideInUp' : 'opacity-0'}`}
+              style={{
+                animation: sectionVisible ? `slideInUp 0.7s ease-out ${0.1 + index * 0.05}s forwards` : 'none',
+              }}
             >
               {/* Icon and title */}
               <div className="flex items-start space-x-4 mb-4">
