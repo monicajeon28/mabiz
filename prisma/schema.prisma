@@ -586,6 +586,7 @@ model ContactLensSequence {
   contact           Contact                   @relation(fields: [contactId], references: [id], onDelete: Cascade)
   organization      Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@unique([contactId, sequenceType, lensType], name: "uq_contact_sequence_type_lens")
   @@index([contactId, lensType])
   @@index([organizationId, classificationId, status])
   @@index([organizationId, overallConverted])
