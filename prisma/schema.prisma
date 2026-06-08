@@ -817,6 +817,7 @@ model CrmLandingPage {
   images        CrmLandingPageImage[]
 
   @@unique([slug, organizationId])
+  @@unique([organizationId, id])
   @@index([organizationId])
   @@index([organizationId, createdByUserId, createdAt])
   @@index([shortlink]) // shortlink 조회 성능 최적화
@@ -5285,6 +5286,7 @@ model B2BLandingPage {
   organization      Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   registrations     B2BLandingRegistration[]
 
+  @@unique([organizationId, id])
   @@index([organizationId])
   @@index([partnerId])
   @@index([organizationId, isActive, createdAt])
