@@ -43,3 +43,13 @@ export {
   processAllPendingSms,
   type BatchSenderResult,
 } from './batch-sender';
+
+export {
+  getServerPublicIP,
+  detectAligoSendingIP,
+  validateAligoIPWhitelist,
+  clearIPCache,
+  getIPCacheStatus,
+  ALIGO_IP_WHITELIST_DOCS,
+  type IPWhitelistStatus,
+} from './ip-whitelist';
