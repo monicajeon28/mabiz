@@ -1,6 +1,4 @@
-// Mock data for call scripts
-// In production, these would be loaded from the database
-
+// 정적 콜 스크립트 데이터 — SalesPlaybook DB에 없을 때 fallback으로 사용
 export const CALL_SCRIPTS_DATA: Record<string, any> = {
   healthcare: {
     "신혼부부 (30-35세)": {
