@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
         LEFT JOIN "AffiliateProfile" ap ON ap.id = aa."agentId"
         LEFT JOIN "User"             u  ON u.id  = ap."userId"
         ${whereClause}
-        ORDER BY aa."createdAt" DESC
+        ORDER BY aa.id DESC
         LIMIT ${limit + 1}
       `),
       prisma.$queryRaw<[{ total: bigint }]>(Prisma.sql`

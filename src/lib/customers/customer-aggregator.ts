@@ -546,7 +546,7 @@ export async function getCustomers360(
         groups: { include: { group: true } },
         partner: true,
       },
-      orderBy: { updatedAt: "desc" },
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
       take: limit + 1,
       ...(cursor
         ? {
