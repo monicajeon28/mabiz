@@ -348,6 +348,22 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
   // 판매확인 승인요청 중인 reservationId 집합
   const [saleConfirmLoading, setSaleConfirmLoading] = useState<Set<number>>(new Set());
 
+  // 수동 탑승객 추가 모달
+  const [addingManual, setAddingManual] = useState(false);
+  const [manualForm, setManualForm] = useState({
+    roomNumber: 1,
+    korName: '',
+    engSurname: '',
+    engGivenName: '',
+    gender: '',
+    birthDate: '',
+    nationality: '',
+    passportNo: '',
+    issueDate: '',
+    expiryDate: '',
+    phone: '',
+  });
+
   // 저장됨·되돌리기 토스트
   const [toast, setToast] = useState<{
     message: string;
@@ -834,6 +850,42 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
     showToast('명단을 내려받았어요.', 'ok');
   }, [rooms, stats, product, productCode, showToast]);
 
+  // ── 수동 탑승객 추가 ──────────────────────────────────────────
+  const addManualTraveler = useCallback(async () => {
+    if (!productCode || !manualForm.roomNumber) return;
+    try {
+      const res = await fetch('/api/admin/apis/traveler/manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productCode, ...manualForm }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        showToast(data.error || '탑승객 추가에 실패했습니다.', 'warn');
+        return;
+      }
+      setAddingManual(false);
+      setManualForm({
+        roomNumber: 1,
+        korName: '',
+        engSurname: '',
+        engGivenName: '',
+        gender: '',
+        birthDate: '',
+        nationality: '',
+        passportNo: '',
+        issueDate: '',
+        expiryDate: '',
+        phone: '',
+      });
+      showToast('탑승객을 추가했어요.', 'ok');
+      await loadBoard();
+    } catch (err) {
+      logger.error('[ApisBoard] addManualTraveler failed', { err: String(err) });
+      showToast('탑승객 추가 중 오류가 발생했습니다.', 'warn');
+    }
+  }, [productCode, manualForm, showToast, loadBoard]);
+
   // ─────────────────────────────────────────────────────────────
   // 렌더
   // ─────────────────────────────────────────────────────────────
@@ -982,10 +1034,198 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
 
       {/* 방 색깔카드 세로 스택 (가로 스크롤 금지) */}
       {filteredRooms.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-10 text-center text-lg text-gray-500">
-          {problemFilter
-            ? '해당 조건의 탑승객이 없습니다.'
-            : '등록된 방이 없습니다.'}
+        <div className="space-y-4">
+          {/* APIS 열 헤더 + 빈 상태 안내 */}
+          <div className="overflow-x-auto rounded-xl border border-gray-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">방</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">한글이름</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">영문 성</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">영문 이름</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">성별</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">생년월일</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">여권번호</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">만료일</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">국적</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">연락처</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colSpan={10} className="px-4 py-8 text-center text-gray-400 text-sm">
+                    {problemFilter
+                      ? '해당 조건의 탑승객이 없습니다.'
+                      : '등록된 탑승객이 없습니다. 탑승객이 여권을 제출하면 자동으로 채워집니다.'}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* 수동 탑승객 추가 버튼 */}
+          {canManage && !problemFilter && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setAddingManual(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700"
+              >
+                <UserPlus className="w-4 h-4" />
+                탑승객 수동 추가
+              </button>
+            </div>
+          )}
+
+          {/* 수동 추가 모달 */}
+          {addingManual && (
+            <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+              <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">
+                    <UserPlus className="w-5 h-5 text-emerald-600" />
+                    탑승객 수동 추가
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setAddingManual(false)}
+                    className="text-gray-400 hover:text-gray-600 rounded-xl p-1"
+                    aria-label="닫기"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">방번호</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={manualForm.roomNumber}
+                      onChange={(e) => setManualForm((f) => ({ ...f, roomNumber: Number(e.target.value) }))}
+                      className="w-full rounded-xl border-2 border-gray-200 px-3 py-2 text-base focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">한글이름</label>
+                    <input
+                      type="text"
+                      placeholder="홍길동"
+                      value={manualForm.korName}
+                      onChange={(e) => setManualForm((f) => ({ ...f, korName: e.target.value }))}
+                      className="w-full rounded-xl border-2 border-gray-200 px-3 py-2 text-base focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">영문 성</label>
+                    <input
+                      type="text"
+                      placeholder="HONG"
+                      value={manualForm.engSurname}
+                      onChange={(e) => setManualForm((f) => ({ ...f, engSurname: e.target.value }))}
+                      className="w-full rounded-xl border-2 border-gray-200 px-3 py-2 text-base focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">영문 이름</label>
+                    <input
+                      type="text"
+                      placeholder="GILDONG"
+                      value={manualForm.engGivenName}
+                      onChange={(e) => setManualForm((f) => ({ ...f, engGivenName: e.target.value }))}
+                      className="w-full rounded-xl border-2 border-gray-200 px-3 py-2 text-base focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">성별</label>
+                    <div className="flex gap-2">
+                      {['M', 'F'].map((g) => (
+                        <button
+                          key={g}
+                          type="button"
+                          onClick={() => setManualForm((f) => ({ ...f, gender: g }))}
+                          className={`flex-1 rounded-xl border-2 py-2 text-base font-bold ${
+                            manualForm.gender === g
+                              ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                              : 'border-gray-200 bg-white text-gray-600'
+                          }`}
+                        >
+                          {g === 'M' ? '남 (M)' : '여 (F)'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">생년월일</label>
+                    <input
+                      type="text"
+                      placeholder="YYYY-MM-DD"
+                      value={manualForm.birthDate}
+                      onChange={(e) => setManualForm((f) => ({ ...f, birthDate: e.target.value }))}
+                      className="w-full rounded-xl border-2 border-gray-200 px-3 py-2 text-base focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">여권번호</label>
+                    <input
+                      type="text"
+                      placeholder="M12345678"
+                      value={manualForm.passportNo}
+                      onChange={(e) => setManualForm((f) => ({ ...f, passportNo: e.target.value }))}
+                      className="w-full rounded-xl border-2 border-gray-200 px-3 py-2 text-base focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">만료일</label>
+                    <input
+                      type="text"
+                      placeholder="YYYY-MM-DD"
+                      value={manualForm.expiryDate}
+                      onChange={(e) => setManualForm((f) => ({ ...f, expiryDate: e.target.value }))}
+                      className="w-full rounded-xl border-2 border-gray-200 px-3 py-2 text-base focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">국적</label>
+                    <input
+                      type="text"
+                      placeholder="KOR"
+                      value={manualForm.nationality}
+                      onChange={(e) => setManualForm((f) => ({ ...f, nationality: e.target.value }))}
+                      className="w-full rounded-xl border-2 border-gray-200 px-3 py-2 text-base focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">연락처</label>
+                    <input
+                      type="tel"
+                      placeholder="010-0000-0000"
+                      value={manualForm.phone}
+                      onChange={(e) => setManualForm((f) => ({ ...f, phone: e.target.value }))}
+                      className="w-full rounded-xl border-2 border-gray-200 px-3 py-2 text-base focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-5 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setAddingManual(false)}
+                    className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void addManualTraveler()}
+                    className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold"
+                  >
+                    추가
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex flex-col gap-4">

@@ -3,9 +3,13 @@ import { Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
 
 // 폰트 최적화: Noto Sans KR을 preload
+// 주요 개선:
+// 1. subsets: ["korean"] - 불필요한 latin 서브셋 제거 (용량 감소)
+// 2. weight: ["400", "700"] - 필수 두 가지만 사용 (4가지 → 2가지)
+// 3. variable: CSS 변수로 동적 사용
 const notoSansKR = Noto_Sans_KR({
-  subsets: ["latin"],
-  weight: ["400", "500", "700", "900"],
+  subsets: ["korean"],
+  weight: ["400", "700"],
   variable: "--font-noto-sans-kr",
   display: "swap",
   fallback: ["system-ui", "-apple-system"],
@@ -47,10 +51,12 @@ export default function RootLayout({
   return (
     <html lang="ko" className={`h-full ${notoSansKR.variable}`} suppressHydrationWarning>
       <head>
-        {/* 성능 최적화: DNS prefetch, preconnect */}
-        <link rel="dns-prefetch" href="//fonts.googleapis.com" />
+        {/* 성능 최적화: DNS prefetch, preconnect (우선순위 높음) */}
+        {/* Google Fonts preconnect - 폰트 로딩 병렬화 */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* CDN prefetch (비필수 리소스는 낮은 우선순위) */}
+        <link rel="dns-prefetch" href="//cdn.jsdelivr.net" />
       </head>
       <body className={`min-h-full font-sans ${notoSansKR.className}`} suppressHydrationWarning>
         {children}

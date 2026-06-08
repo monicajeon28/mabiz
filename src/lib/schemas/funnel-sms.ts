@@ -49,7 +49,7 @@ export const ListFunnelSmsQuerySchema = z.object({
   groupId: z.string().cuid().optional(),
   q: z.string().max(100).optional(),
   page: z.coerce.number().int().min(0).default(0),
-  pageSize: z.coerce.number().int().min(1).max(100).default(100),
+  pageSize: z.coerce.number().int().min(1).max(1000).default(100),
 });
 
 // ─────────────────────────────────────────────

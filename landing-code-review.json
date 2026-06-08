@@ -1,0 +1,12 @@
+{
+  "analysis_in_progress": true,
+  "checking_components": [
+    "HeroSection.tsx",
+    "CTASection.tsx", 
+    "ProofSection.tsx",
+    "ProblemSection.tsx",
+    "SolutionSection.tsx",
+    "OfferSection.tsx",
+    "UrgencySection.tsx"
+  ]
+}

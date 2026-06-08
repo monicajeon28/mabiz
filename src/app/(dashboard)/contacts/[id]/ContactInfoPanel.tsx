@@ -180,6 +180,7 @@ function ContactInfoPanelComponent({
         age={contact.age}
         maritalStatus={contact.maritalStatus}
         childrenCount={contact.childrenCount}
+        contactId={contact.id}
       />
 
       {/* 기본 정보 */}

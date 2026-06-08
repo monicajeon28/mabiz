@@ -68,6 +68,7 @@
     "nodemailer": "^8.0.5",
     "pg": "^8.21.0",
     "prisma": "^7.7.0",
+    "puppeteer": "^25.1.0",
     "qrcode": "^1.5.4",
     "react": "^19.2.3",
     "react-beautiful-dnd": "^13.1.1",

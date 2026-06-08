@@ -1,0 +1,17 @@
+src/app/api/analytics/shortlink-performance/route.ts(73,9): error TS2353: Object literal may only specify known properties, and 'clickCount' does not exist in type 'ShortLinkSelect<DefaultArgs>'.
+src/app/api/links/[id]/clicks/route.ts(16,27): error TS2353: Object literal may only specify known properties, and 'clickCount' does not exist in type 'ShortLinkSelect<DefaultArgs>'.
+src/app/api/links/[id]/clicks/route.ts(57,59): error TS2339: Property 'clickCount' does not exist on type '{ id: string; organizationId: string; createdAt: Date; title: string | null; isActive: boolean; category: string | null; contactId: string | null; createdBy: string | null; code: string; targetUrl: string; autoGroupId: string | null; }'.
+src/app/api/links/ab-test-analysis/route.ts(128,11): error TS2353: Object literal may only specify known properties, and 'clickCount' does not exist in type 'ShortLinkSelect<DefaultArgs>'.
+src/app/api/links/ab-test-analysis/route.ts(140,11): error TS2353: Object literal may only specify known properties, and 'clickCount' does not exist in type 'ShortLinkSelect<DefaultArgs>'.
+src/app/api/links/ab-test-analysis/route.ts(168,30): error TS2339: Property 'clickCount' does not exist on type '{ id: string; organizationId: string; createdAt: Date; title: string | null; isActive: boolean; category: string | null; contactId: string | null; createdBy: string | null; code: string; targetUrl: string; autoGroupId: string | null; }'.
+src/app/api/links/ab-test-analysis/route.ts(169,30): error TS2339: Property 'clickCount' does not exist on type '{ id: string; organizationId: string; createdAt: Date; title: string | null; isActive: boolean; category: string | null; contactId: string | null; createdBy: string | null; code: string; targetUrl: string; autoGroupId: string | null; }'.
+src/app/api/passport/admin/customer-detail/route.ts(85,31): error TS2345: Argument of type 'ManagerUser' is not assignable to parameter of type '{ role?: string | null | undefined; organizationId?: number | null | undefined; }'.
+  Types of property 'organizationId' are incompatible.
+    Type 'string | null' is not assignable to type 'number | null | undefined'.
+      Type 'string' is not assignable to type 'number'.
+src/app/api/passport/admin/customer-detail/route.ts(308,31): error TS2345: Argument of type 'ManagerUser' is not assignable to parameter of type '{ role?: string | null | undefined; organizationId?: number | null | undefined; }'.
+  Types of property 'organizationId' are incompatible.
+    Type 'string | null' is not assignable to type 'number | null | undefined'.
+      Type 'string' is not assignable to type 'number'.
+src/app/l/[code]/route.ts(83,15): error TS2353: Object literal may only specify known properties, and 'clickCount' does not exist in type '(Without<ShortLinkUpdateInput, ShortLinkUncheckedUpdateInput> & ShortLinkUncheckedUpdateInput) | (Without<...> & ShortLinkUpdateInput)'.
+src/lib/analytics/shortlink.ts(49,7): error TS2353: Object literal may only specify known properties, and 'clickCount' does not exist in type 'ShortLinkSelect<DefaultArgs>'.

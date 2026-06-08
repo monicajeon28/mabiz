@@ -40,11 +40,10 @@ export async function GET(req: Request) {
     const orgFilter = { organizationId: ctx.organizationId };
     const orgId = ctx.organizationId;
 
-    // ── 9개 쿼리 전부 병렬 ──
+    // ── 5개 필수 쿼리 병렬 (여권/PNR은 선택적으로 로드) ──
     const [
       salesAgg, prevSalesAgg, recentSalesRaw,
       reservationCount, prevReservationCount,
-      passportPnrRows, passportAggRows, pnrAggRows,
     ] = await Promise.all([
       prisma.affiliateSale.aggregate({
         where: { ...orgFilter, createdAt: { gte: startDate, lt: endDate } },
@@ -55,7 +54,7 @@ export async function GET(req: Request) {
         _sum: { saleAmount: true }, _count: true,
       }),
       prisma.affiliateSale.findMany({ where: orgFilter, orderBy: { createdAt: 'desc' }, take: 10 }),
-      // 예약 카운트 (현재/전월)
+      // 예약 카운트 (현재/전월) — COUNT(*) 최적화
       isAdmin
         ? prisma.gmReservation.count({ where: { createdAt: { gte: startDate, lt: endDate } } })
         : prisma.$queryRaw<[{ cnt: bigint }]>`
@@ -70,7 +69,11 @@ export async function GET(req: Request) {
             INNER JOIN "CrmAffiliateSale" a ON a."orderId" = CAST(r."affiliateSaleId" AS TEXT)
             WHERE a."organizationId" = ${orgId} AND r."createdAt" >= ${prevStart} AND r."createdAt" < ${prevEnd}
           `.then(r => Number(r[0]?.cnt ?? 0)),
-      // 여권/PNR 현황 (완료되지 않은 것들) — JOIN 순서 통일 (r → u → a → om)
+    ]);
+
+    // ── 여권/PNR 현황 및 집계 — 별도 배치 로드 (초기 응답 속도 개선) ──
+    const [passportPnrRows, passportAggRows, pnrAggRows] = await Promise.all([
+      // 여권/PNR 현황 (완료되지 않은 것들) — 최소 필드로 축약
       isAdmin
         ? prisma.$queryRaw<Array<{ id: string; name: string | null; passportStatus: string; pnrStatus: string; finalConfirmStatus: string; assignedName: string | null; commissionAmount: number | null; commissionRate: number | null; saleStatus: string | null; saleId: string | null }>>`
             SELECT r."id", u."name", r."passportStatus", r."pnrStatus", r."finalConfirmStatus",
@@ -80,7 +83,7 @@ export async function GET(req: Request) {
             LEFT JOIN "CrmAffiliateSale" a ON a."orderId" = CAST(r."affiliateSaleId" AS TEXT)
             LEFT JOIN "OrganizationMember" om ON om."userId" = a."affiliateUserId" AND om."organizationId" = a."organizationId"
             WHERE (r."passportStatus" != 'ISSUED' OR r."pnrStatus" != 'CONFIRMED')
-            ORDER BY r."createdAt" DESC LIMIT 100`
+            ORDER BY r."createdAt" DESC LIMIT 50`
         : prisma.$queryRaw<Array<{ id: string; name: string | null; passportStatus: string; pnrStatus: string; finalConfirmStatus: string; assignedName: string | null; commissionAmount: number | null; commissionRate: number | null; saleStatus: string | null; saleId: string | null }>>`
             SELECT r."id", u."name", r."passportStatus", r."pnrStatus", r."finalConfirmStatus",
                    om."displayName" AS "assignedName", a."commissionAmount", a."commissionRate", a."status" AS "saleStatus", a."id" AS "saleId"
@@ -90,8 +93,8 @@ export async function GET(req: Request) {
             LEFT JOIN "OrganizationMember" om ON om."userId" = a."affiliateUserId" AND om."organizationId" = a."organizationId"
             WHERE a."organizationId" = ${orgId}
               AND (r."passportStatus" != 'ISSUED' OR r."pnrStatus" != 'CONFIRMED')
-            ORDER BY r."createdAt" DESC LIMIT 100`,
-      // 여권 상태별 집계
+            ORDER BY r."createdAt" DESC LIMIT 50`,
+      // 여권 상태별 집계 — 빠른 COUNT 집계
       isAdmin
         ? prisma.$queryRaw<Array<{ status: string; cnt: bigint }>>`
             SELECT r."passportStatus" AS status, COUNT(*)::bigint AS cnt FROM "Reservation" r GROUP BY r."passportStatus"`

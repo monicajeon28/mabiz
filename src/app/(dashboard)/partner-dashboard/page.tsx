@@ -1515,7 +1515,7 @@ export default function PartnerDashboardPage() {
 
   const monthOptions = getMonthOptions();
 
-  const fetchTab = useCallback(async (tab: Tab, ym: string) => {
+  const fetchTab = useCallback(async (tab: Tab, ym: string, skipLoading?: boolean) => {
     // 성과현황과 숏링크는 월 필터 없음 — 'all' 키로 캐시
     const cacheKey = (tab === 'performance' || tab === 'shortlink') ? 'all' : ym;
 
@@ -1530,14 +1530,20 @@ export default function PartnerDashboardPage() {
       return;
     }
 
-    setLoading(true);
+    if (!skipLoading) setLoading(true);
     try {
+      // 타임아웃: 느린 API도 빠르게 응답 (스켈레톤으로 폴백)
+      const timeoutMs = tab === 'performance' ? 10000 : 6000; // performance는 더 느림
+      const ctrl = new AbortController();
+      const timeoutId = setTimeout(() => ctrl.abort(), timeoutMs);
+
       const url = (tab === 'performance' || tab === 'shortlink') ? API_MAP[tab] : `${API_MAP[tab]}?month=${ym}`;
-      const res = await fetch(url, { credentials: 'include' });
+      const res = await fetch(url, { credentials: 'include', signal: ctrl.signal });
+      clearTimeout(timeoutId);
 
       if (res.status === 401 || res.status === 403) {
         setAuthError(true);
-        setLoading(false);
+        if (!skipLoading) setLoading(false);
         return;
       }
 
@@ -1546,13 +1552,13 @@ export default function PartnerDashboardPage() {
       // Zod 검증으로 응답 구조 확인
       const validated = genericApiResponseSchema.safeParse(json);
       if (!validated.success || !validated.data.ok) {
-        setLoading(false);
+        if (!skipLoading) setLoading(false);
         return;
       }
 
       const d = validated.data.data;
       if (!d) {
-        setLoading(false);
+        if (!skipLoading) setLoading(false);
         return;
       }
 
@@ -1564,13 +1570,17 @@ export default function PartnerDashboardPage() {
       if (tab === 'gold') setGoldData(d as GoldData);
       if (tab === 'performance') setPerformanceData(d as PerformanceData);
       if (tab === 'shortlink') setShortlinkData(d as ShortlinkData);
-    } catch {
-      // 네트워크 오류 무시 — 스켈레톤 유지
+    } catch (err) {
+      // 타임아웃 또는 네트워크 오류 무시 — 스켈레톤 유지 또는 캐시된 데이터 표시
+      if (err instanceof Error && err.name !== 'AbortError') {
+        console.error(`[fetchTab] ${tab}`, err);
+      }
+    } finally {
+      if (!skipLoading) setLoading(false);
     }
-    setLoading(false);
   }, []);
 
-  // 탭 또는 월 변경 시 fetch — 단일 effect로 통합 (이중 렌더 방지)
+  // 탭 또는 월 변경 시 fetch — 활성 탭 우선, 나머지 백그라운드 프리페치
   useEffect(() => {
     // 월 변경 시 캐시된 데이터 즉시 세팅 (깜빡임 방지)
     const c = cache.current[month];
@@ -1582,8 +1592,20 @@ export default function PartnerDashboardPage() {
     if (perfCached) setPerformanceData(perfCached as PerformanceData);
     const slinkCached = cache.current['all']?.shortlink;
     if (slinkCached) setShortlinkData(slinkCached as ShortlinkData);
-    // 현재 탭 데이터 fetch
-    fetchTab(activeTab, month);
+    // 현재 탭 데이터 fetch (로딩 상태 표시)
+    fetchTab(activeTab, month, false);
+    // 나머지 탭 백그라운드 프리페치 (로딩 상태 미표시)
+    const otherTabs = TABS.map(t => t.key).filter(t => t !== activeTab);
+    otherTabs.forEach(tab => {
+      if (tab === 'performance' || tab === 'shortlink') {
+        fetchTab(tab, month, true); // 월 무관
+      } else {
+        // b2c, b2b, gold는 월별로 프리페치
+        if (!cache.current[month]?.[tab]) {
+          fetchTab(tab, month, true);
+        }
+      }
+    });
   }, [activeTab, month, fetchTab, refreshTrigger]);
 
   // ✅ Component unmount 시 캐시 정리 (메모리 누수 방지)

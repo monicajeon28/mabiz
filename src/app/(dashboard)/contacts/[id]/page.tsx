@@ -184,6 +184,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     setSavingField(field);
     const res = await fetch(`/api/contacts/${id}`, {
       method: "PATCH",
+      credentials: 'include',
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ [field]: value }),
     });
@@ -202,9 +203,9 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   useEffect(() => {
     const ctrl = new AbortController();
     const { signal } = ctrl;
-    const fetchContact = fetch(`/api/contacts/${id}`, { signal }).catch(() => null);
-    const fetchGroups = fetch("/api/groups", { signal }).catch(() => null);
-    const fetchFunnels = fetch("/api/funnels", { signal }).catch(() => null);
+    const fetchContact = fetch(`/api/contacts/${id}`, { signal, credentials: 'include' }).catch(() => null);
+    const fetchGroups = fetch("/api/groups", { signal, credentials: 'include' }).catch(() => null);
+    const fetchFunnels = fetch("/api/funnels", { signal, credentials: 'include' }).catch(() => null);
     Promise.allSettled([fetchContact, fetchGroups, fetchFunnels])
       .then((results) => {
         if (signal.aborted) return;
@@ -260,7 +261,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     if (!contact?.id) return;
     const ctrl = new AbortController();
     setLoadingTransfer(true);
-    fetch(`/api/contacts/${contact.id}/transfer-logs`, { signal: ctrl.signal })
+    fetch(`/api/contacts/${contact.id}/transfer-logs`, { signal: ctrl.signal, credentials: 'include' })
       .then(r => r.json())
       .then(d => { if (d.ok) setTransferLogs(d.logs ?? []); })
       .catch(err => {
@@ -280,7 +281,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   // [S-002] CSRF 토큰 초기화 (페이지 로드 시 한 번)
   useEffect(() => {
     const ctrl = new AbortController();
-    fetch('/api/csrf-token', { signal: ctrl.signal })
+    fetch('/api/csrf-token', { signal: ctrl.signal, credentials: 'include' })
       .then(r => r.json())
       .then(d => {
         if (d.ok) setCsrfToken(d.token);
@@ -349,7 +350,9 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     setAssignMsg("");
     try {
       const res  = await fetch(`/api/groups/${selectedGroup}/members`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        credentials: 'include',
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contactIds: [id] }),
       });
       const data = await res.json();
@@ -388,8 +391,8 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     setSendDbTarget("");
     setDbSearch("");
     const [orgRes, agentRes] = await Promise.all([
-      fetch("/api/org/list").then((r) => r.json()),
-      fetch("/api/org/agents").then((r) => r.json()),
+      fetch("/api/org/list", { credentials: 'include' }).then((r) => r.json()),
+      fetch("/api/org/agents", { credentials: 'include' }).then((r) => r.json()),
     ]);
     if (orgRes.ok)   setOrgs(orgRes.orgs ?? []);
     if (agentRes.ok) {
@@ -403,6 +406,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     setSendingDb(true);
     const res = await fetch(`/api/contacts/${id}/send-db`, {
       method: "POST",
+      credentials: 'include',
       headers: {
         "Content-Type": "application/json",
         "X-CSRF-Token": csrfToken || "",
@@ -414,7 +418,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     if (data.ok) {
       setSendDbResult(`✅ ${data.agentName ?? "대상"}에게 전달 완료`);
       setSendDbTarget("");
-      fetch(`/api/contacts/${id}/transfer-logs`)
+      fetch(`/api/contacts/${id}/transfer-logs`, { credentials: 'include' })
         .then(r => r.json())
         .then(d => {
           if (d.ok) setTransferLogs(d.logs ?? []);
@@ -436,7 +440,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     setBackingContact(true);
     setContactBackupMsg("");
     try {
-      const res  = await fetch(`/api/backup/contact/${id}`, { method: "POST" });
+      const res  = await fetch(`/api/backup/contact/${id}`, { method: "POST", credentials: 'include' });
       const data = await res.json();
       if (data.ok) {
         setContactBackupMsg("✅ Drive에 백업 완료");
@@ -458,6 +462,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     try {
       const res = await fetch(`/api/contacts/${id}/recall-db`, {
         method: "POST",
+        credentials: 'include',
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ logId: log.id }),
       });
@@ -487,6 +492,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     try {
       const res = await fetch(`/api/contacts/${id}`, {
         method: "PATCH",
+        credentials: 'include',
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tags: newTags }),
       });
@@ -521,6 +527,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     try {
       const res = await fetch(`/api/contacts/${id}`, {
         method: "PATCH",
+        credentials: 'include',
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tags: newTags }),
       });
@@ -580,6 +587,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     setSendResult("");
     const res  = await fetch(`/api/contacts/${id}/sms`, {
       method: "POST",
+      credentials: 'include',
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: smsMsg }),
     });
@@ -589,7 +597,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       setSendResult("✅ 발송 완료!");
       setSmsMsg("");
       // SMS 탭 로그 목록 새로고침 (최신 발송 내역 즉시 반영)
-      fetch(`/api/contacts/${id}/sms-logs?limit=20&page=1`)
+      fetch(`/api/contacts/${id}/sms-logs?limit=20&page=1`, { credentials: 'include' })
         .then(r => r.json())
         .then(d => {
           if (d.ok) {
@@ -612,6 +620,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     setSchedResult("");
     const res  = await fetch("/api/scheduled-sms", {
       method: "POST",
+      credentials: 'include',
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ contactId: id, message: schedMsg, scheduledAt: schedAt }),
     });
@@ -631,7 +640,9 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   const saveDeparture = async () => {
     setSavingDept(true);
     const res  = await fetch(`/api/contacts/${id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
+      method: "PATCH",
+      credentials: 'include',
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         departureDate: deptForm.departureDate ? new Date(deptForm.departureDate).toISOString() : null,
         productName:   deptForm.productName   || null,
@@ -1003,7 +1014,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
               setTab(t.key as typeof tab);
               if (t.key === "sms" && smsLogs.length === 0 && smsHasMore) {
                 setSmsLoading(true);
-                fetch(`/api/contacts/${contact.id}/sms-logs?limit=20&page=1`)
+                fetch(`/api/contacts/${contact.id}/sms-logs?limit=20&page=1`, { credentials: 'include' })
                   .then(r => r.json())
                   .then(d => {
                     if (d.ok) {
@@ -1020,7 +1031,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
               }
               if (t.key === "reservations" && !reservationLoaded) {
                 setReservationLoading(true);
-                fetch(`/api/contacts/${contact.id}/reservations`)
+                fetch(`/api/contacts/${contact.id}/reservations`, { credentials: 'include' })
                   .then(r => r.json())
                   .then(d => {
                     if (d.ok) setReservations(d.reservations ?? []);
@@ -1108,6 +1119,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
             setEnrollError('');
             const res = await fetch(`/api/funnels/${selectedFunnelId}/enroll`, {
               method: 'POST',
+              credentials: 'include',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 contactId: contact.id,
@@ -1121,7 +1133,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
               setEnrollStartDate('');
               setEnrollSendNow(false);
               // Refresh contact data to reflect updated vipSequences
-              fetch(`/api/contacts/${id}`)
+              fetch(`/api/contacts/${id}`, { credentials: 'include' })
                 .then(r => r.json())
                 .then(contactData => {
                   if (contactData.ok) {
