@@ -137,12 +137,24 @@ export default function PurchasedPage() {
   const quickAssign = async (contactId: string, groupId: string) => {
     if (!groupId) return;
     setAssigning(contactId);
-    await fetch(`/api/groups/${groupId}/members`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contactId }),
-    });
-    setAssigning(null);
+    try {
+      const res = await fetch(`/api/groups/${groupId}/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactIds: [contactId] }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        toast({ title: '그룹 배정 실패', description: data.message ?? '다시 시도해주세요.', variant: 'destructive' });
+        return;
+      }
+      toast({ title: '그룹 배정 완료', variant: 'success' });
+      fetchContacts();
+    } catch {
+      toast({ title: '네트워크 오류', description: '다시 시도해주세요.', variant: 'destructive' });
+    } finally {
+      setAssigning(null);
+    }
   };
 
   const bulkAssignUnassigned = async () => {

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react
 import Link from "next/link";
 import { Search, Plus, Phone, MessageSquare, CheckCircle, Clock, XCircle, Upload, X, FileSpreadsheet } from "lucide-react";
 import { logger } from "@/lib/logger";
+import { useToast } from "@/lib/api/use-toast";
 import type { Contact as FullContact } from "@/types/contact";
 
 // 고객 상세 슬라이드 패널 (행 클릭 시 표시) — 코드 스플릿
@@ -51,6 +52,7 @@ function formatDaysSince(dateStr: string | null): string {
 }
 
 export default function InquiriesPage() {
+  const { toast } = useToast();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [total, setTotal] = useState(0);
   const [q, setQ] = useState("");
@@ -163,9 +165,15 @@ export default function InquiriesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contactIds: [contactId] }),
       });
-      if (res.ok) {
-        await fetchContacts(); // 배정 후 목록 새로고침
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        toast({ title: '그룹 배정 실패', description: data.message ?? '다시 시도해주세요.', variant: 'destructive' });
+        return;
       }
+      toast({ title: '그룹 배정 완료', variant: 'success' });
+      await fetchContacts();
+    } catch {
+      toast({ title: '네트워크 오류', description: '다시 시도해주세요.', variant: 'destructive' });
     } finally {
       setAssigning(null);
     }
