@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { track } from '@/lib/landing/analytics';
+import { useIntersectionObserver } from '@/lib/landing/useIntersectionObserver';
 
 const offers = [
   {
@@ -65,6 +66,7 @@ const offers = [
 
 export default function OfferSection() {
   const [selectedOffer, setSelectedOffer] = useState(1);
+  const [sectionRef, sectionVisible] = useIntersectionObserver({ threshold: 0.1 });
 
   const handleSelectOffer = (id: number) => {
     setSelectedOffer(id);
@@ -76,14 +78,23 @@ export default function OfferSection() {
   };
 
   return (
-    <section className="py-12 sm:py-16 md:py-20 lg:py-24 bg-white">
+    <section
+      ref={sectionRef}
+      className="py-12 sm:py-16 md:py-20 lg:py-24 bg-white"
+      data-scroll-animation="offer"
+    >
       <div className="max-w-6xl mx-auto px-3 xs:px-4 sm:px-6 lg:px-8">
         {/* Section header */}
-        <div className="text-center mb-10 xs:mb-12 sm:mb-14 md:mb-16 lg:mb-20">
+        <div className={`text-center mb-10 xs:mb-12 sm:mb-14 md:mb-16 lg:mb-20 ${sectionVisible ? 'animate-fadeInDown' : 'opacity-0'}`}>
           <p className="text-blue-600 font-semibold text-xs uppercase tracking-wider">
             💳 상품 구성
           </p>
-          <h2 className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mt-2 xs:mt-3 sm:mt-4">
+          <h2
+            className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mt-2 xs:mt-3 sm:mt-4"
+            style={{
+              animation: sectionVisible ? 'fadeInUp 0.6s ease-out 0.1s forwards' : 'none',
+            }}
+          >
             월 33K부터 시작하는 인생 크루즈
           </h2>
           <p className="text-xs xs:text-sm sm:text-base md:text-lg lg:text-xl text-gray-600 mt-2 xs:mt-3 sm:mt-4 max-w-3xl mx-auto">
@@ -95,13 +106,16 @@ export default function OfferSection() {
 
         {/* Offers grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 xs:gap-5 sm:gap-6 md:gap-8 mb-10 xs:mb-12 sm:mb-14 md:mb-16 lg:mb-20">
-          {offers.map((offer) => (
+          {offers.map((offer, index) => (
             <div
               key={offer.id}
               onClick={() => handleSelectOffer(offer.id)}
               className={`relative rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all cursor-pointer transform hover:scale-105 ${
                 selectedOffer === offer.id ? 'ring-4 ring-blue-500' : ''
-              }`}
+              } ${sectionVisible ? 'animate-scaleIn' : 'opacity-0'}`}
+              style={{
+                animation: sectionVisible ? `scaleIn 0.6s ease-out ${index * 0.1}s forwards` : 'none',
+              }}
             >
               {/* Background gradient */}
               <div className={`absolute inset-0 bg-gradient-to-br ${offer.color}`} />

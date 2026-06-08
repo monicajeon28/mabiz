@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { track } from '@/lib/landing/analytics';
+import { useIntersectionObserver } from '@/lib/landing/useIntersectionObserver';
 
 const solutions = [
   {
@@ -79,19 +80,30 @@ const solutions = [
 ];
 
 export default function SolutionSection() {
+  const [sectionRef, sectionVisible] = useIntersectionObserver({ threshold: 0.1 });
+
   const handleLearnMore = (id: number) => {
     track('solution_learn_more', { solution_id: id });
   };
 
   return (
-    <section className="py-20 bg-white">
+    <section
+      ref={sectionRef}
+      className="py-20 bg-white"
+      data-scroll-animation="solutions"
+    >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section header */}
-        <div className="text-center mb-16">
+        <div className={`text-center mb-16 ${sectionVisible ? 'animate-fadeInDown' : 'opacity-0'}`}>
           <p className="text-green-600 font-semibold text-sm uppercase tracking-wider">
             ✓ 우리의 솔루션
           </p>
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mt-4">
+          <h2
+            className="text-4xl md:text-5xl font-bold text-gray-900 mt-4"
+            style={{
+              animation: sectionVisible ? 'fadeInUp 0.6s ease-out 0.1s forwards' : 'none',
+            }}
+          >
             그래서 우리는 이렇게 합니다
           </h2>
           <p className="text-xl text-gray-600 mt-4 max-w-3xl mx-auto">
@@ -103,10 +115,13 @@ export default function SolutionSection() {
 
         {/* Solutions grid */}
         <div className="grid md:grid-cols-3 gap-8">
-          {solutions.map((solution) => (
+          {solutions.map((solution, index) => (
             <div
               key={solution.id}
-              className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-8 hover:shadow-lg transition-all border border-gray-200"
+              className={`bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-8 hover:shadow-lg transition-all border border-gray-200 ${sectionVisible ? 'animate-scaleIn' : 'opacity-0'}`}
+              style={{
+                animation: sectionVisible ? `scaleIn 0.6s ease-out ${index * 0.1}s forwards` : 'none',
+              }}
             >
               {/* Icon */}
               <div className="text-5xl mb-4">{solution.icon}</div>

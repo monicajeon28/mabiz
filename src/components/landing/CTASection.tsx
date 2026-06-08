@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { track } from '@/lib/landing/analytics';
+import { useIntersectionObserver } from '@/lib/landing/useIntersectionObserver';
 
 type FieldError = {
   [key in 'name' | 'phone' | 'email' | 'interest' | 'message']?: string;
@@ -255,12 +256,24 @@ export default function CTASection() {
     setErrorMessage('');
   };
 
+  const [sectionRef, sectionVisible] = useIntersectionObserver({ threshold: 0.1 });
+
   return (
-    <section className="py-12 sm:py-16 md:py-20 lg:py-24 bg-white" id="application-form">
+    <section
+      ref={sectionRef}
+      className="py-12 sm:py-16 md:py-20 lg:py-24 bg-white"
+      id="application-form"
+      data-scroll-animation="cta"
+    >
       <div className="max-w-4xl mx-auto px-3 xs:px-4 sm:px-6 lg:px-8">
         {/* Section header */}
-        <div className="text-center mb-8 xs:mb-10 sm:mb-12 md:mb-14 lg:mb-16">
-          <h2 className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900">
+        <div className={`text-center mb-8 xs:mb-10 sm:mb-12 md:mb-14 lg:mb-16 ${sectionVisible ? 'animate-fadeInDown' : 'opacity-0'}`}>
+          <h2
+            className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900"
+            style={{
+              animation: sectionVisible ? 'fadeInUp 0.6s ease-out 0.1s forwards' : 'none',
+            }}
+          >
             지금 신청하세요
           </h2>
           <p className="text-xs xs:text-sm sm:text-base md:text-lg lg:text-xl text-gray-600 mt-2 xs:mt-3 sm:mt-4">
@@ -271,9 +284,16 @@ export default function CTASection() {
         </div>
 
         {/* Two column layout */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 xs:gap-8 sm:gap-10 md:gap-12 lg:gap-16 items-start">
+        <div
+          className={`grid grid-cols-1 md:grid-cols-2 gap-6 xs:gap-8 sm:gap-10 md:gap-12 lg:gap-16 items-start ${sectionVisible ? 'animate-fadeInLeft' : 'opacity-0'}`}
+        >
           {/* Left - Benefits */}
-          <div className="space-y-6 xs:space-y-7 sm:space-y-8">
+          <div
+            className="space-y-6 xs:space-y-7 sm:space-y-8"
+            style={{
+              animation: sectionVisible ? 'fadeInLeft 0.6s ease-out 0.15s forwards' : 'none',
+            }}
+          >
             <div>
               <h3 className="text-lg xs:text-xl sm:text-2xl font-bold text-gray-900 mb-4 xs:mb-5 sm:mb-6">신청 후 다음 단계</h3>
               <div className="space-y-2 xs:space-y-3 sm:space-y-4">
@@ -342,7 +362,12 @@ export default function CTASection() {
           </div>
 
           {/* Right - Form */}
-          <div className="bg-white rounded-2xl shadow-xl p-6 xs:p-7 sm:p-8 border border-gray-200">
+          <div
+            className={`bg-white rounded-2xl shadow-xl p-6 xs:p-7 sm:p-8 border border-gray-200 ${sectionVisible ? 'animate-fadeInRight' : 'opacity-0'}`}
+            style={{
+              animation: sectionVisible ? 'fadeInRight 0.6s ease-out 0.15s forwards' : 'none',
+            }}
+          >
             {submitStatus === 'success' ? (
               <div className="flex flex-col items-center justify-center py-8 xs:py-10 sm:py-12 text-center">
                 <div className="text-4xl xs:text-5xl sm:text-6xl mb-2 xs:mb-3 sm:mb-4">✓</div>

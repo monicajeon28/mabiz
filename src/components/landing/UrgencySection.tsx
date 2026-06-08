@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { track } from '@/lib/landing/analytics';
+import { useIntersectionObserver } from '@/lib/landing/useIntersectionObserver';
 
 interface CountdownState {
   hours: number;
@@ -46,9 +47,14 @@ export default function UrgencySection() {
   };
 
   const formatTime = (value: number) => String(value).padStart(2, '0');
+  const [sectionRef, sectionVisible] = useIntersectionObserver({ threshold: 0.15 });
 
   return (
-    <section className="py-20 bg-gradient-to-r from-red-500 via-red-600 to-orange-500 text-white relative overflow-hidden">
+    <section
+      ref={sectionRef}
+      className="py-20 bg-gradient-to-r from-red-500 via-red-600 to-orange-500 text-white relative overflow-hidden"
+      data-scroll-animation="urgency"
+    >
       {/* Animated background */}
       <div className="absolute inset-0 opacity-30">
         <div className="absolute animate-pulse top-10 right-10 w-40 h-40 bg-white/10 rounded-full" />
@@ -57,12 +63,17 @@ export default function UrgencySection() {
 
       <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         {/* Main headline */}
-        <div className="space-y-6 mb-12">
+        <div className={`space-y-6 mb-12 ${sectionVisible ? 'animate-fadeInDown' : 'opacity-0'}`}>
           <div className="inline-block px-6 py-3 bg-white/20 rounded-full backdrop-blur-sm">
             <p className="text-lg font-bold animate-pulse">⚡ 긴급 공지</p>
           </div>
 
-          <h2 className="text-4xl md:text-5xl font-bold leading-tight">
+          <h2
+            className="text-4xl md:text-5xl font-bold leading-tight"
+            style={{
+              animation: sectionVisible ? 'fadeInUp 0.6s ease-out 0.1s forwards' : 'none',
+            }}
+          >
             지금 신청하면
             <br />
             <span className="text-yellow-200">10-30% 평생 할인</span>
@@ -78,21 +89,36 @@ export default function UrgencySection() {
         {/* Stats boxes */}
         <div className="grid md:grid-cols-3 gap-6 mb-12">
           {/* Daily applications */}
-          <div className="bg-white/20 backdrop-blur-sm rounded-xl p-8 border border-white/30">
+          <div
+            className={`bg-white/20 backdrop-blur-sm rounded-xl p-8 border border-white/30 ${sectionVisible ? 'animate-slideInUp' : 'opacity-0'}`}
+            style={{
+              animation: sectionVisible ? 'slideInUp 0.7s ease-out 0.1s forwards' : 'none',
+            }}
+          >
             <p className="text-sm font-semibold text-white/80 uppercase mb-2">매일 신청</p>
             <p className="text-4xl font-bold">142명</p>
             <p className="text-sm text-white/70 mt-2">크루즈닷 대기자</p>
           </div>
 
           {/* Seats remaining */}
-          <div className="bg-white/20 backdrop-blur-sm rounded-xl p-8 border border-white/30 ring-2 ring-yellow-300">
+          <div
+            className={`bg-white/20 backdrop-blur-sm rounded-xl p-8 border border-white/30 ring-2 ring-yellow-300 ${sectionVisible ? 'animate-slideInUp' : 'opacity-0'}`}
+            style={{
+              animation: sectionVisible ? 'slideInUp 0.7s ease-out 0.15s forwards' : 'none',
+            }}
+          >
             <p className="text-sm font-semibold text-yellow-200 uppercase mb-2">남은 자리</p>
             <p className="text-5xl font-bold text-yellow-200 animate-pulse">{seatsLeft}석</p>
             <p className="text-sm text-white/70 mt-2">다 차면 3개월 대기</p>
           </div>
 
           {/* Discount validity */}
-          <div className="bg-white/20 backdrop-blur-sm rounded-xl p-8 border border-white/30">
+          <div
+            className={`bg-white/20 backdrop-blur-sm rounded-xl p-8 border border-white/30 ${sectionVisible ? 'animate-slideInUp' : 'opacity-0'}`}
+            style={{
+              animation: sectionVisible ? 'slideInUp 0.7s ease-out 0.2s forwards' : 'none',
+            }}
+          >
             <p className="text-sm font-semibold text-white/80 uppercase mb-2">할인 유효</p>
             <p className="text-4xl font-bold">평생</p>
             <p className="text-sm text-white/70 mt-2">재신청도 할인 적용</p>

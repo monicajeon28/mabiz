@@ -2,9 +2,11 @@
 
 import React, { useState } from 'react';
 import { track } from '@/lib/landing/analytics';
+import { useIntersectionObserver } from '@/lib/landing/useIntersectionObserver';
 
 export default function HeroSection() {
   const [isVideoLoading, setIsVideoLoading] = useState(true);
+  const [sectionRef, sectionVisible] = useIntersectionObserver({ threshold: 0.2 });
 
   const handleCTAClick = () => {
     track('hero_cta_click', { section: 'hero' });
@@ -13,7 +15,11 @@ export default function HeroSection() {
   };
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white overflow-hidden">
+    <section
+      ref={sectionRef}
+      className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white overflow-hidden"
+      data-scroll-animation="hero"
+    >
       {/* Background decorative elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
@@ -24,9 +30,14 @@ export default function HeroSection() {
       <div className="relative z-10 max-w-5xl mx-auto px-3 xs:px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 lg:py-24">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 md:gap-12 lg:gap-16 items-center">
           {/* Text Content */}
-          <div className="space-y-6 xs:space-y-7 sm:space-y-8">
+          <div className={`space-y-6 xs:space-y-7 sm:space-y-8 ${sectionVisible ? 'animate-fadeInLeft' : 'opacity-0'}`}>
             {/* Main headline */}
-            <div className="space-y-3 xs:space-y-4">
+            <div
+              className="space-y-3 xs:space-y-4"
+              style={{
+                animation: sectionVisible ? 'fadeInUp 0.6s ease-out 0.1s forwards' : 'none',
+              }}
+            >
               <p className="text-blue-300 text-xs xs:text-sm font-semibold uppercase tracking-wider">
                 크루즈 여행의 새로운 기준
               </p>
@@ -94,7 +105,9 @@ export default function HeroSection() {
           </div>
 
           {/* Visual - Cruise Image/Video */}
-          <div className="relative mt-6 xs:mt-7 sm:mt-8 md:mt-0">
+          <div
+            className={`relative mt-6 xs:mt-7 sm:mt-8 md:mt-0 ${sectionVisible ? 'animate-fadeInRight' : 'opacity-0'}`}
+          >
             <div className="relative h-full min-h-56 xs:min-h-64 sm:min-h-80 md:min-h-96 rounded-2xl overflow-hidden shadow-2xl">
               {/* Placeholder for cruise ship image */}
               <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
