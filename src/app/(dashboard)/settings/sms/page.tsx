@@ -302,6 +302,45 @@ export default function SmsSettingsPage() {
         </div>
       </div>
 
+      {/* 환경 안내 배너 */}
+      <div className="mb-6 bg-purple-50 border border-purple-200 rounded-xl p-4 text-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="font-semibold text-purple-900 mb-2">
+              🌍 현재 환경: <span className="inline-block px-2 py-0.5 bg-purple-200 rounded text-xs font-mono">
+                {typeof window !== "undefined" && window.location.hostname === "localhost"
+                  ? "로컬 (localhost)"
+                  : "운영 (mabizcruisedot.com)"}
+              </span>
+            </p>
+            <ul className="space-y-1.5 text-purple-700">
+              <li className="flex items-start gap-2">
+                <span className="text-purple-400 mt-0.5">→</span>
+                <span>
+                  <strong>로컬 (localhost):</strong> 내 개인 알리고 사용
+                  {typeof window !== "undefined" && window.location.hostname === "localhost" && (
+                    <span className="block text-xs text-purple-600 mt-0.5">
+                      아래의 "내 개인 알리고 연결"에서 설정한 계정으로 발송됩니다.
+                    </span>
+                  )}
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-purple-400 mt-0.5">→</span>
+                <span>
+                  <strong>운영 (mabizcruisedot.com):</strong> 회사 공용 알리고 사용
+                  {typeof window !== "undefined" && window.location.hostname !== "localhost" && (
+                    <span className="block text-xs text-purple-600 mt-0.5">
+                      아래의 "조직 공용 설정"에서 설정한 계정으로 발송됩니다.
+                    </span>
+                  )}
+                </span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
       {/* 안내 배너 */}
       <div className="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
         <p className="font-semibold mb-1">📌 어떤 계정을 설정해야 하나요?</p>
@@ -311,7 +350,7 @@ export default function SmsSettingsPage() {
         </ul>
         <p className="mt-1.5 text-blue-600">개인 계정을 연결하면 내 발신번호가 우선 사용됩니다.</p>
         <p className="mt-2 pt-2 border-t border-blue-200 text-amber-700 font-medium">
-          ⚠️ 알리고 콘솔의 <strong>‘발송 서버 IP’는 비워두세요.</strong> 특정 IP를 등록하면 문자 발송이 막힙니다
+          ⚠️ 알리고 콘솔의 <strong>’발송 서버 IP’는 비워두세요.</strong> 특정 IP를 등록하면 문자 발송이 막힙니다
           (발송 서버 IP가 자주 바뀌고 여러 서버가 공유합니다). API Key·User ID·발신번호만 입력하면 됩니다.
         </p>
       </div>
@@ -393,6 +432,27 @@ export default function SmsSettingsPage() {
           내 알리고 계정을 연결하면 문자 발송 시 내 발신번호가 사용됩니다.
           연결하지 않으면 조직 공용 계정으로 발송됩니다.
         </p>
+
+        {/* 로컬 환경 안내 */}
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3.5 mb-3 text-sm">
+          <p className="font-medium text-indigo-900 mb-2">💡 로컬 개발 환경에서만 적용됩니다</p>
+          <div className="space-y-2 text-indigo-700">
+            <div className="flex items-start gap-2">
+              <span className="text-indigo-400 font-bold mt-0.5">•</span>
+              <div>
+                <strong>localhost:</strong> 이 설정을 사용합니다
+                <p className="text-xs text-indigo-600 mt-0.5">내 개인 알리고 연결 → 내 발신번호로 발송</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-indigo-400 font-bold mt-0.5">•</span>
+              <div>
+                <strong>mabizcruisedot.com:</strong> 이 설정은 무시됩니다
+                <p className="text-xs text-indigo-600 mt-0.5">항상 아래의 "조직 공용 설정"을 사용합니다</p>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* 연결 상태 배너 */}
         {userLoading ? (
@@ -548,6 +608,20 @@ export default function SmsSettingsPage() {
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           조직 공용 알리고 설정 (기존)
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+
+      {/* 조직 설정 안내 */}
+      <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-5 text-sm">
+        <p className="font-medium text-red-900 mb-2">⚠️ 관리자만 수정 가능 (GLOBAL_ADMIN)</p>
+        <div className="space-y-2 text-red-700">
+          <div>
+            이 설정은 Vercel 배포 시 사용됩니다 (mabizcruisedot.com).
+            <p className="text-xs text-red-600 mt-0.5">변경 시 팀 전체에 영향을 줍니다. 신중하게 진행하세요.</p>
+          </div>
+          <div>
+            <strong>Vercel 발신 IP:</strong> 76.76.x.x (고정 IP가 아니므로 알리고에 등록하지 마세요)
+          </div>
+        </div>
+      </div>
 
       {/* 현재 상태 */}
       {config.id && (
@@ -757,6 +831,64 @@ export default function SmsSettingsPage() {
           {msg.text}
         </div>
       )}
+
+      {/* 최종 정리: 어떤 알리고로 발송되나 */}
+      <div className="mt-8 bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 rounded-xl p-5 text-sm">
+        <p className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+          📌 요약: 어떤 알리고로 발송되나요?
+        </p>
+        <div className="space-y-3">
+          <div className="bg-white rounded-lg p-3.5 border border-slate-200">
+            <p className="font-medium text-slate-800 mb-2">🏠 로컬 (localhost)</p>
+            <p className="text-slate-600 text-sm">
+              <strong>내 개인 알리고 사용</strong>
+            </p>
+            <p className="text-slate-500 text-xs mt-1.5">
+              → "내 개인 알리고 연결"에서 설정한 계정으로 발송<br/>
+              → 미설정 시 "조직 공용 설정"으로 폴백
+            </p>
+          </div>
+          <div className="bg-white rounded-lg p-3.5 border border-slate-200">
+            <p className="font-medium text-slate-800 mb-2">🌐 운영 (mabizcruisedot.com)</p>
+            <p className="text-slate-600 text-sm">
+              <strong>항상 조직 공용 알리고 사용</strong>
+            </p>
+            <p className="text-slate-500 text-xs mt-1.5">
+              → "조직 공용 설정"에서만 발송<br/>
+              → 개인 설정은 무시됨
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 pt-4 border-t border-slate-200">
+          <p className="text-slate-600 text-xs">
+            💡 <strong>팁:</strong> 로컬에서 개인 계정으로 테스트한 후 운영 환경에서 조직 공용 설정으로 배포하세요.
+            개인 계정과 공용 계정을 구분하여 테스트할 수 있습니다.
+          </p>
+        </div>
+      </div>
+
+      {/* 도움말 링크 */}
+      <div className="mt-6 pt-6 border-t border-gray-200 text-center text-sm text-gray-600">
+        <p className="mb-3">더 자세한 정보가 필요하신가요?</p>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <a
+            href="https://smartsms.aligo.in"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium transition-colors"
+          >
+            Aligo 대시보드
+          </a>
+          <a
+            href="https://docs.aligo.in"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 border border-blue-300 rounded-lg hover:bg-blue-50 text-blue-700 font-medium transition-colors"
+          >
+            Aligo API 가이드
+          </a>
+        </div>
+      </div>
     </div>
   );
 }
