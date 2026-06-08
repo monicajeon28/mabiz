@@ -238,8 +238,11 @@ export default function PartnerAlertPage() {
         <select
           value={riskLevel}
           onChange={(e) => {
-            setRiskLevel(e.target.value as any);
+            setRiskLevel(e.target.value as "ALL" | "RED" | "YELLOW" | "GREEN");
             setCursor(null);
+            setNextCursor(null);
+            setPartners([]);
+            setHasNextPage(false);
           }}
           className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
