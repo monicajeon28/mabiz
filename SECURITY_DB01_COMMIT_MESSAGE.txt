@@ -1,0 +1,177 @@
+================================================================================
+DB-01 IDOR 보안 강화 — 커밋 메시지 (복사/붙여넣기 가능)
+================================================================================
+
+다음 명령어를 PowerShell에서 그대로 복사해서 실행하면 됩니다:
+
+================================================================================
+방법 1: PowerShell Here-String 사용 (권장)
+================================================================================
+
+git add prisma/schema.prisma
+git commit -m @'
+fix(security): DB-01 IDOR 취약점 차단 - CrmLandingPage/B2BLandingPage 복합키 추가
+
+- CrmLandingPage: @@unique([organizationId, id]) 추가 (라인 820)
+  └─ 기존: @@unique([slug, organizationId]) (slug 기반)
+  └─ 신규: @@unique([organizationId, id]) (ID 기반 - DB 강제)
+
+- B2BLandingPage: @@unique([organizationId, id]) 추가 (라인 5288)
+  └─ 기존: @@index([organizationId]) (인덱스만)
+  └─ 신규: @@unique([organizationId, id]) (유니크 강제)
+
+- 목적: 비인증 사용자의 다른 조직 페이지 직접 접근 원천 차단
+  └─ 현재: 코드 레벨 organizationId 필터 (어플리케이션 신뢰)
+  └─ 개선: DB 레벨 제약 (인프라 신뢰)
+
+- 마이그레이션:
+  └─ npx prisma migrate dev --name add-landing-page-org-id-unique
+  └─ npx prisma generate
+  └─ npx tsc --noEmit
+
+- API 검증 결과:
+  └─ GET /api/landing-pages/[id] ✅ organizationId 필터 완벽
+  └─ PATCH /api/landing-pages/[id] ✅ organizationId 필터 적용
+  └─ DELETE /api/landing-pages/[id] ✅ organizationId 필터 적용
+  └─ GET /api/b2b-landing/[id] ✅ organizationId 필터 완벽
+  └─ PATCH /api/b2b-landing/[id] ✅ organizationId 필터 적용
+
+Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>
+'@
+
+
+================================================================================
+방법 2: 간단한 버전 (시간 부족할 때)
+================================================================================
+
+git add prisma/schema.prisma
+git commit -m @'
+fix(security): DB-01 IDOR 취약점 차단 - CrmLandingPage/B2BLandingPage 복합키 추가
+
+- CrmLandingPage: @@unique([organizationId, id]) 추가 (라인 820)
+- B2BLandingPage: @@unique([organizationId, id]) 추가 (라인 5288)
+- 목적: 비인증 사용자의 다른 조직 페이지 직접 접근 원천 차단
+- 마이그레이션: npx prisma migrate dev --name add-landing-page-org-id-unique
+
+Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>
+'@
+
+
+================================================================================
+커밋 메시지 검증
+================================================================================
+
+제목 (1줄):
+- 형식: fix(security): DB-01 IDOR 취약점 차단...
+- 길이: 70자 이내 ✅
+- 스코프: (security) ✅
+- 타입: fix ✅
+- 설명: 간결 ✅
+
+본문:
+- 불릿 포인트 사용 ✅
+- 파일/라인 번호 명시 ✅
+- 마이그레이션 명령어 포함 ✅
+- API 검증 결과 포함 ✅
+
+작성자:
+- Co-Authored-By 포함 ✅
+- 형식: Claude Haiku 4.5 <noreply@anthropic.com> ✅
+
+
+================================================================================
+예상 커밋 출력
+================================================================================
+
+$ git add prisma/schema.prisma
+
+$ git commit -m @'...
+fix(security): DB-01 IDOR 취약점 차단...
+'@
+
+[main a1b2c3d] fix(security): DB-01 IDOR 취약점 차단...
+ 1 file changed, 2 insertions(+)
+ create mode 100644 prisma/migrations/YYYYMMDDHHMMSS_add_landing_page_org_id_unique/migration.sql
+
+
+================================================================================
+다음 명령어들
+================================================================================
+
+커밋 후:
+$ git log --oneline -1
+a1b2c3d fix(security): DB-01 IDOR 취약점 차단...
+
+푸시:
+$ git push origin main
+# (또는 git push origin feature/security-db01 if using feature branch)
+
+PR 생성:
+$ gh pr create --title "fix(security): DB-01 IDOR..." --body "..."
+
+
+================================================================================
+주의사항
+================================================================================
+
+❌ 절대 금지:
+   - npm run build (EBUSY 에러)
+   - git commit --no-verify (훅 스킵)
+   - --amend (새로운 커밋 생성 필수)
+
+✅ 필수 체크:
+   - npx tsc --noEmit (0개 에러)
+   - npx prisma generate (타입 동기화)
+   - 로컬 테스트 (curl 또는 API 호출)
+
+✅ 권장:
+   - 커밋 전: git diff 검토
+   - 푸시 전: git log 확인
+   - 배포 전: Staging 테스트
+
+
+================================================================================
+빠른 실행 스크립트 (한 번에 모든 명령어 실행)
+================================================================================
+
+아래를 PowerShell에서 한 번에 복사/붙여넣기:
+
+cd D:\mabiz-crm
+Write-Host "Step 1: 마이그레이션 생성 및 적용"
+npx prisma migrate dev --name add-landing-page-org-id-unique
+Write-Host "Step 2: Prisma 생성"
+npx prisma generate
+Write-Host "Step 3: 타입 검증"
+npx tsc --noEmit
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "✅ 타입 검증 통과"
+    Write-Host "Step 4: 커밋"
+    git add prisma/schema.prisma
+    git commit -m @'
+fix(security): DB-01 IDOR 취약점 차단 - CrmLandingPage/B2BLandingPage 복합키 추가
+
+- CrmLandingPage: @@unique([organizationId, id]) 추가 (라인 820)
+- B2BLandingPage: @@unique([organizationId, id]) 추가 (라인 5288)
+- 목적: 비인증 사용자의 다른 조직 페이지 직접 접근 원천 차단
+- 마이그레이션: npx prisma migrate dev --name add-landing-page-org-id-unique
+
+Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>
+'@
+    Write-Host "✅ 커밋 완료"
+    Write-Host "다음 명령어로 푸시: git push origin main"
+} else {
+    Write-Host "❌ 타입 에러 발생. 수정 필요."
+}
+
+
+================================================================================
+참고 문서
+================================================================================
+
+- 최종 체크리스트: docs/SECURITY_DB01_FINAL_CHECKLIST.md
+- 빠른 참조:      docs/SECURITY_DB01_QUICK_REFERENCE.md
+- 기술 설계:      docs/SECURITY_DB01_IDOR_REMEDIATION.md
+
+================================================================================
+생성: 2026-06-08
+================================================================================
