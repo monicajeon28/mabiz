@@ -93,20 +93,25 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Daily Reports</h1>
-          <p className="text-gray-600 mt-1">Performance metrics and insights</p>
-        </div>
+    <div className="relative">
+      {/* Sticky Download Button */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50 px-6 py-4 md:relative md:bottom-auto md:left-auto md:right-auto md:border-none md:shadow-none md:px-0 md:py-0">
         <button
           onClick={exportToCSV}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+          className="w-full md:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition"
         >
           ⬇️ Export CSV
         </button>
       </div>
+
+      <div className="space-y-6 pb-20 md:pb-0">
+        {/* Header */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Daily Reports</h1>
+            <p className="text-gray-600 mt-1">Performance metrics and insights</p>
+          </div>
+        </div>
 
       {/* Filters */}
       <div className="flex gap-2">
@@ -326,6 +331,7 @@ export default function ReportsPage() {
             </tbody>
           </table>
         )}
+      </div>
       </div>
     </div>
   );
