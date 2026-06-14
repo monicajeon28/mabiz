@@ -551,53 +551,60 @@ export default function StatementsPage() {
       {/* Summary Cards */}
       {!loading && !error && summary && <SummaryCards summary={summary} />}
 
-      {/* Filters */}
+      {/* Sticky Filters + Download */}
       {!loading && apiData && (
-        <div className="flex flex-wrap items-center gap-3 mb-5">
-          {/* Status tabs */}
-          <div className="flex flex-wrap gap-2">
-            {statusTabs.map((tab) => (
-              <button
-                key={tab.value}
-                onClick={() => { setStatusFilter(tab.value); setPage(1); }}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  statusFilter === tab.value
-                    ? "bg-teal-700 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-40 md:sticky md:bottom-auto md:border-t md:shadow-lg px-4 py-3 md:px-0 md:py-0 md:mb-5 md:border-none md:shadow-none">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Status tabs */}
+            <div className="flex flex-wrap gap-2">
+              {statusTabs.map((tab) => (
+                <button
+                  key={tab.value}
+                  onClick={() => { setStatusFilter(tab.value); setPage(1); }}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    statusFilter === tab.value
+                      ? "bg-teal-700 text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Period select */}
+            <select
+              value={period}
+              onChange={(e) => { setPeriod(e.target.value); setPage(1); }}
+              className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600/20 bg-white"
+            >
+              <option value="">전체 기간</option>
+              {YM_OPTIONS.map((ym) => (
+                <option key={ym} value={ym}>{ym}</option>
+              ))}
+            </select>
+
+            {/* CSV Export */}
+            <button
+              type="button"
+              onClick={() => {
+                const params = new URLSearchParams({ format: "csv" });
+                if (period) params.set("period", period);
+                if (statusFilter) params.set("status", statusFilter);
+                window.location.href = `/api/statements/my/export?${params.toString()}`;
+              }}
+              className="ml-auto w-full md:w-auto flex items-center justify-center md:justify-start gap-1.5 px-3 py-2 md:py-1.5 text-sm bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium"
+            >
+              <Download className="w-4 h-4" />
+              CSV 내보내기
+            </button>
           </div>
-
-          {/* Period select */}
-          <select
-            value={period}
-            onChange={(e) => { setPeriod(e.target.value); setPage(1); }}
-            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600/20 bg-white"
-          >
-            <option value="">전체 기간</option>
-            {YM_OPTIONS.map((ym) => (
-              <option key={ym} value={ym}>{ym}</option>
-            ))}
-          </select>
-
-          {/* CSV Export */}
-          <button
-            type="button"
-            onClick={() => {
-              const params = new URLSearchParams({ format: "csv" });
-              if (period) params.set("period", period);
-              if (statusFilter) params.set("status", statusFilter);
-              window.location.href = `/api/statements/my/export?${params.toString()}`;
-            }}
-            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            CSV 내보내기
-          </button>
         </div>
+      )}
+
+      {/* Padding for sticky filter on mobile */}
+      {!loading && apiData && (
+        <div className="h-16 md:h-0" />
       )}
 
       {/* Error */}
