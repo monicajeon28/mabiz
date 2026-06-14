@@ -795,8 +795,8 @@ ${footerBlock}
                 {exposureImage ? (
                   <div className="flex items-center gap-2">
                     <img src={`/api/landing-pages/images/proxy?id=${exposureImage.match(/id=([^&]+)/)?.[1] ?? ""}`}
-                      alt="OG 이미지" className="w-20 h-14 object-cover rounded-lg border border-gray-200"
-                      onError={(e) => { const el = (e.target as HTMLImageElement); el.style.opacity = '0.3'; el.style.backgroundColor = '#f3f4f6'; }} />
+                      alt="OG 이미지" className="w-20 h-14 object-cover rounded-lg border border-gray-200" loading="lazy"
+                      onError={(e) => { const el = (e.target as HTMLImageElement); el.src = '/static/image-placeholder.png'; console.error('OG image load failed'); }} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-gray-600 truncate">{exposureImage}</p>
                       <button onClick={() => setExposureImage("")} className="text-sm text-red-400 hover:text-red-600 mt-1">제거</button>
