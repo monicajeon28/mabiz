@@ -4,6 +4,7 @@ import { timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { enqueueDLQ } from '@/lib/mabiz-dlq';
+import { recordProcessedWebhookEvent } from '@/lib/webhook-execution';
 
 /**
  * POST /api/webhooks/reservation
@@ -110,8 +111,10 @@ export async function POST(req: NextRequest) {
 
     await prisma.$transaction(async (tx) => {
       // ── 처리 완료 기록 (트랜잭션 안에서 → TOCTOU 방지) ────────────
-      await tx.processedWebhookEvent.create({
-        data: { eventId, webhookType: 'reservation' },
+      await recordProcessedWebhookEvent(tx, {
+        eventId,
+        webhookType: 'reservation',
+        context: '[ReservationWebhook] 기록 실패',
       });
 
       for (const contact of contacts) {

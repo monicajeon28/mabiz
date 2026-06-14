@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { Search, Filter, Building2, ArrowUpDown, X, Tag } from "lucide-react";
-import type { Contact as FullContact } from "@/types/contact";
+import type { Contact as FullContact, InquiryTracking } from "@/types/contact";
+import { formatInquiryTrackingSummary } from "@/lib/contact-inquiry-tracking";
 
 const ContactSlidePanel = lazy(() => import('../ContactSlidePanel'));
 
@@ -16,6 +17,7 @@ type ContactAll = {
   tags: string[] | null;
   organizationId: string;
   organization: { name: string } | null;
+  surveyData?: { inquiryTracking?: InquiryTracking | null } | null;
 };
 
 type OrgOption = { id: string; name: string };
@@ -261,6 +263,7 @@ export default function ContactsAllPage() {
         <div className="space-y-2">
           {contacts.map(c => {
             const typeInfo = TYPE_LABELS[c.type] ?? { label: c.type, color: 'bg-gray-100 text-gray-600' };
+            const trackingSummary = formatInquiryTrackingSummary(c.surveyData?.inquiryTracking);
             return (
               <div
                 key={c.id}
@@ -295,6 +298,12 @@ export default function ContactsAllPage() {
                       업데이트 {new Date(c.updatedAt).toLocaleDateString('ko-KR')}
                     </span>
                   </div>
+                  {trackingSummary && (
+                    <div className="text-xs text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
+                      <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-medium">추적</span>
+                      <span>{trackingSummary}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* 조직명 */}

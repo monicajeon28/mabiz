@@ -20,7 +20,7 @@ export const notoSansKR = Noto_Sans_KR({
   variable: "--font-noto-sans-kr",
   display: "swap",
   fallback: ["system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI"],
-  preload: true,
+  preload: false,
   // Note: Next.js/Google Fonts doesn't have a "korean" subset,
   // but Noto Sans KR includes Korean glyphs by default.
   // No subset restriction needed for this font.

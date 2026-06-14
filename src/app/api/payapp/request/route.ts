@@ -3,37 +3,13 @@ import { randomBytes } from 'crypto';
 import prisma from '@/lib/prisma';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
-import { requestPayment, requestSubscription } from '@/lib/payapp';
+import { cancelSubscription, requestPayment, requestSubscription } from '@/lib/payapp';
 import { normalizePhone } from '@/lib/phone-normalize';
-
-// ─── P0-5: returnUrl 도메인 화이트리스트 ───
-const ALLOWED_COMPLETION_DOMAINS = [
-  'mabizcruisedot.com',
-  'cruisedot.co.kr',
-  'localhost:3000', // 개발 환경
-];
-
-function isSafeCompletionUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
-    return ALLOWED_COMPLETION_DOMAINS.some(domain =>
-      parsed.hostname.endsWith(domain) || parsed.hostname === domain
-    );
-  } catch {
-    return false;
-  }
-}
 
 // ─── P1-6: 민감정보 마스킹 헬퍼 ───
 function maskPhone(phone: string | null): string {
   if (!phone) return 'none';
   return `${phone.slice(0, 2)}***${phone.slice(-2)}`;
-}
-
-function maskOrderId(orderId: string | null): string {
-  if (!orderId) return 'none';
-  return `${orderId.slice(0, 3)}***${orderId.slice(-3)}`;
 }
 
 /**
@@ -42,6 +18,10 @@ function maskOrderId(orderId: string | null): string {
  * - type: "onetime" (기본) | "subscription"
  */
 export async function POST(req: Request) {
+  let createdOrderId: string | null = null;
+  let createdRebillNo: string | null = null;
+  let createdSubscriptionId: string | null = null;
+
   try {
     const ctx = await getAuthContext();
     const orgId = resolveOrgId(ctx);
@@ -77,6 +57,20 @@ export async function POST(req: Request) {
       );
     }
 
+    const landingPage = landingPageId
+      ? await prisma.crmLandingPage.findFirst({
+          where: { id: landingPageId, organizationId: orgId },
+          select: { id: true, slug: true, organizationId: true },
+        })
+      : null;
+
+    if (landingPageId && !landingPage) {
+      return NextResponse.json(
+        { ok: false, message: '랜딩페이지를 찾을 수 없습니다.' },
+        { status: 404 }
+      );
+    }
+
     const normalizedPhone = normalizePhone(customerPhone);
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://mabizcruisedot.com';
     const feedbackurl = `${baseUrl}/api/webhooks/payapp`;
@@ -90,25 +84,10 @@ export async function POST(req: Request) {
         );
       }
 
-      const result = await requestSubscription({
-        goodname,
-        goodprice: price,
-        recvphone: normalizedPhone,
-        cycleDay,
-        expireDate,
-        feedbackurl,
-        var1: `sub_${Date.now()}`,
-        recvemail: customerEmail,
-      });
-
-      if (!result.ok) {
-        return NextResponse.json({ ok: false, message: result.error }, { status: 502 });
-      }
-
       const subscription = await prisma.payAppSubscription.create({
         data: {
           organizationId: orgId,
-          rebillNo: result.rebillNo!,
+          rebillNo: `pending_${Date.now()}`,
           goodname,
           goodprice: price,
           customerName,
@@ -117,8 +96,38 @@ export async function POST(req: Request) {
           cycleDay,
           expireDate: new Date(expireDate),
           status: 'pending',
-          payUrl: result.payUrl ?? null,
+          payUrl: null,
           landingPageId: landingPageId ?? null,
+        },
+      });
+      createdSubscriptionId = subscription.id;
+
+      const result = await requestSubscription({
+        goodname,
+        goodprice: price,
+        recvphone: normalizedPhone,
+        cycleDay,
+        expireDate,
+        feedbackurl,
+        var1: subscription.id,
+        ...(landingPage?.slug ? { var2: landingPage.slug } : {}),
+        recvemail: customerEmail,
+      });
+
+      if (!result.ok) {
+        await prisma.payAppSubscription.updateMany({
+          where: { id: subscription.id, organizationId: orgId },
+          data: { status: 'failed' },
+        });
+        return NextResponse.json({ ok: false, message: result.error }, { status: 502 });
+      }
+
+      createdRebillNo = result.rebillNo ?? null;
+      await prisma.payAppSubscription.updateMany({
+        where: { id: subscription.id, organizationId: orgId },
+        data: {
+          rebillNo: result.rebillNo!,
+          payUrl: result.payUrl ?? null,
         },
       });
 
@@ -139,6 +148,7 @@ export async function POST(req: Request) {
     // ─── 일반결제 ───
     const nonce = randomBytes(4).toString('hex');
     const orderId = `pay_${orgId.slice(0, 8)}_${Date.now()}_${nonce}`;
+    createdOrderId = orderId;
 
     // ─── P1-7: 취소 웹훅 금액 재검증 (결제 수신 시에도 원금 기록) ───
     // 취소 요청 시 환불액이 원금을 초과하지 않는지 확인하기 위해 원금 저장
@@ -167,7 +177,7 @@ export async function POST(req: Request) {
       recvphone: normalizedPhone,
       feedbackurl,
       var1: orderId,
-      var2: landingPageId ?? '',
+      var2: landingPage?.slug ?? '',
       recvemail: customerEmail,
       smsuse: 'n',
     });
@@ -195,6 +205,26 @@ export async function POST(req: Request) {
       payUrl: result.payUrl,
     });
   } catch (err) {
+    if (createdOrderId) {
+      await prisma.payAppPayment.updateMany({ where: { orderId: createdOrderId }, data: { status: 'failed' } });
+    }
+
+    if (createdSubscriptionId) {
+      await prisma.payAppSubscription.updateMany({
+        where: { id: createdSubscriptionId },
+        data: { status: 'failed' },
+      });
+    }
+
+    if (createdRebillNo) {
+      cancelSubscription(createdRebillNo).catch((cancelErr) => {
+        logger.error('[PayApp/Request] 정기결제 외부 취소 실패', {
+          rebillNo: createdRebillNo,
+          err: cancelErr instanceof Error ? cancelErr.message : String(cancelErr),
+        });
+      });
+    }
+
     logger.error('[PayApp/Request] 결제 요청 실패', { err });
     return NextResponse.json({ ok: false, message: '결제 요청 중 오류가 발생했습니다.' }, { status: 500 });
   }

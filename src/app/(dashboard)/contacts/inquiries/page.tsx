@@ -5,7 +5,8 @@ import Link from "next/link";
 import { Search, Plus, Phone, MessageSquare, CheckCircle, Clock, XCircle, Upload, X, FileSpreadsheet } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/lib/api/use-toast";
-import type { Contact as FullContact } from "@/types/contact";
+import type { Contact as FullContact, InquiryTracking } from "@/types/contact";
+import { formatInquiryTrackingSummary } from "@/lib/contact-inquiry-tracking";
 
 // 고객 상세 슬라이드 패널 (행 클릭 시 표시) — 코드 스플릿
 const ContactSlidePanel = lazy(() => import("../ContactSlidePanel"));
@@ -19,6 +20,7 @@ type Contact = {
   lastContactedAt: string | null;
   leadScore: number;
   tags: string[] | null;
+  surveyData?: { inquiryTracking?: InquiryTracking | null } | null;
   groups: { group: { id: string; name: string; color: string | null } }[];
   _count: { callLogs: number };
 };
@@ -469,6 +471,7 @@ export default function InquiriesPage() {
           {filteredContacts.map((c) => {
             const tierInfo = getLeadTier(c.leadScore ?? 0);
             const isQuickCallOpen = quickCallId === c.id;
+            const trackingSummary = formatInquiryTrackingSummary(c.surveyData?.inquiryTracking);
             return (
               <div key={c.id} className="bg-white rounded-xl border border-gray-200 hover:border-gold-300 hover:shadow-sm transition-all">
                 <div
@@ -511,6 +514,12 @@ export default function InquiriesPage() {
                       )}
                       <span className="text-sm text-amber-600">{formatDaysSince(c.lastContactedAt)}</span>
                     </div>
+                    {trackingSummary && (
+                      <div className="text-xs text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
+                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-medium">추적</span>
+                        <span>{trackingSummary}</span>
+                      </div>
+                    )}
                     {groups.length > 0 && (
                       <div className="flex items-center gap-1 mt-2" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
                         <select

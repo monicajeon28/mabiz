@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import sharp from 'sharp';
 import prisma from '@/lib/prisma';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
+import { MAX_IMAGE_UPLOAD_BYTES, processUploadedImage } from '@/lib/image-upload-processing';
 import { uploadImageToDrive } from '@/lib/image-sync';
 import { getDriveClient } from '@/lib/drive-client';
 import { logger } from '@/lib/logger';
@@ -19,7 +20,6 @@ async function getOrgId(ctx: Awaited<ReturnType<typeof getAuthContext>>): Promis
   return resolveOrgId(ctx);
 }
 
-const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 /**
@@ -32,9 +32,9 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 export async function POST(req: Request) {
   // Content-Length 사전 체크 (413 전에 명확한 에러)
   const contentLength = req.headers.get('content-length');
-  if (contentLength && parseInt(contentLength) > 25 * 1024 * 1024) {
+  if (contentLength && parseInt(contentLength) > MAX_IMAGE_UPLOAD_BYTES) {
     return NextResponse.json(
-      { ok: false, error: 'FILE_TOO_LARGE', message: '파일이 너무 큽니다. 20MB 이하 파일을 업로드해주세요.' },
+      { ok: false, error: 'FILE_TOO_LARGE', message: '파일이 너무 큽니다. 100MB 이하 파일을 업로드해주세요.' },
       { status: 413 }
     );
   }
@@ -70,9 +70,9 @@ export async function POST(req: Request) {
       );
     }
 
-    if (file.size > MAX_FILE_SIZE) {
+    if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
       return NextResponse.json(
-        { ok: false, error: 'INVALID_INPUT', message: '파일 크기는 20MB 이하여야 합니다' },
+        { ok: false, error: 'INVALID_INPUT', message: '파일 크기는 100MB 이하여야 합니다' },
         { status: 400 },
       );
     }
@@ -94,37 +94,12 @@ export async function POST(req: Request) {
     const originalBuffer = Buffer.from(arrayBuffer);
     const isGif = resolvedType === 'image/gif';
 
-    // 이미지 처리: GIF는 압축만, 나머지는 WebP 변환
-    let processedBuffer: Buffer;
-    let finalMimeType: string;
-    let finalFileName: string;
+    const processed = await processUploadedImage(originalBuffer, resolvedType, file.name);
+    const { buffer: processedBuffer, mimeType: finalMimeType, fileName: finalFileName, isAnimated } = processed;
 
-    if (isGif) {
-      // GIF: 리사이즈로 압축 (최대 가로 1200px), 포맷 유지
-      const metadata = await sharp(originalBuffer, { animated: true }).metadata();
-      if (metadata.width && metadata.width > 1200) {
-        processedBuffer = await sharp(originalBuffer, { animated: true })
-          .resize({ width: 1200, withoutEnlargement: true })
-          .gif()
-          .toBuffer();
-      } else {
-        processedBuffer = originalBuffer;
-      }
-      finalMimeType = 'image/gif';
-      finalFileName = file.name.replace(/\.[^.]+$/, '.gif');
-    } else {
-      // JPG/PNG/WebP → WebP 변환 (quality 85, 최대 가로 1600px)
-      processedBuffer = await sharp(originalBuffer)
-        .resize(1600, null, { withoutEnlargement: true })
-        .webp({ quality: 85 })
-        .toBuffer();
-      finalMimeType = 'image/webp';
-      finalFileName = file.name.replace(/\.[^.]+$/, '.webp');
-    }
-
-    // 메타데이터 추출 — GIF animated:true 시 height = 프레임높이×프레임수이므로 pages로 나눔
-    const meta = await sharp(processedBuffer, isGif ? { animated: true } : undefined).metadata();
-    const displayHeight = isGif && meta.pages && meta.pages > 1
+    // 메타데이터 추출 — animated GIF fallback일 때만 pages로 나눔
+    const meta = await sharp(processedBuffer, finalMimeType === 'image/gif' ? { animated: true } : undefined).metadata();
+    const displayHeight = isAnimated && finalMimeType === 'image/gif' && meta.pages && meta.pages > 1
       ? Math.round((meta.height ?? 0) / meta.pages)
       : meta.height;
 
@@ -216,7 +191,7 @@ export async function POST(req: Request) {
                         msg.toLowerCase().includes('payload');
     if (isSizeError) {
       return NextResponse.json(
-        { ok: false, error: 'FILE_TOO_LARGE', message: '파일이 너무 큽니다. 이미지를 압축하거나 20MB 이하 파일을 사용해주세요.' },
+        { ok: false, error: 'FILE_TOO_LARGE', message: '파일이 너무 큽니다. 이미지를 압축하거나 100MB 이하 파일을 사용해주세요.' },
         { status: 413 }
       );
     }

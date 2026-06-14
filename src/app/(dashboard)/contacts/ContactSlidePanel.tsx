@@ -8,10 +8,10 @@
  * - savingCallLog 전달 버그 수정
  */
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  X, Phone, MessageSquare, FileText, GitBranch, Building2, Send, Loader, Share2,
+  X, Search, Phone, MessageSquare, FileText, GitBranch, Building2, Send, Loader, Share2,
 } from "lucide-react";
 import { useToast } from "@/lib/api/use-toast";
 import { logger } from "@/lib/logger";
@@ -29,7 +29,7 @@ type Funnel = { id: string; name: string; funnelType: string };
 type SmsLog = { id: string; phone: string; contentPreview: string; status: string; channel: string; sentAt: string };
 type VipSequence = { id: string; funnelId: string; status: string; startDate: string };
 type TabKey = "call" | "memo" | "funnel" | "sms" | "affiliate";
-type ShareTarget = { id: string; displayName: string | null; role: string; orgName: string };
+type ShareTarget = { id: string; displayName: string | null; loginId?: string | null; role: string; orgName: string };
 
 export interface ContactSlidePanelProps {
   contact: Contact | null;
@@ -145,6 +145,7 @@ function DbShareModal({ contact, onClose, onShared }: { contact: { id: string; n
   const [targets, setTargets] = useState<ShareTarget[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState("");
+  const [query, setQuery] = useState("");
   const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
@@ -164,6 +165,17 @@ function DbShareModal({ contact, onClose, onShared }: { contact: { id: string; n
       .catch(() => setTargets([]))
       .finally(() => setLoading(false));
   }, []);
+
+  const filteredTargets = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return targets;
+    return targets.filter((target) =>
+      (target.displayName ?? "").toLowerCase().includes(q) ||
+      (target.loginId ?? "").toLowerCase().includes(q) ||
+      target.role.toLowerCase().includes(q) ||
+      target.orgName.toLowerCase().includes(q)
+    );
+  }, [query, targets]);
 
   const handleShare = async () => {
     if (!selectedId) { toast({ title: "전달 대상을 선택하세요.", variant: "destructive" }); return; }
@@ -199,15 +211,28 @@ function DbShareModal({ contact, onClose, onShared }: { contact: { id: string; n
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
         </div>
         <p className="text-xs text-gray-500">누구에게 이 고객 DB를 전달할지 선택하세요.</p>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="이름 / 아이디 / 조직 검색..."
+            className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
         {loading ? (
           <div className="text-center text-sm text-gray-400 py-6">불러오는 중...</div>
-        ) : targets.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-6">이 권한으로는 DB 공유를 할 수 없습니다. 대리점장 또는 본사에 문의하세요.</p>
+        ) : filteredTargets.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-6">
+            {query.trim()
+              ? "검색 결과가 없습니다."
+              : "이 권한으로는 DB 공유를 할 수 없습니다. 대리점장 또는 본사에 문의하세요."}
+          </p>
         ) : (
           <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}
             className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="">대상 선택...</option>
-            {targets.map(t => <option key={t.id} value={t.id}>{t.displayName ?? t.id} ({t.orgName} · {t.role})</option>)}
+            {filteredTargets.map(t => <option key={t.id} value={t.id}>{t.displayName ?? t.loginId ?? t.id} ({t.orgName} · {t.role})</option>)}
           </select>
         )}
         <div className="flex gap-2">

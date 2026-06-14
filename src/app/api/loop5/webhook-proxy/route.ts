@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { buildInquiryTracking, extractInquiryIp } from '@/lib/inquiry-tracking';
 
 interface InquiryPayload {
   phone: string;
@@ -22,6 +23,13 @@ interface InquiryPayload {
   message: string;
   submittedAt: string;
   organizationId: string;
+  pageUrl?: string | null;
+  userAgent?: string | null;
+  deviceType?: string | null;
+  source?: string | null;
+  productName?: string | null;
+  productCode?: string | null;
+  isGold?: boolean | null;
 }
 
 export async function POST(req: NextRequest) {
@@ -51,6 +59,19 @@ export async function POST(req: NextRequest) {
     }
 
     const payload: InquiryPayload = JSON.parse(bodyText);
+    const requestIp = extractInquiryIp(req.headers);
+    const tracking = buildInquiryTracking({
+      source: payload.source,
+      productName: payload.productName,
+      productCode: payload.productCode,
+      pageUrl: payload.pageUrl,
+      userAgent: payload.userAgent ?? req.headers.get('user-agent'),
+      deviceType: payload.deviceType,
+      ip: requestIp,
+      isGold: payload.isGold,
+      submittedAt: payload.submittedAt,
+    });
+    const sourceType = payload.isGold ? 'gold_member' : 'landing_page';
 
     // 필드 검증
     if (!payload.phone || !payload.name || !payload.organizationId) {
@@ -65,6 +86,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const existingContact = await prisma.contact.findUnique({
+      where: {
+        phone_organizationId: {
+          phone: payload.phone,
+          organizationId: payload.organizationId,
+        },
+      },
+      select: {
+        surveyData: true,
+      },
+    });
+    const existingSurveyData =
+      existingContact?.surveyData &&
+      typeof existingContact.surveyData === 'object' &&
+      !Array.isArray(existingContact.surveyData)
+        ? existingContact.surveyData
+        : {};
+
     // Contact 조회 또는 생성
     const contact = await prisma.contact.upsert({
       where: {
@@ -78,6 +117,13 @@ export async function POST(req: NextRequest) {
         email: payload.email ?? undefined,
         affiliateCode: payload.affiliateCode ?? undefined,
         lastContactedAt: new Date(),
+        sourceType,
+        inquiryProductCode: payload.productCode ?? undefined,
+        productName: payload.productName ?? undefined,
+        surveyData: {
+          ...existingSurveyData,
+          inquiryTracking: tracking,
+        },
       },
       create: {
         phone: payload.phone,
@@ -85,7 +131,10 @@ export async function POST(req: NextRequest) {
         email: payload.email ?? null,
         organizationId: payload.organizationId,
         affiliateCode: payload.affiliateCode ?? null,
-        sourceType: 'landing_page',
+        sourceType,
+        inquiryProductCode: payload.productCode ?? null,
+        productName: payload.productName ?? null,
+        surveyData: { inquiryTracking: tracking },
         lastContactedAt: new Date(),
       },
     });

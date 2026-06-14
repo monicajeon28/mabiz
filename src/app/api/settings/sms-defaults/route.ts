@@ -13,13 +13,14 @@ export async function GET() {
   const orgId = resolveOrgId(ctx);
   const smsConfig = await prisma.orgSmsConfig.findUnique({
     where: { organizationId: orgId },
-    select: { senderPhone: true, arsNum: true },
+    select: { senderPhone: true, arsNum: true, senderVerified: true },
   }).catch(() => null);
 
   return NextResponse.json({
     ok: true,
     senderPhone:   smsConfig?.senderPhone    ?? process.env.ALIGO_SENDER_PHONE  ?? '',
     arsNum:        smsConfig?.arsNum          ?? process.env.ALIGO_ARS_NUM       ?? '',
+    senderVerified: smsConfig?.senderVerified ?? false,
     kakaoOpenChat: process.env.KAKAO_OPEN_CHAT_URL ?? '',
   });
 }

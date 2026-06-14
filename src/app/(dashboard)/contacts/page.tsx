@@ -6,7 +6,8 @@ import { Search, Plus, Filter, Phone, MessageSquare, CheckCircle, Clock, XCircle
 import { logger } from "@/lib/logger";
 import { useToast } from "@/lib/api/use-toast";
 import { useSession } from "@/hooks/useSession";
-import type { Contact as FullContact } from "@/types/contact";
+import type { Contact as FullContact, InquiryTracking } from "@/types/contact";
+import { formatInquiryTrackingSummary } from "@/lib/contact-inquiry-tracking";
 
 // P1-21: Code-split large components for TTI optimization
 const GroupBlastModal = lazy(() => import('./GroupBlastModal'));
@@ -34,6 +35,7 @@ type Contact = {
   affiliateManagerId?: string;
   affiliateAgentId?: string;
   inquiryProductCode?: string;
+  surveyData?: { inquiryTracking?: InquiryTracking | null } | null;
   affiliateManagerName?: string;
   affiliateAgentName?: string;
   lastTransferredTo?: {
@@ -667,16 +669,13 @@ export default function ContactsPage() {
 
   // P2-11: Fetch tags from server API instead of client-side deduplication
   const [allTags, setAllTags] = useState<string[]>([]);
-  const [loadingTags, setLoadingTags] = useState(false);
 
   useEffect(() => {
     const ctrl = new AbortController();
-    setLoadingTags(true);
     fetch('/api/contacts/tags?limit=1000', { signal: ctrl.signal })
       .then(r => r.json())
       .then(data => { if (data.ok) setAllTags(data.tags ?? []); })
       .catch(err => { if (err instanceof Error && err.name !== 'AbortError') logger.error('[loadTags failed]', { err }); })
-      .finally(() => { if (!ctrl.signal.aborted) setLoadingTags(false); });
     return () => ctrl.abort();
     // Load tags once on mount (cache in Redis server-side)
   }, []);
@@ -1197,6 +1196,7 @@ export default function ContactsPage() {
             const tierInfo = getLeadTier(c.leadScore ?? 0);
             const isQuickCallOpen = quickCallId === c.id;
             const isSelected = selectedIds.has(c.id);
+                    const inquiryTrackingSummary = formatInquiryTrackingSummary(c.surveyData?.inquiryTracking);
             return (
               <div key={c.id} className={`bg-white rounded-xl border transition-all ${isSelected ? "border-purple-400 shadow-sm" : "border-gray-200 hover:border-gold-300 hover:shadow-sm"}`}>
                 <div className="flex items-center gap-3 px-4 py-3 group">
@@ -1274,9 +1274,15 @@ export default function ContactsPage() {
                             </span>
                             {c.affiliateManagerName && <span className="text-gray-600">본사: {c.affiliateManagerName}</span>}
                             {c.affiliateAgentName && <span className="text-gray-600">판매원: {c.affiliateAgentName}</span>}
-                            {c.sourceType === "inquiry" && c.inquiryProductCode && <span className="text-gray-600">상품: {c.inquiryProductCode}</span>}
+                            {c.inquiryProductCode && <span className="text-gray-600">상품: {c.inquiryProductCode}</span>}
                           </>
                         )}
+                      </div>
+                    )}
+                    {inquiryTrackingSummary && (
+                      <div className="text-xs text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
+                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-medium">추적</span>
+                        <span>{inquiryTrackingSummary}</span>
                       </div>
                     )}
                     {/* 태그 칩 */}

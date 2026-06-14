@@ -18,6 +18,27 @@ export interface Memo {
   _authorName?: string | null;
 }
 
+export interface InquiryTracking {
+  timestamp?: string | null;
+  capturedAt?: string | null;
+  source?: string | null;
+  productName?: string | null;
+  productCode?: string | null;
+  pageUrl?: string | null;
+  userAgent?: string | null;
+  deviceType?: string | null;
+  ip?: string | null;
+  isGold?: boolean | null;
+}
+
+export interface SurveyData {
+  q1?: string | null;
+  q2?: string | null;
+  q3?: string | null;
+  inquiryTracking?: InquiryTracking | null;
+  [key: string]: unknown;
+}
+
 export interface Contact {
   id: string;
   name: string;
@@ -52,5 +73,5 @@ export interface Contact {
   paymentStatusNote?: string | null;
   // 엑셀 가져오기
   inflowDate?: string | null;
-  surveyData?: Record<string, string | null> | null;
+  surveyData?: SurveyData | null;
 }

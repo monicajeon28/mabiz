@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { getMabizSession } from "@/lib/auth";
 import { ApiResponse, ContractInstanceResponse } from "@/lib/types/contract-templates";
@@ -239,27 +240,29 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "계약서를 찾을 수 없습니다" }, { status: 404 });
     }
 
-    // SIGNED 또는 COMPLETED 전환 시 Google Drive에 계약서 저장 (fire-and-forget)
+    const previousBoundData =
+      instance.boundData && typeof instance.boundData === "object"
+        ? (instance.boundData as Prisma.InputJsonValue)
+        : {};
+
+    // SIGNED 또는 COMPLETED 전환 시 Google Drive에 계약서 저장
     if (status === "SIGNED" || status === "COMPLETED") {
-      void (async () => {
-        try {
-          // boundData에서 고객명 추출 (buyerName → signerName → customerName 순으로 시도)
-          const boundDataObj =
-            updatedInstance.boundData && typeof updatedInstance.boundData === "object"
-              ? (updatedInstance.boundData as Record<string, unknown>)
-              : {};
-          const customerName =
-            (typeof boundDataObj.buyerName === "string" ? boundDataObj.buyerName : "") ||
-            (typeof boundDataObj.signerName === "string" ? boundDataObj.signerName : "") ||
-            (typeof boundDataObj.customerName === "string" ? boundDataObj.customerName : "") ||
-            "고객";
+      const boundDataObj =
+        updatedInstance.boundData && typeof updatedInstance.boundData === "object"
+          ? (updatedInstance.boundData as Record<string, unknown>)
+          : {};
+      const customerName =
+        (typeof boundDataObj.buyerName === "string" ? boundDataObj.buyerName : "") ||
+        (typeof boundDataObj.signerName === "string" ? boundDataObj.signerName : "") ||
+        (typeof boundDataObj.customerName === "string" ? boundDataObj.customerName : "") ||
+        "고객";
 
-          // 계약서 HTML 생성 (boundData를 기반으로 간단한 HTML 구성)
-          const signedAtStr = updatedInstance.signedAt
-            ? updatedInstance.signedAt.toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })
-            : new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+      // 계약서 HTML 생성 (boundData를 기반으로 간단한 HTML 구성)
+      const signedAtStr = updatedInstance.signedAt
+        ? updatedInstance.signedAt.toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })
+        : new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
 
-          const htmlContent = `<!DOCTYPE html>
+      const htmlContent = `<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
@@ -288,46 +291,56 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 </body>
 </html>`;
 
-          const driveResult = await saveContractToDrive(
-            updatedInstance.id,
-            htmlContent,
-            customerName,
-            updatedInstance.organizationId
-          );
+      try {
+        const driveResult = await saveContractToDrive(
+          updatedInstance.id,
+          htmlContent,
+          customerName,
+          updatedInstance.organizationId
+        );
 
-          if (driveResult.ok && driveResult.driveFileId) {
-            // boundData에 driveFileId, driveUrl 저장
-            const currentBoundData =
-              updatedInstance.boundData && typeof updatedInstance.boundData === "object"
-                ? (updatedInstance.boundData as Record<string, unknown>)
-                : {};
-            await prisma.contractInstance.update({
-              where: { id: updatedInstance.id },
-              data: {
-                boundData: {
-                  ...currentBoundData,
-                  driveFileId: driveResult.driveFileId,
-                  driveUrl: driveResult.driveUrl,
-                },
-              },
-            });
-            logger.log("[PATCH /api/contract-instances/[id]] Drive 저장 완료", {
-              instanceId: updatedInstance.id,
-              driveFileId: driveResult.driveFileId,
-            });
-          } else {
-            logger.error("[PATCH /api/contract-instances/[id]] Drive 저장 실패", {
-              instanceId: updatedInstance.id,
-              error: driveResult.error,
-            });
-          }
-        } catch (driveErr) {
-          logger.error("[PATCH /api/contract-instances/[id]] Drive 저장 예외", {
-            instanceId: updatedInstance.id,
-            error: driveErr instanceof Error ? driveErr.message : String(driveErr),
-          });
+        if (!driveResult.ok || !driveResult.driveFileId) {
+          throw new Error(driveResult.error || "Drive save failed");
         }
-      })();
+
+        await prisma.contractInstance.update({
+          where: { id: updatedInstance.id },
+          data: {
+            boundData: {
+              ...boundDataObj,
+              driveFileId: driveResult.driveFileId,
+              driveUrl: driveResult.driveUrl,
+            },
+          },
+        });
+        logger.log("[PATCH /api/contract-instances/[id]] Drive 저장 완료", {
+          instanceId: updatedInstance.id,
+          driveFileId: driveResult.driveFileId,
+        });
+      } catch (driveErr) {
+        logger.error("[PATCH /api/contract-instances/[id]] Drive 저장 실패 — 상태 롤백", {
+          instanceId: updatedInstance.id,
+          error: driveErr instanceof Error ? driveErr.message : String(driveErr),
+        });
+
+        await prisma.contractInstance.update({
+          where: { id: updatedInstance.id },
+          data: {
+            status: instance.status,
+            signedAt: instance.signedAt,
+            boundData: previousBoundData,
+          },
+        });
+
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "계약서 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+            code: "DRIVE_SAVE_FAILED",
+          },
+          { status: 503 }
+        );
+      }
     }
 
     const response: ApiResponse<ContractInstanceResponse> = {

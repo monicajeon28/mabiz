@@ -1,10 +1,11 @@
 ﻿"use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ImageIcon, Code, Upload, X, GripVertical, Plus, Trash2, Smartphone, Copy, Check } from "lucide-react";
 import dynamic from "next/dynamic";
 import { ImageLibraryModal } from "@/components/image-library/ImageLibraryModal";
+import { MAX_IMAGE_UPLOAD_BYTES, prepareImageForUpload } from "@/lib/client-image-compress";
 
 const HtmlEditor = dynamic(
   () => import("@/components/editor/HtmlEditor").then((m) => m.HtmlEditor),
@@ -268,9 +269,10 @@ ${footerBlock}
       const isImage = file.type.startsWith("image/") ||
         /\.(jpe?g|png|gif|webp|bmp)$/i.test(file.name);
       if (!isImage) continue;
-      if (file.size > 20 * 1024 * 1024) { setError(`${file.name}: 20MB 초과`); continue; }
+      if (file.size > MAX_IMAGE_UPLOAD_BYTES) { setError(`${file.name}: 100MB 초과`); continue; }
+      const uploadFile = await prepareImageForUpload(file);
       const fd = new FormData();
-      fd.append("file", file); fd.append("landingPageId", pageId); fd.append("sortOrder", String(baseImageCount + uploaded));
+      fd.append("file", uploadFile); fd.append("landingPageId", pageId); fd.append("sortOrder", String(baseImageCount + uploaded));
       try {
         const res  = await fetch("/api/b2b-landing/images", { method: "POST", body: fd });
         const data = await res.json();
@@ -468,7 +470,7 @@ ${footerBlock}
                 >
                   <Upload className="w-9 h-9 text-gray-600 mx-auto mb-3" />
                   <p className="text-sm font-medium text-gray-600">{uploading ? "업로드 중..." : "이미지 드래그 또는 클릭"}</p>
-                  <p className="text-sm text-gray-600 mt-1">JPG · PNG · WebP · GIF / 최대 20MB</p>
+                  <p className="text-sm text-gray-600 mt-1">JPG · PNG · WebP · GIF / 최대 100MB</p>
                   <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
                     onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; if (f.length) uploadFiles(f); }} />
                 </div>

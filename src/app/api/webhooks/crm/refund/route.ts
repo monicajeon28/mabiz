@@ -188,7 +188,10 @@ export async function POST(req: NextRequest) {
     logger.error('[CrmRefundWebhook] 처리 실패', { eventId, err: message });
     await prisma.processedWebhookEvent
       .create({ data: { eventId, webhookType: 'crm-refund', status: 'FAILED', errorMessage: message } })
-      .catch(() => {});
+      .catch((recordErr) => logger.error('[CrmRefundWebhook] FAILED 기록 실패', {
+        eventId,
+        error: recordErr instanceof Error ? recordErr.message : String(recordErr),
+      }));
     return NextResponse.json({ ok: false, message: '처리 실패' }, { status: 500 });
   }
 }

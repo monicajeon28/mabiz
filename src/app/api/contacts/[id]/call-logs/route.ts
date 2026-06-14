@@ -10,6 +10,12 @@ import { CallLogIdSchema } from "@/lib/validators";
 
 type Params = { params: Promise<{ id: string }> };
 
+const toOptionalInt = (value: unknown): number | null => {
+  if (value === undefined || value === null || value === "") return null;
+  const parsed = typeof value === "number" ? value : parseInt(String(value), 10);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 // GET /api/contacts/[id]/call-logs
 export async function GET(_req: Request, { params }: Params) {
   try {
@@ -160,15 +166,15 @@ export async function PUT(req: Request, { params }: Params) {
       data: {
         content: content ?? existingLog.content,
         result: result ?? existingLog.result,
-        duration: duration ? parseInt(duration) || 0 : existingLog.duration,
-        convictionScore: convictionScore ? parseInt(convictionScore) || null : existingLog.convictionScore,
+        duration: duration !== undefined ? toOptionalInt(duration) : existingLog.duration,
+        convictionScore: convictionScore !== undefined ? toOptionalInt(convictionScore) : existingLog.convictionScore,
         nextAction: nextAction ?? existingLog.nextAction,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : existingLog.scheduledAt,
         // Track A: 이의처리 필드
         objectionId: objectionId ?? existingLog.objectionId,
         customerReaction: customerReaction ?? existingLog.customerReaction,
         recovered: recovered !== undefined ? recovered : existingLog.recovered,
-        recoveryTime: recoveryTime !== undefined ? parseInt(String(recoveryTime)) || null : existingLog.recoveryTime,
+        recoveryTime: recoveryTime !== undefined ? toOptionalInt(recoveryTime) : existingLog.recoveryTime,
       },
     });
     const updatedLog = await prisma.callLog.findUnique({ where: { id: logId } });
@@ -233,15 +239,15 @@ export async function POST(req: Request, { params }: Params) {
         userId: ctx.userId,
         content,
         result,
-        duration:        duration        ? parseInt(duration) || 0        : null,
-        convictionScore: convictionScore ? parseInt(convictionScore) || null : null,
+        duration:        toOptionalInt(duration),
+        convictionScore: toOptionalInt(convictionScore),
         nextAction,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
         // Track A: 이의처리 필드
         objectionId: objectionId || null,
         customerReaction: customerReaction || null,
         recovered: recovered !== undefined ? recovered : null,
-        recoveryTime: recoveryTime !== undefined ? parseInt(String(recoveryTime)) || null : null,
+        recoveryTime: toOptionalInt(recoveryTime),
       },
     });
 

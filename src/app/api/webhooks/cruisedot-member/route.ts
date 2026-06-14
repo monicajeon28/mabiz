@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHmac, timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { recordProcessedWebhookEvent } from '@/lib/webhook-execution';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -104,8 +105,9 @@ export async function POST(req: NextRequest) {
       logger.log('[MemberWebhook] 회원 upsert', { externalId, provider: member.provider, eventType });
     }
 
-    await prisma.processedWebhookEvent.create({
-      data: { eventId, webhookType: 'cruisedot-member', status: 'SUCCESS' },
+    await recordProcessedWebhookEvent(prisma, {
+      eventId,
+      webhookType: 'cruisedot-member',
     });
 
     return NextResponse.json({ ok: true, eventType, externalId: String(member.id) });
@@ -113,9 +115,13 @@ export async function POST(req: NextRequest) {
     const msg = err instanceof Error ? err.message : String(err);
     logger.error('[MemberWebhook] 처리 실패', { eventId, err: msg });
 
-    await prisma.processedWebhookEvent.create({
-      data: { eventId, webhookType: 'cruisedot-member', status: 'FAILED', errorMessage: msg },
-    }).catch(() => {});
+    await recordProcessedWebhookEvent(prisma, {
+      eventId,
+      webhookType: 'cruisedot-member',
+      status: 'FAILED',
+      errorMessage: msg,
+      context: '[MemberWebhook] FAILED 기록 실패',
+    });
 
     return NextResponse.json({ ok: false, error: 'Internal server error' }, { status: 500 });
   }

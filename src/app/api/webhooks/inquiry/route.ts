@@ -6,8 +6,8 @@ import { logger } from '@/lib/logger';
 import { enqueueDLQ } from '@/lib/mabiz-dlq';
 import { normalizePhone } from '@/lib/phone-normalize';
 import { sanitizeHtml } from '@/lib/html-sanitizer';
-import { LensDetectionEngine } from '@/lib/services/lens-detection-engine';
 import { maskPhone } from '@/lib/pii-masker';
+import { buildInquiryTracking, extractInquiryIp } from '@/lib/inquiry-tracking';
 
 /**
  * Loop 6 - Agent C: Customer Inquiry Webhook with Lens Detection
@@ -30,6 +30,12 @@ interface InquiryRequest {
   inquiryType?: string;
   message?: string;
   productCode?: string;
+  productName?: string;
+  pageUrl?: string;
+  userAgent?: string;
+  deviceType?: string;
+  source?: string;
+  isGold?: boolean;
   affiliateCode?: string;
   organizationId?: string;
   submittedAt?: string;
@@ -127,7 +133,7 @@ function detectLensFromMessage(message: string | undefined): LensDetectedSignals
 /**
  * 렌즈 기반 자동 대응 스크립트 생성
  */
-function generateSuggestedResponse(lensType: string, inquiryType: string | undefined): SuggestedResponse {
+function generateSuggestedResponse(lensType: string, _inquiryType: string | undefined): SuggestedResponse {
   const responses: Record<string, SuggestedResponse> = {
     L0: {
       lensType: 'L0',
@@ -244,6 +250,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, message: 'JSON 파싱 실패' }, { status: 400 });
   }
   const { phone, name, email, inquiryType, message, affiliateCode, organizationId: bodyOrgId, eventId } = body;
+  const requestIp = extractInquiryIp(req.headers);
+  const tracking = buildInquiryTracking({
+    source: body.source,
+    productName: body.productName,
+    productCode: body.productCode,
+    pageUrl: body.pageUrl,
+    userAgent: body.userAgent ?? req.headers.get('user-agent'),
+    deviceType: body.deviceType,
+    ip: requestIp,
+    isGold: body.isGold,
+    submittedAt: body.submittedAt,
+  });
+  const sourceType = body.isGold ? 'gold_member' : 'inquiry';
 
   if (!phone || !name) {
     return NextResponse.json({ ok: false, message: 'phone, name 필수' }, { status: 400 });
@@ -307,8 +326,14 @@ export async function POST(req: NextRequest) {
 
       const existing = await tx.contact.findUnique({
         where: { phone_organizationId: { phone: normalizedPhone, organizationId } },
-        select: { id: true, type: true, leadScore: true },
+        select: { id: true, type: true, leadScore: true, surveyData: true },
       });
+      const existingSurveyData =
+        existing?.surveyData &&
+        typeof existing.surveyData === 'object' &&
+        !Array.isArray(existing.surveyData)
+          ? existing.surveyData
+          : {};
 
       let contactId: string;
       let created = false;
@@ -320,9 +345,17 @@ export async function POST(req: NextRequest) {
             name,
             ...(email ? { email } : {}),
             ...(affiliateCode ? { affiliateCode } : {}),
+            sourceType,
+            ...(body.productName ? { productName: body.productName } : {}),
+            ...(body.productCode ? { inquiryProductCode: body.productCode } : {}),
+            surveyData: {
+              ...existingSurveyData,
+              inquiryTracking: tracking,
+            },
             type: existing.type === 'PURCHASED' ? 'PURCHASED' : 'LEAD',
             leadScore: (existing.leadScore ?? 0) + 15,
             ...(gmUser ? { userId: gmUser.id } : {}),
+            lastContactedAt: new Date(),
           },
         });
         contactId = existing.id;
@@ -334,9 +367,14 @@ export async function POST(req: NextRequest) {
             organizationId,
             ...(email ? { email } : {}),
             ...(affiliateCode ? { affiliateCode } : {}),
+            sourceType,
+            ...(body.productName ? { productName: body.productName } : {}),
+            ...(body.productCode ? { inquiryProductCode: body.productCode } : {}),
+            surveyData: { inquiryTracking: tracking },
             type: 'LEAD',
             leadScore: 15,
-            userId: gmUser?.id ?? null
+            userId: gmUser?.id ?? null,
+            lastContactedAt: new Date(),
           },
           select: { id: true },
         });

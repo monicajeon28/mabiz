@@ -7,13 +7,13 @@ import { logger } from '@/lib/logger';
 
 type TrackingEvent = {
   name: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   timestamp: string;
 };
 
 const events: TrackingEvent[] = [];
 
-export function track(eventName: string, data: Record<string, any> = {}) {
+export function track(eventName: string, data: Record<string, unknown> = {}) {
   const event: TrackingEvent = {
     name: eventName,
     data: {
@@ -59,14 +59,26 @@ export function sendEvents() {
   // });
 }
 
-// Send events on page unload
-if (typeof window !== 'undefined') {
-  window.addEventListener('beforeunload', sendEvents);
-}
+type AnalyticsWindow = Window & {
+  __landingAnalyticsIntervalId?: number;
+  __landingAnalyticsCleanupBound?: boolean;
+};
 
-// Auto-send events every 30 seconds
+// Keep a single interval per tab and rebind safely on HMR/module re-evaluation.
 if (typeof window !== 'undefined') {
-  setInterval(sendEvents, 30000);
+  const analyticsWindow = window as AnalyticsWindow;
+
+  if (analyticsWindow.__landingAnalyticsIntervalId) {
+    window.clearInterval(analyticsWindow.__landingAnalyticsIntervalId);
+  }
+  analyticsWindow.__landingAnalyticsIntervalId = window.setInterval(sendEvents, 30000);
+
+  if (!analyticsWindow.__landingAnalyticsCleanupBound) {
+    const flush = () => sendEvents();
+    window.addEventListener('beforeunload', flush);
+    window.addEventListener('pagehide', flush);
+    analyticsWindow.__landingAnalyticsCleanupBound = true;
+  }
 }
 
 export function getEvents() {

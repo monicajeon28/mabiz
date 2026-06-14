@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { enqueueDLQ } from '@/lib/mabiz-dlq';
 import { normalizePhone } from '@/lib/phone-normalize';
+import { resolveGmcruiseWebhookContext } from '@/lib/gmcruise-webhook';
 
 /**
  * POST /api/webhooks/gmcruise/payment-failure
@@ -84,53 +85,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, duplicate: true });
     }
 
-    // orderId로 CRM AffiliateSale → organizationId 역추적
-    let sale = await prisma.affiliateSale.findUnique({
-      where: { orderId },
-      select: { organizationId: true },
-    });
-
-    if (!sale && affiliateCode) {
-      sale = await prisma.affiliateSale.findFirst({
-        where: { affiliateCode },
-        select: { organizationId: true },
-        orderBy: { createdAt: 'desc' },
-      });
-    }
-
-    const organizationId = sale?.organizationId ?? process.env.DEFAULT_ORGANIZATION_ID;
+    const { organizationId, affiliateContact } = await resolveGmcruiseWebhookContext(
+      prisma,
+      affiliateCode,
+      process.env.DEFAULT_ORGANIZATION_ID
+    );
 
     if (!organizationId) {
       logger.log('[PaymentFailureWebhook] 조직 특정 불가 — 로그만 기록', { orderId, affiliateCode });
       await prisma.processedWebhookEvent.create({
-        data: { eventId, webhookType: 'payment-failure' },
+        data: { eventId, webhookType: 'gmcruise-payment-failure' },
       });
       return NextResponse.json({ ok: true, matched: false });
     }
 
     // Contact 찾기
     // 1순위: bookingRef === orderId
-    let contact: { id: string } | null = await prisma.contact.findFirst({
+    let matchedContact: { id: string } | null = await prisma.contact.findFirst({
       where: { bookingRef: orderId, organizationId },
       select: { id: true },
     });
 
     // 2순위: customerPhone (평문 — 마스킹 없음)
-    if (!contact && customerPhone) {
+    if (!matchedContact && customerPhone) {
       const normalizedPhone = normalizePhone(customerPhone);
-      contact = await prisma.contact.findFirst({
+      matchedContact = await prisma.contact.findFirst({
         where: { phone: normalizedPhone, organizationId },
         select: { id: true },
       });
     }
 
     // 3순위: affiliateCode로 최근 Contact
-    if (!contact && affiliateCode) {
-      contact = await prisma.contact.findFirst({
-        where: { affiliateCode, organizationId },
-        select: { id: true },
-        orderBy: { createdAt: 'desc' },
-      });
+    if (!matchedContact && affiliateContact) {
+      matchedContact = affiliateContact;
     }
 
     // 트랜잭션
@@ -139,7 +126,7 @@ export async function POST(req: NextRequest) {
         data: { eventId, webhookType: 'payment-failure' },
       });
 
-      if (contact) {
+      if (matchedContact) {
         const displayAmount = amount && amount > 0 ? amount.toLocaleString() + '원' : '금액 미상';
         const memoLines = [
           `[결제실패] ${displayAmount}`,
@@ -151,7 +138,7 @@ export async function POST(req: NextRequest) {
 
         await tx.contactMemo.create({
           data: {
-            contactId: contact.id,
+            contactId: matchedContact.id,
             userId: 'system-webhook',
             content: memoLines,
           },
@@ -160,16 +147,22 @@ export async function POST(req: NextRequest) {
     });
 
     logger.log('[PaymentFailureWebhook] 완료', {
-      contactFound: !!contact,
+      contactFound: !!matchedContact,
       orderId,
       reason,
       eventId,
     });
 
-    return NextResponse.json({ ok: true, matched: !!contact });
+    return NextResponse.json({ ok: true, matched: !!matchedContact });
   } catch (err) {
     logger.error('[PaymentFailureWebhook] 처리 실패', { err, orderId, eventId });
-    await enqueueDLQ('payment-failure', body, err instanceof Error ? err.message : String(err)).catch(() => {});
+    await enqueueDLQ('payment-failure', body, err instanceof Error ? err.message : String(err)).catch((dlqErr) => {
+      logger.error('[PaymentFailureWebhook] DLQ 저장 실패', {
+        orderId,
+        eventId,
+        error: dlqErr instanceof Error ? dlqErr.message : String(dlqErr),
+      });
+    });
     return NextResponse.json({ ok: false, message: '처리 실패' }, { status: 500 });
   }
 }

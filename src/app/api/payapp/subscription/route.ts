@@ -3,6 +3,17 @@ import prisma from '@/lib/prisma';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
+const VALID_STATUSES = [
+  'pending',
+  'active',
+  'paused',
+  'cancelled',
+  'failed',
+  'pause_pending',
+  'resume_pending',
+  'cancel_pending',
+] as const;
+
 /**
  * GET /api/payapp/subscription
  * 정기결제 목록 조회
@@ -18,7 +29,7 @@ export async function GET(req: Request) {
     const subscriptions = await prisma.payAppSubscription.findMany({
       where: {
         organizationId: orgId,
-        ...(status ? { status } : {}),
+        ...(status && VALID_STATUSES.includes(status as (typeof VALID_STATUSES)[number]) ? { status } : {}),
       },
       orderBy: { createdAt: 'desc' },
     });

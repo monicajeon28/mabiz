@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-import { requestPayment, requestSubscription } from '@/lib/payapp';
+import { cancelSubscription, requestPayment, requestSubscription } from '@/lib/payapp';
 import { normalizePhone } from '@/lib/phone-normalize';
 
 // ─── P0-5: returnUrl 도메인 화이트리스트 ───
@@ -43,6 +43,9 @@ const RequestSchema = z.object({
  * - 비회원 방문자가 결제 가능
  */
 export async function POST(req: Request) {
+  let createdSubscriptionId: string | null = null;
+  let createdRebillNo: string | null = null;
+
   try {
     const body = await req.json();
     const parsed = RequestSchema.safeParse(body);
@@ -78,25 +81,10 @@ export async function POST(req: Request) {
         );
       }
 
-      const result = await requestSubscription({
-        goodname,
-        goodprice: price,
-        recvphone: normalizedPhone,
-        cycleDay,
-        expireDate,
-        feedbackurl,
-        var1: `sub_${Date.now()}`,
-        recvemail: customerEmail,
-      });
-
-      if (!result.ok) {
-        return NextResponse.json({ ok: false, message: result.error }, { status: 502 });
-      }
-
       const subscription = await prisma.payAppSubscription.create({
         data: {
           organizationId: orgId,
-          rebillNo: result.rebillNo!,
+          rebillNo: `pending_${Date.now()}`,
           goodname,
           goodprice: price,
           customerName,
@@ -105,8 +93,37 @@ export async function POST(req: Request) {
           cycleDay,
           expireDate: new Date(expireDate),
           status: 'pending',
-          payUrl: result.payUrl ?? null,
+          payUrl: null,
           landingPageId: landingPageId ?? null,
+        },
+      });
+      createdSubscriptionId = subscription.id;
+
+      const result = await requestSubscription({
+        goodname,
+        goodprice: price,
+        recvphone: normalizedPhone,
+        cycleDay,
+        expireDate,
+        feedbackurl,
+        var1: subscription.id,
+        recvemail: customerEmail,
+      });
+
+      if (!result.ok) {
+        await prisma.payAppSubscription.updateMany({
+          where: { id: subscription.id, organizationId: orgId },
+          data: { status: 'failed' },
+        });
+        return NextResponse.json({ ok: false, message: result.error }, { status: 502 });
+      }
+
+      createdRebillNo = result.rebillNo ?? null;
+      await prisma.payAppSubscription.updateMany({
+        where: { id: subscription.id, organizationId: orgId },
+        data: {
+          rebillNo: result.rebillNo!,
+          payUrl: result.payUrl ?? null,
         },
       });
 
@@ -131,6 +148,21 @@ export async function POST(req: Request) {
       );
     }
 
+    await prisma.payAppPayment.create({
+      data: {
+        orderId,
+        organizationId: orgId,
+        amount: price,
+        customerName,
+        customerPhone: normalizedPhone,
+        customerEmail: customerEmail ?? null,
+        productName: goodname,
+        mulNo: null,
+        status: 'pending',
+        landingPageId: landingPageId ?? null,
+      },
+    });
+
     const result = await requestPayment({
       goodname,
       price,
@@ -144,23 +176,13 @@ export async function POST(req: Request) {
     });
 
     if (!result.ok) {
+      await prisma.payAppPayment.updateMany({ where: { orderId }, data: { status: 'failed' } });
       return NextResponse.json({ ok: false, message: result.error }, { status: 502 });
     }
 
-    await prisma.payAppPayment.create({
-      data: {
-        orderId,
-        organizationId: orgId,
-        amount: price,
-        customerName,
-        customerPhone: normalizedPhone,
-        customerEmail: customerEmail ?? null,
-        productName: goodname,
-        mulNo: result.mulNo ?? null,
-        status: 'pending',
-        landingPageId: landingPageId ?? null,
-      },
-    });
+    if (result.mulNo) {
+      await prisma.payAppPayment.updateMany({ where: { orderId }, data: { mulNo: result.mulNo } });
+    }
 
     logger.log('[Public/PayApp] 일반결제 요청', {
       orderId,
@@ -168,8 +190,24 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ ok: true, type: 'onetime', orderId, payUrl: result.payUrl });
-  } catch (err) {
-    logger.error('[Public/PayApp] 결제 요청 실패', { err });
-    return NextResponse.json({ ok: false, message: '결제 요청 중 오류가 발생했습니다.' }, { status: 500 });
-  }
+    } catch (err) {
+      if (createdSubscriptionId) {
+        await prisma.payAppSubscription.updateMany({
+          where: { id: createdSubscriptionId },
+          data: { status: 'failed' },
+        });
+      }
+
+      if (createdRebillNo) {
+        cancelSubscription(createdRebillNo).catch((cancelErr) => {
+          logger.error('[Public/PayApp] 정기결제 외부 취소 실패', {
+            rebillNo: createdRebillNo,
+            err: cancelErr instanceof Error ? cancelErr.message : String(cancelErr),
+          });
+        });
+      }
+
+      logger.error('[Public/PayApp] 결제 요청 실패', { err });
+      return NextResponse.json({ ok: false, message: '결제 요청 중 오류가 발생했습니다.' }, { status: 500 });
+    }
 }

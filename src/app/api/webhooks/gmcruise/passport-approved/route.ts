@@ -4,6 +4,7 @@ import { timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { enqueueDLQ } from '@/lib/mabiz-dlq';
+import { resolveGmcruiseWebhookContext } from '@/lib/gmcruise-webhook';
 
 /**
  * POST /api/webhooks/gmcruise/passport-approved
@@ -70,35 +71,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, duplicate: true });
     }
 
-    // affiliateCode → organizationId 역추적
-    let resolvedOrgId: string | undefined;
-
-    if (affiliateCode) {
-      const existingSale = await prisma.affiliateSale.findFirst({
-        where: { affiliateCode },
-        select: { organizationId: true },
-        orderBy: { createdAt: 'desc' },
-      });
-      resolvedOrgId = existingSale?.organizationId ?? undefined;
-
-      if (!resolvedOrgId) {
-        const existingContact = await prisma.contact.findFirst({
-          where: { affiliateCode },
-          select: { organizationId: true },
-          orderBy: { createdAt: 'desc' },
-        });
-        resolvedOrgId = existingContact?.organizationId ?? undefined;
-      }
-    }
-
-    if (!resolvedOrgId) {
-      resolvedOrgId = process.env.DEFAULT_ORGANIZATION_ID;
-    }
+    const { organizationId: resolvedOrgId, affiliateContact } = await resolveGmcruiseWebhookContext(
+      prisma,
+      affiliateCode,
+      process.env.DEFAULT_ORGANIZATION_ID
+    );
 
     if (!resolvedOrgId) {
       logger.log('[PassportApprovedWebhook] 조직 특정 불가 — 로그만 기록', { affiliateCode, reservationId });
       await prisma.processedWebhookEvent.create({
-        data: { eventId, webhookType: 'passport-approved' },
+        data: { eventId, webhookType: 'gmcruise-passport-approved' },
       });
       return NextResponse.json({ ok: true, matched: false });
     }
@@ -113,18 +95,14 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (!contact && affiliateCode) {
-      contact = await prisma.contact.findFirst({
-        where: { affiliateCode, organizationId: resolvedOrgId },
-        select: { id: true },
-        orderBy: { createdAt: 'desc' },
-      });
+    if (!contact && affiliateContact) {
+      contact = affiliateContact;
     }
 
     // 트랜잭션
     await prisma.$transaction(async (tx) => {
       await tx.processedWebhookEvent.create({
-        data: { eventId, webhookType: 'passport-approved' },
+        data: { eventId, webhookType: 'gmcruise-passport-approved' },
       });
 
       if (contact) {
@@ -147,7 +125,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, matched: !!contact });
   } catch (err) {
     logger.error('[PassportApprovedWebhook] 처리 실패', { err, reservationId, eventId });
-    await enqueueDLQ('passport-approved', body, err instanceof Error ? err.message : String(err)).catch(() => {});
+    await enqueueDLQ('passport-approved', body, err instanceof Error ? err.message : String(err)).catch((dlqErr) => {
+      logger.error('[PassportApprovedWebhook] DLQ 저장 실패', {
+        reservationId,
+        eventId,
+        error: dlqErr instanceof Error ? dlqErr.message : String(dlqErr),
+      });
+    });
     return NextResponse.json({ ok: false, message: '처리 실패' }, { status: 500 });
   }
 }

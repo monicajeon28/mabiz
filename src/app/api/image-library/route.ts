@@ -5,6 +5,7 @@ import { logger } from "@/lib/logger";
 import { uploadImageToDrive } from "@/lib/image-sync";
 import { getDriveClient } from "@/lib/drive-client";
 import sharp from "sharp";
+import { MAX_IMAGE_UPLOAD_BYTES, processUploadedImage } from "@/lib/image-upload-processing";
 
 // App Router에서 formData 크기 제한 설정
 export const maxDuration = 60; // Vercel Pro: 60초
@@ -129,16 +130,18 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   // Content-Length 사전 체크 (413 전에 명확한 에러)
   const contentLength = req.headers.get('content-length');
-  if (contentLength && parseInt(contentLength) > 25 * 1024 * 1024) {
+  if (contentLength && parseInt(contentLength) > MAX_IMAGE_UPLOAD_BYTES) {
     return NextResponse.json(
-      { ok: false, error: '파일이 너무 큽니다. 20MB 이하 파일을 업로드해주세요.' },
+      { ok: false, error: '파일이 너무 큽니다. 100MB 이하 파일을 업로드해주세요.' },
       { status: 413 }
     );
   }
 
-  let ctx: any;
+  let userId: string | undefined;
+  let fileSize: number | undefined;
   try {
-    ctx = await getAuthContext();
+    const ctx = await getAuthContext();
+    userId = ctx.userId ?? undefined;
 
     // ── GLOBAL_ADMIN org 패턴 ─────────────────────────────
     let orgId: string;
@@ -166,6 +169,7 @@ export async function POST(req: Request) {
     if (!file || !(file instanceof Blob)) {
       return NextResponse.json({ ok: false, error: "파일이 없습니다" }, { status: 400 });
     }
+    fileSize = file.size;
 
     // 파일 검증 — Windows 드래그&드롭 시 MIME 타입 빈 문자열 대응
     const extMimeMap: Record<string, string> = {
@@ -177,9 +181,8 @@ export async function POST(req: Request) {
     if (!resolvedMime.startsWith("image/")) {
       return NextResponse.json({ ok: false, error: "이미지 파일만 업로드 가능합니다" }, { status: 400 });
     }
-    const MAX_SIZE = 20 * 1024 * 1024; // 20MB
-    if (file.size > MAX_SIZE) {
-      return NextResponse.json({ ok: false, error: "파일 크기는 20MB 이하여야 합니다" }, { status: 400 });
+    if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
+      return NextResponse.json({ ok: false, error: "파일 크기는 100MB 이하여야 합니다" }, { status: 400 });
     }
 
     // 원본 파일명
@@ -188,69 +191,16 @@ export async function POST(req: Request) {
     const inputBuffer  = Buffer.from(arrayBuffer);
 
     // Sharp 처리
-    const isGif = resolvedMime === "image/gif";
-    let outputBuffer: Buffer;
-    let outputMimeType: string;
-    let outputFileName: string;
-    let width: number | undefined;
-    let height: number | undefined;
-
-    if (isGif) {
-      // GIF: EXIF 회전 후 최대 1200px 리사이즈, 포맷 유지
-      try {
-        const sharpMeta = await sharp(inputBuffer, { animated: true }).metadata();
-        const origWidth = sharpMeta.width ?? 0;
-
-        if (origWidth > 1200) {
-          outputBuffer = await sharp(inputBuffer, { animated: true })
-            .rotate()
-            .resize({ width: 1200, withoutEnlargement: true })
-            .gif()
-            .toBuffer();
-        } else {
-          outputBuffer = await sharp(inputBuffer, { animated: true })
-            .rotate()
-            .gif()
-            .toBuffer();
-        }
-
-        outputMimeType = "image/gif";
-        outputFileName = titleParam
-          ? `${titleParam}.gif`
-          : originalName.endsWith(".gif") ? originalName : `${originalName}.gif`;
-
-        const meta = await sharp(outputBuffer, { animated: true }).metadata();
-        width  = meta.width;
-        height = meta.height;
-      } catch (gifErr) {
-        // GIF 처리 실패 시 원본 버퍼 사용
-        logger.warn("[GIF processing failed, using original]", {
-          error: gifErr instanceof Error ? gifErr.message : String(gifErr),
-          fileName: originalName,
-        });
-        outputBuffer = inputBuffer;
-        outputMimeType = "image/gif";
-        outputFileName = titleParam ? `${titleParam}.gif` : originalName;
-        width = undefined;
-        height = undefined;
-      }
-    } else {
-      // 나머지: EXIF 회전 후 WebP 변환 (quality 85, 최대 1600px)
-      const pipeline = sharp(inputBuffer)
-        .rotate()
-        .resize({ width: 1600, withoutEnlargement: true })
-        .webp({ quality: 85 });
-
-      outputBuffer = await pipeline.toBuffer();
-      outputMimeType = "image/webp";
-
-      const baseName = originalName.replace(/\.[^.]+$/, "");
-      outputFileName = titleParam ? `${titleParam}.webp` : `${baseName}.webp`;
-
-      const meta = await sharp(outputBuffer).metadata();
-      width  = meta.width;
-      height = meta.height;
-    }
+    const processed = await processUploadedImage(
+      inputBuffer,
+      resolvedMime,
+      originalName,
+      titleParam ?? undefined,
+    );
+    const { buffer: outputBuffer, mimeType: outputMimeType, fileName: outputFileName } = processed;
+    const meta = await sharp(outputBuffer, outputMimeType === "image/gif" ? { animated: true } : undefined).metadata();
+    const width = meta.width;
+    const height = meta.height;
 
     // Drive 업로드
     const asset = await uploadImageToDrive({
@@ -298,7 +248,7 @@ export async function POST(req: Request) {
                         message.toLowerCase().includes('payload');
     if (isSizeError) {
       return NextResponse.json(
-        { ok: false, error: '파일이 너무 큽니다. 이미지를 압축하거나 20MB 이하 파일을 사용해주세요.' },
+        { ok: false, error: '파일이 너무 큽니다. 이미지를 압축하거나 100MB 이하 파일을 사용해주세요.' },
         { status: 413 }
       );
     }
@@ -312,9 +262,9 @@ export async function POST(req: Request) {
     logger.error("[POST /api/image-library]", {
       message,
       stack,
-      userId: ctx?.userId,
+      userId,
       isFormDataError,
-      fileSize: ctx?.file?.size,
+      fileSize,
     });
 
     return NextResponse.json(

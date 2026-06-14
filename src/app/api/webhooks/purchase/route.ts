@@ -6,6 +6,7 @@ import { logger } from '@/lib/logger';
 import { triggerGroupFunnel } from '@/lib/funnel-trigger';
 import { enqueueDLQ } from '@/lib/mabiz-dlq';
 import { normalizePhone } from '@/lib/phone-normalize';
+import { recordProcessedWebhookEvent } from '@/lib/webhook-execution';
 
 /**
  * POST /api/webhooks/purchase
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
   const {
     phone, name, productName, departureDate, orderId, organizationId,
     affiliateCode, saleAmount, commissionRate, commissionAmount,
-    saleId, amount, customerEmail, productCode, headcount, cabinType,
+    saleId, amount, customerEmail, productCode, headcount, cabinType: _cabinType,
     eventId,
   } = body;
 
@@ -101,8 +102,8 @@ export async function POST(req: NextRequest) {
     // commissionRate: null 허용 (크루즈닷몰 관리자 승인 전)
     const parsedCommissionRate = commissionRate != null ? parseFloat(String(commissionRate)) : null;
     const parsedCommissionAmount = parseInt(String(commissionAmount)) || 0;
-    const parsedCruiseSaleId = saleId != null ? parseInt(String(saleId)) : null;
-    const parsedHeadcount = headcount != null ? parseInt(String(headcount)) : null;
+    const _parsedCruiseSaleId = saleId != null ? parseInt(String(saleId)) : null;
+    const _parsedHeadcount = headcount != null ? parseInt(String(headcount)) : null;
 
     logger.log('[PurchaseWebhook] 수신', {
       phone: normalizedPhone.slice(0, 4) + '***',
@@ -236,8 +237,10 @@ export async function POST(req: NextRequest) {
       }
 
       if (eventId) {
-        await tx.processedWebhookEvent.create({
-          data: { eventId, webhookType: 'purchase' },
+        await recordProcessedWebhookEvent(tx, {
+          eventId,
+          webhookType: 'purchase',
+          context: '[PurchaseWebhook] 기록 실패',
         });
       }
 

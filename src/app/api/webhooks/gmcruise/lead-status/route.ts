@@ -4,6 +4,7 @@ import { timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { enqueueDLQ } from '@/lib/mabiz-dlq';
+import { resolveGmcruiseWebhookContext } from '@/lib/gmcruise-webhook';
 
 /**
  * POST /api/webhooks/gmcruise/lead-status
@@ -82,54 +83,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, duplicate: true });
     }
 
-    // affiliateCode → organizationId 역추적
-    let organizationId: string | undefined;
-
-    if (affiliateCode) {
-      const existingSale = await prisma.affiliateSale.findFirst({
-        where: { affiliateCode },
-        select: { organizationId: true },
-        orderBy: { createdAt: 'desc' },
-      });
-      organizationId = existingSale?.organizationId ?? undefined;
-
-      if (!organizationId) {
-        const existingContact = await prisma.contact.findFirst({
-          where: { affiliateCode },
-          select: { organizationId: true },
-          orderBy: { createdAt: 'desc' },
-        });
-        organizationId = existingContact?.organizationId ?? undefined;
-      }
-    }
-
-    if (!organizationId) {
-      organizationId = process.env.DEFAULT_ORGANIZATION_ID;
-    }
+    const { organizationId, contact } = await resolveGmcruiseWebhookContext(
+      prisma,
+      affiliateCode,
+      process.env.DEFAULT_ORGANIZATION_ID
+    );
 
     // 조직 없어도 멱등성 기록 후 200 반환
     if (!organizationId) {
       logger.log('[LeadStatusWebhook] 조직 특정 불가 — 로그만 기록', { affiliateCode, leadId });
       await prisma.processedWebhookEvent.create({
-        data: { eventId, webhookType: 'lead-status' },
+        data: { eventId, webhookType: 'gmcruise-lead-status' },
       });
       return NextResponse.json({ ok: true, matched: false });
-    }
-
-    // affiliateCode로 Contact 찾기 (이 webhook에는 phone이 없음)
-    let contact: { id: string } | null = null;
-    if (affiliateCode) {
-      contact = await prisma.contact.findFirst({
-        where: { affiliateCode, organizationId },
-        select: { id: true },
-        orderBy: { createdAt: 'desc' },
-      });
     }
 
     // 트랜잭션
     await prisma.$transaction(async (tx) => {
       await tx.processedWebhookEvent.create({
-        data: { eventId, webhookType: 'lead-status' },
+        data: { eventId, webhookType: 'gmcruise-lead-status' },
       });
 
       if (contact) {
@@ -160,7 +132,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, matched: !!contact });
   } catch (err) {
     logger.error('[LeadStatusWebhook] 처리 실패', { err, leadId, eventId });
-    await enqueueDLQ('lead-status', body, err instanceof Error ? err.message : String(err)).catch(() => {});
+    await enqueueDLQ('lead-status', body, err instanceof Error ? err.message : String(err)).catch((dlqErr) => {
+      logger.error('[LeadStatusWebhook] DLQ 저장 실패', {
+        leadId,
+        eventId,
+        error: dlqErr instanceof Error ? dlqErr.message : String(dlqErr),
+      });
+    });
     return NextResponse.json({ ok: false, message: '처리 실패' }, { status: 500 });
   }
 }
