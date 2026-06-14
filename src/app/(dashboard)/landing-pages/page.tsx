@@ -640,7 +640,9 @@ export default function LandingPagesPage() {
 
   useEffect(() => {
     const controller = new AbortController();
-    loadPages(controller.signal).finally(() => setLoading(false));
+    loadPages(controller.signal)
+      .catch(err => { if (err?.name !== 'AbortError') throw err; })
+      .finally(() => setLoading(false));
     return () => controller.abort();
   }, [loadPages]);
 

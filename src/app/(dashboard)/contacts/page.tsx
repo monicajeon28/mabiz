@@ -25,7 +25,7 @@ type Contact = {
   departureDate?: string | null;
   leadScore?: number;
   tags?: string[] | null;
-  groups?: { group: { id: string; name: string; color: string | null } }[];
+  groups?: { id?: string; groupId: string; addedAt?: string; group: { id: string; name: string; color: string | null } }[];
   _count?: { callLogs: number };
   createdAt?: string;
   sourceType?: string;
@@ -328,8 +328,8 @@ export default function ContactsPage() {
           return;
         }
         setContacts(prev => prev.map(c =>
-          c.id === groupAddForContact && !(c.groups ?? []).some(g => g.group.id === newGroup.id)
-            ? { ...c, groups: [...(c.groups ?? []), { group: { id: newGroup.id, name: newGroup.name, color: newGroup.color ?? null } }] }
+          c.id === groupAddForContact && !(c.groups ?? []).some(g => g.groupId === newGroup.id)
+            ? { ...c, groups: [...(c.groups ?? []), { groupId: newGroup.id, addedAt: new Date().toISOString(), group: { id: newGroup.id, name: newGroup.name, color: newGroup.color ?? null } }] }
             : c
         ));
       }
@@ -573,7 +573,7 @@ export default function ContactsPage() {
       if (grp) {
         setContacts(prev => prev.map(c =>
           c.id === contactId
-            ? { ...c, groups: [{ group: { id: grp.id, name: grp.name, color: grp.color ?? null } }] }
+            ? { ...c, groups: [{ groupId: groupId, addedAt: new Date().toISOString(), group: { id: grp.id, name: grp.name, color: grp.color ?? null } }] }
             : c
         ));
       }
@@ -1243,6 +1243,23 @@ export default function ContactsPage() {
                         </span>
                       ))}
                     </div>
+                    {/* 그룹 유입일 + 일차 (filterGroupId 활성화 시) */}
+                    {filterGroupId && (
+                      (() => {
+                        const filtered = (c.groups ?? []).find(g => g.groupId === filterGroupId);
+                        if (!filtered || !filtered.addedAt) return null;
+                        const addedDate = new Date(filtered.addedAt);
+                        const now = new Date();
+                        const daysSince = Math.floor((now.getTime() - addedDate.getTime()) / (24 * 60 * 60 * 1000));
+                        const formattedDate = `${String(addedDate.getMonth() + 1).padStart(2, '0')}/${String(addedDate.getDate()).padStart(2, '0')}`;
+                        return (
+                          <div className="text-sm text-gray-600 mt-1.5 flex items-center gap-3">
+                            <span>그룹유입일: {addedDate.getFullYear()}. {String(addedDate.getMonth() + 1).padStart(2, '0')}. {String(addedDate.getDate()).padStart(2, '0')}.</span>
+                            <span className="font-semibold text-navy-700">일차: {daysSince}</span>
+                          </div>
+                        );
+                      })()
+                    )}
                     <div className="text-sm text-gray-500 mt-0.5 flex items-center gap-3 flex-wrap">
                       <span>{c.phone}</span>
                       {c.cruiseInterest && <span className="text-gold-500">{c.cruiseInterest}</span>}
@@ -1642,7 +1659,8 @@ export default function ContactsPage() {
                   if (updated.cruiseInterest !== undefined) patch.cruiseInterest = updated.cruiseInterest;
                   if (updated.departureDate !== undefined) patch.departureDate = updated.departureDate;
                   if (updated.groups !== undefined) {
-                    patch.groups = updated.groups.map(g => ({ group: { id: g.group.id, name: g.group.name, color: null } }));
+                    // Groups updated — fetch fresh data instead of local state update
+                    fetchContacts();
                   }
                   if (updated.callLogs !== undefined) {
                     patch._count = { ...c._count, callLogs: updated.callLogs.length };
