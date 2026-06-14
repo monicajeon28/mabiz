@@ -135,7 +135,7 @@ export async function GET(req: Request) {
           affiliateAgentId: true,
           inquiryProductCode: true,
           surveyData: true,
-          groups: { select: { id: true, groupId: true, group: { select: { id: true, name: true, color: true } } } },
+          groups: { select: { id: true, groupId: true, addedAt: true, group: { select: { id: true, name: true, color: true } } } },
           _count: { select: { callLogs: true } },
         },
       }),
