@@ -542,14 +542,14 @@ export default function DbPage() {
         )}
       </div>
 
-      {/* 내보내기 */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
+      {/* 내보내기 - Sticky */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-40 px-4 py-3 md:sticky md:bottom-auto md:left-auto md:right-auto md:border-t md:rounded-xl md:shadow-none md:px-5 md:py-5 md:mb-4 md:border md:border-gray-200 md:border-t-0">
         <div className="flex items-center gap-2 mb-3">
           <Download className="w-5 h-5 text-navy-900" />
           <h2 className="font-semibold text-gray-900">엑셀 내보내기</h2>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-col md:flex-row gap-2">
           <select
             value={exportType}
             onChange={(e) => setExportType(e.target.value)}
@@ -571,13 +571,16 @@ export default function DbPage() {
           <button
             onClick={handleExport}
             disabled={exporting}
-            className="flex items-center gap-2 bg-navy-900 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-navy-700 disabled:opacity-50"
+            className="w-full md:w-auto flex items-center justify-center md:justify-start gap-2 bg-navy-900 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-navy-700 disabled:opacity-50"
           >
             {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             {exporting ? "다운로드 중..." : "엑셀 다운로드"}
           </button>
         </div>
       </div>
+
+      {/* Padding for sticky export on mobile */}
+      <div className="h-24 md:h-0" />
 
       {/* 결과 메시지 */}
       {result && (
