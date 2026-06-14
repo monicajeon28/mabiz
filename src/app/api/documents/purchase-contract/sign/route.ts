@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import type { Prisma } from '@prisma/client';
 import { timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
@@ -226,7 +227,7 @@ export async function POST(req: Request) {
       // 먼저 문서 존재 여부 확인 (미존재 vs 이미서명 구분)
       const docExists = await tx.salesDocument.findFirst({
         where: { id: docId },
-        select: { id: true, status: true, generatedData: true, organizationId: true },
+        select: { id: true, status: true, approvedAt: true, generatedData: true, organizationId: true },
       });
       if (!docExists) return 'NOT_FOUND' as const; // 문서 없음 → 401
 
@@ -271,90 +272,33 @@ export async function POST(req: Request) {
       });
 
       // Contact 상태 업데이트 (generatedData에서 contactId 찾기)
+      let contactRollback: { contactId: string; previousStatus: string | null } | null = null;
       if (doc.generatedData && typeof doc.generatedData === 'object') {
         const contactId = (doc.generatedData as { contactId?: string }).contactId;
         if (contactId) {
+          const previousContact = await tx.contact.findUnique({
+            where: { id: contactId },
+            select: { status: true },
+          });
           await tx.contact.update({
             where: { id: contactId },
             data: { status: 'CONTRACTED_SIGNED' }
           });
+          contactRollback = { contactId, previousStatus: previousContact?.status ?? null };
         }
       }
 
       const productName = typeof existingData.productName === 'string' ? existingData.productName : '크루즈 상품';
 
-      // ============================================================
-      // SMS Day 0-3 자동 예약 (새로 추가)
-      // ============================================================
-
-      const contactId = (doc.generatedData as { contactId?: string }).contactId;
-      if (contactId && current.organizationId) {
-        try {
-          // 1. 계약 템플릿에서 SMS 템플릿 ID 조회
-          const template = await tx.contractTemplate.findFirst({
-            where: { organizationId: current.organizationId },
-            select: {
-              smsDay0TemplateId: true,
-              smsDay1TemplateId: true,
-              smsDay2TemplateId: true,
-              smsDay3TemplateId: true,
-            },
-          });
-
-          if (!template) {
-            logger.debug('[SMS] 계약 템플릿 없음', { organizationId: current.organizationId });
-          } else {
-            // 2. SMS 일정 정의
-            const now = new Date();
-            const smsSchedules = [
-              { day: 0, templateId: template.smsDay0TemplateId, offset: 2 * 3600 * 1000 },
-              { day: 1, templateId: template.smsDay1TemplateId, offset: 24 * 3600 * 1000 },
-              { day: 2, templateId: template.smsDay2TemplateId, offset: 48 * 3600 * 1000 },
-              { day: 3, templateId: template.smsDay3TemplateId, offset: 72 * 3600 * 1000 },
-            ];
-
-            // 3. SMS 예약 생성
-            for (const schedule of smsSchedules) {
-              if (!schedule.templateId) continue;
-
-              const smsTemplate = await tx.smsTemplate.findUnique({
-                where: { id: schedule.templateId },
-                select: { content: true },
-              });
-
-              if (!smsTemplate) {
-                logger.warn('[SMS] 템플릿 없음', { templateId: schedule.templateId });
-                continue;
-              }
-
-              const scheduledAt = new Date(now.getTime() + schedule.offset);
-
-              await tx.scheduledSms.create({
-                data: {
-                  organizationId: current.organizationId,
-                  contactId,
-                  message: smsTemplate.content,
-                  scheduledAt,
-                  status: 'PENDING',
-                  channel: 'SMS',
-                  createdByUserId: undefined,
-                },
-              });
-
-              logger.log('[SMS] Day ' + schedule.day + ' 예약됨', { contactId, scheduledAt });
-            }
-          }
-        } catch (err) {
-          // SMS 생성 실패 → 경고만 (서명은 성공)
-          logger.error('[SMS] 생성 실패', {
-            contactId,
-            error: err instanceof Error ? err.message : String(err),
-          });
-          // Transaction 롤백 하지 않음
-        }
-      }
-
-      return { signedAt, organizationId: current.organizationId, productName };
+      return {
+        signedAt,
+        organizationId: current.organizationId,
+        productName,
+        previousStatus: current.status,
+        previousApprovedAt: current.approvedAt,
+        previousGeneratedData: current.generatedData as Prisma.InputJsonValue,
+        contactRollback,
+      };
     });
 
     if (result === 'NOT_FOUND') {
@@ -382,53 +326,15 @@ export async function POST(req: Request) {
       );
     }
 
-    // 에이전트 이메일 알림 (fire-and-forget)
-    const { signedAt, organizationId, productName: productNameFromTx } = result;
-
-    void (async () => {
-      try {
-        // 트랜잭션에서 이미 읽은 productName 재활용 (불필요한 DB 왕복 방지)
-        const productName = productNameFromTx;
-
-        // P1-4: isActive 필터 추가
-        const admin = await prisma.organizationMember.findFirst({
-          where: {
-            organizationId,
-            role: { in: ['OWNER', 'GLOBAL_ADMIN'] },
-            email: { not: null },
-            isActive: true,
-          },
-          select: { email: true },
-        });
-
-        const adminEmail = admin?.email ?? null;
-        if (!adminEmail) return;
-
-        await sendFunnelEmail({
-          organizationId,
-          to:      adminEmail,
-          subject: `[서명완료] ${escHtml(productName)} 계약서 서명이 완료되었습니다`,
-          // P2-2: signerName, productName HTML 이스케이프
-          html: `<div style="font-family:sans-serif;line-height:1.8;max-width:600px;margin:0 auto;padding:32px 24px">
-<h2 style="color:#1a1a2e;margin:0 0 16px">구매계약서 서명 완료 알림</h2>
-<p>고객이 구매계약서에 서명을 완료했습니다.</p>
-<table style="width:100%;border-collapse:collapse;margin:20px 0">
-  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666;width:40%">서명자</td><td style="padding:10px 14px;font-weight:600">${escHtml(signerName)}</td></tr>
-  <tr><td style="padding:10px 14px;color:#666">상품명</td><td style="padding:10px 14px">${escHtml(productName)}</td></tr>
-  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666">서명일시</td><td style="padding:10px 14px">${escHtml(signedAt)}</td></tr>
-  <tr><td style="padding:10px 14px;color:#666">동행자 수</td><td style="padding:10px 14px">${companions.length}명</td></tr>
-  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666">문서번호</td><td style="padding:10px 14px;font-size:12px;color:#888">${escHtml(docId)}</td></tr>
-</table>
-<p style="color:#666;font-size:14px">CRM에서 계약서를 확인하세요.</p>
-</div>`,
-          channel: 'MANUAL',
-        });
-      } catch (emailErr) {
-        logger.error('[PurchaseContractSign] 에이전트 이메일 발송 실패', {
-          error: emailErr instanceof Error ? emailErr.message : String(emailErr),
-        });
-      }
-    })();
+    const {
+      signedAt,
+      organizationId,
+      productName: productNameFromTx,
+      previousStatus,
+      previousApprovedAt,
+      previousGeneratedData,
+      contactRollback,
+    } = result;
 
     logger.log('[PurchaseContractSign] 서명 완료', {
       docId,
@@ -438,8 +344,9 @@ export async function POST(req: Request) {
     });
 
     // Google Drive 계약서 저장 (재시도 로직 포함)
-    const drivePromise = retryWithExponentialBackoff(
-      async () => {
+    try {
+      await retryWithExponentialBackoff(
+        async () => {
         // 최신 generatedData로 계약서 HTML 생성
         const freshDoc = await prisma.salesDocument.findUnique({
           where: { id: docId },
@@ -529,17 +436,84 @@ export async function POST(req: Request) {
         } else {
           throw new Error(`Drive save failed: ${driveResult.error}`);
         }
-      },
-      { maxRetries: 3, baseDelayMs: 1000 }
-    ).catch(err => {
-      logger.error('[Critical] Contract Drive 저장 최종 실패', {
+        },
+        { maxRetries: 3, baseDelayMs: 1000 }
+      );
+    } catch (driveErr) {
+      logger.error('[Critical] Contract Drive 저장 최종 실패 — 서명 상태 롤백', {
         docId,
-        error: err instanceof Error ? err.message : String(err),
+        error: driveErr instanceof Error ? driveErr.message : String(driveErr),
       });
-    });
 
-    // 사용자 응답은 먼저 반환 (비동기 재시도는 백그라운드)
-    // drivePromise는 백그라운드에서 처리됨
+      await prisma.$transaction(async (tx) => {
+        await tx.salesDocument.update({
+          where: { id: docId },
+          data: {
+            status: previousStatus,
+            approvedAt: previousApprovedAt,
+            generatedData: previousGeneratedData,
+          },
+        });
+        if (contactRollback) {
+          await tx.contact.update({
+            where: { id: contactRollback.contactId },
+            data: { status: contactRollback.previousStatus },
+          });
+        }
+      });
+
+      return NextResponse.json(
+        {
+          ok: false,
+          message: '계약서 저장에 실패했습니다. 잠시 후 다시 서명해 주세요.',
+          code: 'DRIVE_SAVE_FAILED',
+        },
+        { status: 503 },
+      );
+    }
+
+    // 에이전트 이메일 알림 (Drive 저장 성공 이후 fire-and-forget)
+    void (async () => {
+      try {
+        const productName = productNameFromTx;
+
+        const admin = await prisma.organizationMember.findFirst({
+          where: {
+            organizationId,
+            role: { in: ['OWNER', 'GLOBAL_ADMIN'] },
+            email: { not: null },
+            isActive: true,
+          },
+          select: { email: true },
+        });
+
+        const adminEmail = admin?.email ?? null;
+        if (!adminEmail) return;
+
+        await sendFunnelEmail({
+          organizationId,
+          to:      adminEmail,
+          subject: `[서명완료] ${escHtml(productName)} 계약서 서명이 완료되었습니다`,
+          html: `<div style="font-family:sans-serif;line-height:1.8;max-width:600px;margin:0 auto;padding:32px 24px">
+<h2 style="color:#1a1a2e;margin:0 0 16px">구매계약서 서명 완료 알림</h2>
+<p>고객이 구매계약서에 서명을 완료했습니다.</p>
+<table style="width:100%;border-collapse:collapse;margin:20px 0">
+  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666;width:40%">서명자</td><td style="padding:10px 14px;font-weight:600">${escHtml(signerName)}</td></tr>
+  <tr><td style="padding:10px 14px;color:#666">상품명</td><td style="padding:10px 14px">${escHtml(productName)}</td></tr>
+  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666">서명일시</td><td style="padding:10px 14px">${escHtml(signedAt)}</td></tr>
+  <tr><td style="padding:10px 14px;color:#666">동행자 수</td><td style="padding:10px 14px">${companions.length}명</td></tr>
+  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666">문서번호</td><td style="padding:10px 14px;font-size:12px;color:#888">${escHtml(docId)}</td></tr>
+</table>
+<p style="color:#666;font-size:14px">CRM에서 계약서를 확인하세요.</p>
+</div>`,
+          channel: 'MANUAL',
+        });
+      } catch (emailErr) {
+        logger.error('[PurchaseContractSign] 에이전트 이메일 발송 실패', {
+          error: emailErr instanceof Error ? emailErr.message : String(emailErr),
+        });
+      }
+    })();
 
     // 구매계약서 PDF 생성 + 이메일 발송 (fire-and-forget)
     void (async () => {

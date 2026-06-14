@@ -8,6 +8,14 @@ import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import type { SendingStatus, SendingFailureReason } from "@prisma/client";
 
+type ProcessedWebhookEventCreateArgs = Parameters<typeof prisma.processedWebhookEvent.create>[0];
+
+type ProcessedWebhookEventWriter = {
+  processedWebhookEvent: {
+    create: (args: ProcessedWebhookEventCreateArgs) => Promise<unknown>;
+  };
+};
+
 /**
  * 1. HMAC-SHA256 서명 검증
  * 타이밍 공격 방지를 위해 timingSafeEqual 사용
@@ -61,18 +69,57 @@ export async function markWebhookProcessed(
   eventId: string,
   webhookType: string,
 ): Promise<void> {
+  const ok = await recordProcessedWebhookEvent(prisma, {
+    eventId,
+    webhookType,
+    context: "[WebhookExecution] 처리 기록 실패",
+  });
+  if (!ok) {
+    throw new Error(`Failed to record processed webhook event: ${webhookType}`);
+  }
+}
+
+/**
+ * 3b. WebHook 처리 완료/실패 기록을 안전하게 저장 (실패는 로그만 남기고 false 반환)
+ */
+export async function recordProcessedWebhookEvent(
+  db: ProcessedWebhookEventWriter,
+  params: {
+    eventId: string;
+    webhookType: string;
+    status?: string;
+    errorMessage?: string | null;
+    context?: string;
+  },
+): Promise<boolean> {
+  const {
+    eventId,
+    webhookType,
+    status = "SUCCESS",
+    errorMessage = null,
+    context = "[WebhookExecution] processedWebhookEvent 기록 실패",
+  } = params;
+
   try {
-    await prisma.processedWebhookEvent.create({
+    await db.processedWebhookEvent.create({
       data: {
         eventId,
         webhookType,
+        status,
+        errorMessage,
         processedAt: new Date(),
       },
     });
-    logger.info("[WebhookExecution] 처리 완료 기록", { eventId, webhookType });
+    return true;
   } catch (error) {
-    logger.error("[WebhookExecution] 처리 기록 실패", { eventId, error });
-    throw error;
+    logger.error(context, {
+      eventId,
+      webhookType,
+      status,
+      errorMessage,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
   }
 }
 
@@ -86,7 +133,13 @@ export async function updateSendingStatus(
   failureUserMsg?: string,
 ): Promise<void> {
   try {
-    const updateData: any = {
+    const updateData: {
+      status: SendingStatus;
+      updatedAt: Date;
+      failureReason?: SendingFailureReason | null;
+      failureUserMsg?: string | null;
+      deliveredAt?: Date;
+    } = {
       status,
       updatedAt: new Date(),
     };

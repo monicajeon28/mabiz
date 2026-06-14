@@ -19,6 +19,13 @@ interface HeaderState {
   arsNum?: string;
 }
 
+interface SmsDefaultsState {
+  connected: boolean;
+  senderVerified: boolean;
+  senderPhone: string;
+  arsNum: string;
+}
+
 interface MessageState {
   order: number;
   daysAfter: number;
@@ -44,8 +51,16 @@ export default function FunnelSmsNewPage() {
   ]);
 
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [smsDefaults, setSmsDefaults] = useState<SmsDefaultsState>({
+    connected: false,
+    senderVerified: false,
+    senderPhone: "",
+    arsNum: "",
+  });
 
   const handleHeaderChange = (field: keyof HeaderState, value: string | number) => {
+    setSaveError(null);
     setHeader((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -54,6 +69,7 @@ export default function FunnelSmsNewPage() {
     field: keyof MessageState,
     value: number | string | "SMS" | "LMS"
   ) => {
+    setSaveError(null);
     setMessages((prev) =>
       prev.map((m, i) => (i === index ? { ...m, [field]: value } : m))
     );
@@ -86,12 +102,23 @@ export default function FunnelSmsNewPage() {
   };
 
   const handleSave = async () => {
+    setSaveError(null);
     if (!header.title.trim()) {
-      showError("퍼널 제목을 입력해주세요.");
+      const message = "퍼널 제목을 입력해주세요.";
+      setSaveError(message);
+      showError(message);
       return;
     }
     if (messages.some((m) => !m.content.trim())) {
-      showError("모든 회차의 메시지 내용을 입력해주세요.");
+      const message = "모든 회차의 메시지 내용을 입력해주세요.";
+      setSaveError(message);
+      showError(message);
+      return;
+    }
+    if (header.senderPhone?.trim() && smsDefaults.connected && !smsDefaults.senderVerified) {
+      const message = "발신번호 인증이 완료되지 않아 퍼널문자를 저장할 수 없습니다. 설정 > SMS에서 발신번호 인증을 먼저 완료하세요.";
+      setSaveError(message);
+      showError(message);
       return;
     }
 
@@ -127,6 +154,7 @@ export default function FunnelSmsNewPage() {
       const d = await res.json() as {
         ok: boolean;
         data?: { id: string };
+        error?: string;
         message?: string;
         errors?: Record<string, string[]>;
       };
@@ -135,11 +163,14 @@ export default function FunnelSmsNewPage() {
         router.push(`/funnel-sms/${d.data.id}`);
       } else {
         const errMsg = d.message ?? Object.values(d.errors ?? {}).flat().join(", ") ?? "저장에 실패했습니다.";
+        setSaveError(errMsg);
         showError(errMsg);
       }
     } catch (err) {
       logger.error("[FunnelSmsNewPage] handleSave", { err });
-      showError("저장 중 오류가 발생했습니다.");
+      const message = "저장 중 오류가 발생했습니다.";
+      setSaveError(message);
+      showError(message);
     } finally {
       setSaving(false);
     }
@@ -168,8 +199,18 @@ export default function FunnelSmsNewPage() {
           {/* 기본 정보 */}
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <h2 className="text-sm font-semibold text-gray-700 mb-4">기본 정보</h2>
-            <FunnelSmsHeader value={header} onChange={handleHeaderChange} />
+            <FunnelSmsHeader
+              value={header}
+              onChange={handleHeaderChange}
+              onDefaultsChange={setSmsDefaults}
+            />
           </div>
+
+          {saveError && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {saveError}
+            </div>
+          )}
 
           {/* 메시지 회차 타임라인 */}
           <div className="space-y-0">

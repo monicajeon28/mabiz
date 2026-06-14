@@ -91,6 +91,8 @@ export async function GET(req: Request) {
       batchSize: logs.length,
     });
 
+    let acquiredCount = 0;
+
     for (const log of logs) {
       const contact = log.sequence.contact;
 
@@ -120,6 +122,7 @@ export async function GET(req: Request) {
         data: { status: "SENDING" },
       });
       if (updated.count === 0) continue; // 다른 프로세스가 먼저 처리 중
+      acquiredCount++;
 
       const ch = (log.channel || "SMS") as "SMS" | "EMAIL" | "KAKAO";
 
@@ -162,6 +165,12 @@ export async function GET(req: Request) {
         }).catch(() => {});
         skippedCount++;
       }
+    }
+
+    // 이번 배치에서 아무 레코드도 선점하지 못하면 같은 100건을 반복 조회하지 않도록 종료.
+    if (acquiredCount === 0) {
+      logger.warn("[Cron/vip-care] 처리 가능한 레코드가 없어 조기 종료", { processedTotal });
+      break;
     }
 
     // 마지막 배치이면 루프 종료

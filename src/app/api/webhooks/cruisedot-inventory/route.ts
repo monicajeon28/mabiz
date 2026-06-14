@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHmac, timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { recordProcessedWebhookEvent } from '@/lib/webhook-execution';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, message: 'JSON 파싱 실패' }, { status: 400 });
   }
 
-  const { eventId, eventType, organizationId, contactId, productCode, quantity, action } = payload;
+  const { eventId, eventType, organizationId, contactId: _contactId, productCode, quantity, action } = payload;
 
   // 필수 필드 검증
   if (!eventId || !eventType || !organizationId || !productCode || !quantity || !action) {
@@ -96,13 +97,11 @@ export async function POST(req: NextRequest) {
     }
 
     // 멱등성 기록만 처리 (재고 동기화는 Phase 2에서 구현)
-    await prisma.processedWebhookEvent.create({
-      data: {
-        eventId,
-        webhookType: 'cruisedot-inventory',
-        status: 'SUCCESS',
-      },
-    }).catch(() => {});
+    await recordProcessedWebhookEvent(prisma, {
+      eventId,
+      webhookType: 'cruisedot-inventory',
+      context: '[InventorySyncWebhook] SUCCESS 기록 실패',
+    });
 
     logger.log('[InventorySyncWebhook] 처리 완료', {
       eventId,
@@ -116,16 +115,13 @@ export async function POST(req: NextRequest) {
     logger.error('[InventorySyncWebhook] 처리 실패', { err, eventId });
 
     // 실패 기록
-    await prisma.processedWebhookEvent
-      .create({
-        data: {
-          eventId,
-          webhookType: 'cruisedot-inventory',
-          status: 'FAILED',
-          errorMessage: err instanceof Error ? err.message : String(err),
-        },
-      })
-      .catch(() => {});
+    await recordProcessedWebhookEvent(prisma, {
+      eventId,
+      webhookType: 'cruisedot-inventory',
+      status: 'FAILED',
+      errorMessage: err instanceof Error ? err.message : String(err),
+      context: '[InventorySyncWebhook] FAILED 기록 실패',
+    });
 
     return NextResponse.json({ ok: false, error: '처리 실패' }, { status: 500 });
   }

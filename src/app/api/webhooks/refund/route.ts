@@ -6,6 +6,7 @@ import { logger } from '@/lib/logger';
 import { enqueueDLQ } from '@/lib/mabiz-dlq';
 import { createRefundNotifications } from '@/lib/notification-service';
 import { handleCabinInventoryRefund } from '@/lib/cabin-inventory-refund';
+import { recordProcessedWebhookEvent } from '@/lib/webhook-execution';
 
 /**
  * POST /api/webhooks/refund
@@ -123,9 +124,11 @@ export async function POST(req: NextRequest) {
   // ── 7. PENDING — 수신 기록만 (커미션 역분개 없음) ─────────────────────────
   if (status === 'PENDING') {
     if (eventId) {
-      await prisma.processedWebhookEvent.create({
-        data: { eventId, webhookType },
-      }).catch(() => {}); // 중복 create 무시
+      await recordProcessedWebhookEvent(prisma, {
+        eventId,
+        webhookType,
+        context: '[RefundWebhook] PENDING 기록 실패',
+      });
     }
     logger.log('[RefundWebhook] PENDING 수신 기록', { bookingRef, eventId });
     return NextResponse.json({ ok: true, status: 'recorded' });
@@ -159,7 +162,11 @@ export async function POST(req: NextRequest) {
               },
             });
             if (eventId) {
-              await tx.processedWebhookEvent.create({ data: { eventId, webhookType } });
+              await recordProcessedWebhookEvent(tx, {
+                eventId,
+                webhookType,
+                context: '[RefundWebhook] APPROVED 기록 실패',
+              });
             }
           });
         }
@@ -201,7 +208,11 @@ export async function POST(req: NextRequest) {
               },
             });
             if (eventId) {
-              await tx.processedWebhookEvent.create({ data: { eventId, webhookType } });
+              await recordProcessedWebhookEvent(tx, {
+                eventId,
+                webhookType,
+                context: '[RefundWebhook] REJECTED 기록 실패',
+              });
             }
           });
         }
@@ -331,7 +342,11 @@ export async function POST(req: NextRequest) {
 
       // eventId 처리 완료 기록 (트랜잭션 내 — TOCTOU 방지)
       if (eventId) {
-        await tx.processedWebhookEvent.create({ data: { eventId, webhookType } });
+        await recordProcessedWebhookEvent(tx, {
+          eventId,
+          webhookType,
+          context: '[RefundWebhook] COMPLETED 기록 실패',
+        });
       }
 
       // 트랜잭션 후 알림 (fire-and-forget)

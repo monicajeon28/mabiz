@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHmac, timingSafeEqual } from 'crypto';
-import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { sendDay0Sms, type Segment, type ABVariant } from '@/lib/loop5-sms-service';
-import { getCommissionRateByAffiliateCode } from '@/lib/commission-calculator';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -29,6 +27,7 @@ interface CruisedotPaymentPayload {
 
 export async function POST(req: NextRequest) {
   const secret = process.env.CRUISEDOT_WEBHOOK_SECRET;
+  let eventId = '';
 
   // [P0-SEC-001] CRUISEDOT_WEBHOOK_SECRET 필수 — 없으면 웹훅 비활성화
   if (!secret) {
@@ -77,7 +76,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, message: 'JSON 파싱 실패' }, { status: 400 });
   }
 
-  const { eventId, eventType, timestamp, bookingRef, affiliateCode, saleAmount, status, refundAmount, reason } = payload;
+  eventId = payload.eventId;
+  const { eventType, timestamp, bookingRef, affiliateCode, saleAmount, status, refundAmount, reason } = payload;
 
   // 필수 필드 검증 (affiliateCode 항상 필수 — 링크 기반 구매)
   if (!eventId || !eventType || !bookingRef || !status || !affiliateCode) {
@@ -131,6 +131,7 @@ export async function POST(req: NextRequest) {
       userId: number | null;
       name: string;
       smsDay0Sent: boolean;
+      affiliateCode: string | null;
     };
 
     let transactionResult: { contact: ContactSelect | null; shouldSendDay0Sms: boolean } = {
@@ -157,13 +158,22 @@ export async function POST(req: NextRequest) {
           phone: '', // 필수값 (cruisedot에서 제공되면 나중에 업데이트)
           name: `예약 ${bookingRef}`, // 임시 이름
           type: 'PURCHASED',
+          affiliateCode,
           lastPaymentStatus: status === 'CONFIRMED' ? 'paid' : 'pending',
           lastPaymentAt: status === 'CONFIRMED' ? new Date(timestamp) : undefined,
         },
         update: {
-          // 업데이트할 필드 (아래에서 별도 처리)
+          affiliateCode: affiliateCode || undefined,
         },
-        select: { id: true, organizationId: true, phone: true, userId: true, name: true, smsDay0Sent: true },
+        select: {
+          id: true,
+          organizationId: true,
+          phone: true,
+          userId: true,
+          name: true,
+          smsDay0Sent: true,
+          affiliateCode: true,
+        },
       });
 
       const isNewContact = !contact.id || (contact.phone === '' && !contact.userId);
@@ -174,19 +184,19 @@ export async function POST(req: NextRequest) {
       });
 
       // Loop 6 Agent A: FormSubmission 기록 (A/B 테스트 추적용)
-      if (isNewContact && contact.id) {
-        await tx.formSubmission.create({
-          data: {
-            variant: 'cruisedot_payment', // 결제 완료 채널 표시
-            segment: 'A', // 기본값 (나중에 Contact 정보로 개선)
-            completionTimeMs: 0, // 웹훅 처리이므로 시간값 없음
-            ageRange: 'unknown', // 크루즈닷몰에서 제공 받을 때까지
-            preferenceType: 'cruise_booking', // 크루즈 예약
-            affiliateCode: (contact as any).affiliateCode || undefined,
-            userAgent: `cruisedot-webhook-${bookingRef}`,
-          },
-        });
-      }
+        if (isNewContact && contact.id) {
+          await tx.formSubmission.create({
+            data: {
+              variant: 'cruisedot_payment', // 결제 완료 채널 표시
+              segment: 'A', // 기본값 (나중에 Contact 정보로 개선)
+              completionTimeMs: 0, // 웹훅 처리이므로 시간값 없음
+              ageRange: 'unknown', // 크루즈닷몰에서 제공 받을 때까지
+              preferenceType: 'cruise_booking', // 크루즈 예약
+              affiliateCode: contact.affiliateCode || undefined,
+              userAgent: `cruisedot-webhook-${bookingRef}`,
+            },
+          });
+        }
 
       // Contact 상태 업데이트
       if (contact) {
@@ -200,7 +210,17 @@ export async function POST(req: NextRequest) {
                 : 'pending';
 
         // P0-ISS-04: 환불 시 SMS flag 초기화 (재구매 시 Day0-3 자동화 재실행)
-        const updateData: any = {
+        const updateData: {
+          lastPaymentStatus: string;
+          lastPaymentAt?: Date;
+          lastRefundedAt?: Date;
+          paymentStatusNote?: string;
+          smsDay0Sent?: boolean;
+          smsDay1Sent?: boolean;
+          smsDay2Sent?: boolean;
+          smsDay3Sent?: boolean;
+          smsDay7Sent?: boolean;
+        } = {
           lastPaymentStatus: paymentStatus,
           lastPaymentAt: status === 'CONFIRMED' ? new Date(timestamp) : undefined,
           lastRefundedAt: status === 'REFUNDED' ? new Date(timestamp) : undefined,

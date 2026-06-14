@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import sharp from 'sharp';
 import prisma from '@/lib/prisma';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
+import { MAX_IMAGE_UPLOAD_BYTES, processUploadedImage } from '@/lib/image-upload-processing';
 
 /** GLOBAL_ADMIN 포함 orgId 해결 헬퍼 */
 async function getOrgId(ctx: Awaited<ReturnType<typeof getAuthContext>>): Promise<string> {
@@ -19,7 +20,6 @@ import { uploadImageToDrive } from '@/lib/image-sync';
 import { getDriveClient } from '@/lib/drive-client';
 import { logger } from '@/lib/logger';
 
-const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 /**
@@ -38,9 +38,9 @@ export async function POST(req: Request) {
     const contentLength = req.headers.get('content-length');
     if (contentLength) {
       const sizeBytes = parseInt(contentLength, 10);
-      if (sizeBytes > MAX_FILE_SIZE) {
+      if (sizeBytes > MAX_IMAGE_UPLOAD_BYTES) {
         return NextResponse.json(
-          { ok: false, message: `파일 크기는 20MB 이하여야 합니다 (현재: ${(sizeBytes / 1024 / 1024).toFixed(1)}MB)` },
+          { ok: false, message: `파일 크기는 100MB 이하여야 합니다 (현재: ${(sizeBytes / 1024 / 1024).toFixed(1)}MB)` },
           { status: 413 },
         );
       }
@@ -83,9 +83,9 @@ export async function POST(req: Request) {
       );
     }
 
-    if (file.size > MAX_FILE_SIZE) {
+    if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
       return NextResponse.json(
-        { ok: false, message: '파일 크기는 20MB 이하여야 합니다' },
+        { ok: false, message: '파일 크기는 100MB 이하여야 합니다' },
         { status: 400 },
       );
     }
@@ -105,40 +105,12 @@ export async function POST(req: Request) {
     // 파일 읽기
     const arrayBuffer = await file.arrayBuffer();
     const originalBuffer = Buffer.from(arrayBuffer);
-    const isGif = resolvedType === 'image/gif';
+    const processed = await processUploadedImage(originalBuffer, resolvedType, file.name);
+    const { buffer: processedBuffer, mimeType: finalMimeType, fileName: finalFileName, isAnimated } = processed;
 
-    // 이미지 처리: GIF는 압축만, 나머지는 WebP 변환
-    let processedBuffer: Buffer;
-    let finalMimeType: string;
-    let finalFileName: string;
-
-    if (isGif) {
-      // P0-4: Sharp 인스턴스 단일화 (이중 호출 제거)
-      const sharpInstance = sharp(originalBuffer, { animated: true });
-      const metadata = await sharpInstance.metadata();
-      const needsResize = metadata.width && metadata.width > 1200;
-
-      // 같은 인스턴스에 transform 파이프라인 연결
-      processedBuffer = await sharpInstance
-        .resize(needsResize ? 1200 : metadata.width, null, { withoutEnlargement: true })
-        .gif({ colors: 256 })
-        .toBuffer();
-
-      finalMimeType = 'image/gif';
-      finalFileName = file.name.replace(/\.[^.]+$/, '.gif');
-    } else {
-      // JPG/PNG/WebP → WebP 변환 (quality 85, 최대 가로 1600px)
-      processedBuffer = await sharp(originalBuffer)
-        .resize(1600, null, { withoutEnlargement: true })
-        .webp({ quality: 85 })
-        .toBuffer();
-      finalMimeType = 'image/webp';
-      finalFileName = file.name.replace(/\.[^.]+$/, '.webp');
-    }
-
-    // 메타데이터 추출 — GIF animated:true 시 height = 프레임높이×프레임수이므로 pages로 나눔
-    const meta = await sharp(processedBuffer, isGif ? { animated: true } : undefined).metadata();
-    const displayHeight = isGif && meta.pages && meta.pages > 1
+    // 메타데이터 추출 — animated GIF fallback일 때만 pages로 나눔
+    const meta = await sharp(processedBuffer, finalMimeType === 'image/gif' ? { animated: true } : undefined).metadata();
+    const displayHeight = isAnimated && finalMimeType === 'image/gif' && meta.pages && meta.pages > 1
       ? Math.round((meta.height ?? 0) / meta.pages)
       : meta.height;
 
@@ -169,7 +141,7 @@ export async function POST(req: Request) {
     // P0-7/8: Prisma 트랜잭션으로 원자성 보장
     const pageImage = await prisma.$transaction(async (tx) => {
       // 2단계: WebP 처리 상태 업데이트 (트랜잭션 내)
-      if (!isGif) {
+      if (finalMimeType !== 'image/gif') {
         await tx.imageAsset.update({
           where: { id: asset.id },
           data: {
@@ -257,6 +229,13 @@ export async function POST(req: Request) {
     }
     if (msg === 'ORGANIZATION_REQUIRED' || msg === 'NO_ORGANIZATION') {
       return NextResponse.json({ ok: false, message: '조직 정보가 필요합니다' }, { status: 403 });
+    }
+    if (msg.includes('Failed to parse body as FormData') || msg.includes('Request body exceeded')) {
+      logger.warn('[landing-images] 업로드 본문 크기 초과 또는 파싱 실패', { message: msg });
+      return NextResponse.json(
+        { ok: false, message: '업로드 파일이 너무 크거나 손상되어 처리할 수 없습니다. 100MB 이하의 이미지로 다시 시도하세요.' },
+        { status: 413 },
+      );
     }
     logger.error('[landing-images] 업로드 실패', { message: msg, stack: err instanceof Error ? err.stack : '' });
     return NextResponse.json({ ok: false, message: '이미지 업로드 중 오류가 발생했습니다' }, { status: 500 });

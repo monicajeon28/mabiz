@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { getAuthContext, buildContactWhere, canDelete, maskContactInfo, actorDisplayName } from "@/lib/rbac";
+import { backupContactsToExcel } from "@/lib/backup-xlsx";
 import { logger } from "@/lib/logger";
 
 type Params = { params: Promise<{ id: string }> };
@@ -224,12 +225,12 @@ export async function DELETE(_req: Request, { params }: Params) {
       },
     });
 
-    // Drive 백업 fire-and-forget (삭제 전 스냅샷)
+    // Drive 백업은 삭제보다 먼저 완료되어야 한다.
     const transferLogs = await prisma.contactTransferLog.findMany({
       where: { contactId: id }, orderBy: { createdAt: "desc" },
     });
-    import("@/lib/backup-xlsx").then(({ backupContactsToExcel }) =>
-      backupContactsToExcel({
+    try {
+      await backupContactsToExcel({
         orgName:              existing.organization.name,
         orgId:                existing.organizationId,
         contacts: [{
@@ -240,8 +241,17 @@ export async function DELETE(_req: Request, { params }: Params) {
         }],
         mode:                 "pre_delete",
         contactNameForDelete: existing.name,
-      }).catch((err) => logger.error("[DELETE] Drive 백업 실패", { id, error: err instanceof Error ? err.message : String(err) }))
-    ).catch((err) => logger.error("[DELETE] 백업 모듈 로드 실패", { id, error: err instanceof Error ? err.message : String(err) }));
+      });
+    } catch (backupErr) {
+      logger.error("[DELETE] Drive 백업 실패", {
+        id,
+        error: backupErr instanceof Error ? backupErr.message : String(backupErr),
+      });
+      return NextResponse.json(
+        { ok: false, message: "백업에 실패해 삭제를 중단했습니다.", code: "BACKUP_FAILED" },
+        { status: 503 },
+      );
+    }
     logger.log("[DELETE] 휴지통 이동(soft)", { id, by: ctx.userId });
 
     return NextResponse.json({ ok: true });

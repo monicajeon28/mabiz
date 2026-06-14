@@ -37,6 +37,7 @@ import { sendSystemEmail, COMPANY_EMAIL } from '@/lib/system-email';
 import { renderNewOrgEmail } from '@/lib/email-templates';
 import { logger } from '@/lib/logger';
 import prisma from '@/lib/prisma';
+import { recordProcessedWebhookEvent } from '@/lib/webhook-execution';
 
 interface ContractSignedPayload {
   contractRef:  string;
@@ -143,9 +144,11 @@ export async function POST(req: NextRequest) {
   }
 
   if (eventId) {
-    await prisma.processedWebhookEvent.create({
-      data: { eventId, webhookType: 'gmcruise-contract-signed' },
-    }).catch(() => {});
+    await recordProcessedWebhookEvent(prisma, {
+      eventId,
+      webhookType: 'gmcruise-contract-signed',
+      context: '[ContractSignedWebhook] SUCCESS 기록 실패',
+    });
   }
 
   logger.warn('[ContractSignedWebhook] 처리 완료', {

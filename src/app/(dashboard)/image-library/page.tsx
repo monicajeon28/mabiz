@@ -11,6 +11,7 @@ import {
   FolderIcon,
   PlusIcon,
 } from 'lucide-react';
+import { prepareImageForUpload } from '@/lib/client-image-compress';
 
 interface ImageAsset {
   id: string;
@@ -45,43 +46,8 @@ const CATEGORIES = ['후기', '크루즈정보사진', '상품'];
 const GOOGLE_DRIVE_LIMIT = 20;
 const UPLOAD_CATEGORIES = ['후기', '크루즈정보사진', '상품'];
 
-async function compressImageToBlob(file: File): Promise<Blob> {
-  const MAX_DIMENSION = 1920;
-  const MAX_BYTES = 3.5 * 1024 * 1024; // 3.5MB (여유 있게)
-
-  // 이미 작으면 그대로 반환
-  if (file.size <= MAX_BYTES && file.type === 'image/webp') return file;
-
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      let { width, height } = img;
-      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
-        const ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
-        width = Math.round(width * ratio);
-        height = Math.round(height * ratio);
-      }
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) { resolve(file); return; }
-      ctx.drawImage(img, 0, 0, width, height);
-      // WebP 80% quality로 압축
-      canvas.toBlob(blob => {
-        if (!blob) { resolve(file); return; }
-        resolve(blob);
-      }, 'image/webp', 0.8);
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('이미지 로드 실패')); };
-    img.src = url;
-  });
-}
-
 export default function ImageLibraryPage() {
-  const [activeTab, setActiveTab] = useState<'local' | 'drive'>('local');
+  const [activeTab, _setActiveTab] = useState<'local' | 'drive'>('local');
 
   // 로컬 이미지 상태
   const [assets, setAssets] = useState<ImageAsset[]>([]);
@@ -89,9 +55,9 @@ export default function ImageLibraryPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [search, setSearch] = useState('');
+  const [search, _setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedTags, _setSelectedTags] = useState<string[]>([]);
   const [offset, setOffset] = useState(0);
   const limit = 20;
 
@@ -384,17 +350,13 @@ export default function ImageLibraryPage() {
     setUploadProgress(0);
 
     // 압축 먼저 (GIF는 압축 스킵)
-    let fileToUpload: Blob;
+    let fileToUpload: File;
     try {
-      fileToUpload = file.type === 'image/gif'
-        ? file
-        : await compressImageToBlob(file);
+      fileToUpload = await prepareImageForUpload(file);
     } catch {
       fileToUpload = file;
     }
-    const fileName = file.type === 'image/gif'
-      ? file.name
-      : file.name.replace(/\.[^.]+$/, '.webp');
+    const fileName = fileToUpload.name;
 
     const formData = new FormData();
     formData.append('file', fileToUpload, fileName);
@@ -646,7 +608,7 @@ export default function ImageLibraryPage() {
     </div>
   );
 
-  const renderGdTab = () => (
+  const _renderGdTab = () => (
     <div className="space-y-4">
       {/* 폴더 선택 + 폴더 추가 버튼 */}
       <div className="flex gap-2 flex-wrap items-center">

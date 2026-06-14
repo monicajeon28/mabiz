@@ -5,7 +5,8 @@ import Link from "next/link";
 import { Search, Plus, Phone, Upload, X, FileSpreadsheet } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { useToast } from "@/lib/api/use-toast";
-import type { Contact as FullContact } from "@/types/contact";
+import type { Contact as FullContact, InquiryTracking } from "@/types/contact";
+import { formatInquiryTrackingSummary } from "@/lib/contact-inquiry-tracking";
 
 // 고객 상세 슬라이드 패널 (행 클릭 시 표시) — 코드 스플릿
 const ContactSlidePanel = lazy(() => import("../ContactSlidePanel"));
@@ -20,6 +21,7 @@ type Contact = {
   purchasedAt: string | null;
   leadScore: number;
   tags: string[] | null;
+  surveyData?: { inquiryTracking?: InquiryTracking | null } | null;
   groups: { group: { id: string; name: string; color: string | null } }[];
   _count: { callLogs: number };
 };
@@ -390,82 +392,91 @@ export default function PurchasedPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filteredContacts.map((c) => (
-            <div key={c.id} className="bg-white rounded-xl border border-gray-200 hover:border-green-300 hover:shadow-sm transition-all">
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => openSlidePanel(c.id)}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openSlidePanel(c.id); } }}
-                className="flex items-center gap-3 px-4 py-3 group cursor-pointer"
-                aria-label={`${c.name} 고객 상세 보기`}
-              >
-                <div className="w-10 h-10 rounded-full bg-green-600 text-white flex items-center justify-center text-sm font-bold shrink-0">
-                  {slidePanelLoadingId === c.id ? "…" : c.name[0]}
-                </div>
+          {filteredContacts.map((c) => {
+            const trackingSummary = formatInquiryTrackingSummary(c.surveyData?.inquiryTracking);
+            return (
+              <div key={c.id} className="bg-white rounded-xl border border-gray-200 hover:border-green-300 hover:shadow-sm transition-all">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openSlidePanel(c.id)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openSlidePanel(c.id); } }}
+                  className="flex items-center gap-3 px-4 py-3 group cursor-pointer"
+                  aria-label={`${c.name} 고객 상세 보기`}
+                >
+                  <div className="w-10 h-10 rounded-full bg-green-600 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                    {slidePanelLoadingId === c.id ? "…" : c.name[0]}
+                  </div>
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-gray-900">{c.name}</span>
-                    <span className="text-sm px-2 py-0.5 rounded-full font-medium bg-green-100 text-green-700">
-                      구매확정
-                    </span>
-                    {c.groups.slice(0, 2).map((g) => (
-                      <span
-                        key={g.group.id}
-                        className="text-sm px-2 py-0.5 rounded-full bg-gray-100 text-gray-600"
-                      >
-                        {g.group.name}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-gray-900">{c.name}</span>
+                      <span className="text-sm px-2 py-0.5 rounded-full font-medium bg-green-100 text-green-700">
+                        구매확정
                       </span>
-                    ))}
-                  </div>
-                  <div className="text-sm text-gray-500 mt-0.5 flex items-center gap-3">
-                    <span>{c.phone}</span>
-                    {c.cruiseInterest && <span className="text-gold-500">{c.cruiseInterest}</span>}
-                    {c._count.callLogs > 0 && (
-                      <span className="flex items-center gap-1">
-                        <Phone className="w-3 h-3" /> {c._count.callLogs}회
-                      </span>
-                    )}
-                    {c.purchasedAt && (
-                      <span className="text-sm text-green-600 font-medium">
-                        구매일: {formatDate(c.purchasedAt)}
-                      </span>
-                    )}
-                  </div>
-                  {groups.length > 0 && (
-                    <div className="flex items-center gap-1 mt-2" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-                      <select
-                        className="text-sm border border-gray-200 rounded px-1.5 py-1 flex-1 max-w-[180px] bg-white focus:outline-none"
-                        defaultValue=""
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          if (e.target.value) quickAssign(c.id, e.target.value);
-                          e.target.value = "";
-                        }}
-                      >
-                        <option value="">그룹 배정...</option>
-                        {groups.map((g) => (
-                          <option key={g.id} value={g.id}>{g.name} {g.funnelId ? "🔄" : ""}</option>
-                        ))}
-                      </select>
-                      {assigning === c.id && <span className="text-sm text-gray-600">배정 중...</span>}
+                      {c.groups.slice(0, 2).map((g) => (
+                        <span
+                          key={g.group.id}
+                          className="text-sm px-2 py-0.5 rounded-full bg-gray-100 text-gray-600"
+                        >
+                          {g.group.name}
+                        </span>
+                      ))}
                     </div>
-                  )}
-                </div>
+                    <div className="text-sm text-gray-500 mt-0.5 flex items-center gap-3">
+                      <span>{c.phone}</span>
+                      {c.cruiseInterest && <span className="text-gold-500">{c.cruiseInterest}</span>}
+                      {c._count.callLogs > 0 && (
+                        <span className="flex items-center gap-1">
+                          <Phone className="w-3 h-3" /> {c._count.callLogs}회
+                        </span>
+                      )}
+                      {c.purchasedAt && (
+                        <span className="text-sm text-green-600 font-medium">
+                          구매일: {formatDate(c.purchasedAt)}
+                        </span>
+                      )}
+                    </div>
+                    {trackingSummary && (
+                      <div className="text-xs text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
+                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-medium">추적</span>
+                        <span>{trackingSummary}</span>
+                      </div>
+                    )}
+                    {groups.length > 0 && (
+                      <div className="flex items-center gap-1 mt-2" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                        <select
+                          className="text-sm border border-gray-200 rounded px-1.5 py-1 flex-1 max-w-[180px] bg-white focus:outline-none"
+                          defaultValue=""
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            if (e.target.value) quickAssign(c.id, e.target.value);
+                            e.target.value = "";
+                          }}
+                        >
+                          <option value="">그룹 배정...</option>
+                          {groups.map((g) => (
+                            <option key={g.id} value={g.id}>{g.name} {g.funnelId ? "🔄" : ""}</option>
+                          ))}
+                        </select>
+                        {assigning === c.id && <span className="text-sm text-gray-600">배정 중...</span>}
+                      </div>
+                    )}
+                  </div>
 
-                <div className="hidden md:flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    type="button"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = `tel:${c.phone}`; }}
-                    className="p-2 rounded-lg hover:bg-blue-50 text-blue-600"
-                  >
-                    <Phone className="w-4 h-4" />
-                  </button>
+                  <div className="hidden md:flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = `tel:${c.phone}`; }}
+                      className="p-2 rounded-lg hover:bg-blue-50 text-blue-600"
+                    >
+                      <Phone className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

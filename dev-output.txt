@@ -1,0 +1,15 @@
+
+> mabiz@0.1.0 dev
+> next dev
+
+   ??Next.js 15.5.18
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.0.10:3000
+   - Environments: .env.local, .env
+   - Experiments (use with caution):
+     쨌 middlewareClientMaxBodySize: 104857600
+
+ ??Starting...
+ ??Compiling /instrumentation ...
+ ??Compiled /instrumentation in 737ms (688 modules)
+ ??Ready in 2s

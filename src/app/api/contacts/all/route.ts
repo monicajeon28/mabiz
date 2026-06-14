@@ -57,6 +57,7 @@ export async function GET(req: Request) {
           updatedAt: true,
           tags: true,
           organizationId: true,
+          surveyData: true,
           organization: { select: { name: true } },
           groups: { select: { group: { select: { id: true, name: true, color: true } } } },
         },

@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { normalizePhone } from '@/lib/phone-normalize';
+import React, { useState } from 'react';
 import { logger } from '@/lib/logger';
 import './ContactForm.css';
 
@@ -20,6 +19,13 @@ export interface FormData {
   variant: string;
   segment: string;
   completionTimeMs: number;
+  pageUrl?: string;
+  userAgent?: string;
+  deviceType?: string;
+  source?: string;
+  productName?: string;
+  productCode?: string;
+  isGold?: boolean;
 }
 
 // Segment 결정 로직
@@ -41,6 +47,14 @@ const getRandomVariant = (): 'a' | 'b' | 'c' => {
   return variants[Math.floor(Math.random() * variants.length)];
 };
 
+const detectDeviceType = (userAgent: string): string => {
+  const ua = userAgent.toLowerCase();
+  if (/(bot|crawler|spider|crawling)/i.test(ua)) return 'bot';
+  if (/(ipad|tablet|kindle|silk|playbook)/i.test(ua)) return 'tablet';
+  if (/(mobi|android|iphone|ipod|iemobile|blackberry|opera mini)/i.test(ua)) return 'mobile';
+  return 'desktop';
+};
+
 export const ContactForm: React.FC<ContactFormProps> = ({
   variant: initialVariant,
   onComplete,
@@ -58,13 +72,15 @@ export const ContactForm: React.FC<ContactFormProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
   const [startTime] = useState(Date.now());
 
   // 이벤트 로깅 함수
-  const logEvent = (eventName: string, data?: Record<string, any>) => {
-    if (typeof window !== 'undefined' && (window as any).gtag) {
-      (window as any).gtag('event', eventName, {
+  const logEvent = (eventName: string, data?: Record<string, unknown>) => {
+    const gtag = typeof window !== 'undefined'
+      ? (window as Window & { gtag?: (...args: unknown[]) => void }).gtag
+      : undefined;
+    if (gtag) {
+      gtag('event', eventName, {
         variant,
         timestamp: new Date().toISOString(),
         ...data,
@@ -137,28 +153,41 @@ export const ContactForm: React.FC<ContactFormProps> = ({
     }
 
     setIsSubmitting(true);
-    const completionTimeMs = Date.now() - startTime;
-    const segment = determineSegment(formData.ageRange);
+      const completionTimeMs = Date.now() - startTime;
+      const segment = determineSegment(formData.ageRange);
+      const pageUrl = window.location.href;
+      const userAgent = navigator.userAgent;
+      const deviceType = detectDeviceType(userAgent);
+      const source = new URLSearchParams(window.location.search).get('source') || 'contact_form';
+      const productCode = new URLSearchParams(window.location.search).get('productCode') || 'CRUISE_INQUIRY';
+      const productName = new URLSearchParams(window.location.search).get('productName') || '크루즈닷 상품문의';
+      const isGold = /gold|vip/i.test(pageUrl) || new URLSearchParams(window.location.search).get('isGold') === 'true';
 
-    try {
+      try {
       // FormSubmission 로깅
       await fetch('/api/webhook/contact-form-submission', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: formData.name,
-          phone: phoneDigits,
-          email: formData.email || null,
-          ageRange: formData.ageRange,
-          preferenceType: formData.preferenceType,
-          variant,
-          segment,
-          completionTimeMs,
-          timestamp: Date.now(),
-          userAgent: navigator.userAgent,
-          affiliateCode: new URLSearchParams(window.location.search).get('ref') || null,
-        }),
-      });
+          body: JSON.stringify({
+            name: formData.name,
+            phone: phoneDigits,
+            email: formData.email || null,
+            ageRange: formData.ageRange,
+            preferenceType: formData.preferenceType,
+            variant,
+            segment,
+            completionTimeMs,
+            timestamp: Date.now(),
+            pageUrl,
+            userAgent,
+            deviceType,
+            source,
+            productName,
+            productCode,
+            isGold,
+            affiliateCode: new URLSearchParams(window.location.search).get('ref') || null,
+          }),
+        });
 
       // CRM inquiry 웹훅 호출 (서버 프록시 경유)
       const inquiryPayload = {
@@ -170,6 +199,13 @@ export const ContactForm: React.FC<ContactFormProps> = ({
         message: `선호도: ${formData.preferenceType} | 연령: ${formData.ageRange}`,
         submittedAt: new Date().toISOString(),
         organizationId: process.env.NEXT_PUBLIC_DEFAULT_ORG_ID || '',
+        pageUrl,
+        userAgent,
+        deviceType,
+        source,
+        productName,
+        productCode,
+        isGold,
       };
 
       try {
@@ -209,6 +245,13 @@ export const ContactForm: React.FC<ContactFormProps> = ({
         variant,
         segment,
         completionTimeMs,
+        pageUrl,
+        userAgent,
+        deviceType,
+        source,
+        productName,
+        productCode,
+        isGold,
       });
 
       // 성공 화면 유지 (3초 후 리셋)
@@ -225,7 +268,6 @@ export const ContactForm: React.FC<ContactFormProps> = ({
         variant
       });
       logEvent('form_submit_error', { error: errorMsg });
-      setErrorMessage('제출 중 오류가 발생했습니다. 다시 시도해주세요.');
       onError?.('제출 중 오류가 발생했습니다. 다시 시도해주세요.');
     } finally {
       setIsSubmitting(false);
@@ -440,7 +482,6 @@ export const ContactForm: React.FC<ContactFormProps> = ({
 
               <CTAButton
                 variant={variant}
-                segment={segment}
                 onClick={handleStep3Submit}
                 disabled={isSubmitting}
               />
@@ -457,14 +498,12 @@ export const ContactForm: React.FC<ContactFormProps> = ({
  */
 interface CTAButtonProps {
   variant: 'a' | 'b' | 'c';
-  segment?: string;
   onClick?: () => void;
   disabled?: boolean;
 }
 
 const CTAButton: React.FC<CTAButtonProps> = ({
   variant,
-  segment,
   onClick,
   disabled,
 }) => {

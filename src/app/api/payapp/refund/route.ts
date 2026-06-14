@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
-import { cancelPayment } from '@/lib/payapp';
+import { cancelPayment, requestCancelAfterSettlement } from '@/lib/payapp';
 
 /**
  * POST /api/payapp/refund
@@ -47,6 +47,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, message: '부분환불 시 금액을 입력해주세요.' }, { status: 400 });
     }
 
+    const alreadyRefunded = payment.refundAmount ?? 0;
+    const remainingRefundable = payment.amount - alreadyRefunded;
+
+    if (remainingRefundable <= 0) {
+      return NextResponse.json({ ok: false, message: '이미 전액 환불된 결제입니다.' }, { status: 400 });
+    }
+
     // P1-9: 부분취소 금액 범위 검증
     if (partcancel && cancelprice) {
       // 환불액 > 결제액 검증
@@ -58,9 +65,7 @@ export async function POST(req: Request) {
       }
 
       // 누적 환불액 검증
-      const alreadyRefunded = payment.refundAmount ?? 0;
       if (alreadyRefunded + cancelprice > payment.amount) {
-        const remainingRefundable = payment.amount - alreadyRefunded;
         return NextResponse.json(
           {
             ok: false,
@@ -71,21 +76,55 @@ export async function POST(req: Request) {
       }
     }
 
+    const refundAmount = partcancel ? (cancelprice ?? 0) : remainingRefundable;
+    if (refundAmount <= 0) {
+      return NextResponse.json({ ok: false, message: '환불 금액이 0원입니다.' }, { status: 400 });
+    }
+
+    const settledAt = payment.paidAt ?? payment.createdAt;
+    const settlementWindowMs = 5 * 24 * 60 * 60 * 1000;
+    const useSettlementCancel = Date.now() - settledAt.getTime() >= settlementWindowMs;
+    const cancelCommand = useSettlementCancel ? 'paycancelreq' : 'paycancel';
+
+    const markPending = await prisma.payAppPayment.updateMany({
+      where: {
+        id: paymentId,
+        organizationId: orgId,
+        status: { in: ['paid', 'partial_refunded'] },
+      },
+      data: {
+        status: 'refund_pending',
+      },
+    });
+
+    if (markPending.count === 0) {
+      return NextResponse.json({ ok: false, message: '환불 처리 중이거나 환불 불가 상태입니다.' }, { status: 409 });
+    }
+
     // PayApp API 호출
-    const result = await cancelPayment({
+    const cancelParams = {
       mulNo: payment.mulNo,
       cancelmemo: reason,
       partcancel,
       cancelprice: partcancel ? cancelprice : undefined,
-    });
+    };
+    const result = useSettlementCancel
+      ? await requestCancelAfterSettlement({
+          ...cancelParams,
+          dpname: payment.productName ?? 'CRM 결제',
+        })
+      : await cancelPayment(cancelParams);
 
     if (!result.ok) {
+      await prisma.payAppPayment.updateMany({
+        where: { id: paymentId, organizationId: orgId, status: 'refund_pending' },
+        data: { status: payment.status },
+      });
       return NextResponse.json({ ok: false, message: result.error }, { status: 502 });
     }
 
     // DB 업데이트
-    const refundAmount = partcancel ? (cancelprice ?? 0) : payment.amount;
-    const newTotalRefunded = (payment.refundAmount ?? 0) + refundAmount;
+    const newTotalRefunded = alreadyRefunded + refundAmount;
     const isFullyRefunded = newTotalRefunded >= payment.amount;
 
     // 부분환불 이력
@@ -101,24 +140,38 @@ export async function POST(req: Request) {
     const updatedMetadata: Record<string, unknown> = {
       ...existingMeta,
       refund_history: [...existingHistory, refundEntry],
+      refund_command: cancelCommand,
     };
 
-    await prisma.payAppPayment.update({
-      where: { id: paymentId },
-      data: {
-        status: isFullyRefunded ? 'refunded' : 'partial_refunded',
-        refundedAt: new Date(),
-        refundAmount: newTotalRefunded,
-        refundReason: reason,
-        metadata: updatedMetadata as unknown as Prisma.InputJsonValue,
-      },
-    });
+    try {
+      await prisma.payAppPayment.update({
+        where: { id: paymentId },
+        data: {
+          status: isFullyRefunded ? 'refunded' : 'partial_refunded',
+          refundedAt: new Date(),
+          refundAmount: newTotalRefunded,
+          refundReason: reason,
+          metadata: updatedMetadata as unknown as Prisma.InputJsonValue,
+        },
+      });
+    } catch (dbErr) {
+      logger.error('[PayApp/Refund] 외부 취소 성공 후 DB 반영 실패', {
+        paymentId,
+        cancelCommand,
+        dbErr,
+      });
+      return NextResponse.json(
+        { ok: false, message: '환불은 완료됐지만 DB 반영에 실패했습니다. 재동기화가 필요합니다.' },
+        { status: 503 }
+      );
+    }
 
     logger.log('[PayApp/Refund] 환불 처리 완료', {
       paymentId,
       type: partcancel ? '부분환불' : '전체환불',
       refundAmount,
       newTotalRefunded,
+      cancelCommand,
     });
 
     return NextResponse.json({ ok: true, refundAmount, totalRefunded: newTotalRefunded });

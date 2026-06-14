@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, memo } from "react";
+import { memo } from "react";
 import {
   ArrowLeft, Phone, FileDown, Share2, MessageSquare, AlarmClock, ChevronDown, Calendar,
-  FileText,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { RecommendBanner } from "./recommend-banner";
-import { maskPhone, maskEmail } from "@/lib/masking";
+import { maskPhone } from "@/lib/masking";
 import { Contact } from "@/types/contact";
 
 interface TransferLog {
@@ -61,13 +60,26 @@ interface ContactInfoPanelProps {
 
 function ContactInfoPanelComponent({
   contact, editingName, setEditingName, nameInput, setNameInput, saveName,
-  backingContact, handleContactBackup, openSendDb, showSchedModal, openSchedModal, closeSchedModal,
-  showSmsModal, openSmsModal, transferLogs, recalling, handleRecall,
+  backingContact, handleContactBackup, openSendDb, showSchedModal: _showSchedModal, openSchedModal, closeSchedModal: _closeSchedModal,
+  showSmsModal: _showSmsModal, openSmsModal, transferLogs, recalling, handleRecall,
   showDeptForm, setShowDeptForm, deptForm, setDeptForm, savingDept, saveDeparture,
   savingField, saveField, tags, tagInput, setTagInput, addTag, removeTag, savingTags,
   currentGroups, SUGGESTED_TAGS,
 }: ContactInfoPanelProps) {
   const router = useRouter();
+  const inquiryTracking = contact.surveyData?.inquiryTracking ?? null;
+  const hasInquiryTracking = !!inquiryTracking && (
+    !!inquiryTracking.timestamp ||
+    !!inquiryTracking.capturedAt ||
+    !!inquiryTracking.source ||
+    !!inquiryTracking.productName ||
+    !!inquiryTracking.productCode ||
+    !!inquiryTracking.pageUrl ||
+    !!inquiryTracking.userAgent ||
+    !!inquiryTracking.deviceType ||
+    !!inquiryTracking.ip ||
+    typeof inquiryTracking.isGold === "boolean"
+  );
 
   return (
     <>
@@ -447,6 +459,75 @@ function ContactInfoPanelComponent({
               <div className="flex gap-2 text-sm">
                 <span className="text-gray-400 shrink-0 w-12">설문3</span>
                 <span className="text-gray-800">{contact.surveyData.q3}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {hasInquiryTracking && inquiryTracking && (
+        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">🔎 문의 추적 정보</h3>
+          <div className="space-y-1.5 text-sm">
+            {(inquiryTracking.timestamp || inquiryTracking.capturedAt) && (
+              <div className="flex gap-2">
+                <span className="text-gray-400 shrink-0 w-20">수집시각</span>
+                <span className="text-gray-800">{inquiryTracking.timestamp || inquiryTracking.capturedAt}</span>
+              </div>
+            )}
+            {inquiryTracking.source && (
+              <div className="flex gap-2">
+                <span className="text-gray-400 shrink-0 w-20">출처</span>
+                <span className="text-gray-800">{inquiryTracking.source}</span>
+              </div>
+            )}
+            {inquiryTracking.productName && (
+              <div className="flex gap-2">
+                <span className="text-gray-400 shrink-0 w-20">상품명</span>
+                <span className="text-gray-800">{inquiryTracking.productName}</span>
+              </div>
+            )}
+            {inquiryTracking.productCode && (
+              <div className="flex gap-2">
+                <span className="text-gray-400 shrink-0 w-20">상품코드</span>
+                <span className="text-gray-800 font-mono text-xs">{inquiryTracking.productCode}</span>
+              </div>
+            )}
+            {inquiryTracking.pageUrl && (
+              <div className="flex gap-2">
+                <span className="text-gray-400 shrink-0 w-20">페이지</span>
+                <a
+                  href={inquiryTracking.pageUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-blue-600 hover:underline break-all"
+                >
+                  {inquiryTracking.pageUrl}
+                </a>
+              </div>
+            )}
+            {inquiryTracking.ip && (
+              <div className="flex gap-2">
+                <span className="text-gray-400 shrink-0 w-20">IP</span>
+                <span className="text-gray-800 font-mono text-xs">{inquiryTracking.ip}</span>
+              </div>
+            )}
+            {inquiryTracking.deviceType && (
+              <div className="flex gap-2">
+                <span className="text-gray-400 shrink-0 w-20">기기</span>
+                <span className="text-gray-800">{inquiryTracking.deviceType}</span>
+              </div>
+            )}
+            {inquiryTracking.userAgent && (
+              <div className="flex gap-2">
+                <span className="text-gray-400 shrink-0 w-20">브라우저</span>
+                <span className="text-gray-800 break-all">{inquiryTracking.userAgent}</span>
+              </div>
+            )}
+            {typeof inquiryTracking.isGold === "boolean" && (
+              <div className="flex gap-2">
+                <span className="text-gray-400 shrink-0 w-20">골드 문의</span>
+                <span className="text-gray-800">{inquiryTracking.isGold ? "예" : "아니오"}</span>
               </div>
             )}
           </div>

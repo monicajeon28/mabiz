@@ -5,6 +5,7 @@ import { logger } from '@/lib/logger';
 import { SettlementSaga, SettlementSagaContext } from '@/lib/webhooks/settlement-saga';
 import { retryStrategy } from '@/lib/webhooks/retry-strategy';
 import { sendSmsViaAligo } from '@/lib/sms-service';
+import { recordProcessedWebhookEvent } from '@/lib/webhook-execution';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, message: 'JSON 파싱 실패' }, { status: 400 });
   }
 
-  const { eventId, eventType, timestamp, settlementId, partnerId, period, status, amount, netAmount, commissionRate, paymentDate } = payload;
+  const { eventId, eventType, timestamp: _timestamp, settlementId, partnerId, period, status, amount, netAmount, commissionRate, paymentDate } = payload;
 
   // 필수 필드 검증
   if (!eventId || !eventType || !settlementId || !partnerId || !period || !status || amount === undefined) {
@@ -125,9 +126,11 @@ export async function POST(req: NextRequest) {
       const { totalNetPayment, profiles, paymentDate: pd } = payload;
 
       if (!profiles || profiles.length === 0) {
-        await prisma.processedWebhookEvent.create({
-          data: { eventId, webhookType: 'cruisedot-settlement' },
-        }).catch(() => {});
+        await recordProcessedWebhookEvent(prisma, {
+          eventId,
+          webhookType: 'cruisedot-settlement',
+          context: '[SettlementWebhook] SUCCESS 기록 실패',
+        });
         return NextResponse.json({ ok: true, received: true, upserted: 0 });
       }
 
@@ -178,9 +181,11 @@ export async function POST(req: NextRequest) {
         upserted++;
       }
 
-      await prisma.processedWebhookEvent.create({
-        data: { eventId, webhookType: 'cruisedot-settlement' },
-      }).catch(() => {});
+      await recordProcessedWebhookEvent(prisma, {
+        eventId,
+        webhookType: 'cruisedot-settlement',
+        context: '[SettlementWebhook] SUCCESS 기록 실패',
+      });
 
       logger.info('[SettlementWebhook] settlement.calculated 처리 완료', {
         settlementId, period, totalNetPayment, upserted, skipped,

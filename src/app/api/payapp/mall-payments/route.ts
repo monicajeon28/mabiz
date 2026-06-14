@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
+import { Prisma, PaymentStatus } from '@prisma/client';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 /**
@@ -22,9 +23,11 @@ export async function GET(req: Request) {
     const page   = Math.max(1, parseInt(url.searchParams.get('page') ?? '1'));
     const limit  = Math.min(50, parseInt(url.searchParams.get('limit') ?? '20'));
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: any = {};
-    if (status) where.status = status;
+    const VALID_STATUSES: PaymentStatus[] = ['pending', 'paid', 'completed', 'failed', 'cancelled', 'refunded', 'partial_refunded', 'refund_pending', 'pending_vbank'];
+    const where: Prisma.PaymentWhereInput = {};
+    if (status && VALID_STATUSES.includes(status as PaymentStatus)) {
+      where.status = status as PaymentStatus;
+    }
     if (search) {
       where.OR = [
         { buyerName: { contains: search } },

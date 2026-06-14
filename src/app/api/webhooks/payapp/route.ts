@@ -3,7 +3,6 @@ import { timingSafeEqual } from "crypto";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { enqueueDLQ } from "@/lib/mabiz-dlq";
-import { NextResponse } from "next/server";
 import { triggerGroupFunnel } from "@/lib/funnel-trigger";
 import { validateFeedback, validateFeedbackWithHMAC, parsePayState, parsePayType, issueCashReceipt } from "@/lib/payapp";
 import { normalizePhone } from "@/lib/phone-normalize";
@@ -18,6 +17,24 @@ function maskPhone(phone: string | null): string {
 function maskOrderId(orderId: string | null): string {
   if (!orderId || orderId.length < 6) return 'none';
   return `${orderId.slice(0, 3)}***${orderId.slice(-3)}`;
+}
+
+async function persistCashReceiptMetadata(orderKey: string, cashstno?: string, cashsturl?: string) {
+  const payment = await prisma.payAppPayment.findUnique({ where: { orderId: orderKey } });
+  const existing = (payment?.metadata ?? {}) as Record<string, unknown>;
+  await prisma.payAppPayment.update({
+    where: { orderId: orderKey },
+    data: {
+      metadata: {
+        ...existing,
+        cashReceipt: {
+          cashstno,
+          cashsturl,
+          issuedAt: new Date().toISOString(),
+        },
+      },
+    },
+  });
 }
 
 /**
@@ -190,10 +207,6 @@ export async function POST(req: Request) {
     const payTypeCode = params.get("pay_type") ?? "";
     const cardName    = params.get("card_name") ?? "";
     const cstUrl      = params.get("csturl") ?? "";
-    const customerName = params.get("pay_memo")
-      ? params.get("pay_memo")!
-      : (params.get("recvphone") ? "" : "");
-
     // P1-4: price 범위 검증
     if (price < 0 || price > 100_000_000) {
       logger.warn('[PayApp] 결제액 범위 초과', { amount: price });
@@ -255,12 +268,16 @@ export async function POST(req: Request) {
 
       // 조직 확인
       let orgId: string | null = null;
+      let landingPageId: string | null = null;
+      let groupId: string | null = null;
       if (landingSlug) {
         const lp = await prisma.crmLandingPage.findFirst({
           where: { slug: landingSlug },
-          select: { organizationId: true },
+          select: { id: true, organizationId: true, groupId: true },
         });
         orgId = lp?.organizationId ?? null;
+        landingPageId = lp?.id ?? null;
+        groupId = lp?.groupId ?? null;
       }
 
       // GmUser 조회 (phone 기반)
@@ -268,6 +285,13 @@ export async function POST(req: Request) {
         where: { phone: normalizedPhone },
         select: { id: true },
       }) : null;
+
+      const matchedSubscription = orderId
+        ? await prisma.payAppSubscription.findUnique({
+            where: { id: orderId },
+            select: { id: true },
+          })
+        : null;
 
       await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         // PayAppPayment 업데이트
@@ -286,7 +310,7 @@ export async function POST(req: Request) {
             cstUrl: cstUrl || null,
             status: "paid",
             paidAt: new Date(),
-            landingPageId: landingSlug || null,
+            landingPageId: landingPageId ?? null,
           },
           update: {
             status: "paid",
@@ -314,22 +338,25 @@ export async function POST(req: Request) {
             update: { type: "CUSTOMER", channel: "b2b", ...(gmUser ? { userId: gmUser.id } : {}) },
           });
         }
+
+        if (matchedSubscription) {
+          await tx.payAppSubscription.updateMany({
+            where: { id: matchedSubscription.id },
+            data: { status: 'active' },
+          });
+        }
       });
 
       // 퍼널 자동 트리거 (non-blocking)
-      if (orgId && landingSlug) {
+      if (orgId && groupId) {
         try {
-          const lp = await prisma.crmLandingPage.findFirst({
-            where: { slug: landingSlug },
-            select: { groupId: true },
-          });
-          if (lp?.groupId && normalizedPhone) {
+          if (normalizedPhone) {
             const contact = await prisma.contact.findUnique({
               where: { phone_organizationId: { phone: normalizedPhone, organizationId: orgId } },
               select: { id: true },
             });
             if (contact) {
-              await triggerGroupFunnel({ contactId: contact.id, groupId: lp.groupId, organizationId: orgId });
+              await triggerGroupFunnel({ contactId: contact.id, groupId, organizationId: orgId });
             }
           }
         } catch (e) {
@@ -340,28 +367,30 @@ export async function POST(req: Request) {
       // 현금영수증 자동 발행 — 현금성 결제만 (카드/간편결제 제외)
       const cashPayTypes = ["bank_transfer", "virtual_account", "phone"];
       if (cashPayTypes.includes(payType) && normalizedPhone && price > 0) {
-        issueCashReceipt({
+        void issueCashReceipt({
           goodName: name || "크루즈 상품",
           buyerName: name || "미확인",
           buyerPhone: normalizedPhone,
           amount: price,
-        }).then((r) => {
-          if (r.ok) {
-            // 현금영수증 정보를 metadata에 병합 저장 (기존 데이터 보존)
-            prisma.payAppPayment.findUnique({ where: { orderId: orderId || `mul_${mulNo}` } }).then((p) => {
-              const existing = (p?.metadata ?? {}) as Record<string, unknown>;
-              prisma.payAppPayment.update({
-                where: { orderId: orderId || `mul_${mulNo}` },
-                data: {
-                  metadata: { ...existing, cashReceipt: { cashstno: r.cashstno, cashsturl: r.cashsturl, issuedAt: new Date().toISOString() } },
-                },
-              }).catch(() => {});
-            }).catch(() => {});
-            logger.log("[PayApp Webhook] 현금영수증 자동 발행 성공", { cashstno: r.cashstno });
-          } else {
+        }).then(async (r) => {
+          if (!r.ok) {
             logger.warn("[PayApp Webhook] 현금영수증 발행 실패", { error: r.error });
+            return;
           }
-        }).catch(() => {});
+
+          try {
+            await persistCashReceiptMetadata(orderId || `mul_${mulNo}`, r.cashstno, r.cashsturl);
+            logger.log("[PayApp Webhook] 현금영수증 자동 발행 성공", { cashstno: r.cashstno });
+          } catch (persistErr) {
+            logger.error("[PayApp Webhook] cashReceipt metadata 업데이트 실패", {
+              orderId: orderId || `mul_${mulNo}`,
+              error: persistErr instanceof Error ? persistErr.message : String(persistErr),
+            });
+          }
+        }).catch((receiptErr) => logger.error("[PayApp Webhook] 현금영수증 발행 요청 실패", {
+          orderId: orderId || `mul_${mulNo}`,
+          error: receiptErr instanceof Error ? receiptErr.message : String(receiptErr),
+        }));
       }
 
       return new Response("SUCCESS");
@@ -702,7 +731,11 @@ export async function POST(req: Request) {
         var1: maskOrderId(payloadObj.var1 as string | null), // orderId
       };
 
-      await enqueueDLQ("payapp", maskedPayload, err instanceof Error ? err.message : String(err), "form-data").catch(() => {});
+      await enqueueDLQ("payapp", maskedPayload, err instanceof Error ? err.message : String(err), "form-data").catch((dlqErr) => {
+        logger.error("[PayApp Webhook] DLQ 저장 실패", {
+          error: dlqErr instanceof Error ? dlqErr.message : String(dlqErr),
+        });
+      });
     }
 
     return new Response("FAIL", { status: 500 });

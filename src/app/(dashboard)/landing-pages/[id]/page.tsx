@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 import { RegistrationsTab } from "./components/RegistrationsTab";
 import { CommentsTab } from "./components/CommentsTab";
 import FormBuilder, { FormField } from "@/components/forms/FormBuilder";
+import { MAX_IMAGE_UPLOAD_BYTES, prepareImageForUpload } from "@/lib/client-image-compress";
 
 type Registration = {
   id: string;
@@ -37,6 +38,7 @@ export default function EditLandingPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   // stale closure 방지: 최신 save 함수를 항상 참조하기 위한 ref
   const saveRef = useRef<() => Promise<void>>(async () => {});
+  const [_success, setSuccess]   = useState("");
 
   const [tab, setTab]           = useState<"editor" | "registrations" | "comments" | "stats" | "share">(
     searchParams.get("tab") === "registrations" ? "registrations" :
@@ -55,8 +57,6 @@ export default function EditLandingPage() {
   const [error, setError]       = useState("");
   const [saveMsg, setSaveMsg]   = useState("");
   const [uploadProgress, setUploadProgress] = useState({ processed: 0, total: 0, percent: 0 });
-  const [success, setSuccess]   = useState("");
-
   // AI 카피 생성 모달
   const [aiModalOpen, setAiModalOpen]       = useState(false);
   const [aiProductName, setAiProductName]   = useState("");
@@ -139,11 +139,6 @@ export default function EditLandingPage() {
     { id: 'phone', name: 'phone', label: '전화번호', type: 'tel', required: true, placeholder: '010-0000-0000' },
     { id: 'email', name: 'email', label: '이메일', type: 'email', required: false, placeholder: 'example@email.com' },
   ]);
-  const FIELD_LABELS: Record<string, string> = {
-    phone: "연락처", name: "이름", email: "이메일",
-    gender: "성별", birthDate: "생년월일", address: "주소", marketingConsent: "마케팅동의",
-  };
-
   // Task 1-5: 초기 데이터 로딩 — HTTP 에러 처리 추가
   useEffect(() => {
     const ctrl = new AbortController();
@@ -440,10 +435,11 @@ export default function EditLandingPage() {
   // Task 1-2 & 1-5: 이미지 업로드 — 배치 처리 + HTTP 에러 처리 + Race Condition 해결
   const uploadSingleFile = async (file: File, sortOrder: number): Promise<{ ok: boolean; image?: UploadedImage; error?: string }> => {
     if (!file.type.startsWith("image/")) return { ok: false, error: `${file.name}: 이미지 형식 아님` };
-    if (file.size > 20 * 1024 * 1024) return { ok: false, error: `${file.name}: 20MB 초과` };
+    if (file.size > MAX_IMAGE_UPLOAD_BYTES) return { ok: false, error: `${file.name}: 100MB 초과` };
 
+    const uploadFile = await prepareImageForUpload(file);
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", uploadFile);
     formData.append("landingPageId", id);
     formData.append("sortOrder", String(sortOrder));
 
@@ -1132,7 +1128,7 @@ export default function EditLandingPage() {
                         />
                       </div>
                     )}
-                    <p className="text-xs text-gray-400 mt-1">JPG, PNG, WebP → 자동 WebP 변환 / GIF → 압축 유지 / 최대 20MB</p>
+                    <p className="text-xs text-gray-400 mt-1">JPG, PNG, WebP → 자동 WebP 변환 / GIF → 서버에서 움직이는 WebP로 압축 / 최대 100MB</p>
                     {!uploading && (
                       <p className="text-xs text-blue-600 mt-2">💡 팁: 최대 5개씩 선택하면 빠릅니다. (3~5개 동시 처리)</p>
                     )}

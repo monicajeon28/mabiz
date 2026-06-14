@@ -13,34 +13,49 @@ interface HeaderValue {
   arsNum?: string;
 }
 
+interface SmsDefaults {
+  senderPhone: string;
+  arsNum: string;
+  connected: boolean;
+  senderVerified: boolean;
+}
+
 interface Props {
   value: HeaderValue;
   onChange: (field: keyof HeaderValue, value: string | number) => void;
   groups?: { id: string; name: string }[];
-}
-
-interface SmsDefaults {
-  senderPhone: string;
-  arsNum: string;
-  connected: boolean; // 알리고 연결 여부
+  onDefaultsChange?: (defaults: SmsDefaults) => void;
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = [0, 15, 30, 45];
 
-export default function FunnelSmsHeader({ value, onChange }: Props) {
-  const [defaults, setDefaults] = useState<SmsDefaults>({ senderPhone: '', arsNum: '', connected: false });
+export default function FunnelSmsHeader({ value, onChange, onDefaultsChange }: Props) {
+  const [defaults, setDefaults] = useState<SmsDefaults>({
+    senderPhone: '',
+    arsNum: '',
+    connected: false,
+    senderVerified: false,
+  });
   const hasFilled = useRef(false);
 
   useEffect(() => {
     const ctrl = new AbortController();
     fetch('/api/settings/sms-defaults', { signal: ctrl.signal })
       .then((res) => res.json())
-      .then((data: { ok: boolean; senderPhone: string; arsNum: string }) => {
+      .then((data: { ok: boolean; senderPhone: string; arsNum: string; senderVerified?: boolean }) => {
         const connected = data.ok && !!data.senderPhone;
-        setDefaults({ senderPhone: data.senderPhone ?? '', arsNum: data.arsNum ?? '', connected });
+        const senderVerified = !!data.senderVerified;
+        const nextDefaults = {
+          senderPhone: data.senderPhone ?? '',
+          arsNum: data.arsNum ?? '',
+          connected,
+          senderVerified,
+        };
+        setDefaults(nextDefaults);
+        onDefaultsChange?.(nextDefaults);
         // 최초 마운트 시 빈 필드만 자동 채우기
-        if (!hasFilled.current && connected) {
+        if (!hasFilled.current && connected && senderVerified) {
           hasFilled.current = true;
           if (!value.senderPhone && data.senderPhone) onChange('senderPhone', data.senderPhone);
           if (!value.arsNum && data.arsNum) onChange('arsNum', data.arsNum);
@@ -48,18 +63,25 @@ export default function FunnelSmsHeader({ value, onChange }: Props) {
       })
       .catch((err) => {
         if (err instanceof Error && err.name === 'AbortError') return;
-        setDefaults({ senderPhone: '', arsNum: '', connected: false });
+        const nextDefaults = {
+          senderPhone: '',
+          arsNum: '',
+          connected: false,
+          senderVerified: false,
+        };
+        setDefaults(nextDefaults);
+        onDefaultsChange?.(nextDefaults);
       });
     return () => ctrl.abort();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fillSenderPhone = () => {
-    if (defaults.senderPhone) onChange('senderPhone', defaults.senderPhone);
+    if (defaults.senderPhone && defaults.senderVerified) onChange('senderPhone', defaults.senderPhone);
   };
 
   const fillArsNum = () => {
-    if (defaults.arsNum) onChange('arsNum', defaults.arsNum);
+    if (defaults.arsNum && defaults.senderVerified) onChange('arsNum', defaults.arsNum);
   };
 
   return (
@@ -84,11 +106,15 @@ export default function FunnelSmsHeader({ value, onChange }: Props) {
       <div>
         <div className="flex items-center justify-between mb-1">
           <label className="block text-sm font-medium text-gray-700">발신번호</label>
-          {!defaults.connected && (
+          {!defaults.connected ? (
             <Link href="/settings/sms" className="text-xs text-orange-500 hover:text-orange-700 font-medium flex items-center gap-1">
               ⚠ 알리고 미연결 — 설정하기 →
             </Link>
-          )}
+          ) : !defaults.senderVerified ? (
+            <Link href="/settings/sms" className="text-xs text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1">
+              ⚠ 발신번호 미인증 — 설정하기 →
+            </Link>
+          ) : null}
         </div>
         <div className="flex items-center gap-2">
           <input
@@ -99,13 +125,21 @@ export default function FunnelSmsHeader({ value, onChange }: Props) {
             placeholder={defaults.connected ? '' : '알리고 연결 후 자동 입력됩니다'}
             className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          {defaults.connected && defaults.senderPhone && (
-            <button type="button" onClick={fillSenderPhone}
-              className="shrink-0 px-3 py-2 text-xs font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
+          {defaults.connected && defaults.senderVerified && defaults.senderPhone && (
+            <button
+              type="button"
+              onClick={fillSenderPhone}
+              className="shrink-0 px-3 py-2 text-xs font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
+            >
               자동입력
             </button>
           )}
         </div>
+        {defaults.connected && !defaults.senderVerified && (
+          <p className="mt-1 text-xs text-amber-600">
+            조직 발신번호가 인증되지 않았습니다. 저장은 가능하지만 퍼널문자 생성은 차단됩니다.
+          </p>
+        )}
       </div>
 
       {/* 카테고리 */}
@@ -177,9 +211,12 @@ export default function FunnelSmsHeader({ value, onChange }: Props) {
             placeholder={defaults.connected ? '예) 08012345678' : '알리고 연결 후 자동 입력됩니다'}
             className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          {defaults.connected && defaults.arsNum && (
-            <button type="button" onClick={fillArsNum}
-              className="shrink-0 px-3 py-2 text-xs font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors">
+          {defaults.connected && defaults.senderVerified && defaults.arsNum && (
+            <button
+              type="button"
+              onClick={fillArsNum}
+              className="shrink-0 px-3 py-2 text-xs font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
+            >
               자동입력
             </button>
           )}

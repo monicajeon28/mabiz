@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ImageIcon, Code, Upload, X, GripVertical, Plus, Trash2, Smartphone, Copy, Check } from "lucide-react";
 import dynamic from "next/dynamic";
 import { ImageLibraryModal } from "@/components/image-library/ImageLibraryModal";
+import { MAX_IMAGE_UPLOAD_BYTES, prepareImageForUpload } from "@/lib/client-image-compress";
 
 const HtmlEditor = dynamic(
   () => import("@/components/editor/HtmlEditor").then((m) => m.HtmlEditor),
@@ -270,7 +271,7 @@ ${commentBlock}
 ${footerBlock}
 </body>
 </html>`;
-  }, [editorMode, html, images, formFields, additionalFields, paymentEnabled, productName, productPrice, paymentType, buttonTitle, title, headerScript, commentEnabled, commentCount, commentDateFrom, commentDateTo, footer]);
+  }, [editorMode, html, images, formFields, additionalFields, paymentEnabled, productName, productPrice, paymentType, buttonTitle, headerScript, commentEnabled, commentCount, commentDateFrom, commentDateTo, footer]);
 
   // state 변경 시 즉시 재계산 — srcDoc prop 변경으로 브라우저가 iframe 재렌더링
   const previewHtml = useMemo(() => buildPreviewHtml(), [buildPreviewHtml]);
@@ -278,7 +279,7 @@ ${footerBlock}
   // ──────────────────────────────────────────────
   // 이미지 업로드 / 정렬 / 삭제
   // ──────────────────────────────────────────────
-  const ensurePage = useCallback(async (): Promise<string | null> => {
+  const ensurePage = async (): Promise<string | null> => {
     if (savedPageId) return savedPageId;
     // 제목이 없으면 임시 제목/슬러그 자동 생성 (나중에 수정 가능)
     const autoTitle = title.trim() || `랜딩페이지 ${new Date().toLocaleDateString("ko-KR")}`;
@@ -294,7 +295,7 @@ ${footerBlock}
     if (!data.ok) { setError(data.message ?? "페이지 생성 실패"); return null; }
     setSavedPageId(data.page.id);
     return data.page.id;
-  }, [savedPageId, title, slug, selectedGroupId]);
+  };
 
   const uploadFiles = async (files: File[]) => {
     setError("");
@@ -308,13 +309,14 @@ ${footerBlock}
       const file = files[i];
       const isImage = file.type.startsWith("image/") || /\.(jpe?g|png|gif|webp|bmp)$/i.test(file.name);
       if (!isImage) continue;
-      if (file.size > 20 * 1024 * 1024) { setError(`${file.name}: 20MB 초과`); continue; }
+      if (file.size > MAX_IMAGE_UPLOAD_BYTES) { setError(`${file.name}: 100MB 초과`); continue; }
 
       try {
+        const uploadFile = await prepareImageForUpload(file);
         // 편집기와 동일한 검증된 단일 POST 경로 사용 (취약한 resumable upload-url/finalize 대신)
         // 서버가 GIF는 압축 유지, JPG/PNG/WebP는 WebP 변환 후 Drive 백업까지 처리
         const formData = new FormData();
-        formData.append("file", file);
+        formData.append("file", uploadFile);
         formData.append("landingPageId", pageId);
         formData.append("sortOrder", String(images.length + uploaded));
 
@@ -565,7 +567,7 @@ ${footerBlock}
                 >
                   <Upload className="w-9 h-9 text-gray-600 mx-auto mb-3" />
                   <p className="text-sm font-medium text-gray-600">{uploading ? "업로드 중..." : "이미지 드래그 또는 클릭"}</p>
-                  <p className="text-sm text-gray-600 mt-1">JPG · PNG · WebP · GIF / 최대 20MB</p>
+                    <p className="text-sm text-gray-600 mt-1">JPG · PNG · WebP · GIF / 최대 100MB</p>
                   <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
                     onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; if (f.length) uploadFiles(f); }} />
                 </div>

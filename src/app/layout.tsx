@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { Viewport } from "next";
 import type { ReactNode } from "react";
 import { notoSansKR } from "@/lib/fonts";
 import "./globals.css";
@@ -65,12 +66,6 @@ export const metadata: Metadata = {
     description: "파트너 전용 CRM. 고객관리, 수당확인, 영업도구를 한 곳에서.",
     images: ["/og-image.png"],
   },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 5,
-    userScalable: true,
-  },
   robots: {
     index: true,
     follow: true,
@@ -82,6 +77,13 @@ export const metadata: Metadata = {
       "max-video-preview": -1,
     },
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
 };
 
 interface RootLayoutProps {
