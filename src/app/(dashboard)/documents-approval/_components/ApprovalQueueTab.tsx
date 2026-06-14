@@ -129,36 +129,36 @@ export default function ApprovalQueueTab() {
             <p className="mt-0.5 text-xs text-gray-400">{new Date(d.createdAt).toLocaleString('ko-KR')}</p>
           </div>
           <div className="flex shrink-0 flex-col gap-2">
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap sm:flex-nowrap">
               <button
                 onClick={() => submitHandle(d.id, 'approve')}
                 disabled={processingId === d.id}
-                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-600 px-4 py-2.5 h-10 min-h-10 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
               >
                 {processingId === d.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />} 승인
               </button>
               <button
                 onClick={() => { setRejectTarget(d.id); setRejectNote(''); }}
                 disabled={processingId === d.id}
-                className="inline-flex items-center gap-1 rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-1 rounded-lg border border-red-300 px-4 py-2.5 h-10 min-h-10 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
               >
                 <XCircle className="h-4 w-4" /> 거절
               </button>
             </div>
             {rejectTarget === d.id && (
-              <div className="flex flex-col gap-1.5 rounded-lg border border-red-200 bg-red-50 p-2">
+              <div className="flex flex-col gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
                 <input
                   type="text"
                   value={rejectNote}
                   onChange={(e) => setRejectNote(e.target.value)}
                   placeholder="거절 사유 (선택)"
-                  className="rounded border border-red-200 px-2 py-1 text-xs focus:border-red-400 focus:outline-none"
+                  className="h-9 rounded border border-red-200 px-2 py-2 text-xs focus:border-red-400 focus:outline-none"
                 />
-                <div className="flex gap-1.5 justify-end">
+                <div className="flex gap-2 justify-end">
                   <button
                     type="button"
                     onClick={() => { setRejectTarget(null); setRejectNote(''); }}
-                    className="rounded border border-gray-200 px-2 py-1 text-xs text-gray-500 hover:bg-gray-50"
+                    className="rounded border border-gray-200 px-3 py-2 h-9 text-xs text-gray-500 hover:bg-gray-50"
                   >
                     취소
                   </button>
@@ -166,9 +166,9 @@ export default function ApprovalQueueTab() {
                     type="button"
                     onClick={() => submitHandle(d.id, 'reject', rejectNote || undefined)}
                     disabled={processingId === d.id}
-                    className="rounded bg-red-600 px-2 py-1 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                    className="rounded bg-red-600 px-3 py-2 h-9 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-1"
                   >
-                    {processingId === d.id ? <Loader2 className="h-3 w-3 animate-spin inline" /> : '거절 확인'}
+                    {processingId === d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : null} 거절 확인
                   </button>
                 </div>
               </div>

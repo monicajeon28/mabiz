@@ -302,9 +302,9 @@ export default function ComparisonQuoteTab() {
   ), [form.competitorExcludedItems, form.excludedItems]);
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      {/* ═══ 좌측: 입력 폼 ═══════════════════════════════════════════════ */}
-      <div className="space-y-5 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,_40%)_minmax(0,_60%)]">
+      {/* ═══ 좌측: 입력 폼 (모바일: 100% 너비, 데스크톱: 40%) ═══════════════ */}
+      <div className="space-y-5 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm min-w-0">
         {/* 고객 자동완성 + 직접 입력 */}
         <div className="space-y-2">
           <CustomerAutocomplete
@@ -316,7 +316,7 @@ export default function ComparisonQuoteTab() {
           <button
             type="button"
             onClick={handleNewBlank}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 px-3 py-2 h-10 min-h-10 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-50"
           >
             <FilePlus2 className="h-3.5 w-3.5" />
             직접 입력으로 새로 작성
@@ -328,17 +328,17 @@ export default function ComparisonQuoteTab() {
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">고객명 <span className="text-red-500">*</span></label>
             <input type="text" value={form.customerName} onChange={(e) => setField('customerName', e.target.value)} placeholder="고객 이름"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              className="w-full h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">연락처</label>
-            <input type="text" value={form.customerPhone} onChange={(e) => setField('customerPhone', e.target.value)} placeholder="010-0000-0000"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+            <input type="tel" value={form.customerPhone} onChange={(e) => setField('customerPhone', e.target.value)} placeholder="010-0000-0000"
+              className="w-full h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
           </div>
           <div className="sm:col-span-2">
             <label className="mb-1 block text-sm font-medium text-gray-700">이메일</label>
             <input type="email" value={form.customerEmail} onChange={(e) => setField('customerEmail', e.target.value)} placeholder="customer@example.com"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              className="w-full h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
           </div>
         </div>
 
@@ -360,7 +360,7 @@ export default function ComparisonQuoteTab() {
                 }}
                 onFocus={() => productSearch && setProductDropdownOpen(true)}
                 placeholder="상품명이나 코드로 검색..."
-                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="flex-1 h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
               />
               {productSearch && (
                 <button
@@ -370,9 +370,10 @@ export default function ComparisonQuoteTab() {
                     setProductDropdownOpen(false);
                     setProductSearchResults([]);
                   }}
-                  className="rounded-lg px-2 text-gray-400 hover:text-gray-600"
+                  className="rounded-lg px-2 h-11 flex items-center text-gray-400 hover:text-gray-600"
+                  aria-label="검색 초기화"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-5 w-5" />
                 </button>
               )}
             </div>
@@ -416,42 +417,42 @@ export default function ComparisonQuoteTab() {
           {/* 상품 코드 & 조회 버튼 (직접 입력용) */}
           <div className="flex gap-2">
             <input type="text" value={form.productCode} onChange={(e) => setField('productCode', e.target.value)} placeholder="상품 코드 (직접 입력)"
-              className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              className="flex-1 h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
             <button type="button" onClick={handleLoadProductInfo} disabled={isLoadingProduct}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
+              className="inline-flex items-center gap-1.5 h-11 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 min-h-11">
               {isLoadingProduct ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               조회
             </button>
           </div>
           <input type="text" value={form.productName} onChange={(e) => setField('productName', e.target.value)} placeholder="상품명"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-          <div className="grid grid-cols-3 gap-3">
+            className="w-full h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="mb-1 block text-xs text-gray-500">당사 가격 <span className="text-red-500">*</span></label>
               <input type="number" value={form.ourPrice || ''} onChange={(e) => setField('ourPrice', Number(e.target.value))}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                className="w-full h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
             </div>
             <div>
               <label className="mb-1 block text-xs text-gray-500">인원 수</label>
               <input type="number" value={form.headcount} onChange={(e) => setField('headcount', e.target.value)} placeholder="2"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                className="w-full h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
             </div>
             <div>
               <label className="mb-1 block text-xs text-gray-500">객실 유형</label>
               <input type="text" value={form.cabinType} onChange={(e) => setField('cabinType', e.target.value)} placeholder="발코니"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                className="w-full h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
             </div>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs text-gray-500">출발일</label>
               <input type="date" value={form.departureDate} onChange={(e) => setField('departureDate', e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                className="w-full h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
             </div>
             <div>
               <label className="mb-1 block text-xs text-gray-500">일정표 (기항지)</label>
               <input type="text" value={form.itinerary} onChange={(e) => setField('itinerary', e.target.value)} placeholder="인천 → 오사카 → 인천"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                className="w-full h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
             </div>
           </div>
         </div>
@@ -461,25 +462,25 @@ export default function ComparisonQuoteTab() {
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-gray-700">타사 비교 정보</p>
             <button type="button" onClick={addCompetitor}
-              className="inline-flex items-center gap-1 rounded-lg border border-indigo-300 px-3 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50">
+              className="inline-flex items-center gap-1 rounded-lg border border-indigo-300 px-3 py-2 h-9 text-xs font-medium text-indigo-600 hover:bg-indigo-50">
               <Plus className="h-3.5 w-3.5" />추가
             </button>
           </div>
           {form.competitorPrices.length > 0 ? (
             form.competitorPrices.map((cp, i) => (
-              <div key={i} className="flex items-start gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
                 <div className="flex min-w-max items-center gap-2">
-                  <span className="rounded-full bg-gray-300 h-6 w-6 flex items-center justify-center text-xs font-bold text-white">
+                  <span className="rounded-full bg-gray-300 h-8 w-8 flex items-center justify-center text-xs font-bold text-white">
                     {String.fromCharCode(65 + i)}
                   </span>
                   <span className="text-xs font-semibold text-gray-600">{String.fromCharCode(65 + i)}사</span>
                 </div>
                 <input type="number" value={cp.price || ''} onChange={(e) => updateCompetitor(i, 'price', Number(e.target.value))} placeholder="가격"
-                  className="w-24 rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                  className="h-10 sm:w-28 rounded-lg border border-gray-300 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
                 <input type="text" value={cp.notes} onChange={(e) => updateCompetitor(i, 'notes', e.target.value)} placeholder="비고 (선택)"
-                  className="flex-1 rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                  className="flex-1 h-10 rounded-lg border border-gray-300 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
                 {form.competitorPrices.length > 1 && (
-                  <button type="button" onClick={() => removeCompetitor(i)} className="rounded-lg p-1.5 text-red-400 hover:bg-red-50">
+                  <button type="button" onClick={() => removeCompetitor(i)} className="rounded-lg p-2 h-10 w-10 text-red-400 hover:bg-red-50 flex items-center justify-center" aria-label="항목 삭제">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 )}
@@ -504,7 +505,7 @@ export default function ComparisonQuoteTab() {
                 e.preventDefault();
               }
             }}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+            className="w-full h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
           <div className="flex flex-wrap gap-2">
             {form.competitorIncludedItems.map((item, idx) => (
               <span key={idx} className="inline-flex items-center gap-1 rounded-lg bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
@@ -532,7 +533,7 @@ export default function ComparisonQuoteTab() {
                 e.preventDefault();
               }
             }}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+            className="w-full h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
           <div className="flex flex-wrap gap-2">
             {form.competitorExcludedItems.map((item, idx) => (
               <span key={idx} className="inline-flex items-center gap-1 rounded-lg bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700">
@@ -551,34 +552,34 @@ export default function ComparisonQuoteTab() {
           <label className="block text-sm font-medium text-gray-700">타사 서비스 특이사항</label>
           <textarea value={form.competitorServiceNotes} onChange={(e) => setField('competitorServiceNotes', e.target.value)} placeholder="타사의 추가 서비스나 특이사항을 자유롭게 기입해주세요."
             rows={3}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+            className="w-full min-h-24 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
         </div>
 
         {/* 서비스 비교 (인솔자 / 크루즈닷스탭) */}
         <div className="space-y-3">
           <p className="text-sm font-semibold text-gray-700">서비스 비교</p>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-gray-500">여행 인솔자</label>
-              <div className="flex gap-4">
+              <label className="mb-2 block text-xs font-medium text-gray-500">여행 인솔자</label>
+              <div className="flex gap-3 sm:gap-4">
                 {(['', 'Y', 'N'] as const).map((v) => (
-                  <label key={v} className="flex cursor-pointer items-center gap-1.5 text-sm">
+                  <label key={v} className="flex cursor-pointer items-center gap-2 text-sm">
                     <input type="radio" name="hasGuide" value={v} checked={form.hasGuide === v}
                       onChange={() => setField('hasGuide', v)}
-                      className="accent-indigo-600" />
+                      className="accent-indigo-600 w-4 h-4" />
                     {v === '' ? '미정' : v === 'Y' ? '있음' : '없음'}
                   </label>
                 ))}
               </div>
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-gray-500">크루즈닷 전담스탭</label>
-              <div className="flex gap-4">
+              <label className="mb-2 block text-xs font-medium text-gray-500">크루즈닷 전담스탭</label>
+              <div className="flex gap-3 sm:gap-4">
                 {(['', 'Y', 'N'] as const).map((v) => (
-                  <label key={v} className="flex cursor-pointer items-center gap-1.5 text-sm">
+                  <label key={v} className="flex cursor-pointer items-center gap-2 text-sm">
                     <input type="radio" name="hasCruisedotStaff" value={v} checked={form.hasCruisedotStaff === v}
                       onChange={() => setField('hasCruisedotStaff', v)}
-                      className="accent-indigo-600" />
+                      className="accent-indigo-600 w-4 h-4" />
                     {v === '' ? '미정' : v === 'Y' ? '있음' : '없음'}
                   </label>
                 ))}
@@ -593,12 +594,12 @@ export default function ComparisonQuoteTab() {
             <CheckSquare className="h-4 w-4 text-emerald-500" />
             포함 내역
           </p>
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {STANDARD_INCLUDES.map((item) => (
-              <label key={item} className="flex cursor-pointer items-center gap-1.5 text-xs">
+              <label key={item} className="flex cursor-pointer items-center gap-2 text-xs min-h-8">
                 <input type="checkbox" checked={form.includedItems.includes(item)}
                   onChange={(e) => toggleItem('includedItems', item, e.target.checked)}
-                  className="rounded border-gray-300 accent-emerald-600" />
+                  className="rounded border-gray-300 accent-emerald-600 w-4 h-4" />
                 {item}
               </label>
             ))}
@@ -611,12 +612,12 @@ export default function ComparisonQuoteTab() {
             <MinusSquare className="h-4 w-4 text-red-400" />
             불포함 내역
           </p>
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {STANDARD_EXCLUDES.map((item) => (
-              <label key={item} className="flex cursor-pointer items-center gap-1.5 text-xs">
+              <label key={item} className="flex cursor-pointer items-center gap-2 text-xs min-h-8">
                 <input type="checkbox" checked={form.excludedItems.includes(item)}
                   onChange={(e) => toggleItem('excludedItems', item, e.target.checked)}
-                  className="rounded border-gray-300 accent-red-500" />
+                  className="rounded border-gray-300 accent-red-500 w-4 h-4" />
                 {item}
               </label>
             ))}
@@ -631,15 +632,15 @@ export default function ComparisonQuoteTab() {
               옵션 비교
             </p>
             <button type="button" onClick={addOption}
-              className="inline-flex items-center gap-1 rounded-lg border border-indigo-300 px-3 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50">
+              className="inline-flex items-center gap-1 rounded-lg border border-indigo-300 px-3 py-2 h-9 text-xs font-medium text-indigo-600 hover:bg-indigo-50">
               <Plus className="h-3.5 w-3.5" />추가
             </button>
           </div>
           {form.optionItems.map((opt, i) => (
             <div key={i} className="flex items-center gap-2">
               <input type="text" value={opt} onChange={(e) => updateOption(i, e.target.value)} placeholder="예: 온보드 음료 패키지"
-                className="flex-1 rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-              <button type="button" onClick={() => removeOption(i)} className="rounded-lg p-1.5 text-red-400 hover:bg-red-50">
+                className="flex-1 h-10 rounded-lg border border-gray-300 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              <button type="button" onClick={() => removeOption(i)} className="rounded-lg p-2 h-10 w-10 text-red-400 hover:bg-red-50 flex items-center justify-center" aria-label="항목 삭제">
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
@@ -651,18 +652,18 @@ export default function ComparisonQuoteTab() {
 
         {/* PNG 다운로드 버튼 */}
         <button type="button" onClick={handleDownload} disabled={isDownloading}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50">
+          className="inline-flex w-full h-12 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50">
           {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
           {isDownloading ? '다운로드 중...' : 'PNG 견적서 다운로드'}
         </button>
       </div>
 
-      {/* ═══ 우측: 미리보기 ═══════════════════════════════════════════════════ */}
-      <div className="space-y-2">
-        <p className="text-base font-bold text-gray-800">📄 미리보기 (다운로드 이미지)</p>
+      {/* ═══ 우측: 미리보기 (모바일: 100% 너비, 데스크톱: 60%) ════════════════ */}
+      <div className="space-y-2 min-w-0">
+        <p className="text-sm sm:text-base font-bold text-gray-800 px-0">📄 미리보기 (다운로드 이미지)</p>
         <div
           ref={ref}
-          className="space-y-6 rounded-2xl border border-gray-200 bg-white p-10 text-sm shadow-lg"
+          className="space-y-4 sm:space-y-6 rounded-2xl border border-gray-200 bg-white p-4 sm:p-10 text-xs sm:text-sm shadow-lg overflow-x-auto"
         >
           {/* 레터헤드 */}
           <DocumentLetterhead title="타사 비교 견적서" accentClass="border-indigo-100" />
@@ -697,40 +698,40 @@ export default function ComparisonQuoteTab() {
           <div>
             <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-500">💰 가격 비교</p>
             {validCompetitors.length > 0 ? (
-              <div className="flex items-stretch gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-stretch gap-3 sm:gap-4">
                 {/* 타사 패널 */}
-                <div className="flex-1 rounded-2xl border border-gray-300 bg-gray-50 p-5">
+                <div className="flex-1 rounded-2xl border border-gray-300 bg-gray-50 p-4 sm:p-5">
                   <p className="mb-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wide">타사 (익명)</p>
                   {validCompetitors.map((cp, i) => (
                     <div key={i} className={i > 0 ? 'mt-3 border-t border-gray-200 pt-3' : ''}>
                       <p className="text-xs text-gray-600 font-bold">{String.fromCharCode(65 + i)}사</p>
-                      <p className="text-2xl font-extrabold text-gray-700 mt-1">{cp.price ? formatMoney(cp.price) : '-'}</p>
+                      <p className="text-xl sm:text-2xl font-extrabold text-gray-700 mt-1">{cp.price ? formatMoney(cp.price) : '-'}</p>
                       {cp.notes && <p className="text-xs text-gray-500 mt-1">{cp.notes}</p>}
                     </div>
                   ))}
                 </div>
 
                 {/* VS 배지 */}
-                <div className="flex flex-col items-center justify-center">
+                <div className="hidden sm:flex flex-col items-center justify-center">
                   <span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-indigo-400 bg-white text-xs font-extrabold text-indigo-600">
                     VS
                   </span>
                 </div>
 
                 {/* 크루즈닷 패널 */}
-                <div className="flex-1 rounded-2xl border-3 border-red-400 bg-gradient-to-br from-red-50 via-red-50 to-orange-50 p-5 shadow-md">
+                <div className="flex-1 rounded-2xl border-3 border-red-400 bg-gradient-to-br from-red-50 via-red-50 to-orange-50 p-4 sm:p-5 shadow-md">
                   <p className="mb-2 text-center text-xs font-bold text-red-700 uppercase tracking-wide">✨ 크루즈닷 (당사)</p>
-                  <p className="text-center text-3xl font-extrabold text-red-600 mt-2">{formatMoney(form.ourPrice)}</p>
+                  <p className="text-center text-2xl sm:text-3xl font-extrabold text-red-600 mt-2">{formatMoney(form.ourPrice)}</p>
                   {savings > 0 && (
-                    <div className="mt-4 rounded-xl bg-gradient-to-r from-red-600 to-orange-600 px-4 py-3 text-center shadow-md">
-                      <p className="text-sm font-bold text-white">🎉 {formatMoney(savings)}</p>
+                    <div className="mt-3 sm:mt-4 rounded-xl bg-gradient-to-r from-red-600 to-orange-600 px-4 py-2 sm:py-3 text-center shadow-md">
+                      <p className="text-xs sm:text-sm font-bold text-white">🎉 {formatMoney(savings)}</p>
                       <p className="text-xs text-red-100 font-semibold">더 저렴!</p>
                     </div>
                   )}
                 </div>
               </div>
             ) : (
-              <div className="rounded-xl border border-gray-300 bg-gray-50 p-5 text-center text-sm text-gray-600 font-medium">
+              <div className="rounded-xl border border-gray-300 bg-gray-50 p-4 sm:p-5 text-center text-sm text-gray-600 font-medium">
                 타사 가격 정보를 입력하세요.
               </div>
             )}
