@@ -793,6 +793,26 @@ export default function EditB2BPage() {
                     className="flex-1 border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-blue-400"
                   />
                 </div>
+                {/* 카카오 공유 이미지 */}
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1.5">카카오 공유 썸네일 이미지</label>
+                  <div className="flex items-start gap-2">
+                    <input
+                      type="text"
+                      value={exposureImage}
+                      onChange={(e) => setExposureImage(e.target.value)}
+                      placeholder="https://drive.google.com/thumbnail?id=... 또는 이미지 URL"
+                      className="flex-1 border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-blue-400"
+                    />
+                  </div>
+                  {exposureImage && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <img src={`/api/b2b-landing/images/proxy?id=${exposureImage?.match(/id=([^&]+)/)?.[1] ?? exposureImage}`}
+                        alt="카카오 공유 이미지" className="w-20 h-14 object-cover rounded-lg border border-gray-200" loading="lazy"
+                        onError={(e) => { const el = (e.target as HTMLImageElement); el.src = '/static/image-placeholder.svg'; console.error('OG image load failed'); }} />
+                    </div>
+                  )}
+                </div>
                 {/* 헤더 스크립트 */}
                 <div className="flex items-start gap-2">
                   <label className="text-xs text-gray-500 w-24 shrink-0 mt-1">헤더 스크립트</label>
