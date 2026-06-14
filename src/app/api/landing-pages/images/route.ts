@@ -336,7 +336,7 @@ export async function PATCH(req: Request) {
     const body = await req.json();
     const { landingPageId, imageIds } = body as { landingPageId: string; imageIds: string[] };
 
-    if (!landingPageId || !Array.isArray(imageIds)) {
+    if (!landingPageId || !imageIds || !Array.isArray(imageIds)) {
       return NextResponse.json({ ok: false, message: 'landingPageId와 imageIds 배열 필수' }, { status: 400 });
     }
 
