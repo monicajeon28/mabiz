@@ -37,14 +37,14 @@ export default function DocumentsApprovalPage() {
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 pt-10 md:px-6">
 
         {/* Header */}
-        <header className="rounded-3xl bg-gradient-to-r from-slate-900 to-slate-800 p-8 text-white shadow-xl">
-          <div className="flex items-center gap-3">
-            <div className="rounded-2xl bg-white/10 p-3">
-              <FileText className="h-7 w-7" />
+        <header className="rounded-2xl sm:rounded-3xl bg-gradient-to-r from-slate-900 to-slate-800 p-4 sm:p-8 text-white shadow-xl">
+          <div className="flex items-start sm:items-center gap-2 sm:gap-3">
+            <div className="rounded-xl sm:rounded-2xl bg-white/10 p-2 sm:p-3 flex-shrink-0">
+              <FileText className="h-5 w-5 sm:h-7 sm:w-7" />
             </div>
-            <div>
-              <h1 className="text-3xl font-extrabold">서류관리</h1>
-              <p className="mt-1 text-sm text-slate-300">
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-3xl font-extrabold">서류관리</h1>
+              <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-slate-300">
                 비교견적서·구매확인증서·환불인증서를 바로 만들어 PNG로 받고, 계약서를 발송·관리합니다.
               </p>
             </div>
@@ -52,13 +52,13 @@ export default function DocumentsApprovalPage() {
         </header>
 
         {/* Tabs */}
-        <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
-          <nav className="flex flex-wrap gap-1 px-4 pt-2" aria-label="서류관리 탭">
+        <div className="rounded-lg sm:rounded-xl border border-gray-200 bg-white shadow-sm overflow-x-auto">
+          <nav className="flex gap-0.5 sm:gap-1 px-2 sm:px-4 pt-1.5 sm:pt-2 min-w-min" aria-label="서류관리 탭">
             {TABS.map(({ key, label, accent }) => (
               <button
                 key={key}
                 onClick={() => setActiveTab(key)}
-                className={`rounded-t-lg px-5 py-3 text-sm font-semibold transition-all duration-200 ${
+                className={`rounded-t-lg px-2.5 sm:px-5 py-2 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap h-10 sm:h-auto flex items-center ${
                   activeTab === key
                     ? TAB_ACTIVE[accent]
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'

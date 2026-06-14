@@ -324,9 +324,9 @@ export default function ContractTab() {
   };
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-      {/* ═══ 좌측: 필터 + 목록 (3 cols) ══════════════════════════════════ */}
-      <div className="lg:col-span-3">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,_60%)_minmax(0,_40%)]">
+      {/* ═══ 좌측: 필터 + 목록 (모바일: 100%, 데스크톱: 60%) ═══════════════ */}
+      <div className="min-w-0">
         {/* 상단 액션 바 */}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -425,8 +425,8 @@ export default function ContractTab() {
         <p className="mt-2 text-xs text-gray-400">목록 행을 클릭하면 오른쪽 미리보기가 업데이트됩니다.</p>
       </div>
 
-      {/* ═══ 우측: 항상 표시 계약서 미리보기 (2 cols) ══════════════════════ */}
-      <div className="lg:col-span-2">
+      {/* ═══ 우측: 항상 표시 계약서 미리보기 (모바일: 100%, 데스크톱: 40%) ═══════ */}
+      <div className="min-w-0">
         <p className="mb-2 text-sm font-semibold text-gray-700">계약서 미리보기</p>
         <FullContractPreview data={previewData} agent={agent} />
       </div>
@@ -460,11 +460,11 @@ export default function ContractTab() {
             </>
           }
         >
-          {/* 2-panel flex layout */}
-          <div className="flex h-full min-h-0 gap-5 overflow-hidden">
+          {/* 2-panel flex layout (모바일: 세로, 데스크톱: 가로) */}
+          <div className="flex flex-col lg:flex-row h-full min-h-0 gap-5 overflow-hidden">
 
-            {/* ─ 좌측: 입력 폼 ─────────────────────────────────────────── */}
-            <div className="w-[400px] flex-shrink-0 space-y-3 overflow-y-auto pr-1">
+            {/* ─ 좌측: 입력 폼 (모바일: 100%, 데스크톱: 400px) ────────────────── */}
+            <div className="lg:w-96 lg:flex-shrink-0 space-y-3 overflow-y-auto pr-0 lg:pr-1 min-w-0">
 
               {/* ① 고객 검색 */}
               <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
@@ -740,8 +740,8 @@ export default function ContractTab() {
               </div>
             </div>
 
-            {/* ─ 우측: 실시간 미리보기 ─────────────────────────────────── */}
-            <div className="min-w-0 flex-1 overflow-y-auto">
+            {/* ─ 우측: 실시간 미리보기 (모바일: 숨김, 데스크톱: 표시) ──────────── */}
+            <div className="hidden lg:block min-w-0 flex-1 overflow-y-auto">
               <p className="mb-2 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">실시간 계약서 미리보기</p>
               <FullContractPreview data={formToPreview(form)} agent={agent} />
             </div>
