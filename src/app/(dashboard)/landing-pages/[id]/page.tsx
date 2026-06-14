@@ -1144,7 +1144,7 @@ export default function EditLandingPage() {
                           className={`flex items-center gap-3 bg-white rounded-xl border p-3 transition-all ${dragIdx === idx ? "border-gold-400 shadow-lg scale-[1.02]" : "border-gray-200 hover:border-gray-300"}`}>
                           <GripVertical className="w-5 h-5 text-gray-300 cursor-grab shrink-0" />
                           <div className="w-20 h-14 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                            <img src={img.url} alt={img.fileName || '랜딩페이지 이미지'} className="w-full h-full object-cover" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.3'; (e.target as HTMLImageElement).style.backgroundColor = '#f3f4f6'; }} />
+                            <img src={`/api/landing-pages/images/proxy?id=${img.driveFileId}`} alt={img.fileName || '랜딩페이지 이미지'} className="w-full h-full object-cover" loading="lazy" onError={(e) => { const el = (e.target as HTMLImageElement); el.src = '/static/image-placeholder.png'; console.error('Image load failed:', img.driveFileId); }} />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-800 truncate">{img.fileName}</p>
