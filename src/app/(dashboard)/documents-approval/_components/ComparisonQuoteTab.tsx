@@ -324,24 +324,28 @@ export default function ComparisonQuoteTab() {
           </button>
         </div>
 
-        {/* 고객 정보 */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">고객명 <span className="text-red-500">*</span></label>
-            <input type="text" value={form.customerName} onChange={(e) => setField('customerName', e.target.value)} placeholder="고객 이름"
-              className="w-full h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">연락처</label>
-            <input type="tel" value={form.customerPhone} onChange={(e) => setField('customerPhone', e.target.value)} placeholder="010-0000-0000"
-              className="w-full h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="mb-1 block text-sm font-medium text-gray-700">이메일</label>
-            <input type="email" value={form.customerEmail} onChange={(e) => setField('customerEmail', e.target.value)} placeholder="customer@example.com"
-              className="w-full h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-          </div>
+        {/* 필수 정보: 고객명 */}
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">고객명 <span className="text-red-500">*</span></label>
+          <input type="text" value={form.customerName} onChange={(e) => setField('customerName', e.target.value)} placeholder="고객 이름"
+            className="w-full h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
         </div>
+
+        {/* 고급옵션: 연락처, 이메일 */}
+        {showAdvanced && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">연락처</label>
+              <input type="tel" value={form.customerPhone} onChange={(e) => setField('customerPhone', e.target.value)} placeholder="010-0000-0000"
+                className="w-full h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">이메일</label>
+              <input type="email" value={form.customerEmail} onChange={(e) => setField('customerEmail', e.target.value)} placeholder="customer@example.com"
+                className="w-full h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+            </div>
+          </div>
+        )}
 
         {/* 상품 정보 */}
         <div className="space-y-3">
@@ -664,7 +668,8 @@ export default function ComparisonQuoteTab() {
         <p className="text-sm sm:text-base font-bold text-gray-800 px-0">📄 미리보기 (다운로드 이미지)</p>
         <div
           ref={ref}
-          className="space-y-4 sm:space-y-6 rounded-2xl border border-gray-200 bg-white p-4 sm:p-10 text-xs sm:text-sm shadow-lg overflow-x-auto"
+          className="space-y-4 sm:space-y-6 rounded-2xl border border-gray-200 bg-white p-4 sm:p-10 text-xs sm:text-sm shadow-lg overflow-auto mx-auto"
+          style={{ maxWidth: '210mm', aspectRatio: '210 / 297' }}
         >
           {/* 레터헤드 */}
           <DocumentLetterhead title="타사 비교 견적서" accentClass="border-indigo-100" />
