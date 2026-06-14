@@ -58,12 +58,16 @@ export const retryProcessor = {
         const locked = await distributedLock.acquire(item.webhookEventId, lockerId);
         if (!locked) continue;
 
+        // 멱등성 보장: processingId (UUID) 생성 — 같은 이벤트 중복 처리 방지
+        const processingId = crypto.randomUUID();
+
         try {
           const handler = HANDLERS_MAP[webhookEvent.webhookType];
           if (!handler) {
             logger.warn('[Retry Processor] Unknown webhook type', {
               webhookType: webhookEvent.webhookType,
               eventId: webhookEvent.eventId,
+              processingId,
             });
             deadLettered++;
             await prisma.retryQueue.update({
@@ -78,6 +82,7 @@ export const retryProcessor = {
             webhookType: webhookEvent.webhookType,
             organizationId: webhookEvent.organizationId,
             attemptNumber: webhookEvent.retryCount + 1,
+            processingId, // 추적용 ID
           };
 
           webhookLogger.logStart(ctx);

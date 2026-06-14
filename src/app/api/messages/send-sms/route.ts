@@ -88,24 +88,22 @@ export async function POST(req: Request) {
       );
     }
 
-    // 발송 이력 저장 (fire-and-forget)
-    (async () => {
-      try {
-        await prisma.adminMessage.create({
-          data: {
-            organizationId: orgId,
-            adminId: ctx.userId,
-            messageType: 'sms',
-            channel: 'MANUAL',
-            content,
-            totalSent: 1,
-            successCount: 1,
-          },
-        });
-      } catch (err) {
-        logger.error('[sms/send] 이력 저장 실패', { err });
-      }
-    })();
+    // 발송 이력 저장 (fire-and-forget) — async IIFE 제거, await 추가
+    try {
+      await prisma.adminMessage.create({
+        data: {
+          organizationId: orgId,
+          adminId: ctx.userId,
+          messageType: 'sms',
+          channel: 'MANUAL',
+          content,
+          totalSent: 1,
+          successCount: 1,
+        },
+      });
+    } catch (err) {
+      logger.error('[sms/send] 이력 저장 실패', { err });
+    }
 
     logger.log('[sms/send] 완료', { phone: normalizedPhone, orgId });
     const response: SmsSendResponse = {

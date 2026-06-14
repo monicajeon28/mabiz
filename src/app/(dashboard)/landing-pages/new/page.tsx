@@ -125,11 +125,14 @@ export default function NewLandingPage() {
 
   useEffect(() => {
     const ctrl = new AbortController();
-    fetch("/api/groups", { signal: ctrl.signal })
-      .then((r) => r.json())
-      .then((d) => { if (d.ok) setGroups(d.groups ?? []); })
-      .catch(err => { if (err instanceof Error && err.name === 'AbortError') return; });
-    return () => ctrl.abort();
+    try {
+      fetch("/api/groups", { signal: ctrl.signal })
+        .then((r) => r.json())
+        .then((d) => { if (d.ok) setGroups(d.groups ?? []); })
+        .catch(err => { if (err instanceof Error && err.name === 'AbortError') return; });
+    } finally {
+      return () => ctrl.abort();
+    }
   }, []);
 
   const handleTitleChange = (t: string) => {
@@ -794,7 +797,7 @@ ${footerBlock}
                 <label className="text-sm text-gray-500 block mb-1.5">썸네일 이미지</label>
                 {exposureImage ? (
                   <div className="flex items-center gap-2">
-                    <img src={`/api/landing-pages/images/proxy?id=${exposureImage.match(/id=([^&]+)/)?.[1] ?? ""}`}
+                    <img src={`/api/landing-pages/images/proxy?id=${exposureImage?.match(/id=([^&]+)/)?.[1] ?? ""}`}
                       alt="OG 이미지" className="w-20 h-14 object-cover rounded-lg border border-gray-200" loading="lazy"
                       onError={(e) => { const el = (e.target as HTMLImageElement); el.src = '/static/image-placeholder.png'; console.error('OG image load failed'); }} />
                     <div className="flex-1 min-w-0">

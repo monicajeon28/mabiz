@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { getAuthContext, buildContactWhere, canDelete, maskContactInfo, actorDisplayName } from "@/lib/rbac";
+import { getAuthContext, buildContactWhere, canDelete, maskContactInfo, actorDisplayName, resolveOrgId } from "@/lib/rbac";
 import { backupContactsToExcel } from "@/lib/backup-xlsx";
 import { logger } from "@/lib/logger";
 
@@ -12,8 +12,13 @@ export async function GET(_req: Request, { params }: Params) {
   try {
     const ctx  = await getAuthContext();
     const { id } = await params;
-    const where  = buildContactWhere(ctx, { id });
 
+    // 권한 검사 먼저 — FREE_SALES 차단 (buildContactWhere 호출 전)
+    if (ctx.role === 'FREE_SALES') {
+      return NextResponse.json({ ok: false }, { status: 403 });
+    }
+
+    const where  = buildContactWhere(ctx, { id });
     const contact = await prisma.contact.findFirst({
       where,
       include: {
@@ -150,6 +155,13 @@ export async function PATCH(req: Request, { params }: Params) {
     }
 
     // organizationId 포함: findFirst → update 사이 TOCTOU 방지
+    // 추가 보안: 권한 재검증 (조직 일치 확인)
+    if (existing.organizationId !== resolveOrgId(ctx)) {
+      return NextResponse.json(
+        { ok: false, message: '권한이 없습니다' },
+        { status: 403 }
+      );
+    }
     const contact = await prisma.contact.update({
       where: { id, organizationId: existing.organizationId },
       data: {

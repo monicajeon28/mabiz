@@ -179,7 +179,7 @@ export default function EditLandingPage() {
         setRegEmailSubject(pageData.page.regEmailSubject ?? "");
         setRegEmailContent(pageData.page.regEmailContent ?? "");
         // 이미지 로드
-        if (pageData.page.images?.length) {
+        if (pageData.page.images && Array.isArray(pageData.page.images) && pageData.page.images.length) {
           setImages(pageData.page.images.map((img: { id: string; sortOrder: number; altText?: string; imageAsset: { id: string; driveFileId: string; originalFileName: string; mimeType: string; width: number; height: number } }) => ({
             id: img.id, assetId: img.imageAsset.id,
             url: `https://drive.google.com/thumbnail?id=${img.imageAsset.driveFileId}&sz=w800`,
@@ -255,6 +255,7 @@ export default function EditLandingPage() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      if (!data) throw new Error("Response parsing failed");
       setEmailSaveMsg(data.ok ? "저장됐어요!" : "저장 실패");
     } catch (err) {
       setEmailSaveMsg(`저장 실패: ${err instanceof Error ? err.message : "알 수 없음"}`);
@@ -632,6 +633,8 @@ export default function EditLandingPage() {
     const encodedButtonTitle = encodeHtml(buttonTitle || "신청하기");
     const encodedFooter = footer ? encodeHtml(footer) : "";
 
+    if (imgTags.length === 0 || !Array.isArray(images)) return `<div style="margin:0;padding:0;line-height:0;background:#fff;"></div>`;
+
     return `<div style="margin:0;padding:0;line-height:0;background:#fff;">\n${imgTags}\n</div>\n<form style="max-width:480px;margin:0 auto;padding:32px 20px 48px;background:#fff;font-family:'Pretendard',sans-serif;"><h3 style="text-align:center;font-size:22px;font-weight:700;color:#1a1a1a;margin:0 0 8px;">지금 바로 신청하세요</h3><p style="text-align:center;font-size:14px;color:#888;margin:0 0 24px;">상담 신청 후 담당자가 연락드립니다</p>${formFieldsHtml}<button type="submit" style="width:100%;padding:16px;background:#FF6B35;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;">${encodedButtonTitle}</button>${encodedFooter ? `<p style="text-align:center;font-size:12px;color:#999;margin-top:12px;">${encodedFooter}</p>` : ""}</form>`;
   };
 
@@ -735,6 +738,7 @@ export default function EditLandingPage() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const data = await res.json();
+      if (!data) throw new Error("Response parsing failed");
       if (data.ok) {
         // Task 1: setTimeout 제거 - useEffect cleanup이 자동으로 처리함 (줄 291-311)
         setSaveMsg("저장됐어요!");
@@ -752,9 +756,10 @@ export default function EditLandingPage() {
       } else {
         throw new Error(data.message ?? "저장 실패");
       }
-    } catch (err) {
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err.message : "알 수 없음";
       setSaveMsg("");
-      setError(`저장 실패: ${err instanceof Error ? err.message : "알 수 없음"}`);
+      setError(`저장 실패: ${error}`);
     } finally {
       setSaving(false);
     }
@@ -1346,10 +1351,11 @@ export default function EditLandingPage() {
               <div className="space-y-2">
                 {shares.map((s) => {
                   const member = orgMembers.find((m) => m.userId === s.userId);
+                  if (!member) return null;
                   return (
                     <div key={s.id} className="flex items-center justify-between bg-white rounded-xl border border-gray-100 px-4 py-3">
                       <div>
-                        <p className="text-sm font-medium text-gray-800">{member?.displayName ?? s.userId}</p>
+                        <p className="text-sm font-medium text-gray-800">{member.displayName ?? s.userId}</p>
                         <p className="text-xs text-gray-400">{new Date(s.createdAt).toLocaleDateString("ko-KR")} 공유</p>
                       </div>
                       <button
