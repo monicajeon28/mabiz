@@ -173,18 +173,18 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-4 md:p-6 max-w-4xl mx-auto">
       {/* 헤더 */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <FolderOpen className="w-6 h-6" /> 서류 관리
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+        <div className="flex-1">
+          <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+            <FolderOpen className="w-5 h-5 md:w-6 md:h-6" /> 서류 관리
           </h1>
-          <p className="text-sm text-gray-500 mt-1">구매확인증 · 구매계약서 · 비교견적서 · 환불증서 발급</p>
+          <p className="text-xs md:text-sm text-gray-500 mt-1">구매확인증 · 구매계약서 · 비교견적서 · 환불증서 발급</p>
         </div>
         <button
           onClick={() => setShowNew(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shrink-0"
         >
           <Plus className="w-4 h-4" /> 새 서류 요청
         </button>
@@ -218,95 +218,78 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
 
       {/* 새 요청 폼 */}
       {showNew && (
-        <div className="mb-6 border rounded-xl p-4 bg-gray-50">
-          <p className="text-sm font-semibold mb-3">{current.label} 발급 요청</p>
+        <div className="mb-6 border rounded-xl p-4 md:p-5 bg-gray-50">
+          <p className="text-base md:text-sm font-semibold mb-4 md:mb-3">{current.label} 발급 요청</p>
           {tab === 'COMPARISON_QUOTE' ? (
-            <div className="mb-3 space-y-3">
-              {/* 크루즈닷 상품 정보 */}
-              <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">크루즈닷 상품</p>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="col-span-2">
-                  <label className="block text-xs text-gray-500 mb-1">상품명 <span className="text-red-500">*</span></label>
-                  <input
-                    value={quoteProductName}
-                    onChange={e => setQuoteProductName(e.target.value)}
-                    placeholder="예: MSC 벨리시마 부산→일본 4박5일"
-                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">판매가 (원) <span className="text-red-500">*</span></label>
-                  <input
-                    type="number"
-                    value={quotePrice}
-                    onChange={e => setQuotePrice(e.target.value)}
-                    placeholder="예: 890000"
-                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">선사명</label>
-                  <input
-                    value={quoteCruiseLine}
-                    onChange={e => setQuoteCruiseLine(e.target.value)}
-                    placeholder="예: MSC, 코스타"
-                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">박수</label>
-                  <input
-                    type="number"
-                    value={quoteNights}
-                    onChange={e => setQuoteNights(e.target.value)}
-                    placeholder="예: 4"
-                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">출발일</label>
-                  <input
-                    type="date"
-                    value={quoteDeparture}
-                    onChange={e => setQuoteDeparture(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+            <div className="mb-3 space-y-4">
+              {/* 1단계: 상품선택 (필수) */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  당사 상품 <span className="text-red-500">*</span>
+                </label>
+                <ComparisonProductDropdown
+                  onSelect={(name, price, line, nights, dept) => {
+                    setQuoteProductName(name);
+                    setQuotePrice(String(price));
+                    setQuoteCruiseLine(line);
+                    setQuoteNights(String(nights));
+                    setQuoteDeparture(dept);
+                  }}
+                  selected={quoteProductName}
+                />
+                <p className="text-xs text-gray-500 mt-1">상품을 선택하면 상품명, 가격, 상세정보가 자동으로 입력됩니다</p>
               </div>
 
-              {/* 타사 상품 비교 (수동 입력) */}
+              {/* 미리보기 (실시간) */}
+              {quoteProductName && quotePrice && (
+                <ComparisonQuotePreview
+                  productName={quoteProductName}
+                  price={quotePrice}
+                  cruiseLine={quoteCruiseLine}
+                  nights={quoteNights}
+                  competitors={competitors.filter(c => c.name.trim() && c.price.trim())}
+                />
+              )}
+
+              {/* 2단계: 타사 가격 비교 (선택) - 최대 3개 */}
               <div className="border-t pt-3">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">타사 비교 상품 (수동 입력)</p>
-                  <button
-                    type="button"
-                    onClick={() => setCompetitors(prev => [...prev, { name: '', price: '' }])}
-                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                  >
-                    + 추가
-                  </button>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-sm font-semibold text-gray-700">
+                    타사 가격 비교 (최대 3개)
+                  </label>
+                  {competitors.length < 3 && (
+                    <button
+                      type="button"
+                      onClick={() => setCompetitors(prev => [...prev, { name: '', price: '' }])}
+                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      + 추가
+                    </button>
+                  )}
                 </div>
                 {competitors.map((c, i) => (
                   <div key={i} className="flex gap-2 mb-2">
                     <input
                       value={c.name}
                       onChange={e => setCompetitors(prev => prev.map((p, j) => j === i ? { ...p, name: e.target.value } : p))}
-                      placeholder="경쟁사명 (예: 하나투어, 모두투어)"
-                      className="flex-1 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder={`${i === 0 ? '예: 하나투어' : `경쟁사${i + 1}`}`}
+                      className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <input
                       type="number"
                       value={c.price}
                       onChange={e => setCompetitors(prev => prev.map((p, j) => j === i ? { ...p, price: e.target.value } : p))}
-                      placeholder="가격 (원)"
-                      className="w-28 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="가격"
+                      className="w-24 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                    {competitors.length > 1 && (
+                    {i > 0 && (
                       <button
                         type="button"
                         onClick={() => setCompetitors(prev => prev.filter((_, j) => j !== i))}
-                        className="text-gray-400 hover:text-red-500 px-1 text-lg leading-none"
-                      >×</button>
+                        className="text-gray-400 hover:text-red-500 px-2 py-2 text-lg leading-none font-medium"
+                      >
+                        ×
+                      </button>
                     )}
                   </div>
                 ))}
@@ -363,17 +346,17 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
               )}
             </div>
           )}
-          <div className="flex gap-2">
+          <div className="flex gap-2 pt-2">
             <button
               onClick={requestDoc}
-              disabled={submitting}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium disabled:opacity-50 hover:bg-blue-700 transition-colors"
+              disabled={submitting || !quoteProductName || !quotePrice}
+              className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
             >
-              {submitting ? '요청 중...' : '요청하기'}
+              {submitting ? '처리 중...' : '다운로드'}
             </button>
             <button
               onClick={() => { setShowNew(false); setOrderId(''); setSelectedLabel(''); setRefunderName(''); setQuoteProductName(''); setQuotePrice(''); setQuoteCruiseLine(''); setQuoteNights(''); setQuoteDeparture(''); setCompetitors([{ name: '', price: '' }]); setContractSpecialTerms(''); setContractSignedAt(''); setLastSignUrl(null); }}
-              className="px-4 py-2 border rounded-lg text-sm hover:bg-gray-100 transition-colors"
+              className="px-4 py-3 border rounded-lg text-sm hover:bg-gray-100 transition-colors"
             >
               취소
             </button>
@@ -629,6 +612,170 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── ComparisonProductDropdown ────────────────────────────────────────────────
+
+type Product = {
+  id: string;
+  name: string;
+  price: number;
+  cruiseLine?: string;
+  nights?: number;
+  departureDate?: string;
+};
+
+function ComparisonProductDropdown({
+  onSelect,
+  selected,
+}: {
+  onSelect: (name: string, price: number, cruiseLine: string, nights: string, departureDate: string) => void;
+  selected: string;
+}) {
+  const [q, setQ] = useState('');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+  const search = (val: string) => {
+    setQ(val);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (!val.trim()) { setProducts([]); setOpen(false); return; }
+
+    setLoading(true);
+    timerRef.current = setTimeout(() => {
+      // 샘플 상품 데이터 (실제로는 API에서 조회해야 함)
+      const mockProducts: Product[] = [
+        { id: '1', name: 'MSC 벨리시마 부산→일본 4박5일', price: 890000, cruiseLine: 'MSC', nights: 4, departureDate: '2026-07-15' },
+        { id: '2', name: '코스타 세레나 인천→일본 5박6일', price: 1190000, cruiseLine: '코스타', nights: 5, departureDate: '2026-08-01' },
+        { id: '3', name: 'Royal Caribbean 오션 오브 더 씨스', price: 1450000, cruiseLine: 'Royal Caribbean', nights: 7 },
+        { id: '4', name: '노르웨지안 스피릿 홍콩 크루즈', price: 980000, cruiseLine: 'Norwegian', nights: 5 },
+      ];
+      const filtered = mockProducts.filter(p => p.name.toLowerCase().includes(val.toLowerCase()));
+      setProducts(filtered);
+      setOpen(true);
+      setLoading(false);
+    }, 300);
+  };
+
+  return (
+    <div className="relative">
+      <input
+        value={selected || q}
+        onChange={e => {
+          setQ(e.target.value);
+          if (!e.target.value.trim()) {
+            setOpen(false);
+          } else {
+            search(e.target.value);
+          }
+        }}
+        onFocus={() => {
+          if (q.trim() && products.length > 0) setOpen(true);
+        }}
+        placeholder="상품명, 선사명으로 검색"
+        className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+      {loading && (
+        <span className="absolute right-3 top-2.5 text-gray-600 text-xs">검색중...</span>
+      )}
+      {open && products.length > 0 && (
+        <div className="absolute top-full left-0 right-0 z-50 bg-white border rounded-lg shadow-lg mt-1 max-h-72 overflow-y-auto">
+          {products.map(p => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => {
+                onSelect(p.name, p.price, p.cruiseLine ?? '', String(p.nights ?? ''), p.departureDate ?? '');
+                setOpen(false);
+                setQ('');
+              }}
+              className="w-full text-left px-3 py-2.5 text-sm border-b last:border-0 hover:bg-blue-50 transition-colors"
+            >
+              <div className="font-medium text-gray-800">{p.name}</div>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-sm text-gray-500">
+                  {p.cruiseLine ? `${p.cruiseLine} · ` : ''}
+                  {p.nights ? `${p.nights}박` : ''}
+                </span>
+                <span className="font-semibold text-blue-600">{p.price.toLocaleString()}원</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+      {open && products.length === 0 && !loading && (
+        <div className="absolute top-full left-0 right-0 z-50 bg-white border rounded-lg shadow mt-1 p-3 text-sm text-gray-600">
+          검색 결과 없음
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── ComparisonQuotePreview ───────────────────────────────────────────────────
+
+interface ComparisonQuotePreviewProps {
+  productName: string;
+  price: string;
+  cruiseLine: string;
+  nights: string;
+  competitors: Array<{ name: string; price: string }>;
+}
+
+function ComparisonQuotePreview({
+  productName,
+  price,
+  cruiseLine,
+  nights,
+  competitors,
+}: ComparisonQuotePreviewProps) {
+  const validPrice = Number(price) || 0;
+  const validCompetitors = competitors.filter(c => c.name.trim() && c.price.trim() && !isNaN(Number(c.price))).map(c => ({ name: c.name, price: Number(c.price) }));
+
+  return (
+    <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
+      <p className="text-xs font-semibold text-blue-700 mb-3">미리보기 (자동 업데이트)</p>
+      <div className="bg-white rounded-lg overflow-hidden shadow-sm">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-blue-600 text-white">
+              <th className="px-3 py-2 text-left text-xs font-semibold">상품</th>
+              <th className="px-3 py-2 text-right text-xs font-semibold">가격</th>
+              <th className="px-3 py-2 text-right text-xs font-semibold">절감액</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="bg-blue-50 border-b">
+              <td className="px-3 py-2">
+                <div className="font-semibold text-blue-700">{productName}</div>
+                {(cruiseLine || nights) && (
+                  <div className="text-xs text-gray-600 mt-0.5">
+                    {cruiseLine && <span>{cruiseLine}</span>}
+                    {cruiseLine && nights && <span> · </span>}
+                    {nights && <span>{nights}박</span>}
+                  </div>
+                )}
+              </td>
+              <td className="px-3 py-2 text-right font-bold text-blue-600">{validPrice.toLocaleString()}원</td>
+              <td className="px-3 py-2 text-right text-xs text-green-600 font-medium">최저가</td>
+            </tr>
+            {validCompetitors.map((c, i) => {
+              const savingsAmount = c.price - validPrice;
+              return (
+                <tr key={i} className={i % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                  <td className="px-3 py-2 text-gray-700">{c.name}</td>
+                  <td className="px-3 py-2 text-right text-gray-700">{c.price.toLocaleString()}원</td>
+                  <td className="px-3 py-2 text-right text-red-600 font-medium">+{savingsAmount.toLocaleString()}원</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
