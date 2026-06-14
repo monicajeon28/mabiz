@@ -184,8 +184,8 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
   };
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      {/* ═══ 좌측: 검색 + 발급 영역 ══════════════════════════════════════ */}
+    <div className="space-y-6">
+      {/* ═══ 상단: 검색 + 발급 영역 (모바일 우선) ══════════════════════════ */}
       <div className="space-y-5 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
         <div className="flex items-center gap-2">
           <cfg.Icon className="h-5 w-5 text-gray-700" />
@@ -269,9 +269,9 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
           type="button"
           onClick={handleIssue}
           disabled={!selectedSale || isIssuing}
-          className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${cfg.issueBtn}`}
+          className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-6 py-4 text-base font-bold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${cfg.issueBtn}`}
         >
-          {isIssuing ? <Loader2 className="h-4 w-4 animate-spin" /> : <cfg.Icon className="h-4 w-4" />}
+          {isIssuing ? <Loader2 className="h-5 w-5 animate-spin" /> : <cfg.Icon className="h-5 w-5" />}
           {isIssuing ? '발급 중...' : hasIssued ? '재발급' : '증서 발급'}
         </button>
 
@@ -279,7 +279,7 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
           <button
             type="button"
             onClick={handleReset}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
           >
             <RotateCcw className="h-4 w-4" />
             새 증서 발급
@@ -287,20 +287,42 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
         )}
       </div>
 
-      {/* ═══ 우측: 미리보기 (항상 표시) ════════════════════════════════════ */}
-      <div className="space-y-3">
-        <p className="text-sm font-semibold text-gray-700">
-          미리보기 {hasIssued ? '(발급 완료)' : '(발급 전 요약)'}
-        </p>
+      {/* ═══ 하단: 미리보기 영역 (모바일 우선 세로 배치) ═══════════════════ */}
+      <div className="space-y-4">
+        {/* 상태 헤더 */}
+        <div className="flex items-center gap-2">
+          <cfg.Icon className="h-5 w-5 text-gray-600" />
+          <p className="text-base font-bold text-gray-900">
+            {!hasIssued && selectedSale && '이렇게 저장됩니다'}
+            {!hasIssued && !selectedSale && '발급 후 미리보기'}
+            {hasIssued && '발급 완료증서'}
+          </p>
+        </div>
 
+        {/* 미리보기 영역 */}
         {!hasIssued ? (
           selectedSale ? (
             <>
-              {mode === 'purchase' && (
-                <div className="rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50 p-6">
-                  <p className="mb-4 text-sm font-medium text-emerald-700">
-                    📋 발급 전 미리보기 (발급 버튼을 누르면 확정됩니다)
-                  </p>
+              {/* 발급 전: 큰 미리보기 강조 */}
+              <div
+                className={`rounded-2xl border-2 p-6 ${
+                  mode === 'purchase'
+                    ? 'border-emerald-300 bg-emerald-50'
+                    : 'border-red-300 bg-red-50'
+                }`}
+              >
+                <p
+                  className={`mb-6 flex items-center gap-2 text-sm font-semibold ${
+                    mode === 'purchase'
+                      ? 'text-emerald-700'
+                      : 'text-red-700'
+                  }`}
+                >
+                  <ShieldCheck className="h-5 w-5" />
+                  발급 버튼을 누르면 이 내용으로 정식 증서가 생성됩니다
+                </p>
+
+                {mode === 'purchase' && (
                   <PurchasePreviewDraft
                     data={{
                       buyerName: selectedSale.buyerName,
@@ -312,13 +334,8 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
                     }}
                     productInfo={productInfo}
                   />
-                </div>
-              )}
-              {mode === 'refund' && (
-                <div className="rounded-2xl border-2 border-dashed border-red-300 bg-red-50 p-6">
-                  <p className="mb-4 text-sm font-medium text-red-700">
-                    📋 발급 전 미리보기 (발급 버튼을 누르면 확정됩니다)
-                  </p>
+                )}
+                {mode === 'refund' && (
                   <RefundPreviewDraft
                     data={{
                       buyerName: selectedSale.buyerName,
@@ -328,36 +345,46 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
                     }}
                     productInfo={productInfo}
                   />
-                </div>
-              )}
+                )}
+              </div>
             </>
           ) : (
-            /* 발급 전 placeholder */
+            /* 고객 선택 전 placeholder */
             <div
               ref={ref}
-              className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-20 text-center shadow-sm"
+              className="flex min-h-[320px] flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-12 text-center"
             >
-              <cfg.Icon className="h-12 w-12 text-gray-200" />
-              <p className="mt-3 text-sm font-medium text-gray-400">{cfg.placeholderText}</p>
-              <p className="mt-1 text-xs text-gray-300">발급 후 증서 미리보기가 표시됩니다.</p>
+              <cfg.Icon className="h-16 w-16 text-gray-300" />
+              <p className="mt-4 text-base font-semibold text-gray-600">고객을 검색·선택해주세요</p>
+              <p className="mt-2 text-sm text-gray-500">{cfg.placeholderText}</p>
             </div>
           )
         ) : (
-          <div className="space-y-3">
+          /* 발급 후: 완성된 증서 + 다운로드 */
+          <div className="space-y-4">
+            {/* 발급 완료 뱃지 */}
+            <div className="flex items-center gap-2 rounded-lg bg-green-50 px-4 py-3 border border-green-200">
+              <ShieldCheck className="h-5 w-5 text-green-600" />
+              <span className="font-semibold text-green-700">발급 완료됨</span>
+            </div>
+
+            {/* 증서 미리보기 */}
             {mode === 'purchase' && purchaseData && (
               <PurchasePreview cardRef={ref} data={purchaseData} agent={agent} productInfo={productInfo} />
             )}
             {mode === 'refund' && refundData && (
               <RefundPreview cardRef={ref} data={refundData} agent={agent} />
             )}
+
+            {/* 다운로드 버튼 - 항상 보이기 */}
             <button
               type="button"
               onClick={handleDownload}
               disabled={isDownloading}
-              className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-white disabled:opacity-50 ${cfg.issueBtn}`}
+              className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-6 py-4 text-base font-bold text-white disabled:opacity-50 ${cfg.issueBtn}`}
             >
-              {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              {isDownloading ? '다운로드 중...' : 'PNG 다운로드'}
+              {isDownloading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
+              {isDownloading ? 'PNG 다운로드 중...' : 'PNG로 다운로드'}
             </button>
           </div>
         )}
@@ -588,26 +615,26 @@ function PurchasePreviewDraft({
   productInfo?: ProductInfo | null;
 }) {
   return (
-    <div className="space-y-4 rounded-xl border border-emerald-200 bg-white p-5">
-      <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
-        <span className="font-semibold text-gray-600">구매자명</span>
-        <span className="text-base font-medium text-gray-900">{data.buyerName || '-'}</span>
+    <div className="space-y-3 rounded-xl border border-emerald-200 bg-white p-6">
+      <div className="flex items-center justify-between border-b border-emerald-100 pb-4">
+        <span className="text-sm font-semibold text-gray-600">구매자명</span>
+        <span className="text-lg font-semibold text-gray-900">{data.buyerName || '-'}</span>
       </div>
-      <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
-        <span className="font-semibold text-gray-600">연락처</span>
-        <span className="text-base font-medium text-gray-900">{data.buyerTel || '-'}</span>
+      <div className="flex items-center justify-between border-b border-emerald-100 pb-4">
+        <span className="text-sm font-semibold text-gray-600">연락처</span>
+        <span className="text-lg font-medium text-gray-900">{data.buyerTel || '-'}</span>
       </div>
-      <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
-        <span className="font-semibold text-gray-600">상품명</span>
-        <span className="text-base font-medium text-gray-900 truncate">{data.productName || '-'}</span>
+      <div className="flex items-center justify-between border-b border-emerald-100 pb-4">
+        <span className="text-sm font-semibold text-gray-600">상품명</span>
+        <span className="text-lg font-medium text-gray-900 truncate">{data.productName || '-'}</span>
       </div>
-      <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
-        <span className="font-semibold text-gray-600">결제금액</span>
-        <span className="text-xl font-extrabold text-emerald-600">{formatMoney(data.amount ?? null)}</span>
+      <div className="flex items-center justify-between border-b border-emerald-100 pb-4">
+        <span className="text-sm font-semibold text-gray-600">결제금액</span>
+        <span className="text-2xl font-extrabold text-emerald-600">{formatMoney(data.amount ?? null)}</span>
       </div>
       <div className="flex items-center justify-between">
-        <span className="font-semibold text-gray-600">결제일</span>
-        <span className="text-base font-medium text-gray-900">{formatDate(data.paidAt)}</span>
+        <span className="text-sm font-semibold text-gray-600">결제일</span>
+        <span className="text-lg font-medium text-gray-900">{formatDate(data.paidAt)}</span>
       </div>
     </div>
   );
@@ -643,46 +670,51 @@ function RefundPreviewDraft({
   }, [data.amount, productInfo?.startDate, productInfo?.refundPolicy]);
 
   return (
-    <div className="space-y-4 text-sm">
-      <div className="flex items-center justify-between border-b border-red-200 pb-2">
-        <span className="font-medium text-gray-600">구매자명</span>
-        <span className="text-gray-900">{data.buyerName || '-'}</span>
-      </div>
-      <div className="flex items-center justify-between border-b border-red-200 pb-2">
-        <span className="font-medium text-gray-600">상품명</span>
-        <span className="text-gray-900">{data.productName || '-'}</span>
-      </div>
-      <div className="flex items-center justify-between border-b border-red-200 pb-2">
-        <span className="font-medium text-gray-600">결제금액</span>
-        <span className="text-lg font-bold text-red-700">{formatMoney(data.amount ?? null)}</span>
-      </div>
-      <div className="flex items-center justify-between">
-        <span className="font-medium text-gray-600">결제일</span>
-        <span className="text-gray-900">{formatDate(data.paidAt)}</span>
+    <div className="space-y-3">
+      <div className="rounded-xl border border-red-200 bg-white p-6 space-y-3">
+        <div className="flex items-center justify-between border-b border-red-100 pb-4">
+          <span className="text-sm font-semibold text-gray-600">구매자명</span>
+          <span className="text-lg font-semibold text-gray-900">{data.buyerName || '-'}</span>
+        </div>
+        <div className="flex items-center justify-between border-b border-red-100 pb-4">
+          <span className="text-sm font-semibold text-gray-600">상품명</span>
+          <span className="text-lg font-medium text-gray-900">{data.productName || '-'}</span>
+        </div>
+        <div className="flex items-center justify-between border-b border-red-100 pb-4">
+          <span className="text-sm font-semibold text-gray-600">원결제금액</span>
+          <span className="text-2xl font-extrabold text-red-700">{formatMoney(data.amount ?? null)}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold text-gray-600">결제일</span>
+          <span className="text-lg font-medium text-gray-900">{formatDate(data.paidAt)}</span>
+        </div>
       </div>
 
       {/* 환불 계산 결과 */}
       {refundCalc && (
-        <div className="mt-4 rounded-lg border-2 border-red-400 bg-red-50 p-4">
-          <p className="text-xs font-bold text-red-700">💰 오늘 기준 예상 환불액</p>
-          <div className="mt-2 text-3xl font-extrabold text-red-600">
+        <div className="rounded-lg border-2 border-red-400 bg-red-50 p-6">
+          <p className="text-xs font-bold text-red-700 uppercase tracking-wider mb-3">예상 환불액</p>
+          <div className="text-4xl font-extrabold text-red-600 mb-4">
             {formatMoney(refundCalc.refundAmount)}
           </div>
           {refundCalc.penaltyRate > 0 && (
-            <p className="mt-2 text-sm text-red-700">
-              위약금 <span className="font-bold">{refundCalc.penaltyRate}%</span> ({formatMoney(refundCalc.penaltyAmount)})
-            </p>
+            <div className="rounded bg-white px-3 py-2 mb-3 border border-red-200">
+              <p className="text-sm text-red-700">
+                위약금 <span className="font-bold">{refundCalc.penaltyRate}%</span> <span className="text-red-600 font-bold">- {formatMoney(refundCalc.penaltyAmount)}</span>
+              </p>
+            </div>
           )}
-          <p className="mt-2 text-xs text-gray-600">
-            출발 <span className="font-semibold">{refundCalc.daysBeforeDep}일 전</span> · {refundCalc.basis}
+          <p className="text-xs text-gray-600">
+            출발 <span className="font-semibold text-gray-700">{refundCalc.daysBeforeDep}일 전</span> 기준 · {refundCalc.basis}
           </p>
         </div>
       )}
 
       {/* 출발일 없으면 안내 */}
       {!productInfo?.startDate && (
-        <div className="mt-3 rounded-lg border-l-4 border-amber-400 bg-amber-50 px-4 py-3">
-          <p className="text-xs text-amber-700">⚠️ 출발일 정보 없음 — 발급 버튼을 눌러 정확한 환불액 확인</p>
+        <div className="rounded-lg border-l-4 border-amber-400 bg-amber-50 px-4 py-3">
+          <p className="text-sm text-amber-700 font-medium">⚠️ 출발일 정보 없음</p>
+          <p className="text-xs text-amber-600 mt-1">발급 버튼을 눌러 정확한 환불액 확인</p>
         </div>
       )}
     </div>
