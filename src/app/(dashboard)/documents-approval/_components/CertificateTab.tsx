@@ -476,7 +476,7 @@ function PurchasePreview({
   return (
     <div
       ref={cardRef}
-      className="overflow-hidden rounded-xl border-4 border-gray-300 bg-white px-12 py-10 shadow-lg"
+      className="overflow-hidden rounded-xl border-4 border-gray-300 bg-white px-12 py-10 shadow-lg mx-auto max-w-[210mm] aspect-[210/297] print:max-w-none print:aspect-auto"
     >
       <DocumentLetterhead title="구매확인증서" accentClass="border-emerald-100" />
 
@@ -570,7 +570,7 @@ function RefundPreview({
   return (
     <div
       ref={cardRef}
-      className="overflow-hidden rounded-xl border-4 border-gray-300 bg-white px-12 py-10 shadow-lg"
+      className="overflow-hidden rounded-xl border-4 border-gray-300 bg-white px-12 py-10 shadow-lg mx-auto max-w-[210mm] aspect-[210/297] print:max-w-none print:aspect-auto"
     >
       <DocumentLetterhead title={title} accentClass="border-red-100" />
 
