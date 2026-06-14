@@ -121,6 +121,7 @@ export default function ComparisonQuoteTab() {
   const [productDropdownOpen, setProductDropdownOpen] = useState(false);
   const [productSearchResults, setProductSearchResults] = useState<ProductSearchResult[]>([]);
   const [isSearchingProducts, setIsSearchingProducts] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const { ref, isDownloading, download } = useImageDownload();
   const agent = useCurrentAgent();
 
