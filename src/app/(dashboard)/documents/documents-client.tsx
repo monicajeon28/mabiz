@@ -44,6 +44,7 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
   const [submitting,    setSub]          = useState(false);
   const [selectedLabel, setSelectedLabel] = useState('');
   // 비교견적서 전용 필드
+  const [quoteCustomerName, setQuoteCustomerName] = useState('');
   const [quoteProductName, setQuoteProductName] = useState('');
   const [quotePrice,       setQuotePrice]       = useState('');
   const [quoteCruiseLine,  setQuoteCruiseLine]  = useState('');
@@ -52,6 +53,7 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
   const [competitors, setCompetitors] = useState<{ name: string; price: string }[]>([
     { name: '', price: '' },
   ]);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   // 구매계약서 전용 필드
   const [contractSpecialTerms, setContractSpecialTerms] = useState('');
   const [contractSignedAt,     setContractSignedAt]     = useState('');
@@ -83,6 +85,7 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
 
   const requestDoc = async () => {
     if (tab === 'COMPARISON_QUOTE') {
+      if (!quoteCustomerName.trim()) { showError('고객명을 입력하세요'); return; }
       if (!quoteProductName.trim()) { showError('상품명을 입력하세요'); return; }
       if (!quotePrice.trim() || isNaN(Number(quotePrice))) { showError('판매가를 입력하세요'); return; }
     } else if (!orderId.trim()) {
@@ -97,6 +100,7 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
 
       const body = tab === 'COMPARISON_QUOTE'
         ? {
+            customerName: quoteCustomerName.trim(),
             productName: quoteProductName.trim(),
             price: Number(quotePrice),
             ...(quoteCruiseLine.trim() ? { cruiseLine: quoteCruiseLine.trim() } : {}),
@@ -131,9 +135,10 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
 
       setShowNew(false);
       setOrderId(''); setRefunderName('');
-      setQuoteProductName(''); setQuotePrice(''); setQuoteCruiseLine(''); setQuoteNights(''); setQuoteDeparture('');
+      setQuoteCustomerName(''); setQuoteProductName(''); setQuotePrice(''); setQuoteCruiseLine(''); setQuoteNights(''); setQuoteDeparture('');
       setCompetitors([{ name: '', price: '' }]);
       setContractSpecialTerms(''); setContractSignedAt('');
+      setShowAdvanced(false);
       load();
     } catch {
       showError('요청 실패');
@@ -202,11 +207,12 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
               setTab(d.key);
               setShowNew(false);
               setOrderId(''); setSelectedLabel(''); setRefunderName('');
-              setQuoteProductName(''); setQuotePrice(''); setQuoteCruiseLine('');
+              setQuoteCustomerName(''); setQuoteProductName(''); setQuotePrice(''); setQuoteCruiseLine('');
               setQuoteNights(''); setQuoteDeparture('');
               setCompetitors([{ name: '', price: '' }]);
               setContractSpecialTerms(''); setContractSignedAt('');
               setLastSignUrl(null);
+              setShowAdvanced(false);
             }}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
               ${tab === d.key ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
@@ -222,22 +228,58 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
           <p className="text-base md:text-sm font-semibold mb-4 md:mb-3">{current.label} 발급 요청</p>
           {tab === 'COMPARISON_QUOTE' ? (
             <div className="mb-3 space-y-4">
-              {/* 1단계: 상품선택 (필수) */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  당사 상품 <span className="text-red-500">*</span>
-                </label>
-                <ComparisonProductDropdown
-                  onSelect={(name, price, line, nights, dept) => {
-                    setQuoteProductName(name);
-                    setQuotePrice(String(price));
-                    setQuoteCruiseLine(line);
-                    setQuoteNights(String(nights));
-                    setQuoteDeparture(dept);
-                  }}
-                  selected={quoteProductName}
-                />
-                <p className="text-xs text-gray-500 mt-1">상품을 선택하면 상품명, 가격, 상세정보가 자동으로 입력됩니다</p>
+              {/* 필수 3개 필드 */}
+              <div className="space-y-3">
+                {/* 1. 고객명 (필수) */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    고객명 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    value={quoteCustomerName}
+                    onChange={e => setQuoteCustomerName(e.target.value)}
+                    placeholder="예: 홍길동"
+                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* 2. 당사 상품 (필수) */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    당사 상품 <span className="text-red-500">*</span>
+                  </label>
+                  <ComparisonProductDropdown
+                    onSelect={(name, price, line, nights, dept) => {
+                      setQuoteProductName(name);
+                      setQuotePrice(String(price));
+                      setQuoteCruiseLine(line);
+                      setQuoteNights(String(nights));
+                      setQuoteDeparture(dept);
+                    }}
+                    selected={quoteProductName}
+                  />
+                </div>
+
+                {/* 3. 당사 가격 (필수, 자동입력) */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    당사 가격 <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={quotePrice}
+                      onChange={e => setQuotePrice(e.target.value)}
+                      placeholder="상품 선택 시 자동입력"
+                      className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    {quotePrice && (
+                      <span className="absolute right-3 top-2.5 text-sm text-gray-500">
+                        {Number(quotePrice).toLocaleString()}원
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* 미리보기 (실시간) */}
@@ -251,48 +293,89 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
                 />
               )}
 
-              {/* 2단계: 타사 가격 비교 (선택) - 최대 3개 */}
+              {/* 고급옵션: 타사 가격 비교, 상세정보 */}
               <div className="border-t pt-3">
-                <div className="flex items-center justify-between mb-3">
-                  <label className="text-sm font-semibold text-gray-700">
-                    타사 가격 비교 (최대 3개)
-                  </label>
-                  {competitors.length < 3 && (
-                    <button
-                      type="button"
-                      onClick={() => setCompetitors(prev => [...prev, { name: '', price: '' }])}
-                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                    >
-                      + 추가
-                    </button>
-                  )}
-                </div>
-                {competitors.map((c, i) => (
-                  <div key={i} className="flex gap-2 mb-2">
-                    <input
-                      value={c.name}
-                      onChange={e => setCompetitors(prev => prev.map((p, j) => j === i ? { ...p, name: e.target.value } : p))}
-                      placeholder={`${i === 0 ? '예: 하나투어' : `경쟁사${i + 1}`}`}
-                      className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <input
-                      type="number"
-                      value={c.price}
-                      onChange={e => setCompetitors(prev => prev.map((p, j) => j === i ? { ...p, price: e.target.value } : p))}
-                      placeholder="가격"
-                      className="w-24 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    {i > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setCompetitors(prev => prev.filter((_, j) => j !== i))}
-                        className="text-gray-400 hover:text-red-500 px-2 py-2 text-lg leading-none font-medium"
-                      >
-                        ×
-                      </button>
-                    )}
+                <button
+                  type="button"
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                  className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors"
+                >
+                  <span>{showAdvanced ? '▼' : '▶'}</span>
+                  고급옵션 ({showAdvanced ? '닫기' : '열기'})
+                </button>
+
+                {showAdvanced && (
+                  <div className="mt-3 space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    {/* 상세정보: 크루즈라인, 일수, 출발일 */}
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold text-gray-600">상품 상세정보 (선택)</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        <input
+                          value={quoteCruiseLine}
+                          onChange={e => setQuoteCruiseLine(e.target.value)}
+                          placeholder="선사 (예: MSC)"
+                          className="border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <input
+                          type="number"
+                          value={quoteNights}
+                          onChange={e => setQuoteNights(e.target.value)}
+                          placeholder="일수"
+                          min="0"
+                          className="border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <input
+                          type="date"
+                          value={quoteDeparture}
+                          onChange={e => setQuoteDeparture(e.target.value)}
+                          className="border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* 타사 가격 비교 */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-semibold text-gray-600">타사 가격 비교 (최대 3개)</p>
+                        {competitors.length < 3 && (
+                          <button
+                            type="button"
+                            onClick={() => setCompetitors(prev => [...prev, { name: '', price: '' }])}
+                            className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                          >
+                            + 추가
+                          </button>
+                        )}
+                      </div>
+                      {competitors.map((c, i) => (
+                        <div key={i} className="flex gap-2 mb-2">
+                          <input
+                            value={c.name}
+                            onChange={e => setCompetitors(prev => prev.map((p, j) => j === i ? { ...p, name: e.target.value } : p))}
+                            placeholder={`${i === 0 ? '예: 하나투어' : `경쟁사${i + 1}`}`}
+                            className="flex-1 border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <input
+                            type="number"
+                            value={c.price}
+                            onChange={e => setCompetitors(prev => prev.map((p, j) => j === i ? { ...p, price: e.target.value } : p))}
+                            placeholder="가격"
+                            className="w-20 border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          {i > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setCompetitors(prev => prev.filter((_, j) => j !== i))}
+                              className="text-gray-400 hover:text-red-500 px-1.5 py-1.5 text-sm leading-none font-medium"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
+                )}
               </div>
             </div>
           ) : tab === 'PURCHASE_CONTRACT' ? (
@@ -346,16 +429,16 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
               )}
             </div>
           )}
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2 pt-3 border-t">
             <button
               onClick={requestDoc}
-              disabled={submitting || !quoteProductName || !quotePrice}
+              disabled={submitting || !quoteCustomerName || !quoteProductName || !quotePrice}
               className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
             >
               {submitting ? '처리 중...' : '다운로드'}
             </button>
             <button
-              onClick={() => { setShowNew(false); setOrderId(''); setSelectedLabel(''); setRefunderName(''); setQuoteProductName(''); setQuotePrice(''); setQuoteCruiseLine(''); setQuoteNights(''); setQuoteDeparture(''); setCompetitors([{ name: '', price: '' }]); setContractSpecialTerms(''); setContractSignedAt(''); setLastSignUrl(null); }}
+              onClick={() => { setShowNew(false); setOrderId(''); setSelectedLabel(''); setRefunderName(''); setQuoteCustomerName(''); setQuoteProductName(''); setQuotePrice(''); setQuoteCruiseLine(''); setQuoteNights(''); setQuoteDeparture(''); setCompetitors([{ name: '', price: '' }]); setContractSpecialTerms(''); setContractSignedAt(''); setLastSignUrl(null); setShowAdvanced(false); }}
               className="px-4 py-3 border rounded-lg text-sm hover:bg-gray-100 transition-colors"
             >
               취소
@@ -385,6 +468,12 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
             {/* 비교견적서 */}
             {tab === 'COMPARISON_QUOTE' && (
               <div>
+                {/* 고객명 */}
+                {d.customerName != null && (
+                  <div style={{ marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid #ddd' }}>
+                    <p style={{ fontSize: '13px', color: '#555' }}>고객명: <span style={{ fontWeight: 'bold', color: '#1a2e4a' }}>{String(d.customerName)}</span></p>
+                  </div>
+                )}
                 <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '32px' }}>
                   <thead>
                     <tr style={{ background: '#1a2e4a', color: 'white' }}>
@@ -553,8 +642,13 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
                       )}
                     </div>
                     <p className="text-sm font-medium truncate">
-                      {String(data.productName ?? data.buyerName ?? '-')}
+                      {tab === 'COMPARISON_QUOTE' && data.customerName
+                        ? `${String(data.customerName)} - ${String(data.productName ?? '-')}`
+                        : String(data.productName ?? data.buyerName ?? '-')}
                     </p>
+                    {tab === 'COMPARISON_QUOTE' && data.customerName != null && (
+                      <p className="text-sm text-gray-500">고객명: {String(data.customerName)}</p>
+                    )}
                     {data.buyerName != null && tab !== 'COMPARISON_QUOTE' && (
                       <p className="text-sm text-gray-500">{String(data.buyerName)}{data.buyerTel ? ` · ${String(data.buyerTel)}` : ''}</p>
                     )}

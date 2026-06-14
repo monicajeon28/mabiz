@@ -13,6 +13,7 @@ export async function POST(req: Request) {
     const body = await req.json() as {
       contactId?: string;
       affiliateSaleId?: string;
+      customerName?: string;
       productName: string;
       cruiseLine?: string;
       nights?: number;
@@ -21,8 +22,8 @@ export async function POST(req: Request) {
       departureDate?: string;
     };
 
-    if (!body.productName || !body.price) {
-      return NextResponse.json({ ok: false, message: 'productName, price 필수' }, { status: 400 });
+    if (!body.customerName || !body.productName || !body.price) {
+      return NextResponse.json({ ok: false, message: 'customerName, productName, price 필수' }, { status: 400 });
     }
 
     // Contact 이메일 조회 (contactId 있을 때)
@@ -47,6 +48,7 @@ export async function POST(req: Request) {
         affiliateSaleId: body.affiliateSaleId ?? null,
         createdBy:      ctx.userId,
         generatedData: {
+          customerName:      body.customerName,
           productName:       body.productName,
           cruiseLine:        body.cruiseLine ?? '',
           nights:            body.nights ?? 0,
