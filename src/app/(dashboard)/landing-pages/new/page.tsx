@@ -125,14 +125,11 @@ export default function NewLandingPage() {
 
   useEffect(() => {
     const ctrl = new AbortController();
-    try {
-      fetch("/api/groups", { signal: ctrl.signal })
-        .then((r) => r.json())
-        .then((d) => { if (d.ok) setGroups(d.groups ?? []); })
-        .catch(err => { if (err instanceof Error && err.name === 'AbortError') return; });
-    } finally {
-      return () => ctrl.abort();
-    }
+    fetch("/api/groups", { signal: ctrl.signal })
+      .then((r) => r.json())
+      .then((d) => { if (d.ok) setGroups(d.groups ?? []); })
+      .catch(err => { if (err instanceof Error && err.name === 'AbortError') return; });
+    return () => ctrl.abort();
   }, []);
 
   const handleTitleChange = (t: string) => {
