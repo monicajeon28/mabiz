@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="#e5e7eb"/>
+  <text x="50%" y="50%" font-size="16" fill="#9ca3af" text-anchor="middle" dominant-baseline="middle" font-family="system-ui">
+    이미지 로드 실패
+  </text>
+</svg>
