@@ -185,6 +185,64 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
 
   return (
     <div className="space-y-6">
+      {/* ═══ 안내 박스: 고객 선택 전에만 표시 ══════════════════════════════════════════ */}
+      {!selectedSale && (
+        <div className="rounded-2xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 to-blue-50 p-8">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-600">
+              <span className="text-base font-bold text-white">🚀</span>
+            </div>
+            <h4 className="text-lg font-bold text-gray-900">빠른 시작: {cfg.title} 발급</h4>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Step 1 */}
+            <div className="flex gap-4">
+              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white font-bold text-lg">
+                1️⃣
+              </div>
+              <div className="flex flex-col justify-center">
+                <p className="font-semibold text-gray-900">고객 검색</p>
+                <p className="text-sm text-gray-600">이름·주문번호·전화번호 입력</p>
+              </div>
+            </div>
+
+            {/* Step 2 */}
+            <div className="flex gap-4">
+              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white font-bold text-lg">
+                2️⃣
+              </div>
+              <div className="flex flex-col justify-center">
+                <p className="font-semibold text-gray-900">정보 확인</p>
+                <p className="text-sm text-gray-600">고객·상품 정보 자동 로드</p>
+              </div>
+            </div>
+
+            {/* Step 3 */}
+            <div className="flex gap-4">
+              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white font-bold text-lg">
+                3️⃣
+              </div>
+              <div className="flex flex-col justify-center">
+                <p className="font-semibold text-gray-900">미리보기 검토</p>
+                <p className="text-sm text-gray-600">발급 전 최종 확인</p>
+              </div>
+            </div>
+
+            {/* Step 4 */}
+            <div className="flex gap-4">
+              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white font-bold text-lg">
+                4️⃣
+              </div>
+              <div className="flex flex-col justify-center">
+                <p className="font-semibold text-gray-900">증서 발급</p>
+                <p className="text-sm text-gray-600">PNG 다운로드 가능</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ═══ 상단: 검색 + 발급 영역 (모바일 우선) ══════════════════════════ */}
       <div className="space-y-5 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
         <div className="flex items-center gap-2">
@@ -305,7 +363,7 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
             <>
               {/* 발급 전: 큰 미리보기 강조 */}
               <div
-                className={`rounded-2xl border-2 p-6 ${
+                className={`rounded-2xl border-2 p-6 transition-all ${
                   mode === 'purchase'
                     ? 'border-emerald-300 bg-emerald-50'
                     : 'border-red-300 bg-red-50'
@@ -319,7 +377,7 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
                   }`}
                 >
                   <ShieldCheck className="h-5 w-5" />
-                  발급 버튼을 누르면 이 내용으로 정식 증서가 생성됩니다
+                  <span>3단계</span>: 발급 버튼을 누르면 이 내용으로 정식 증서가 생성됩니다
                 </p>
 
                 {mode === 'purchase' && (
@@ -352,11 +410,18 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
             /* 고객 선택 전 placeholder */
             <div
               ref={ref}
-              className="flex min-h-[320px] flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-12 text-center"
+              className="flex min-h-[240px] flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gradient-to-b from-gray-50 to-gray-100 py-12 text-center"
             >
-              <cfg.Icon className="h-16 w-16 text-gray-300" />
-              <p className="mt-4 text-base font-semibold text-gray-600">고객을 검색·선택해주세요</p>
-              <p className="mt-2 text-sm text-gray-500">{cfg.placeholderText}</p>
+              <div className="flex items-center justify-center h-20 w-20 rounded-full bg-gray-200 mb-4">
+                <cfg.Icon className="h-10 w-10 text-gray-400" />
+              </div>
+              <p className="text-lg font-semibold text-gray-700">위의 단계를 따라 시작하세요</p>
+              <p className="mt-2 text-sm text-gray-500">고객 검색으로 1단계부터 시작됩니다</p>
+              <div className="mt-6 flex gap-2 text-xs text-gray-400">
+                <span className="inline-block rounded-full bg-gray-200 px-3 py-1">1️⃣ 고객 검색</span>
+                <span className="inline-block text-gray-300">→</span>
+                <span className="inline-block rounded-full bg-gray-200 px-3 py-1">2️⃣ 정보 확인</span>
+              </div>
             </div>
           )
         ) : (
