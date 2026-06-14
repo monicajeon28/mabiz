@@ -92,7 +92,8 @@ export async function GET(req: Request) {
     return new NextResponse(buffer, {
       headers: {
         'Content-Type': contentType,
-        'Cache-Control': 'private, max-age=7200',
+        'Cache-Control': 'public, max-age=86400',
+        'Access-Control-Allow-Origin': '*',
       },
     });
   } catch {
