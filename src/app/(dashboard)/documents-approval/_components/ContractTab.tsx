@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   FileText,
   Plus,
@@ -66,6 +66,25 @@ type ContractFormData = {
   refundPolicy: { label: string; value: string }[];
   specialTerms: string;
   companions: Companion[];
+  // 새로 추가 필드
+  contractType: '기획여행' | '희망여행';
+  travelGuarantee: ('공제' | '예치금' | '영업보증보험')[];
+  hasInsurance: boolean;
+  insuranceCompany: string;
+  minPax: number | null;
+  maxPax: number | null;
+  pricePerPerson: number | null;
+  transportTypes: ('항공기' | '선박' | '기차')[];
+  shipName: string;
+  accommodationTypes: ('일정표표시' | '관광호텔' | '기타')[];
+  hotelGrade: string;
+  mealDisplay: '일정표표시' | '개별';
+  breakfast: number | null;
+  lunch: number | null;
+  dinner: number | null;
+  localGuide: '있음' | '없음';
+  localTransport: ('버스' | '승용차' | '기타' | '없음')[];
+  localAgency: '있음' | '없음';
 };
 
 function getEmptyForm(): ContractFormData {
@@ -86,6 +105,24 @@ function getEmptyForm(): ContractFormData {
     refundPolicy: CRUISE_CANCELLATION_POLICY.map((p) => ({ ...p })),
     specialTerms: '',
     companions: [],
+    contractType: '기획여행',
+    travelGuarantee: [],
+    hasInsurance: false,
+    insuranceCompany: '',
+    minPax: null,
+    maxPax: null,
+    pricePerPerson: null,
+    transportTypes: ['선박'],
+    shipName: '',
+    accommodationTypes: ['일정표표시'],
+    hotelGrade: '',
+    mealDisplay: '일정표표시',
+    breakfast: null,
+    lunch: null,
+    dinner: null,
+    localGuide: '없음',
+    localTransport: ['버스'],
+    localAgency: '없음',
   };
 }
 
@@ -102,6 +139,25 @@ type ContractPreviewData = {
   refundPolicy?: { label: string; value: string }[];
   specialTerms?: string | null;
   companions?: Companion[];
+  // 새로 추가 필드 (optional)
+  contractType?: '기획여행' | '희망여행';
+  travelGuarantee?: ('공제' | '예치금' | '영업보증보험')[];
+  hasInsurance?: boolean;
+  insuranceCompany?: string;
+  minPax?: number | null;
+  maxPax?: number | null;
+  pricePerPerson?: number | null;
+  transportTypes?: ('항공기' | '선박' | '기차')[];
+  shipName?: string;
+  accommodationTypes?: ('일정표표시' | '관광호텔' | '기타')[];
+  hotelGrade?: string;
+  mealDisplay?: '일정표표시' | '개별';
+  breakfast?: number | null;
+  lunch?: number | null;
+  dinner?: number | null;
+  localGuide?: '있음' | '없음';
+  localTransport?: ('버스' | '승용차' | '기타' | '없음')[];
+  localAgency?: '있음' | '없음';
 };
 
 /* ────────────────── generatedData helpers ────────────────── */
@@ -137,6 +193,24 @@ function formToPreview(f: ContractFormData): ContractPreviewData {
     refundPolicy: f.refundPolicy,
     specialTerms: f.specialTerms || null,
     companions: f.companions,
+    contractType: f.contractType,
+    travelGuarantee: f.travelGuarantee,
+    hasInsurance: f.hasInsurance,
+    insuranceCompany: f.insuranceCompany,
+    minPax: f.minPax,
+    maxPax: f.maxPax,
+    pricePerPerson: f.pricePerPerson,
+    transportTypes: f.transportTypes,
+    shipName: f.shipName,
+    accommodationTypes: f.accommodationTypes,
+    hotelGrade: f.hotelGrade,
+    mealDisplay: f.mealDisplay,
+    breakfast: f.breakfast,
+    lunch: f.lunch,
+    dinner: f.dinner,
+    localGuide: f.localGuide,
+    localTransport: f.localTransport,
+    localAgency: f.localAgency,
   };
 }
 
@@ -205,8 +279,19 @@ export default function ContractTab() {
     const exc = gdArr(gd, 'excludedItems');
     const hg = gdStr(gd, 'hasGuide') as 'Y' | 'N' | '' | null;
     const rp = gdRefundPolicy(gd);
-    const rawCompanions = gd?.companions;
+    const rawCompanions = gd.companions;
     const companions = Array.isArray(rawCompanions) ? (rawCompanions as Companion[]) : [];
+
+    const rawContractType = gdStr(gd, 'contractType');
+    const rawLocalGuide = gdStr(gd, 'localGuide');
+    const rawLocalAgency = gdStr(gd, 'localAgency');
+    const rawMealDisplay = gdStr(gd, 'mealDisplay');
+
+    const rawTravelGuarantee = gd.travelGuarantee;
+    const rawTransportTypes = gd.transportTypes;
+    const rawAccommodationTypes = gd.accommodationTypes;
+    const rawLocalTransport = gd.localTransport;
+
     setPreviewData({
       buyerName: gdStr(gd, 'buyerName') ?? doc.contact?.name,
       buyerTel: gdStr(gd, 'buyerTel') ?? doc.contact?.phone,
@@ -219,6 +304,24 @@ export default function ContractTab() {
       refundPolicy: rp,
       specialTerms: gdStr(gd, 'specialTerms'),
       companions: companions.length > 0 ? companions : undefined,
+      contractType: (rawContractType === '기획여행' || rawContractType === '희망여행') ? rawContractType : undefined,
+      travelGuarantee: Array.isArray(rawTravelGuarantee) ? (rawTravelGuarantee as ('공제' | '예치금' | '영업보증보험')[]) : undefined,
+      hasInsurance: typeof gd.hasInsurance === 'boolean' ? (gd.hasInsurance as boolean) : undefined,
+      insuranceCompany: gdStr(gd, 'insuranceCompany') ?? undefined,
+      minPax: gdNum(gd, 'minPax'),
+      maxPax: gdNum(gd, 'maxPax'),
+      pricePerPerson: gdNum(gd, 'pricePerPerson'),
+      transportTypes: Array.isArray(rawTransportTypes) ? (rawTransportTypes as ('항공기' | '선박' | '기차')[]) : undefined,
+      shipName: gdStr(gd, 'shipName') ?? undefined,
+      accommodationTypes: Array.isArray(rawAccommodationTypes) ? (rawAccommodationTypes as ('일정표표시' | '관광호텔' | '기타')[]) : undefined,
+      hotelGrade: gdStr(gd, 'hotelGrade') ?? undefined,
+      mealDisplay: (rawMealDisplay === '일정표표시' || rawMealDisplay === '개별') ? rawMealDisplay : undefined,
+      breakfast: gdNum(gd, 'breakfast'),
+      lunch: gdNum(gd, 'lunch'),
+      dinner: gdNum(gd, 'dinner'),
+      localGuide: (rawLocalGuide === '있음' || rawLocalGuide === '없음') ? rawLocalGuide : undefined,
+      localTransport: Array.isArray(rawLocalTransport) ? (rawLocalTransport as ('버스' | '승용차' | '기타' | '없음')[]) : undefined,
+      localAgency: (rawLocalAgency === '있음' || rawLocalAgency === '없음') ? rawLocalAgency : undefined,
     });
   };
 
@@ -563,6 +666,232 @@ export default function ContractTab() {
                 </div>
               </div>
 
+              {/* ③-2 계약 추가 정보 */}
+              <div className="rounded-xl border border-gray-200 bg-white p-3 space-y-2.5">
+                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">③-2 계약 추가 정보</p>
+
+                {/* 계약 구분 */}
+                <div>
+                  <label className="mb-1 block text-[11px] text-gray-500">계약 구분</label>
+                  <div className="flex gap-4">
+                    {(['기획여행', '희망여행'] as const).map((v) => (
+                      <label key={v} className="flex cursor-pointer items-center gap-1.5 text-xs">
+                        <input type="radio" name="modal-contractType" value={v}
+                          checked={form.contractType === v}
+                          onChange={() => setForm((p) => ({ ...p, contractType: v }))}
+                          className="h-4 w-4 accent-orange-500" />
+                        {v}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 여행보증 */}
+                <div>
+                  <label className="mb-1 block text-[11px] text-gray-500">여행보증 (복수 선택)</label>
+                  <div className="flex flex-wrap gap-3">
+                    {(['공제', '예치금', '영업보증보험'] as const).map((v) => (
+                      <label key={v} className="flex cursor-pointer items-center gap-1.5 text-xs">
+                        <input type="checkbox"
+                          checked={form.travelGuarantee.includes(v)}
+                          onChange={() => setForm((p) => ({
+                            ...p,
+                            travelGuarantee: p.travelGuarantee.includes(v)
+                              ? p.travelGuarantee.filter((x) => x !== v)
+                              : [...p.travelGuarantee, v],
+                          }))}
+                          className="h-4 w-4 accent-orange-500" />
+                        {v}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 여행자보험 */}
+                <div>
+                  <label className="mb-1 block text-[11px] text-gray-500">여행자보험</label>
+                  <div className="flex gap-4">
+                    {([true, false] as const).map((v) => (
+                      <label key={String(v)} className="flex cursor-pointer items-center gap-1.5 text-xs">
+                        <input type="radio" name="modal-hasInsurance" value={String(v)}
+                          checked={form.hasInsurance === v}
+                          onChange={() => setForm((p) => ({ ...p, hasInsurance: v }))}
+                          className="h-4 w-4 accent-orange-500" />
+                        {v ? '가입' : '미가입'}
+                      </label>
+                    ))}
+                  </div>
+                  {form.hasInsurance && (
+                    <input type="text" value={form.insuranceCompany}
+                      onChange={(e) => setForm((p) => ({ ...p, insuranceCompany: e.target.value }))}
+                      placeholder="보험회사 이름"
+                      className="mt-1.5 w-full rounded border border-gray-300 px-2 py-1.5 text-xs focus:border-orange-400 focus:outline-none" />
+                  )}
+                </div>
+
+                {/* 행사인원 */}
+                <div>
+                  <label className="mb-1 block text-[11px] text-gray-500">행사인원</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="mb-0.5 block text-[10px] text-gray-400">최저 (명)</label>
+                      <input type="number" min="0" value={form.minPax ?? ''}
+                        onChange={(e) => setForm((p) => ({ ...p, minPax: e.target.value ? Number(e.target.value) : null }))}
+                        className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs focus:border-orange-400 focus:outline-none" />
+                    </div>
+                    <div>
+                      <label className="mb-0.5 block text-[10px] text-gray-400">최대 (명)</label>
+                      <input type="number" min="0" value={form.maxPax ?? ''}
+                        onChange={(e) => setForm((p) => ({ ...p, maxPax: e.target.value ? Number(e.target.value) : null }))}
+                        className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs focus:border-orange-400 focus:outline-none" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 1인당 여행요금 */}
+                <div>
+                  <label className="mb-0.5 block text-[11px] text-gray-500">1인당 여행요금 (원)</label>
+                  <input type="number" min="0" value={form.pricePerPerson ?? ''}
+                    onChange={(e) => setForm((p) => ({ ...p, pricePerPerson: e.target.value ? Number(e.target.value) : null }))}
+                    className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs focus:border-orange-400 focus:outline-none" />
+                </div>
+
+                {/* 교통수단 */}
+                <div>
+                  <label className="mb-1 block text-[11px] text-gray-500">교통수단 (복수 선택)</label>
+                  <div className="flex flex-wrap gap-3">
+                    {(['항공기', '선박', '기차'] as const).map((v) => (
+                      <label key={v} className="flex cursor-pointer items-center gap-1.5 text-xs">
+                        <input type="checkbox"
+                          checked={form.transportTypes.includes(v)}
+                          onChange={() => setForm((p) => ({
+                            ...p,
+                            transportTypes: p.transportTypes.includes(v)
+                              ? p.transportTypes.filter((x) => x !== v)
+                              : [...p.transportTypes, v],
+                          }))}
+                          className="h-4 w-4 accent-orange-500" />
+                        {v}
+                      </label>
+                    ))}
+                  </div>
+                  {form.transportTypes.includes('선박') && (
+                    <input type="text" value={form.shipName}
+                      onChange={(e) => setForm((p) => ({ ...p, shipName: e.target.value }))}
+                      placeholder="선박명 (예: MSC 벨리시마)"
+                      className="mt-1.5 w-full rounded border border-gray-300 px-2 py-1.5 text-xs focus:border-orange-400 focus:outline-none" />
+                  )}
+                </div>
+
+                {/* 숙박 */}
+                <div>
+                  <label className="mb-1 block text-[11px] text-gray-500">숙박 (복수 선택)</label>
+                  <div className="flex flex-wrap gap-3">
+                    {(['일정표표시', '관광호텔', '기타'] as const).map((v) => (
+                      <label key={v} className="flex cursor-pointer items-center gap-1.5 text-xs">
+                        <input type="checkbox"
+                          checked={form.accommodationTypes.includes(v)}
+                          onChange={() => setForm((p) => ({
+                            ...p,
+                            accommodationTypes: p.accommodationTypes.includes(v)
+                              ? p.accommodationTypes.filter((x) => x !== v)
+                              : [...p.accommodationTypes, v],
+                          }))}
+                          className="h-4 w-4 accent-orange-500" />
+                        {v === '일정표표시' ? '일정표 표시' : v}
+                      </label>
+                    ))}
+                  </div>
+                  {form.accommodationTypes.includes('관광호텔') && (
+                    <input type="text" value={form.hotelGrade}
+                      onChange={(e) => setForm((p) => ({ ...p, hotelGrade: e.target.value }))}
+                      placeholder="호텔 등급 (예: 5성, 특급)"
+                      className="mt-1.5 w-full rounded border border-gray-300 px-2 py-1.5 text-xs focus:border-orange-400 focus:outline-none" />
+                  )}
+                </div>
+
+                {/* 식사 */}
+                <div>
+                  <label className="mb-1 block text-[11px] text-gray-500">식사</label>
+                  <div className="flex gap-4">
+                    {(['일정표표시', '개별'] as const).map((v) => (
+                      <label key={v} className="flex cursor-pointer items-center gap-1.5 text-xs">
+                        <input type="radio" name="modal-mealDisplay" value={v}
+                          checked={form.mealDisplay === v}
+                          onChange={() => setForm((p) => ({ ...p, mealDisplay: v }))}
+                          className="h-4 w-4 accent-orange-500" />
+                        {v === '일정표표시' ? '일정표 표시' : '개별 입력'}
+                      </label>
+                    ))}
+                  </div>
+                  {form.mealDisplay === '개별' && (
+                    <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+                      {([['breakfast', '조식'], ['lunch', '중식'], ['dinner', '석식']] as [keyof Pick<ContractFormData, 'breakfast' | 'lunch' | 'dinner'>, string][]).map(([field, label]) => (
+                        <div key={field}>
+                          <label className="mb-0.5 block text-[10px] text-gray-400">{label} (회)</label>
+                          <input type="number" min="0" value={form[field] ?? ''}
+                            onChange={(e) => setForm((p) => ({ ...p, [field]: e.target.value ? Number(e.target.value) : null }))}
+                            className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs focus:border-orange-400 focus:outline-none" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 현지 안내원 */}
+                <div>
+                  <label className="mb-1 block text-[11px] text-gray-500">현지 안내원</label>
+                  <div className="flex gap-4">
+                    {(['있음', '없음'] as const).map((v) => (
+                      <label key={v} className="flex cursor-pointer items-center gap-1.5 text-xs">
+                        <input type="radio" name="modal-localGuide" value={v}
+                          checked={form.localGuide === v}
+                          onChange={() => setForm((p) => ({ ...p, localGuide: v }))}
+                          className="h-4 w-4 accent-orange-500" />
+                        {v}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 현지 교통 */}
+                <div>
+                  <label className="mb-1 block text-[11px] text-gray-500">현지 교통 (복수 선택)</label>
+                  <div className="flex flex-wrap gap-3">
+                    {(['버스', '승용차', '기타', '없음'] as const).map((v) => (
+                      <label key={v} className="flex cursor-pointer items-center gap-1.5 text-xs">
+                        <input type="checkbox"
+                          checked={form.localTransport.includes(v)}
+                          onChange={() => setForm((p) => ({
+                            ...p,
+                            localTransport: p.localTransport.includes(v)
+                              ? p.localTransport.filter((x) => x !== v)
+                              : [...p.localTransport, v],
+                          }))}
+                          className="h-4 w-4 accent-orange-500" />
+                        {v}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 현지 여행사 */}
+                <div>
+                  <label className="mb-1 block text-[11px] text-gray-500">현지 여행사</label>
+                  <div className="flex gap-4">
+                    {(['있음', '없음'] as const).map((v) => (
+                      <label key={v} className="flex cursor-pointer items-center gap-1.5 text-xs">
+                        <input type="radio" name="modal-localAgency" value={v}
+                          checked={form.localAgency === v}
+                          onChange={() => setForm((p) => ({ ...p, localAgency: v }))}
+                          className="h-4 w-4 accent-orange-500" />
+                        {v}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               {/* ④ 포함/불포함 체크박스 */}
               <div className="rounded-xl border border-gray-200 bg-white p-3">
                 <p className="mb-2 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">④ 포함/불포함 내역</p>
@@ -790,6 +1119,132 @@ function FullContractPreview({
   // 상품별 환불 규정 우선, 없으면 크루즈 기본
   const cancellationRows = data.refundPolicy ?? CRUISE_CANCELLATION_POLICY;
 
+  // ── 새 필드 렌더링 헬퍼 ──
+  const contractType = data.contractType;
+  const travelGuarantee = data.travelGuarantee ?? [];
+  const transportTypes = data.transportTypes ?? [];
+  const accommodationTypes = data.accommodationTypes ?? [];
+  const localTransport = data.localTransport ?? [];
+
+  // 여행보증 표시
+  const guaranteeCell = (
+    <span className="flex flex-wrap gap-2 text-xs">
+      {(['공제', '예치금', '영업보증보험'] as const).map((g) => (
+        <span key={g} className="inline-flex items-center gap-1">
+          <CheckBox checked={travelGuarantee.includes(g)} />{g}
+        </span>
+      ))}
+    </span>
+  );
+
+  // 여행자보험 표시
+  const insuranceCell = (() => {
+    if (data.hasInsurance === undefined) {
+      return <span className="text-xs">□ 가입  □ 미가입 / 보험회사: ___</span>;
+    }
+    return (
+      <span className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="inline-flex items-center gap-1"><CheckBox checked={data.hasInsurance === true} />가입</span>
+        <span className="inline-flex items-center gap-1"><CheckBox checked={data.hasInsurance === false} />미가입</span>
+        {data.hasInsurance && data.insuranceCompany && (
+          <span className="text-gray-600">/ 보험회사: {data.insuranceCompany}</span>
+        )}
+      </span>
+    );
+  })();
+
+  // 행사인원 표시
+  const paxCell = (data.minPax != null || data.maxPax != null)
+    ? `최저 ${data.minPax ?? '___'} 명 / 최대 ${data.maxPax ?? '___'} 명`
+    : '최저 ___ 명 / 최대 ___ 명';
+
+  // 여행요금 표시
+  const fareCell = (() => {
+    const pp = data.pricePerPerson;
+    const total = data.amount;
+    if (pp != null && total != null) {
+      return `1인당 ${formatMoney(pp)} / 총액 ${formatMoney(total)}`;
+    }
+    if (total != null) {
+      return `1인당 ___ 원 / 총액 ${formatMoney(total)}`;
+    }
+    if (pp != null) {
+      return `1인당 ${formatMoney(pp)} / 총액 ___ 원`;
+    }
+    return '1인당 ___ 원  /  총액 ___ 원';
+  })();
+
+  // 교통수단 표시
+  const transportCell = (
+    <span className="flex flex-wrap gap-2 text-xs">
+      {(['항공기', '선박', '기차'] as const).map((t) => (
+        <span key={t} className="inline-flex items-center gap-1">
+          <CheckBox checked={transportTypes.includes(t)} />{t}
+        </span>
+      ))}
+      {transportTypes.includes('선박') && data.shipName && (
+        <span className="text-gray-600">선박명: {data.shipName}</span>
+      )}
+    </span>
+  );
+
+  // 숙박 표시
+  const accommodationCell = (
+    <span className="flex flex-wrap gap-2 text-xs">
+      <span className="inline-flex items-center gap-1">
+        <CheckBox checked={accommodationTypes.includes('일정표표시')} />일정표 표시
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <CheckBox checked={accommodationTypes.includes('관광호텔')} />관광호텔
+        {accommodationTypes.includes('관광호텔') && data.hotelGrade && ` (${data.hotelGrade} 등급)`}
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <CheckBox checked={accommodationTypes.includes('기타')} />기타
+      </span>
+    </span>
+  );
+
+  // 식사 표시
+  const mealCell = (() => {
+    if (data.mealDisplay === '개별') {
+      return (
+        <span className="text-xs">
+          □ 일정표 표시 ■ 개별 입력 /
+          조식 {data.breakfast ?? '_'}회, 중식 {data.lunch ?? '_'}회, 석식 {data.dinner ?? '_'}회
+        </span>
+      );
+    }
+    if (data.mealDisplay === '일정표표시') {
+      return <span className="text-xs">■ 일정표 표시 / 조식 _회, 중식 _회, 석식 _회</span>;
+    }
+    return <span className="text-xs">□ 일정표 표시  /  조식 _회, 중식 _회, 석식 _회</span>;
+  })();
+
+  // 현지 안내원 표시
+  const localGuideCell = (() => {
+    if (data.localGuide === '있음') return '■ 있음  □ 없음  *여행일정표 참조';
+    if (data.localGuide === '없음') return '□ 있음  ■ 없음  *여행일정표 참조';
+    return '□ 있음  □ 없음  *여행일정표 참조';
+  })();
+
+  // 현지 교통 표시
+  const localTransportCell = (
+    <span className="flex flex-wrap gap-2 text-xs">
+      {(['버스', '승용차', '기타', '없음'] as const).map((t) => (
+        <span key={t} className="inline-flex items-center gap-1">
+          <CheckBox checked={localTransport.includes(t)} />{t}
+        </span>
+      ))}
+    </span>
+  );
+
+  // 현지 여행사 표시
+  const localAgencyCell = (() => {
+    if (data.localAgency === '있음') return '■ 있음  □ 없음  *여행일정표 참조';
+    if (data.localAgency === '없음') return '□ 있음  ■ 없음  *여행일정표 참조';
+    return '□ 있음  □ 없음  *여행일정표 참조';
+  })();
+
   return (
     <div className="max-h-[calc(100vh-200px)] overflow-y-auto rounded-xl border border-gray-200 bg-white text-[12px] leading-relaxed text-gray-800 shadow-sm">
       <div className="p-5 space-y-4">
@@ -800,11 +1255,11 @@ function FullContractPreview({
         <div className="flex items-center gap-4 rounded-lg bg-gray-50 px-4 py-2 text-xs">
           <span className="font-medium text-gray-600">계약 구분:</span>
           <label className="flex items-center gap-1.5 cursor-pointer">
-            <span className="inline-block h-3.5 w-3.5 rounded border border-gray-400 bg-white" />
+            <CheckBox checked={contractType === '기획여행'} />
             기획여행
           </label>
           <label className="flex items-center gap-1.5 cursor-pointer">
-            <span className="inline-block h-3.5 w-3.5 rounded border border-gray-400 bg-white" />
+            <CheckBox checked={contractType === '희망여행'} />
             희망여행
           </label>
         </div>
@@ -814,21 +1269,21 @@ function FullContractPreview({
           <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-orange-700">계약 정보</p>
           <table className="w-full border-collapse text-xs">
             <tbody>
-              {[
+              {([
                 ['상품명', data.productName || <span className="italic text-gray-300">여행일정표 참조</span>],
                 ['여행기간', data.departureDate ? `${data.departureDate} ~ (출발일 기준)` : <span className="italic text-gray-300">여행일정표 참조</span>],
-                ['여행보증', '□ 공제  □ 예치금  □ 영업보증보험'],
-                ['여행자보험', '□ 가입  □ 미가입 / 보험회사: ___'],
-                ['행사인원', '최저 ___ 명 / 최대 ___ 명'],
-                ['여행요금', data.amount ? `1인당 ${formatMoney(data.amount)} (총액: ___)` : '1인당 ___ 원  /  총액 ___ 원'],
-                ['교통수단', '□ 항공기  □ 선박  □ 기차  선박명: ___'],
-                ['숙박', '□ 일정표 표시  □ 관광호텔 (___ 등급)  □ 기타'],
-                ['식사', '□ 일정표 표시  /  조식 _회, 중식 _회, 석식 _회'],
+                ['여행보증', guaranteeCell],
+                ['여행자보험', insuranceCell],
+                ['행사인원', paxCell],
+                ['여행요금', fareCell],
+                ['교통수단', transportCell],
+                ['숙박', accommodationCell],
+                ['식사', mealCell],
                 ['여행 인솔자', guideRow],
-                ['현지 안내원', '□ 있음  □ 없음  *여행일정표 참조'],
-                ['현지 교통', '□ 버스  □ 승용차  □ 기타  □ 없음'],
-                ['현지 여행사', '□ 있음  □ 없음  *여행일정표 참조'],
-              ].map(([label, value], i) => (
+                ['현지 안내원', localGuideCell],
+                ['현지 교통', localTransportCell],
+                ['현지 여행사', localAgencyCell],
+              ] as [string, React.ReactNode][]).map(([label, value], i) => (
                 <tr key={i} className="border-b border-gray-100">
                   <td className="w-28 bg-gray-50 px-3 py-2 font-medium text-gray-600 align-top">{label}</td>
                   <td className="px-3 py-2 text-gray-700">{value}</td>

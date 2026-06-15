@@ -238,7 +238,7 @@ export default function UnsubscribedPage() {
             <Search className="w-5 h-5 text-gray-400 flex-shrink-0" />
             <input
               type="text"
-              placeholder="연락처 검색 (010-1234-5678 또는 01012345678)"
+              placeholder="전화 검색"
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -411,3 +411,4 @@ export default function UnsubscribedPage() {
     </div>
   );
 }
+

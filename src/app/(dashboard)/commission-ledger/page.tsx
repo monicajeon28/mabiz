@@ -25,13 +25,13 @@ type Summary = {
   net: number;
 };
 
-// GMcruise CommissionLedger 실제 entryType 값
+// 수당 항목별 설명 (50대 친화적)
 const TYPE_META: Record<string, { label: string; badge: string }> = {
-  SALES_COMMISSION:   { label: "판매커미션",  badge: "bg-green-100 text-green-700" },
-  OVERRIDE_COMMISSION:{ label: "오버라이드",  badge: "bg-emerald-100 text-emerald-700" },
-  BRANCH_COMMISSION:  { label: "지점커미션",  badge: "bg-teal-100 text-teal-700" },
-  HQ_NET:             { label: "본사순수익",  badge: "bg-blue-100 text-blue-700" },
-  WITHHOLDING:        { label: "원천징수",    badge: "bg-red-100 text-red-700" },
+  SALES_COMMISSION:   { label: "판매 수당",   badge: "bg-green-100 text-green-700" },
+  OVERRIDE_COMMISSION:{ label: "추가 수당",   badge: "bg-emerald-100 text-emerald-700" },
+  BRANCH_COMMISSION:  { label: "지점 수당",   badge: "bg-teal-100 text-teal-700" },
+  HQ_NET:             { label: "본사 정산액", badge: "bg-blue-100 text-blue-700" },
+  WITHHOLDING:        { label: "세금 차감",   badge: "bg-red-100 text-red-700" },
 };
 
 function formatDate(iso: string) {
@@ -65,10 +65,10 @@ const YM_OPTIONS = buildYmOptions();
 
 const TYPE_TABS: { value: string; label: string }[] = [
   { value: "",                   label: "전체" },
-  { value: "SALES_COMMISSION",   label: "판매커미션" },
-  { value: "OVERRIDE_COMMISSION",label: "오버라이드" },
-  { value: "BRANCH_COMMISSION",  label: "지점커미션" },
-  { value: "WITHHOLDING",        label: "원천징수" },
+  { value: "SALES_COMMISSION",   label: "판매 수당" },
+  { value: "OVERRIDE_COMMISSION",label: "추가 수당" },
+  { value: "BRANCH_COMMISSION",  label: "지점 수당" },
+  { value: "WITHHOLDING",        label: "세금 차감" },
 ];
 
 export default function CommissionLedgerPage() {
@@ -138,33 +138,33 @@ export default function CommissionLedgerPage() {
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-1">
           <BookOpen className="w-5 h-5 text-teal-600" />
-          <h1 className="text-xl font-bold text-navy-900">커미션 원장</h1>
+          <h1 className="text-xl font-bold text-navy-900">수당 현황</h1>
         </div>
-        <p className="text-sm text-gray-500">에이전트별 커미션 수익·지급·조정 내역</p>
+        <p className="text-sm text-gray-500">판매원별 수당 입금·차감·조정 내역을 확인합니다</p>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <p className="text-sm text-gray-500 mb-1">판매커미션</p>
+          <p className="text-sm text-gray-500 mb-1">판매 수당</p>
           <p className="text-lg font-bold text-green-600">
             {summary ? `+${summary.totalSalesCommission.toLocaleString("ko-KR")}원` : "—"}
           </p>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <p className="text-sm text-gray-500 mb-1">오버라이드</p>
+          <p className="text-sm text-gray-500 mb-1">추가 수당</p>
           <p className="text-lg font-bold text-emerald-600">
             {summary ? `+${summary.totalOverride.toLocaleString("ko-KR")}원` : "—"}
           </p>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <p className="text-sm text-gray-500 mb-1">원천징수</p>
+          <p className="text-sm text-gray-500 mb-1">세금 차감</p>
           <p className="text-lg font-bold text-red-500">
             {summary ? `-${summary.totalWithholding.toLocaleString("ko-KR")}원` : "—"}
           </p>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <p className="text-sm text-gray-500 mb-1">실수령액</p>
+          <p className="text-sm text-gray-500 mb-1">받을 금액</p>
           <p className="text-lg font-bold text-navy-900">
             {summary ? `${summary.net.toLocaleString("ko-KR")}원` : "—"}
           </p>
@@ -231,13 +231,13 @@ export default function CommissionLedgerPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">날짜</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">기간</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">구분</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-500 text-sm">요율</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">처리 날짜</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">해당 기간</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">항목</th>
+                  <th className="text-right px-4 py-3 font-medium text-gray-500 text-sm">비율</th>
                   <th className="text-right px-4 py-3 font-medium text-gray-500 text-sm">금액</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-500 text-sm">잔액</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">메모</th>
+                  <th className="text-right px-4 py-3 font-medium text-gray-500 text-sm">현재 잔액</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">비고</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">

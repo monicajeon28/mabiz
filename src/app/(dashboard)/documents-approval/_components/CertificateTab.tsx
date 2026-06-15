@@ -15,6 +15,8 @@ import {
   Building2,
   AlertTriangle,
   ShieldCheck,
+  Search,
+  PenLine,
 } from 'lucide-react';
 import { showError, showSuccess } from '@/components/ui/Toast';
 import { CANCELLATION_POLICY } from '@/lib/company-info';
@@ -84,6 +86,28 @@ type ProductInfo = {
 
 type CertMode = 'purchase' | 'refund';
 
+// 직접 입력 상태 타입
+type DirectInput = {
+  buyerName: string;
+  buyerTel: string;
+  productName: string;
+  amount: string;
+  paidAt: string;
+  // 환불인증서 전용
+  cancelDate: string;
+  departureDate: string;
+};
+
+const DIRECT_INPUT_INITIAL: DirectInput = {
+  buyerName: '',
+  buyerTel: '',
+  productName: '',
+  amount: '',
+  paidAt: '',
+  cancelDate: '',
+  departureDate: '',
+};
+
 const CONFIG = {
   purchase: {
     title: '구매확인증서',
@@ -109,6 +133,10 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
   const cfg = CONFIG[mode];
   const { ref, isDownloading, download } = useImageDownload();
   const agent = useCurrentAgent();
+
+  // 입력 모드: 검색 vs 직접 입력
+  const [inputMode, setInputMode] = useState<'search' | 'direct'>('search');
+  const [directInput, setDirectInput] = useState<DirectInput>(DIRECT_INPUT_INITIAL);
 
   const [selectedSale, setSelectedSale] = useState<SaleResult | null>(null);
   const [isIssuing, setIsIssuing] = useState(false);
@@ -145,16 +173,125 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
       .finally(() => setIsLoadingProductInfo(false));
   }, [selectedSale?.productCode]);
 
+  // ── 미리보기에 사용할 데이터 타입 (SaleResult의 미리보기 관련 필드만) ────────
+  type PreviewSaleData = {
+    buyerName: string | null;
+    buyerTel: string | null;
+    customerPhone: string | null;
+    productName: string | null;
+    saleAmount: number | null;
+    paidAt: string | null;
+    orderId: string | null;
+    productCode: string | null;
+  };
+
+  // ── 미리보기 데이터 통합 (검색 선택 우선, 없으면 직접 입력 사용) ───────────
+  const previewSale = useMemo((): PreviewSaleData | null => {
+    if (selectedSale) {
+      return {
+        buyerName: selectedSale.buyerName,
+        buyerTel: selectedSale.buyerTel,
+        customerPhone: selectedSale.customerPhone,
+        productName: selectedSale.productName,
+        saleAmount: selectedSale.saleAmount,
+        paidAt: selectedSale.paidAt,
+        orderId: selectedSale.orderId,
+        productCode: selectedSale.productCode,
+      };
+    }
+    if (inputMode === 'direct') {
+      return {
+        buyerName: directInput.buyerName || null,
+        buyerTel: directInput.buyerTel || null,
+        customerPhone: directInput.buyerTel || null,
+        productName: directInput.productName || null,
+        saleAmount: directInput.amount ? Number(directInput.amount) : null,
+        paidAt: directInput.paidAt || null,
+        orderId: null,
+        productCode: null,
+      };
+    }
+    return null;
+  }, [selectedSale, inputMode, directInput]);
+
+  // 직접 입력에서 환불 계산 전용 날짜 데이터
+  const directRefundDates = useMemo(() => {
+    if (inputMode !== 'direct') return null;
+    return {
+      cancelDate: directInput.cancelDate || null,
+      departureDate: directInput.departureDate || null,
+      amount: directInput.amount ? Number(directInput.amount) : null,
+    };
+  }, [inputMode, directInput.cancelDate, directInput.departureDate, directInput.amount]);
+
+  // 발급 버튼 활성화 조건
+  const canIssue = (() => {
+    if (inputMode === 'search') return !!selectedSale;
+    // 직접 입력: 이름 + 상품명 + 금액 필수
+    return !!(directInput.buyerName && directInput.productName && directInput.amount);
+  })();
+
   const handleIssue = async () => {
-    if (!selectedSale) { showError('먼저 고객을 선택해주세요.'); return; }
-    if (!selectedSale.orderId) { showError('이 판매 건에는 주문번호가 없어 증서를 발급할 수 없습니다.'); return; }
+    if (!canIssue) {
+      showError(
+        inputMode === 'search'
+          ? '먼저 고객을 선택해주세요.'
+          : '고객 이름, 상품명, 금액을 입력해주세요.'
+      );
+      return;
+    }
+    if (inputMode === 'search' && !selectedSale?.orderId) {
+      showError('이 판매 건에는 주문번호가 없어 증서를 발급할 수 없습니다.');
+      return;
+    }
     setIsIssuing(true);
     try {
+      let body: Record<string, unknown>;
+
+      if (inputMode === 'search' && selectedSale) {
+        body = { orderId: selectedSale.orderId };
+      } else {
+        // 직접 입력 모드: 클라이언트 데이터로 즉시 생성 (API 미호출)
+        const gen: PurchaseData & RefundData = {
+          buyerName: directInput.buyerName || null,
+          buyerTel: directInput.buyerTel || null,
+          productName: directInput.productName || null,
+          amount: directInput.amount ? Number(directInput.amount) : null,
+          paidAt: directInput.paidAt || null,
+          cancelledAt: directInput.cancelDate || null,
+          departureDate: directInput.departureDate || null,
+        };
+
+        // 환불인증서 직접 입력: 자동 계산
+        if (mode === 'refund' && gen.amount && directInput.departureDate) {
+          try {
+            const calc = calcRefundAmount(
+              gen.amount,
+              new Date(directInput.departureDate),
+              null
+            );
+            gen.refundAmount = calc.refundAmount;
+            gen.penaltyRate = calc.penaltyRate;
+            gen.penaltyAmount = calc.penaltyAmount;
+            gen.daysBeforeDep = calc.daysBeforeDep;
+            gen.refundBasis = calc.basis;
+          } catch {
+            // 계산 실패 시 원금 그대로
+            gen.refundAmount = gen.amount;
+          }
+        }
+
+        if (mode === 'purchase') setPurchaseData(gen as PurchaseData);
+        else setRefundData(gen as RefundData);
+        showSuccess(`${cfg.title}가 발급되었습니다.`);
+        return;
+      }
+
       const res = await fetch(cfg.apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ orderId: selectedSale.orderId }),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.message || json.error || '증서 발급에 실패했습니다.');
@@ -181,152 +318,247 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
     setSelectedSale(null);
     setPurchaseData(null);
     setRefundData(null);
+    setDirectInput(DIRECT_INPUT_INITIAL);
+  };
+
+  // 입력 모드 전환 시 기존 상태 초기화
+  const handleInputModeChange = (next: 'search' | 'direct') => {
+    setInputMode(next);
+    setSelectedSale(null);
+    setPurchaseData(null);
+    setRefundData(null);
+    setProductInfo(null);
+    setDirectInput(DIRECT_INPUT_INITIAL);
+  };
+
+  const handleDirectInputChange = (field: keyof DirectInput, value: string) => {
+    setDirectInput((prev) => ({ ...prev, [field]: value }));
+    // 직접 입력 변경 시 이미 발급된 증서 초기화
+    setPurchaseData(null);
+    setRefundData(null);
   };
 
   return (
     <div className="space-y-6">
-      {/* ═══ 안내 박스: 고객 선택 전에만 표시 ══════════════════════════════════════════ */}
-      {!selectedSale && (
-        <div className="rounded-2xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 to-blue-50 p-8">
-          <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-600">
-              <span className="text-base font-bold text-white">🚀</span>
-            </div>
-            <h4 className="text-lg font-bold text-gray-900">빠른 시작: {cfg.title} 발급</h4>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Step 1 */}
-            <div className="flex gap-4">
-              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white font-bold text-lg">
-                1️⃣
-              </div>
-              <div className="flex flex-col justify-center">
-                <p className="font-semibold text-gray-900">고객 검색</p>
-                <p className="text-sm text-gray-600">이름·주문번호·전화번호 입력</p>
-              </div>
-            </div>
-
-            {/* Step 2 */}
-            <div className="flex gap-4">
-              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white font-bold text-lg">
-                2️⃣
-              </div>
-              <div className="flex flex-col justify-center">
-                <p className="font-semibold text-gray-900">정보 확인</p>
-                <p className="text-sm text-gray-600">고객·상품 정보 자동 로드</p>
-              </div>
-            </div>
-
-            {/* Step 3 */}
-            <div className="flex gap-4">
-              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white font-bold text-lg">
-                3️⃣
-              </div>
-              <div className="flex flex-col justify-center">
-                <p className="font-semibold text-gray-900">미리보기 검토</p>
-                <p className="text-sm text-gray-600">발급 전 최종 확인</p>
-              </div>
-            </div>
-
-            {/* Step 4 */}
-            <div className="flex gap-4">
-              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white font-bold text-lg">
-                4️⃣
-              </div>
-              <div className="flex flex-col justify-center">
-                <p className="font-semibold text-gray-900">증서 발급</p>
-                <p className="text-sm text-gray-600">PNG 다운로드 가능</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ═══ 상단: 검색 + 발급 영역 (모바일 우선) ══════════════════════════ */}
+      {/* ═══ 상단: 입력 영역 ════════════════════════════════════════════════════ */}
       <div className="space-y-5 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
         <div className="flex items-center gap-2">
           <cfg.Icon className="h-5 w-5 text-gray-700" />
           <h3 className="text-base font-bold text-gray-900">{cfg.title} 발급</h3>
         </div>
 
-        <CustomerAutocomplete
-          label="고객 검색"
-          placeholder="이름·주문번호·전화번호 입력"
-          accent={cfg.accent}
-          onlyPurchasable={mode === 'purchase'}
-          onlyRefundable={mode === 'refund'}
-          onSelect={(s) => {
-            setSelectedSale(s);
-            setPurchaseData(null);
-            setRefundData(null);
-            setProductInfo(null);
-          }}
-        />
+        {/* ─── 입력 모드 선택 탭 ─────────────────────────────────────────── */}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => handleInputModeChange('search')}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 px-4 py-3 text-sm font-bold transition-colors ${
+              inputMode === 'search'
+                ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <Search className="h-4 w-4" />
+            고객 검색
+          </button>
+          <button
+            type="button"
+            onClick={() => handleInputModeChange('direct')}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 px-4 py-3 text-sm font-bold transition-colors ${
+              inputMode === 'direct'
+                ? 'border-violet-500 bg-violet-50 text-violet-700'
+                : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <PenLine className="h-4 w-4" />
+            직접 입력
+          </button>
+        </div>
 
-        {/* 선택된 판매 건 요약 */}
-        {selectedSale && (
+        {/* ─── 검색 모드 ─────────────────────────────────────────────────── */}
+        {inputMode === 'search' && (
           <>
-            <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm">
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-2 text-gray-700">
-                  <User className="h-4 w-4 text-gray-400" />
-                  <span className="font-medium">{selectedSale.buyerName || '(이름없음)'}</span>
-                  {selectedSale.customerPhone && <span className="text-xs text-gray-400">{selectedSale.customerPhone}</span>}
-                </div>
-                <div className="flex items-center gap-2 text-gray-700">
-                  <Package className="h-4 w-4 text-gray-400" />
-                  <span className="truncate text-sm">{selectedSale.productName || '(상품명 없음)'}</span>
-                </div>
-                <div className="flex items-center gap-2 text-gray-700">
-                  <CreditCard className="h-4 w-4 text-gray-400" />
-                  <span className="font-semibold">{formatMoney(selectedSale.saleAmount)}</span>
-                </div>
-                {selectedSale.orderId && <div className="text-xs text-gray-400">주문 {selectedSale.orderId}</div>}
-              </div>
-            </div>
+            <CustomerAutocomplete
+              label="고객 검색"
+              placeholder="이름·주문번호·전화번호 입력"
+              accent={cfg.accent}
+              onlyPurchasable={mode === 'purchase'}
+              onlyRefundable={mode === 'refund'}
+              onSelect={(s) => {
+                setSelectedSale(s);
+                setPurchaseData(null);
+                setRefundData(null);
+                setProductInfo(null);
+              }}
+            />
 
-            {/* 상품 정보 카드 (로딩 또는 성공) */}
-            {isLoadingProductInfo ? (
-              <div className="flex items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 p-4">
-                <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
-                <span className="ml-2 text-sm text-indigo-600">상품 정보 조회 중...</span>
-              </div>
-            ) : (
-              productInfo && (
-                <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm">
-                  <p className="mb-2 text-xs font-bold text-indigo-600">📦 상품 정보</p>
-                  <div className="space-y-1 text-xs text-indigo-700">
-                    <p>
-                      <span className="font-medium">선박:</span> {productInfo.shipName || '-'}
-                    </p>
-                    <p>
-                      <span className="font-medium">포함 항목:</span>{' '}
-                      {productInfo.includedItems?.join(', ') || '-'}
-                    </p>
-                    {productInfo.excludedItems && productInfo.excludedItems.length > 0 && (
-                      <p>
-                        <span className="font-medium">불포함 항목:</span>{' '}
-                        {productInfo.excludedItems.join(', ')}
-                      </p>
-                    )}
-                    {productInfo.itineraryPattern ? (
-                      <p>
-                        <span className="font-medium">기항지:</span>{' '}
-                        {buildItinerary(productInfo.itineraryPattern as unknown) as React.ReactNode}
-                      </p>
-                    ) : null}
+            {/* 선택된 판매 건 요약 */}
+            {selectedSale && (
+              <>
+                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm">
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2 text-gray-700">
+                      <User className="h-4 w-4 text-gray-400" />
+                      <span className="font-medium">{selectedSale.buyerName || '(이름없음)'}</span>
+                      {selectedSale.customerPhone && <span className="text-xs text-gray-400">{selectedSale.customerPhone}</span>}
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-700">
+                      <Package className="h-4 w-4 text-gray-400" />
+                      <span className="truncate text-sm">{selectedSale.productName || '(상품명 없음)'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-700">
+                      <CreditCard className="h-4 w-4 text-gray-400" />
+                      <span className="font-semibold">{formatMoney(selectedSale.saleAmount)}</span>
+                    </div>
+                    {selectedSale.orderId && <div className="text-xs text-gray-400">주문 {selectedSale.orderId}</div>}
                   </div>
                 </div>
-              )
+
+                {/* 상품 정보 카드 (로딩 또는 성공) */}
+                {isLoadingProductInfo ? (
+                  <div className="flex items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 p-4">
+                    <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+                    <span className="ml-2 text-sm text-indigo-600">상품 정보 조회 중...</span>
+                  </div>
+                ) : (
+                  productInfo && (
+                    <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm">
+                      <p className="mb-2 text-xs font-bold text-indigo-600">📦 상품 정보</p>
+                      <div className="space-y-1 text-xs text-indigo-700">
+                        <p>
+                          <span className="font-medium">선박:</span> {productInfo.shipName || '-'}
+                        </p>
+                        <p>
+                          <span className="font-medium">포함 항목:</span>{' '}
+                          {productInfo.includedItems?.join(', ') || '-'}
+                        </p>
+                        {productInfo.excludedItems && productInfo.excludedItems.length > 0 && (
+                          <p>
+                            <span className="font-medium">불포함 항목:</span>{' '}
+                            {productInfo.excludedItems.join(', ')}
+                          </p>
+                        )}
+                        {productInfo.itineraryPattern ? (
+                          <p>
+                            <span className="font-medium">기항지:</span>{' '}
+                            {buildItinerary(productInfo.itineraryPattern as unknown) as React.ReactNode}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                  )
+                )}
+              </>
             )}
           </>
         )}
 
+        {/* ─── 직접 입력 모드 ────────────────────────────────────────────── */}
+        {inputMode === 'direct' && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-500">고객 정보를 직접 입력하면 미리보기에 즉시 반영됩니다.</p>
+
+            {/* 공통 필드 */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-semibold text-gray-700">
+                  고객 이름 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={directInput.buyerName}
+                  onChange={(e) => handleDirectInputChange('buyerName', e.target.value)}
+                  placeholder="예: 홍길동"
+                  className="rounded-xl border border-gray-300 px-4 py-3 text-base text-gray-900 placeholder-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-semibold text-gray-700">연락처</label>
+                <input
+                  type="text"
+                  value={directInput.buyerTel}
+                  onChange={(e) => handleDirectInputChange('buyerTel', e.target.value)}
+                  placeholder="예: 010-1234-5678"
+                  className="rounded-xl border border-gray-300 px-4 py-3 text-base text-gray-900 placeholder-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-gray-700">
+                상품명 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={directInput.productName}
+                onChange={(e) => handleDirectInputChange('productName', e.target.value)}
+                placeholder="예: 코스타 세레나 지중해 7박 8일"
+                className="rounded-xl border border-gray-300 px-4 py-3 text-base text-gray-900 placeholder-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+              />
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-semibold text-gray-700">
+                  결제 금액 (원) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  value={directInput.amount}
+                  onChange={(e) => handleDirectInputChange('amount', e.target.value)}
+                  placeholder="예: 3000000"
+                  min={0}
+                  className="rounded-xl border border-gray-300 px-4 py-3 text-base text-gray-900 placeholder-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-semibold text-gray-700">결제일</label>
+                <input
+                  type="date"
+                  value={directInput.paidAt}
+                  onChange={(e) => handleDirectInputChange('paidAt', e.target.value)}
+                  className="rounded-xl border border-gray-300 px-4 py-3 text-base text-gray-900 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                />
+              </div>
+            </div>
+
+            {/* 환불인증서 전용 추가 필드 */}
+            {mode === 'refund' && (
+              <div className="rounded-xl border-2 border-red-100 bg-red-50 p-4 space-y-3">
+                <p className="text-sm font-bold text-red-700">환불 정보 (자동 계산)</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-sm font-semibold text-gray-700">출발일</label>
+                    <input
+                      type="date"
+                      value={directInput.departureDate}
+                      onChange={(e) => handleDirectInputChange('departureDate', e.target.value)}
+                      className="rounded-xl border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-100"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-sm font-semibold text-gray-700">환불 요청일</label>
+                    <input
+                      type="date"
+                      value={directInput.cancelDate}
+                      onChange={(e) => handleDirectInputChange('cancelDate', e.target.value)}
+                      className="rounded-xl border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-100"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-red-600">
+                  출발일과 금액을 입력하면 환불액이 자동 계산됩니다.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ─── 발급 버튼 ──────────────────────────────────────────────────── */}
         <button
           type="button"
           onClick={handleIssue}
-          disabled={!selectedSale || isIssuing}
+          disabled={!canIssue || isIssuing}
           className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-6 py-4 text-base font-bold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${cfg.issueBtn}`}
         >
           {isIssuing ? <Loader2 className="h-5 w-5 animate-spin" /> : <cfg.Icon className="h-5 w-5" />}
@@ -345,85 +577,75 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
         )}
       </div>
 
-      {/* ═══ 하단: 미리보기 영역 (모바일 우선 세로 배치) ═══════════════════ */}
+      {/* ═══ 하단: 미리보기 영역 ═══════════════════════════════════════════════ */}
       <div className="space-y-4">
         {/* 상태 헤더 */}
         <div className="flex items-center gap-2">
           <cfg.Icon className="h-5 w-5 text-gray-600" />
           <p className="text-base font-bold text-gray-900">
-            {!hasIssued && selectedSale && '이렇게 저장됩니다'}
-            {!hasIssued && !selectedSale && '발급 후 미리보기'}
+            {!hasIssued && previewSale && '이렇게 저장됩니다'}
+            {!hasIssued && !previewSale && '미리보기'}
             {hasIssued && '발급 완료증서'}
           </p>
         </div>
 
         {/* 미리보기 영역 */}
         {!hasIssued ? (
-          selectedSale ? (
-            <>
-              {/* 발급 전: 큰 미리보기 강조 */}
-              <div
-                className={`rounded-2xl border-2 p-6 transition-all ${
+          // 발급 전: 항상 미리보기 표시 (고객 선택 전에는 빈 데이터로 표시)
+          <div
+            className={`rounded-2xl border-2 p-6 transition-all ${
+              previewSale
+                ? mode === 'purchase'
+                  ? 'border-emerald-300 bg-emerald-50'
+                  : 'border-red-300 bg-red-50'
+                : 'border-gray-200 bg-gray-50'
+            }`}
+          >
+            {previewSale && (
+              <p
+                className={`mb-6 flex items-center gap-2 text-sm font-semibold ${
                   mode === 'purchase'
-                    ? 'border-emerald-300 bg-emerald-50'
-                    : 'border-red-300 bg-red-50'
+                    ? 'text-emerald-700'
+                    : 'text-red-700'
                 }`}
               >
-                <p
-                  className={`mb-6 flex items-center gap-2 text-sm font-semibold ${
-                    mode === 'purchase'
-                      ? 'text-emerald-700'
-                      : 'text-red-700'
-                  }`}
-                >
-                  <ShieldCheck className="h-5 w-5" />
-                  <span>3단계</span>: 발급 버튼을 누르면 이 내용으로 정식 증서가 생성됩니다
-                </p>
+                <ShieldCheck className="h-5 w-5" />
+                발급 버튼을 누르면 이 내용으로 정식 증서가 생성됩니다
+              </p>
+            )}
 
-                {mode === 'purchase' && (
-                  <PurchasePreviewDraft
-                    data={{
-                      buyerName: selectedSale.buyerName,
-                      buyerTel: selectedSale.buyerTel,
-                      productName: selectedSale.productName,
-                      amount: selectedSale.saleAmount,
-                      paidAt: selectedSale.paidAt,
-                      paymentMethod: undefined,
-                    }}
-                    productInfo={productInfo}
-                  />
-                )}
-                {mode === 'refund' && (
-                  <RefundPreviewDraft
-                    data={{
-                      buyerName: selectedSale.buyerName,
-                      productName: selectedSale.productName,
-                      amount: selectedSale.saleAmount,
-                      paidAt: selectedSale.paidAt,
-                    }}
-                    productInfo={productInfo}
-                  />
-                )}
-              </div>
-            </>
-          ) : (
-            /* 고객 선택 전 placeholder */
-            <div
-              ref={ref}
-              className="flex min-h-[240px] flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gradient-to-b from-gray-50 to-gray-100 py-12 text-center"
-            >
-              <div className="flex items-center justify-center h-20 w-20 rounded-full bg-gray-200 mb-4">
-                <cfg.Icon className="h-10 w-10 text-gray-400" />
-              </div>
-              <p className="text-lg font-semibold text-gray-700">위의 단계를 따라 시작하세요</p>
-              <p className="mt-2 text-sm text-gray-500">고객 검색으로 1단계부터 시작됩니다</p>
-              <div className="mt-6 flex gap-2 text-xs text-gray-400">
-                <span className="inline-block rounded-full bg-gray-200 px-3 py-1">1️⃣ 고객 검색</span>
-                <span className="inline-block text-gray-300">→</span>
-                <span className="inline-block rounded-full bg-gray-200 px-3 py-1">2️⃣ 정보 확인</span>
-              </div>
-            </div>
-          )
+            {!previewSale && (
+              <p className="mb-4 text-sm font-semibold text-gray-500">
+                고객 정보를 입력하면 아래 미리보기에 자동 반영됩니다.
+              </p>
+            )}
+
+            {mode === 'purchase' && (
+              <PurchasePreviewDraft
+                data={{
+                  buyerName: previewSale?.buyerName ?? null,
+                  buyerTel: previewSale?.buyerTel ?? null,
+                  productName: previewSale?.productName ?? null,
+                  amount: previewSale?.saleAmount ?? null,
+                  paidAt: previewSale?.paidAt ?? null,
+                  paymentMethod: undefined,
+                }}
+                productInfo={productInfo}
+              />
+            )}
+            {mode === 'refund' && (
+              <RefundPreviewDraft
+                data={{
+                  buyerName: previewSale?.buyerName ?? null,
+                  productName: previewSale?.productName ?? null,
+                  amount: previewSale?.saleAmount ?? null,
+                  paidAt: previewSale?.paidAt ?? null,
+                }}
+                productInfo={productInfo}
+                directRefundDates={directRefundDates}
+              />
+            )}
+          </div>
         ) : (
           /* 발급 후: 완성된 증서 + 다운로드 */
           <div className="space-y-4">
@@ -441,7 +663,7 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
               <RefundPreview cardRef={ref} data={refundData} agent={agent} />
             )}
 
-            {/* 다운로드 버튼 - 항상 보이기 */}
+            {/* 다운로드 버튼 */}
             <button
               type="button"
               onClick={handleDownload}
@@ -709,9 +931,16 @@ function PurchasePreviewDraft({
 // 발급 전 미리보기 (환불완료증서 임시 정보)
 // ─────────────────────────────────────────────────────────────────────────────
 
+type DirectRefundDates = {
+  cancelDate: string | null;
+  departureDate: string | null;
+  amount: number | null;
+} | null;
+
 function RefundPreviewDraft({
   data,
   productInfo,
+  directRefundDates,
 }: {
   data: {
     buyerName?: string | null;
@@ -720,19 +949,37 @@ function RefundPreviewDraft({
     paidAt?: string | null;
   };
   productInfo?: ProductInfo | null;
+  directRefundDates?: DirectRefundDates;
 }) {
+  // 환불 계산: productInfo.startDate 우선, 없으면 directRefundDates.departureDate 사용
   const refundCalc = useMemo(() => {
-    if (!data.amount || !productInfo?.startDate) return null;
+    const amount = data.amount;
+    const startDateStr = productInfo?.startDate ?? directRefundDates?.departureDate;
+    if (!amount || !startDateStr) return null;
     try {
+      // cancelDate를 기준일(baseDate)로 사용 (있으면), 없으면 오늘
+      const baseDate = directRefundDates?.cancelDate
+        ? new Date(directRefundDates.cancelDate)
+        : undefined;
       return calcRefundAmount(
-        data.amount,
-        new Date(productInfo.startDate),
-        productInfo.refundPolicy ?? null,
+        amount,
+        new Date(startDateStr),
+        productInfo?.refundPolicy ?? null,
+        baseDate
       );
     } catch {
       return null;
     }
-  }, [data.amount, productInfo?.startDate, productInfo?.refundPolicy]);
+  }, [
+    data.amount,
+    productInfo?.startDate,
+    productInfo?.refundPolicy,
+    directRefundDates?.departureDate,
+    directRefundDates?.cancelDate,
+  ]);
+
+  const showDepartureMissing =
+    !productInfo?.startDate && !directRefundDates?.departureDate;
 
   return (
     <div className="space-y-3">
@@ -749,10 +996,27 @@ function RefundPreviewDraft({
           <span className="text-sm font-semibold text-gray-600">원결제금액</span>
           <span className="text-2xl font-extrabold text-red-700">{formatMoney(data.amount ?? null)}</span>
         </div>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between border-b border-red-100 pb-4">
           <span className="text-sm font-semibold text-gray-600">결제일</span>
           <span className="text-lg font-medium text-gray-900">{formatDate(data.paidAt)}</span>
         </div>
+        {/* 직접 입력 날짜 표시 */}
+        {directRefundDates?.departureDate && (
+          <div className="flex items-center justify-between border-b border-red-100 pb-4">
+            <span className="text-sm font-semibold text-gray-600">출발일</span>
+            <span className="text-lg font-medium text-gray-900">
+              {formatDate(directRefundDates.departureDate)}
+            </span>
+          </div>
+        )}
+        {directRefundDates?.cancelDate && (
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-gray-600">환불 요청일</span>
+            <span className="text-lg font-medium text-gray-900">
+              {formatDate(directRefundDates.cancelDate)}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* 환불 계산 결과 */}
@@ -765,7 +1029,8 @@ function RefundPreviewDraft({
           {refundCalc.penaltyRate > 0 && (
             <div className="rounded bg-white px-3 py-2 mb-3 border border-red-200">
               <p className="text-sm text-red-700">
-                위약금 <span className="font-bold">{refundCalc.penaltyRate}%</span> <span className="text-red-600 font-bold">- {formatMoney(refundCalc.penaltyAmount)}</span>
+                위약금 <span className="font-bold">{refundCalc.penaltyRate}%</span>{' '}
+                <span className="text-red-600 font-bold">- {formatMoney(refundCalc.penaltyAmount)}</span>
               </p>
             </div>
           )}
@@ -776,10 +1041,10 @@ function RefundPreviewDraft({
       )}
 
       {/* 출발일 없으면 안내 */}
-      {!productInfo?.startDate && (
+      {showDepartureMissing && (
         <div className="rounded-lg border-l-4 border-amber-400 bg-amber-50 px-4 py-3">
-          <p className="text-sm text-amber-700 font-medium">⚠️ 출발일 정보 없음</p>
-          <p className="text-xs text-amber-600 mt-1">발급 버튼을 눌러 정확한 환불액 확인</p>
+          <p className="text-sm text-amber-700 font-medium">출발일 정보 없음</p>
+          <p className="text-xs text-amber-600 mt-1">출발일을 입력하면 자동으로 환불액이 계산됩니다.</p>
         </div>
       )}
     </div>

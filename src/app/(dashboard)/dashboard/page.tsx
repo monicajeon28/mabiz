@@ -28,9 +28,9 @@ export default async function DashboardPage() {
         <DashboardClient session={session} />
       </div>
 
-      {/* 고객 세그먼트 추천 분석 */}
+      {/* 고객 추천 분석 */}
       <div className="mt-8 mb-8">
-        <h2 className="text-xl font-bold text-navy-900 mb-4">고객 세그먼트 추천 분석</h2>
+        <h2 className="text-xl font-bold text-navy-900 mb-4">고객 추천 분석</h2>
         <ErrorBoundary fallback={
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="text-center text-gray-500">

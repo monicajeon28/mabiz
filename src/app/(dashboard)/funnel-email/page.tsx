@@ -76,10 +76,10 @@ export default function FunnelEmailPage() {
         <div>
           <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             <Mail className="w-6 h-6 text-blue-600" />
-            자동이메일
+            이메일 자동 발송
           </h1>
           <p className="text-base text-gray-500 mt-1">
-            고객이 신청하면 자동으로 이메일이 발송됩니다.
+            고객이 신청하면 자동으로 이메일이 발송되도록 설정합니다.
           </p>
         </div>
         <button
@@ -87,7 +87,7 @@ export default function FunnelEmailPage() {
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg text-base font-medium hover:bg-blue-700 transition-colors min-h-[48px]"
         >
           <Plus className="w-5 h-5" />
-          새 자동이메일 만들기
+          이메일 추가 만들기
         </button>
       </div>
 
@@ -107,17 +107,17 @@ export default function FunnelEmailPage() {
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <Mail className="w-12 h-12 text-gray-300 mb-4" />
           <p className="text-lg font-medium text-gray-600 mb-2">
-            아직 자동이메일이 없습니다.
+            아직 이메일이 없습니다.
           </p>
           <p className="text-base text-gray-400 mb-6">
-            새로 만들어보세요.
+            첫 번째 이메일을 만들어보세요.
           </p>
           <button
             onClick={() => router.push("/funnel-email/new")}
             className="flex items-center gap-2 bg-blue-600 text-white px-5 py-3 rounded-lg text-base font-medium hover:bg-blue-700 transition-colors min-h-[48px]"
           >
             <Plus className="w-5 h-5" />
-            새 자동이메일 만들기
+            이메일 추가 만들기
           </button>
         </div>
       ) : (
@@ -145,12 +145,12 @@ export default function FunnelEmailPage() {
                     <div className="flex flex-wrap items-center gap-3 mt-2">
                       <span className="flex items-center gap-1 text-sm text-gray-500">
                         <Mail className="w-4 h-4" />
-                        이메일 {item._count.messages}개
+                        {item._count.messages}개 메시지
                       </span>
                       {item.groups.length > 0 && (
                         <span className="flex items-center gap-1 text-sm text-gray-500">
                           <Users className="w-4 h-4" />
-                          {item.groups.length}개 그룹 연결
+                          {item.groups.length}개 그룹에 사용중
                         </span>
                       )}
                       {item.senderEmail && (
