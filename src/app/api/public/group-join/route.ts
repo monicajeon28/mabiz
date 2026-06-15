@@ -152,6 +152,7 @@ export async function POST(req: Request) {
       groupId:        group.id,
       organizationId: group.organizationId,
       anchorDate:     member.addedAt,
+      reEntryPolicy:  group.reEntryPolicy ?? undefined,
     }).catch((err) => {
       logger.error('[group-join] EmailFunnel trigger 실패', { seq, contactId: contact.id, err });
     });
