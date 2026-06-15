@@ -28,14 +28,14 @@ const FORMAT_EMOJI: Record<PageFormat, string> = {
 };
 
 const FORMAT_LABELS: Record<PageFormat, string> = {
-  squeeze: 'Squeeze Page',
-  vsl: 'VSL (영상)',
-  webinar: 'Webinar',
-  funnel: 'Sales Funnel',
-  tripwire: 'Tripwire',
-  downsell: 'Downsell',
-  launch: 'Launch',
-  hybrid: 'Hybrid',
+  squeeze: '상품 신청 받기',
+  vsl: '영상으로 소개',
+  webinar: '설명회 참가',
+  funnel: '단계별 안내',
+  tripwire: '특가 상품',
+  downsell: '대안 상품',
+  launch: '상품 런칭',
+  hybrid: '자유 형식',
 };
 
 // 형식별 기대 전환율
@@ -302,7 +302,7 @@ export default function NewLandingPage() {
     return () => ctrl.abort();
   }, []);
 
-  // Step 1: 형식 변경 시 기대값 자동 계산 + 모달 표시
+  // Step 1: 형식 변경 시 기대값 자동 계산
   useEffect(() => {
     const metric = EXPECTED_CONVERSION_BY_FORMAT[pageFormat];
     setExpectedMetrics({
@@ -310,7 +310,6 @@ export default function NewLandingPage() {
       target: metric.optimized,
       lift: metric.lift,
     });
-    setShowExpectationModal(true);
   }, [pageFormat]);
 
   const handleTitleChange = (t: string) => {
@@ -949,9 +948,52 @@ ${footerBlock}
         {/* 스크롤 본문 */}
         <div className="flex-1 overflow-y-auto">
 
+          {/* 퀵스타트 카드 */}
+          <div className="px-4 py-4 bg-yellow-50 border-b border-yellow-200">
+            <p className="text-sm font-bold text-yellow-900 mb-3">⚡ 빠르게 시작하기</p>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                onClick={() => {
+                  setPageFormat('squeeze');
+                  setTitle('크루즈 멤버십 신청');
+                  setCtaType('urgency');
+                }}
+                className="p-3 bg-white rounded-xl border-2 border-yellow-300 hover:border-yellow-500 hover:shadow-md transition text-left"
+              >
+                <div className="text-2xl mb-1">🚢</div>
+                <div className="text-xs font-bold text-gray-800">크루즈 상품 신청</div>
+                <div className="text-xs text-gray-500 mt-0.5">신청 폼 바로 생성</div>
+              </button>
+              <button
+                onClick={() => {
+                  setPageFormat('funnel');
+                  setTitle('무료 상담 신청');
+                  setCtaType('default');
+                }}
+                className="p-3 bg-white rounded-xl border-2 border-blue-200 hover:border-blue-400 hover:shadow-md transition text-left"
+              >
+                <div className="text-2xl mb-1">📞</div>
+                <div className="text-xs font-bold text-gray-800">무료 상담 신청</div>
+                <div className="text-xs text-gray-500 mt-0.5">상담 연결 페이지</div>
+              </button>
+              <button
+                onClick={() => {
+                  setPageFormat('webinar');
+                  setTitle('설명회 참가 신청');
+                  setCtaType('scarcity');
+                }}
+                className="p-3 bg-white rounded-xl border-2 border-green-200 hover:border-green-400 hover:shadow-md transition text-left"
+              >
+                <div className="text-2xl mb-1">🎓</div>
+                <div className="text-xs font-bold text-gray-800">설명회 참가</div>
+                <div className="text-xs text-gray-500 mt-0.5">설명회 신청 페이지</div>
+              </button>
+            </div>
+          </div>
+
           {/* Step 1: 형식 선택 카드 */}
           <div className="px-4 py-4 bg-white border-b border-gray-100">
-            <p className="text-sm font-semibold text-gray-800 mb-3">Step 1: 랜딩페이지 형식 선택</p>
+            <p className="text-sm font-semibold text-gray-800 mb-3">어떤 페이지를 만드실 건가요?</p>
             <div className="grid grid-cols-4 gap-2">
               {(['squeeze', 'vsl', 'webinar', 'funnel', 'tripwire', 'downsell', 'launch', 'hybrid'] as PageFormat[]).map(fmt => (
                 <button
@@ -1022,10 +1064,10 @@ ${footerBlock}
           {/* Step 2-B: 그룹 선택 (퍼널 설정) */}
           <div className="px-4 py-4 bg-white border-b border-gray-100">
             <div className="mb-6 p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
-              <h3 className="text-sm font-bold mb-3 text-blue-900">⚙️ 퍼널 설정 (그룹 선택)</h3>
+              <h3 className="text-sm font-bold mb-3 text-blue-900">📋 신청자를 어느 그룹으로 넣을까요?</h3>
 
               <label className="block text-sm font-medium mb-3 text-gray-700">
-                이 퍼널을 어느 고객 그룹으로 보낼 건가요?
+                신청한 고객을 자동으로 넣어줄 그룹을 선택해주세요
               </label>
 
               <select
@@ -1045,7 +1087,7 @@ ${footerBlock}
               {selectedGroupId && (
                 <div className="mt-3 p-3 bg-green-100 border-l-4 border-green-500 rounded">
                   <p className="text-sm text-green-700 font-bold">
-                    ✓ {groups.find(g => g.id === selectedGroupId)?.name || "그룹"}의 자동 문자퍼널이 활성화됩니다
+                    ✓ {groups.find(g => g.id === selectedGroupId)?.name || "그룹"}에 자동 메시지가 시작됩니다
                   </p>
                 </div>
               )}
@@ -1072,7 +1114,7 @@ ${footerBlock}
 
           {/* Step 3: CTA 선택지 */}
           <div className="px-4 py-4 bg-white border-b border-gray-100">
-            <p className="text-sm font-semibold text-gray-800 mb-3">Step 3: 신청 버튼 심리학 선택</p>
+            <p className="text-sm font-semibold text-gray-800 mb-3">신청 버튼 문구를 골라주세요</p>
             <div className="space-y-2">
               {Object.entries(CTA_PSYCHOLOGY_MAP).map(([key, value]) => (
                 <label
@@ -1091,7 +1133,6 @@ ${footerBlock}
                   <span className="text-lg mr-2">{value.emoji}</span>
                   <div className="flex-1">
                     <span className="text-sm font-semibold text-gray-700">{value.text}</span>
-                    <span className="text-xs text-gray-500 ml-2">({value.psychology})</span>
                   </div>
                 </label>
               ))}
@@ -1294,9 +1335,9 @@ ${footerBlock}
                   className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400" />
               </div>
 
-              {/* Step 5: SMS 자동화 미리보기 */}
+              {/* 자동 문자 발송 설정 */}
               <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <h4 className="font-bold text-sm mb-3 text-blue-700">📨 SMS 자동화 (Day 0-3)</h4>
+                <h4 className="font-bold text-sm mb-3 text-blue-700">📨 자동 문자 발송</h4>
                 <label className="flex items-center mb-3">
                   <input
                     type="checkbox"
@@ -1304,15 +1345,16 @@ ${footerBlock}
                     onChange={(e) => setSmsDayRange(e.target.checked ? '0-3' : null)}
                     className="mr-2 w-4 h-4 accent-blue-500"
                   />
-                  <span className="text-sm text-blue-700">Day 0-3 자동화 활성화</span>
+                  <span className="text-sm text-blue-700">신청 후 4일간 자동 발송 켜기</span>
                 </label>
 
                 {smsDayRange === '0-3' && SMS_TEMPLATES_BY_FORMAT[pageFormat] && (
                   <div className="space-y-2 mt-3 max-h-48 overflow-y-auto">
                     {Object.entries(SMS_TEMPLATES_BY_FORMAT[pageFormat]).map(([dayKey, config]) => (
                       <div key={dayKey} className="p-2 bg-white rounded border border-blue-100">
-                        <span className="font-bold text-blue-600 text-xs">{dayKey.toUpperCase()}: </span>
-                        <span className="text-xs text-gray-700 font-medium ml-1 italic">({config.psychology})</span>
+                        <span className="font-bold text-blue-600 text-xs">
+                          {dayKey === 'day0' ? '신청 당일' : dayKey === 'day1' ? '1일 후' : dayKey === 'day2' ? '2일 후' : '3일 후'}:
+                        </span>
                         <p className="text-sm text-gray-600 mt-1 leading-tight">{config.text.substring(0, 90)}...</p>
                       </div>
                     ))}
