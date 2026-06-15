@@ -26,6 +26,46 @@ import { logger } from "@/lib/logger";
  *   "warnings": []
  * }
  */
+/**
+ * SMS 길이 검증 함수
+ * - 한글: 90자 이내 (SMS 기본)
+ * - 영문/숫자: 160자 이내
+ * - LMS (장문): 450자 이내
+ *
+ * 반환: { valid, length, messageType, maxLength }
+ */
+function validateSmsLength(message: string): {
+  valid: boolean;
+  length: number;
+  messageType: "SMS" | "LMS";
+  maxLength: number;
+} {
+  const length = message.length;
+
+  // 한글 포함 여부 확인 (한글은 유니코드 AC00-D7A3)
+  const hasKorean = /[가-힣]/.test(message);
+
+  if (hasKorean) {
+    // 한글 포함: 90자 (SMS) 또는 450자 (LMS)
+    if (length <= 90) {
+      return { valid: true, length, messageType: "SMS", maxLength: 90 };
+    } else if (length <= 450) {
+      return { valid: true, length, messageType: "LMS", maxLength: 450 };
+    } else {
+      return { valid: false, length, messageType: "LMS", maxLength: 450 };
+    }
+  } else {
+    // 영문/숫자만: 160자 (SMS) 또는 450자 (LMS)
+    if (length <= 160) {
+      return { valid: true, length, messageType: "SMS", maxLength: 160 };
+    } else if (length <= 450) {
+      return { valid: true, length, messageType: "LMS", maxLength: 450 };
+    } else {
+      return { valid: false, length, messageType: "LMS", maxLength: 450 };
+    }
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
@@ -57,6 +97,20 @@ export async function POST(req: NextRequest) {
     // 1단계: 템플릿 렌더링
     const preview = renderSmsTemplate(message, variables);
 
+    // 1-1단계: 렌더링된 메시지 길이 검증
+    const lengthValidation = validateSmsLength(preview);
+    if (!lengthValidation.valid) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `메시지는 ${lengthValidation.maxLength}자 이하여야 합니다 (현재: ${lengthValidation.length}자)`,
+          length: lengthValidation.length,
+          maxLength: lengthValidation.maxLength,
+        },
+        { status: 400 }
+      );
+    }
+
     // 2단계: 변수 검증
     const validation = validateSmsVariables(message, Object.keys(variables));
 
@@ -80,6 +134,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       preview,
+      length: lengthValidation.length,
+      messageType: lengthValidation.messageType,
+      maxLength: lengthValidation.maxLength,
       missingVariables: validation.missing,
       warnings: validation.missing.length > 0
         ? validation.missing.map((v) => `변수 '${v}'가 없습니다`)

@@ -231,6 +231,19 @@ export async function DELETE(req: Request, { params }: Params) {
       );
     }
 
+    // P1-3: 자식 그룹 존재 여부 확인 (부모 그룹 삭제 시 자식 고아화 방지)
+    const childGroups = await prisma.contactGroup.findMany({
+      where: { parentGroupId: groupId },
+      select: { id: true },
+    });
+
+    if (childGroups.length > 0) {
+      return NextResponse.json(
+        { ok: false, error: 'HAS_CHILDREN', message: 'Cannot delete group with children. Please delete children first.' },
+        { status: 400 }
+      );
+    }
+
     // 트랜잭션으로 원자적 삭제
     await prisma.$transaction([
       prisma.contactGroupMember.deleteMany({ where: { groupId } }),

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
+import { v4 as uuidv4 } from "uuid";
 import prisma from "@/lib/prisma";
 import { getAuthContext } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
@@ -37,18 +37,10 @@ const GroupCreateSchema = z.object({
 });
 
 // ─────────────────────────────────────────────
-// 헬퍼: seq 생성 (16자 hex, 최대 5회 재시도)
+// 헬퍼: seq 생성 (UUID v4)
 // ─────────────────────────────────────────────
-async function generateUniqueSeq(): Promise<string> {
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const candidate = crypto.randomBytes(8).toString("hex"); // 16자
-    const existing = await prisma.contactGroup.findFirst({
-      where: { seq: candidate },
-      select: { id: true },
-    });
-    if (!existing) return candidate;
-  }
-  throw new Error("seq 생성 실패: 5회 재시도 초과");
+function generateUniqueSeq(): string {
+  return uuidv4();
 }
 
 // ─────────────────────────────────────────────
@@ -431,8 +423,8 @@ export async function POST(req: Request) {
       }
     }
 
-    // ── seq 생성 (16자 hex, 최대 5회 재시도) ───
-    const seq = await generateUniqueSeq();
+    // ── seq 생성 (UUID v4) ───
+    const seq = generateUniqueSeq();
 
     // ── 그룹 생성 ───────────────────────────────
     const group = await prisma.contactGroup.create({

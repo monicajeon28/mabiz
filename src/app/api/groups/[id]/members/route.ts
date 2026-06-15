@@ -153,6 +153,13 @@ export async function POST(req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, message: "유효한 고객이 없습니다." }, { status: 400 });
     }
 
+    // ★ P1-1 FIX: 퍼널 실패 감지 + 클라이언트에 반환
+    interface FunnelFailure {
+      contactId: string;
+      reason: string;
+    }
+    const funnelFailures: FunnelFailure[] = [];
+
     const results = await Promise.allSettled(
       filteredIds.map(async (contactId: string) => {
         // 그룹에 추가 (이미 있으면 upsert)
@@ -170,19 +177,30 @@ export async function POST(req: Request, { params }: Params) {
 
         // ★ 핵심: 그룹에 퍼널이 연결되어 있으면 자동 시작
         // 그룹 배정 후 퍼널 자동 시작 (sendFirst: true → 즉시 첫 SMS)
-        // fire-and-forget: 퍼널 실패해도 그룹 배정은 성공으로 응답
+        // ★ P1-1: Promise.allSettled로 실패 감지 (HTTP 201 전에 완료 대기)
         if (group.funnelId) {
-          triggerGroupFunnel({
-            contactId,
-            groupId,
-            organizationId: orgId,
-          }).catch((err) => {
-            logger.error('[GroupMember] 퍼널 트리거 실패', { err });
-          });
+          try {
+            const funnelTriggered = await triggerGroupFunnel({
+              contactId,
+              groupId,
+              organizationId: orgId,
+            });
+            if (!funnelTriggered) {
+              funnelFailures.push({
+                contactId,
+                reason: 'funnel_not_found_or_duplicate',
+              });
+            }
+          } catch (err) {
+            logger.error('[GroupMember] 퍼널 트리거 실패', { err, contactId });
+            funnelFailures.push({
+              contactId,
+              reason: err instanceof Error ? err.message : 'unknown_error',
+            });
+          }
         }
 
         // ★ 퍼널문자(FunnelSms) 트리거 — 그룹에 funnelSmsIds[] 또는 레거시 funnelSmsId가 연결된 경우
-        // fire-and-forget: 실패해도 그룹 배정은 성공으로 응답
         const memberFunnelSmsIds =
           (group.funnelSmsIds && group.funnelSmsIds.length > 0)
             ? group.funnelSmsIds
@@ -207,6 +225,14 @@ export async function POST(req: Request, { params }: Params) {
     const successCount = results.filter((r) => r.status === "fulfilled").length;
     const failCount    = results.filter((r) => r.status === "rejected").length;
 
+    // ★ P1-1: funnelFailures 있으면 WARNING 로그
+    if (funnelFailures.length > 0) {
+      logger.warn('[POST /api/groups/members] 퍼널 트리거 부분 실패', {
+        groupId,
+        funnelFailures,
+      });
+    }
+
     // ★ P0-2 FIX: memberCount 캐시 업데이트
     // 추가된 멤버 수를 카운트해서 contactGroup.memberCount 갱신
     const newMemberCount = await prisma.contactGroupMember.count({
@@ -221,9 +247,17 @@ export async function POST(req: Request, { params }: Params) {
       groupId, successCount, failCount,
       memberCount: newMemberCount,
       funnelTriggered: !!group.funnelId,
+      funnelFailureCount: funnelFailures.length,
     });
 
-    return NextResponse.json({ ok: true, successCount, failCount });
+    // ★ P1-1: 클라이언트에 funnelFailures 반환
+    return NextResponse.json({
+      ok: true,
+      successCount,
+      failCount,
+      addedCount: successCount,
+      funnelFailures: funnelFailures.length > 0 ? funnelFailures : undefined,
+    });
   } catch (err) {
     logger.error("[POST /api/groups/[id]/members]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });
@@ -247,6 +281,10 @@ export async function DELETE(req: Request, { params }: Params) {
     const { id: groupId } = await params;
     const { contactIds } = await req.json();
 
+    if (!Array.isArray(contactIds) || contactIds.length === 0) {
+      return NextResponse.json({ ok: false, message: "contactIds 배열 필수" }, { status: 400 });
+    }
+
     // 그룹 소유권 확인 (내 그룹 또는 공유 그룹만 조작 가능)
     const group = await prisma.contactGroup.findFirst({
       where: {
@@ -259,8 +297,31 @@ export async function DELETE(req: Request, { params }: Params) {
     });
     if (!group) return NextResponse.json({ ok: false }, { status: 404 });
 
-    await prisma.contactGroupMember.deleteMany({
-      where: { groupId, contactId: { in: contactIds } },
+    // ★ P1-4 FIX: 고객 소유권 검증 — contactIds가 모두 req.user.organizationId 소유인지 확인
+    // IDOR 방지: 타 조직 고객을 이 조직의 그룹에서 제거할 수 없도록 차단
+    const validContacts = await prisma.contact.findMany({
+      where: { id: { in: contactIds }, organizationId: orgId },
+      select: { id: true },
+    });
+    const validContactIds = new Set(validContacts.map((c) => c.id));
+
+    // 요청한 contactIds 중 조직에 속하지 않는 항목 감지
+    const invalidContactIds = contactIds.filter((id: string) => !validContactIds.has(id));
+    if (invalidContactIds.length > 0) {
+      logger.warn("[DELETE /api/groups/[id]/members] IDOR 시도 감지", {
+        groupId,
+        userId: ctx.userId,
+        invalidContactIds,
+      });
+      return NextResponse.json(
+        { ok: false, message: "유효하지 않은 고객이 포함되어 있습니다." },
+        { status: 400 }
+      );
+    }
+
+    // 유효한 contactIds만으로 삭제 진행
+    const deletedMembers = await prisma.contactGroupMember.deleteMany({
+      where: { groupId, contactId: { in: Array.from(validContactIds) } },
     });
 
     // ★ P0-2 FIX: memberCount 캐시 업데이트
@@ -275,11 +336,15 @@ export async function DELETE(req: Request, { params }: Params) {
 
     logger.log("[DELETE /api/groups/[id]/members] 멤버 제거 완료", {
       groupId,
-      removedCount: contactIds.length,
+      removedCount: deletedMembers.count,
       memberCount: updatedMemberCount,
     });
 
-    return NextResponse.json({ ok: true });
+    // ★ P1-4: 성공 응답에 removedCount 포함
+    return NextResponse.json({
+      ok: true,
+      removedCount: deletedMembers.count,
+    });
   } catch (err) {
     logger.error("[DELETE /api/groups/[id]/members]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });
