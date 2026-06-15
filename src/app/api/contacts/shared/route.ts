@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { handleApiError } from "@/lib/response";
 import prisma from "@/lib/prisma";
-import { getAuthContext, buildContactWhere } from "@/lib/rbac";
+import { getAuthContext, buildContactWhere, maskContactInfo } from "@/lib/rbac";
 
 /**
  * GET /api/contacts/shared
@@ -67,10 +67,13 @@ export async function GET(req: Request) {
       prisma.contact.count({ where: baseWhere }),
     ]);
 
+    // P0-1 Security Fix: Apply PII masking to all contacts
+    const maskedContacts = contacts.map(c => maskContactInfo(c, ctx));
+
     return NextResponse.json({
       tabName: "shared",
       description: "모두 볼 수 있는 고객 목록",
-      items: contacts,
+      items: maskedContacts,
       pagination: {
         page,
         limit,
