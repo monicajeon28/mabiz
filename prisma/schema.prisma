@@ -446,6 +446,10 @@ model Contact {
   inflowDate         DateTime? // DB 원본 유입일 (엑셀 가져오기 시 유입날짜 컬럼)
   surveyData         Json?     // 설문 응답 { q1: "...", q2: "...", q3: "..." }
 
+  // Contact 신청 이력 추적 (2026-06-15)
+  signupCount        Int     @default(1) // 총 신청 횟수 (1부터 시작, 재신청 시 +1)
+  signupHistory      Json?   @default("[]") // [{index, landingPageId, landingPageTitle, groupId, groupName, createdAt, email, phone}, ...]
+
   @@unique([phone, organizationId])
   @@unique([bookingRef, organizationId], map: "uq_contact_booking_org") // P0-ISS-02: UPSERT 멱등성
   @@unique([email, organizationId], map: "uq_contact_email_org") // Webhook: Customer email upsert
@@ -457,6 +461,7 @@ model Contact {
   @@index([userId])
   @@index([organizationId, assignedUserId], map: "idx_contact_org_assigned")
   @@index([organizationId, channel], map: "idx_contact_org_channel")
+  @@index([organizationId, signupCount(sort: Desc)], map: "idx_contact_recontact") // 재신청자 추적
   @@index([organizationId, type], map: "idx_contact_org_type")
   @@index([organizationId, lastPaymentStatus], map: "idx_contact_org_payment_status")
   @@index([organizationId, autoSegment], map: "idx_contact_org_segment")
@@ -712,10 +717,12 @@ model ContactGroupMember {
   groupId   String
   contactId String
   addedAt   DateTime     @default(now())
+  joinedAt  DateTime     @default(now()) // 그룹 입장 시간 (재진입 시 업데이트됨)
   contact   Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
   group     ContactGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
   @@unique([groupId, contactId])
+  @@index([groupId, joinedAt(sort: Desc)], map: "idx_group_joined")
 }
 
 model CallLog {

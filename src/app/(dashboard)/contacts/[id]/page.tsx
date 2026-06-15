@@ -17,6 +17,7 @@ import ContactGroupTab from "./ContactGroupTab";
 import ContactSmsTab from "./ContactSmsTab";
 import ContactAffiliateCard from "./ContactAffiliateCard";
 import ContactRiskPanel from "./ContactRiskPanel";
+import { SignupHistoryTab } from "./SignupHistoryTab";
 import { getAllObjectionIds, getObjectionData } from "@/lib/objections/validation";
 import objectionsData from "@/../TRACK_A_OBJECTIONS.json";
 import { Contact, CallLog, Memo } from "@/types/contact";
@@ -68,7 +69,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   const { toast } = useToast();
 
   const [contact,       setContact]       = useState<Contact | null>(null);
-  const [tab,           setTab]           = useState<"call" | "memo" | "group" | "sms" | "reservations">("call");
+  const [tab,           setTab]           = useState<"call" | "memo" | "group" | "sms" | "reservations" | "signup-history">("call");
   const [loading,       setLoading]       = useState(true);
   const [smsLogs,       setSmsLogs]       = useState<{ id: string; phone: string; contentPreview: string; status: string; channel: string; sentAt: string }[]>([]);
   const [smsLoading,    setSmsLoading]    = useState(false);
@@ -1006,6 +1007,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
           { key: "memo",         label: `📝 메모 (${contact.memos.length})` },
           { key: "group",        label: "🔄 퍼널" },
           { key: "sms",          label: "💬 발송내역" },
+          { key: "signup-history", label: `📋 신청이력 (${contact.signupCount || 0})` },
           { key: "reservations", label: "🚢 예약" },
         ].map((t) => (
           <button
@@ -1159,6 +1161,11 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
           onOpenSmsModal={openSmsModal}
           onOpenSchedModal={openSchedModal}
         />
+      )}
+
+      {/* Signup History Tab */}
+      {tab === "signup-history" && (
+        <SignupHistoryTab contactId={id} />
       )}
 
       {/* Reservations Tab */}
