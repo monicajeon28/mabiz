@@ -84,6 +84,40 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // MIME 타입 검증 (Base64 헤더 확인)
+    const mimeMatch = body.signatureImage.match(/^data:image\/(\w+);base64,/);
+    if (!mimeMatch) {
+      return NextResponse.json(
+        { ok: false, message: '잘못된 이미지 형식' },
+        { status: 400 }
+      );
+    }
+
+    const mimeType = mimeMatch[1].toLowerCase();
+    if (!['png', 'jpeg', 'jpg', 'gif', 'webp'].includes(mimeType)) {
+      return NextResponse.json(
+        { ok: false, message: 'PNG, JPG, GIF, WebP만 지원합니다' },
+        { status: 400 }
+      );
+    }
+
+    // Base64 디코드 검증 (실제 이미지 확인)
+    try {
+      const base64Content = body.signatureImage.split(',')[1];
+      if (!base64Content) {
+        return NextResponse.json(
+          { ok: false, message: '잘못된 Base64 형식' },
+          { status: 400 }
+        );
+      }
+      Buffer.from(base64Content, 'base64');
+    } catch (e) {
+      return NextResponse.json(
+        { ok: false, message: 'Base64 디코딩 실패' },
+        { status: 400 }
+      );
+    }
+
     // 만료 여부만 먼저 확인 (expiresAt 체크)
     const instance = await prisma.contractInstance.findUnique({
       where: { id },
