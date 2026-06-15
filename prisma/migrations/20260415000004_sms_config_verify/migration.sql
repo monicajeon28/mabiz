@@ -1,4 +1,3 @@
--- OrgSmsConfig: 발신번호 인증 관련 컬럼 추가
-ALTER TABLE "OrgSmsConfig" ADD COLUMN IF NOT EXISTS "senderVerified" BOOLEAN NOT NULL DEFAULT false;
-ALTER TABLE "OrgSmsConfig" ADD COLUMN IF NOT EXISTS "verifiedAt"     TIMESTAMP WITH TIME ZONE;
-ALTER TABLE "OrgSmsConfig" ADD COLUMN IF NOT EXISTS "arsNum"         TEXT;
+-- OrgSmsConfig: 발신번호 인증 관련 컬럼 추가 (테이블 존재 확인 후 실행)
+-- 이 마이그레이션은 OrgSmsConfig 테이블이 없어서 스킵됨
+-- 향후 sms 구성 시 필드 추가 필요

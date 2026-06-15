@@ -96,6 +96,16 @@ model Organization {
   googleDriveAccessToken     String?        // OAuth 액세스 토큰 (암호화됨)
   googleDriveFolderId        String?        // 백업 폴더 ID (root folder: 마비즈CRM-Backup)
   contactBackups             ContactBackup[]
+  // Email Funnel (Group별 SMTP 설정 + Day 0-3 자동화)
+  groupEmailConfigs          GroupEmailConfig[]
+  groupEmailFunnels          GroupEmailFunnel[]
+  groupEmailFunnelMessages   GroupEmailFunnelMessage[]
+  emailSentLogs              EmailSentLog[]
+  emailAuditLogs             EmailAuditLog[]
+  // Jeff Bezos: Day 0-3 병렬 처리
+  scheduledEmailMessages     ScheduledEmailMessage[]
+  batchExecutionLogs         BatchExecutionLog[]
+  smsBatchExecutions         SmsBatchExecution[]
 }
 
 model OrgSmsConfig {
@@ -297,6 +307,15 @@ model Contact {
   smsDay3SentAt                    DateTime?
   smsDay7Sent                      Boolean   @default(false)
   smsDay7SentAt                    DateTime?
+  // Email Day 0-3 발송 추적 (Group Email Funnel)
+  emailDay0Sent                    Boolean   @default(false)
+  emailDay0SentAt                  DateTime?
+  emailDay1Sent                    Boolean   @default(false)
+  emailDay1SentAt                  DateTime?
+  emailDay2Sent                    Boolean   @default(false)
+  emailDay2SentAt                  DateTime?
+  emailDay3Sent                    Boolean   @default(false)
+  emailDay3SentAt                  DateTime?
   // L3 Lens: 차별성 미인지형 고객 (Menu #49)
   competitorMentioned              Boolean   @default(false)
   competitorNames                  String[]  @default([]) // ["Royal", "MSC", "Disney", ...]
@@ -7140,3 +7159,328 @@ model SmsPreviewLog {
 
   @@index([organizationId, approved, createdAt(sort: Desc)])
 }
+
+// ============================================================
+// Jeff Bezos: Email Batch Processing + SMS 병렬 처리 (2026-06-16)
+// ============================================================
+
+// Email Day 0-3 스케줄 메시지
+model ScheduledEmailMessage {
+  id             String   @id @default(cuid())
+  organizationId String
+  contactId      String
+  groupId        String?
+  day            Int      // 0, 1, 2, 3
+
+  // Email 콘텐츠
+  subject        String
+  htmlContent    String   @db.Text
+  textContent    String?  @db.Text
+  variables      Json?    // { "name": "김철수", "productName": "크루즈" }
+
+  // 발송 상태
+  status         String   @default("PENDING") // "PENDING", "SENT", "FAILED", "BOUNCED"
+  scheduledAt    DateTime // 발송 예정시간
+  sentAt         DateTime?
+  failureReason  String?
+
+  // 외부 제공자 추적
+  provider       String   @default("GMAIL") // "GMAIL", "SMTP", "SENDGRID"
+  messageId      String?  @db.VarChar(256) // 외부 provider 메시지 ID
+  trackingId     String?  @db.VarChar(256) // Email tracking ID (open/click)
+
+  // 이벤트 추적
+  openedAt       DateTime?
+  clickedAt      DateTime?
+  bounceType     String?  // "SOFT", "HARD"
+
+  // 메타데이터
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // 관계
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // 인덱스: cron 배치용 빠른 쿼리
+  @@index([organizationId, day, status, scheduledAt])
+  @@index([groupId, day, status])
+  @@index([contactId, day, scheduledAt])
+  @@index([status, scheduledAt])
+  @@map("ScheduledEmailMessage")
+}
+
+// 배치 실행 로그 (성능 모니터링)
+model BatchExecutionLog {
+  id            String   @id @default(cuid())
+  organizationId String
+  batchType     String   // "SMS_DAY0", "EMAIL_DAY1", "SMS_DAY2", "EMAIL_DAY3", etc.
+
+  // 처리 통계
+  totalCount    Int      // 총 메시지 수
+  successCount  Int      // 성공한 메시지 수
+  failCount     Int      // 실패한 메시지 수
+
+  // 타이밍
+  startedAt     DateTime
+  completedAt   DateTime
+  duration      Int      // 밀리초 (startedAt ~ completedAt)
+
+  // 성능 메트릭
+  averageLatency Float?   // 메시지당 평균 처리시간 (ms)
+  peakQueueSize Int?      // 동시 처리 최대 개수
+  errorRate     Float?    // 실패율 (failCount / totalCount)
+
+  // 디버깅
+  errorSummary  String?   @db.Text // 에러 요약 (JSON)
+  logUrl        String?   // 상세 로그 저장 위치
+
+  createdAt     DateTime @default(now())
+
+  // 관계
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // 인덱스
+  @@index([organizationId, batchType, startedAt])
+  @@index([startedAt, duration])
+  @@map("BatchExecutionLog")
+}
+
+// SMS 배치 실행 로그 (ScheduledSms와의 연결용)
+model SmsBatchExecution {
+  id                String   @id @default(cuid())
+  organizationId    String
+  batchExecutionId  String   // BatchExecutionLog ID 참조
+  day               Int      // 0, 1, 2, 3
+
+  // 처리된 메시지들
+  scheduledSmsIds   String[] // ScheduledSms ID 배열
+
+  // 상태
+  status            String   @default("PENDING") // "PENDING", "PROCESSING", "COMPLETED", "FAILED"
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // 관계
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, day, status])
+  @@map("SmsBatchExecution")
+}
+
+// ============================================================================
+// EMAIL FUNNEL: Group별 SMTP 설정 + Day 0-3 자동 시퀀스 (2026-06-16 Elon)
+// ============================================================================
+
+model GroupEmailConfig {
+  id                     String    @id @default(cuid())
+  organizationId         String
+  groupId                String    @unique // 각 Group은 1개의 이메일 설정만
+
+  // Email 공급자 선택
+  emailProvider          String    // "GMAIL" | "SMTP" | "SENDGRID" | "MAILGUN"
+
+  // Gmail OAuth (GMAIL일 때)
+  gmailAccessToken       String?   @db.Text // 암호화됨 (KMS)
+  gmailRefreshToken      String?   @db.Text // 암호화됨 (KMS)
+  gmailExpireAt          DateTime?
+
+  // 커스텀 SMTP (SMTP일 때)
+  smtpHost               String?
+  smtpPort               Int?
+  smtpUsername           String?
+  smtpPasswordEncrypted  String?   @db.Text // 암호화됨 (KMS)
+  smtpSecure             Boolean?  // true: TLS(587), false: SSL(465)
+
+  // SendGrid API (SENDGRID일 때)
+  sendGridApiKeyEncrypted String?  @db.Text // 암호화됨 (KMS)
+
+  // Mailgun API (MAILGUN일 때)
+  mailgunApiKeyEncrypted String?   @db.Text // 암호화됨 (KMS)
+  mailgunDomain          String?
+
+  // 발신자 정보
+  senderName             String    @default("마비즈")
+  senderEmail            String    // 실제 발송 이메일 (marketing@company.com)
+  replyToEmail           String?
+
+  // 설정 상태
+  isActive               Boolean   @default(false)
+  isVerified             Boolean   @default(false)
+  testedAt               DateTime?
+  testResult             String?   // "SUCCESS" | "FAILED"
+  testErrorMessage       String?
+
+  // 메타
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  emailFunnels           GroupEmailFunnel[]
+  auditLogs              EmailAuditLog[]
+
+  @@index([organizationId])
+  @@index([groupId])
+  @@map("GroupEmailConfig")
+}
+
+model GroupEmailFunnel {
+  id                     String    @id @default(cuid())
+  organizationId         String
+  groupId                String
+  emailConfigId          String
+
+  // 퍼널 기본 정보
+  title                  String    @default("기본 이메일 퍼널")
+  description            String?   @db.Text
+
+  // PASONA 프레임워크
+  isPasonaBased          Boolean   @default(true)
+  lensTypes              String[]  @default(["L0", "L1", "L3", "L6", "L10"]) // 이 렌즈들에 발송
+
+  // 상태
+  isActive               Boolean   @default(false)
+  createdByUserId        String
+
+  // 메타
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  messages               GroupEmailFunnelMessage[]
+
+  emailConfig            GroupEmailConfig @relation(fields: [emailConfigId], references: [id], onDelete: Cascade)
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, organizationId]) // 각 Group은 1개 활성 퍼널
+  @@index([organizationId])
+  @@index([groupId])
+  @@map("GroupEmailFunnel")
+}
+
+model GroupEmailFunnelMessage {
+  id                     String    @id @default(cuid())
+  organizationId         String
+  emailFunnelId          String
+
+  // Day별 메시지 (PASONA)
+  day                    Int       // 0 = P+A, 1 = S, 2 = O, 3 = N+A
+  order                  Int       @default(0) // Day 내 순서 (여러 메시지 가능)
+
+  // PASONA 단계
+  pasonaStage            String    // "PROBLEM", "SOLUTION", "OFFER", "ACTION"
+
+  // 메시지 콘텐츠 (HTML)
+  subject                String    // {{name}}, {{email}}, {{product}} 등 지원
+  bodyHtml               String    @db.Text // HTML 형식, 동적변수 지원
+  previewText            String?   @default("") // 이메일 프리뷰 (선택)
+
+  // 동적변수 목록 (미리보기용)
+  // 지원: name, email, phone, product, price, lensType, daysSinceJoined, joinedDate, groupName, urgencyTone
+  dynamicVariables       String[]  @default(["name", "email", "phone", "product", "price", "lensType", "daysSinceJoined", "joinedDate", "groupName", "urgencyTone"])
+
+  // 발송 조건
+  targetLensTypes        String[]  @default([]) // 공백 = 모든 렌즈
+
+  // 메타
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  emailFunnel            GroupEmailFunnel @relation(fields: [emailFunnelId], references: [id], onDelete: Cascade)
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([emailFunnelId, day, order])
+  @@index([organizationId])
+  @@index([emailFunnelId])
+  @@map("GroupEmailFunnelMessage")
+}
+
+model EmailSentLog {
+  id                     String    @id @default(cuid())
+  organizationId         String
+  groupId                String
+  emailFunnelId          String?
+  contactId              String?
+
+  // 발송 대상
+  toEmail                String
+
+  // 메시지 정보
+  day                    Int       // 0, 1, 2, 3
+  subject                String
+  pasonaStage            String?   // PROBLEM, SOLUTION, OFFER, ACTION
+
+  // 사용된 변수값 (추적용)
+  renderedVariables      Json?     // { name: "김철수", email: "...", lensType: "L6" }
+
+  // 발송 상태
+  status                 String    @default("PENDING") // PENDING | SENT | FAILED | BOUNCED | COMPLAINED
+  sentAt                 DateTime?
+  failureReason          String?   @db.Text
+
+  // 외부 제공자 추적
+  provider               String    // GMAIL | SMTP | SENDGRID | MAILGUN
+  externalMessageId      String?   // 외부 provider message ID
+
+  // 이벤트 추적 (이메일 마케팅용)
+  openedAt               DateTime?
+  clickedAt              DateTime?
+  openCount              Int       @default(0)
+  clickCount             Int       @default(0)
+
+  // 메타
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, groupId, day])
+  @@index([contactId, sentAt(sort: Desc)])
+  @@index([status, sentAt])
+  @@index([toEmail])
+  @@map("EmailSentLog")
+}
+
+model EmailAuditLog {
+  id                     String    @id @default(cuid())
+  organizationId         String
+  groupId                String
+  emailConfigId          String
+
+  // 감사 대상
+  userId                 String    // 누가 작업했는가
+  action                 String    // CREATE_CONFIG | UPDATE_SMTP | TEST_EMAIL | VERIFY_SMTP | DELETE_CONFIG | SEND_EMAIL
+
+  // 변경 내용 (민감정보 제외)
+  beforeValue            Json?     // { provider: "GMAIL", senderName: "마비즈" }
+  afterValue             Json?     // { provider: "SMTP", senderName: "마비즈" }
+
+  // 결과
+  status                 String    @default("SUCCESS") // SUCCESS | FAILED
+  errorMessage           String?
+
+  // 네트워크 정보
+  ipAddress              String?
+  userAgent              String?   @db.Text
+
+  // 메타
+  createdAt              DateTime  @default(now())
+
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  emailConfig            GroupEmailConfig @relation(fields: [emailConfigId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([groupId, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([action])
+  @@map("EmailAuditLog")
+}
+
+// Contact와의 이메일 발송 상태 추적
+// Contact 모델에 추가할 필드:
+// - emailDay0Sent: Boolean @default(false)
+// - emailDay1Sent: Boolean @default(false)
+// - emailDay2Sent: Boolean @default(false)
+// - emailDay3Sent: Boolean @default(false)
+// - emailDay0SentAt: DateTime?
+// - emailDay1SentAt: DateTime?
+// - emailDay2SentAt: DateTime?
+// - emailDay3SentAt: DateTime?
