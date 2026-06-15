@@ -233,6 +233,118 @@ export async function backupCallLogsToGoogleDrive(params: {
 }
 
 /**
+ * Contact 백업: Google Sheets에 CSV 형식으로 저장
+ *
+ * 폴더 구조:
+ *   {BACKUP_FOLDER_ID}/
+ *     └─ {organizationId}_contacts_backup_{date}.csv
+ */
+export async function backupContactsToDrive(
+  organizationId: string,
+  contacts: Array<{
+    id: string;
+    name: string;
+    phone: string;
+    email?: string | null;
+    sourceId?: string | null;
+    visibility?: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }>,
+  accessToken: string
+): Promise<{ sheetId: string; count: number; backupAt: Date }> {
+  const BACKUP_FOLDER_ID = process.env.GOOGLE_DRIVE_BACKUP_FOLDER_ID ?? '1mHxV8rQ9pL4kN2jZ5wB8cY6dE9fG3hI7';
+
+  try {
+    const auth = new google.auth.OAuth2();
+    auth.setCredentials({ access_token: accessToken });
+    const drive = google.drive({ version: 'v3', auth });
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // 1. 백업 폴더 찾기 (없으면 생성)
+    const backupFolderId = await findOrCreateFolder(
+      `Backup_${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`,
+      BACKUP_FOLDER_ID
+    );
+
+    // 2. CSV 콘텐츠 생성
+    const headers = ['ID', 'Name', 'Phone', 'Email', 'Source ID', 'Visibility', 'Created At', 'Updated At'];
+    const rows = [
+      headers,
+      ...contacts.map(c => [
+        c.id,
+        c.name,
+        c.phone,
+        c.email || '',
+        c.sourceId || '',
+        c.visibility || 'SHARED',
+        new Date(c.createdAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }),
+        new Date(c.updatedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }),
+      ]),
+    ];
+
+    const csvContent = rows
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    // 3. Google Sheets 생성
+    const fileName = `${organizationId}_contacts_${new Date().getTime()}`;
+    const spreadsheet = await sheets.spreadsheets.create({
+      requestBody: {
+        properties: {
+          title: fileName,
+          locale: 'ko_KR',
+        },
+        sheets: [
+          {
+            properties: {
+              sheetId: 0,
+              title: 'Contacts',
+            },
+            data: [
+              {
+                rowData: rows.map(row => ({
+                  values: row.map(cell => ({
+                    userEnteredValue: {
+                      stringValue: String(cell),
+                    },
+                  })),
+                })),
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    const sheetId = spreadsheet.data.spreadsheetId!;
+
+    // 4. Backup 폴더로 이동
+    const updateResult = await drive.files.update({
+      fileId: sheetId,
+      addParents: backupFolderId,
+      fields: 'id, parents',
+      supportsAllDrives: true,
+    });
+
+    logger.info('[GoogleDrive] Contact 백업 완료', {
+      organizationId,
+      sheetId,
+      contactCount: contacts.length,
+    });
+
+    return {
+      sheetId,
+      count: contacts.length,
+      backupAt: new Date(),
+    };
+  } catch (err) {
+    logger.error('[GoogleDrive] Contact 백업 실패', err);
+    throw err;
+  }
+}
+
+/**
  * 파트너 어필리에이트 계약서 PDF + 서명 이미지를 Google Drive에 저장
  *
  * 폴더 구조:

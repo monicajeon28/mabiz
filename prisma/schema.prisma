@@ -92,6 +92,10 @@ model Organization {
   contactAuditLogs           ContactAuditLog[]
   // Unsubscribed
   unsubscribed               Unsubscribed[]
+  // Google Drive Backup (Contact 데이터 백업)
+  googleDriveAccessToken     String?        // OAuth 액세스 토큰 (암호화됨)
+  googleDriveFolderId        String?        // 백업 폴더 ID (root folder: 마비즈CRM-Backup)
+  contactBackups             ContactBackup[]
 }
 
 model OrgSmsConfig {
@@ -171,6 +175,9 @@ model OrganizationMember {
   contractSignature String?
   contractSignedAt  DateTime?
   organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  // Contact 공유 관계
+  sharedContactsBy  ContactSharing[] @relation("SharedBy")  // 이 사용자가 공유한 Contact
+  sharedContactsTo  ContactSharing[] @relation("SharedTo")  // 이 사용자가 받은 Contact
 
   @@unique([organizationId, userId])
   @@index([organizationId])
@@ -453,9 +460,10 @@ model Contact {
   signupHistory      Json?   @default("[]") // [{index, landingPageId, landingPageTitle, groupId, groupName, createdAt, email, phone}, ...]
 
   // Contact 접근 권한 분류 (2026-06-15)
-  visibility         String  @default("SHARED") @db.VarChar(20) // "SHARED", "ADMIN_ONLY", "PERSONAL"
+  visibility         ContactVisibility @default(SHARED) // Contact 공유 범위 설정
   createdBy          String? // 판매원 ID (Contact 작성자)
   managerId          String? // 대리점장 ID (Contact 관리자)
+  sharedWith         ContactSharing[] @relation("contactSharedWith")
 
   @@unique([phone, organizationId])
   @@unique([bookingRef, organizationId], map: "uq_contact_booking_org") // P0-ISS-02: UPSERT 멱등성
@@ -534,6 +542,43 @@ model Contact {
   @@index([organizationId, createdBy], map: "idx_contact_org_created_by")
   @@index([organizationId, managerId], map: "idx_contact_org_manager_id")
 }
+
+model ContactBackup {
+  id              String   @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // 백업 메타데이터
+  backupAt        DateTime @default(now())
+  contactCount    Int      @default(0) // 백업된 Contact 수
+  driveSheetId    String?  // Google Sheets ID
+  backupType      String   @default("MANUAL") // MANUAL, AUTO, API
+  status          String   @default("PENDING") // PENDING, SUCCESS, FAILED
+  errorMessage    String?  // 실패 시 에러메시지
+
+  // 인덱스
+  @@index([organizationId, backupAt(sort: Desc)])
+  @@index([organizationId, status])
+  @@index([backupType])
+}
+
+model ContactSharing {
+  id          String   @id @default(cuid())
+  contactId   String
+  contact     Contact  @relation("contactSharedWith", fields: [contactId], references: [id], onDelete: Cascade)
+  sharedBy    String   // User ID (Contact 공유자)
+  sharedByUser OrganizationMember? @relation("SharedBy", fields: [sharedBy], references: [id], onDelete: SetNull)
+  sharedTo    String   // User ID (Contact 수신자)
+  sharedToUser OrganizationMember? @relation("SharedTo", fields: [sharedTo], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([contactId, sharedBy, sharedTo])
+  @@index([contactId])
+  @@index([sharedTo])
+  @@index([sharedBy])
+}
+
 
 model ContactAuditLog {
   id              String   @id @default(cuid())
@@ -6474,6 +6519,11 @@ enum UserRole {
   PRESALES
   AGENCY_MANAGER
   AGENCY_STAFF
+}
+
+enum ContactVisibility {
+  SHARED
+  ADMIN_ONLY
 }
 
 // ============================================================================
