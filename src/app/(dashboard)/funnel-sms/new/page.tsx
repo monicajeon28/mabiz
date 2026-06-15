@@ -104,7 +104,7 @@ export default function FunnelSmsNewPage() {
   const handleSave = async () => {
     setSaveError(null);
     if (!header.title.trim()) {
-      const message = "퍼널 제목을 입력해주세요.";
+      const message = "자동문자 제목을 입력해주세요.";
       setSaveError(message);
       showError(message);
       return;
@@ -116,7 +116,7 @@ export default function FunnelSmsNewPage() {
       return;
     }
     if (header.senderPhone?.trim() && smsDefaults.connected && !smsDefaults.senderVerified) {
-      const message = "발신번호 인증이 완료되지 않아 퍼널문자를 저장할 수 없습니다. 설정 > SMS에서 발신번호 인증을 먼저 완료하세요.";
+      const message = "발신번호 인증이 완료되지 않아 자동문자를 저장할 수 없습니다. 설정 > SMS에서 발신번호 인증을 먼저 완료하세요.";
       setSaveError(message);
       showError(message);
       return;
@@ -188,8 +188,8 @@ export default function FunnelSmsNewPage() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
-          <h1 className="text-xl font-bold text-gray-900">새 퍼널문자</h1>
-          <p className="text-sm text-gray-500">자동 SMS 시퀀스를 설정합니다.</p>
+          <h1 className="text-xl font-bold text-gray-900">새 자동문자 만들기</h1>
+          <p className="text-sm text-gray-500">신청 후 자동으로 발송될 문자 시퀀스를 설정합니다.</p>
         </div>
       </div>
 
