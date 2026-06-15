@@ -9,6 +9,8 @@ import { detectSegment } from "@/lib/segment-detector";
 import { detectLenses, sortLensesByPriority } from "@/lib/lens-detector";
 import { recommendProducts } from "@/lib/product-recommender";
 import { sendSms, resolveUserSmsConfig } from "@/lib/aligo";
+import { checkRateLimitAsync } from "@/lib/rate-limit";
+import { RATE_LIMIT_CONFIG, createRateLimitHeaders } from "@/lib/rate-limit-config";
 
 // 고객 타입 정규화: PURCHASED (구매완료) | INQUIRY (문의) | GOLD (금회원)
 function normalizeCustomerType(type: string | undefined): 'PURCHASED' | 'INQUIRY' | 'GOLD' | undefined {
@@ -339,6 +341,19 @@ export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
 
+    // P0 Security Fix: Rate limiting (user-based + IP-based)
+    const identifier = `contacts:${ctx.userId}`;
+    const config = RATE_LIMIT_CONFIG.contacts;
+    const rateLimitResult = await checkRateLimitAsync(identifier, config.perUser, config.perUserWindow * 1000);
+
+    if (!rateLimitResult.allowed) {
+      const headers = createRateLimitHeaders(rateLimitResult.remaining, rateLimitResult.resetAt);
+      return NextResponse.json(
+        { ok: false, error: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요." },
+        { status: 429, headers }
+      );
+    }
+
     // GLOBAL_ADMIN은 organizationId가 null — 첫 번째 조직 사용
     let orgId: string;
     if (ctx.organizationId) {
@@ -506,9 +521,13 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, contact }, { status: 201 });
   } catch (err: unknown) {
+    // P0-3 Security Fix: Duplicate phone UNIQUE constraint (enhanced error message)
     if ((err as { code?: string }).code === "P2002") {
+      const message = (err as any)?.meta?.target?.includes("phone")
+        ? "이미 등록된 전화번호입니다."
+        : "중복된 정보입니다.";
       return NextResponse.json(
-        { ok: false, message: "이미 등록된 전화번호입니다." },
+        { ok: false, error: message, code: "DUPLICATE_CONTACT" },
         { status: 409 }
       );
     }

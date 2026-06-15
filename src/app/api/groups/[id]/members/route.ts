@@ -6,6 +6,8 @@ import { triggerGroupFunnelSms } from "@/lib/funnel-sms-trigger";
 import { shouldResetOnReentry } from "@/lib/funnel-sms-helpers";
 import { logger } from "@/lib/logger";
 import { addLeadScore } from "@/lib/lead-score";
+import { checkRateLimitAsync } from "@/lib/rate-limit";
+import { RATE_LIMIT_CONFIG, createRateLimitHeaders } from "@/lib/rate-limit-config";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -85,6 +87,20 @@ export async function GET(req: Request, { params }: Params) {
 export async function POST(req: Request, { params }: Params) {
   try {
     const ctx = await getAuthContext();
+
+    // P0 Security Fix: Rate limiting for bulk member addition
+    const identifier = `group-members:${ctx.userId}`;
+    const config = RATE_LIMIT_CONFIG.groupMembers;
+    const rateLimitResult = await checkRateLimitAsync(identifier, config.perUser, config.perUserWindow * 1000);
+
+    if (!rateLimitResult.allowed) {
+      const headers = createRateLimitHeaders(rateLimitResult.remaining, rateLimitResult.resetAt);
+      return NextResponse.json(
+        { ok: false, error: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요." },
+        { status: 429, headers }
+      );
+    }
+
     let orgId: string;
     if (ctx.organizationId) {
       orgId = ctx.organizationId;

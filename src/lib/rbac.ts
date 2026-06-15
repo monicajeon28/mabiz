@@ -152,9 +152,83 @@ export function requireNotFreeSales(ctx: AuthContext): void {
   if (ctx.role === "FREE_SALES") throw new Error("FREE_SALES_NO_ACCESS");
 }
 
-/** 연락처 마스킹 — 현재 AGENT는 할당된 고객 전체 정보 접근 가능 */
-export function maskContactInfo<T extends object>(contact: T, _ctx: AuthContext): T {
-  return contact; // 할당된 고객은 실명/연락처 공개
+/**
+ * 연락처 마스킹 (P0 Security Fix)
+ * - GLOBAL_ADMIN: 마스킹 없음 (전체 PII 접근)
+ * - OWNER: 부분 마스킹 (phone 뒤 4자리만, email 도메인만)
+ * - AGENT: 할당된 고객은 전체, 공유받은 고객은 마스킹
+ * - FREE_SALES: 전체 마스킹 (phone/email/name)
+ */
+function maskPhoneNumber(phone: string | null | undefined): string | null | undefined {
+  if (!phone) return phone;
+  // 형식: 010-1234-5678 → 010-XXXX-5678
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length < 4) return phone;
+  const start = phone.substring(0, phone.lastIndexOf(digits.substring(0, digits.length - 4)));
+  const last4 = phone.substring(phone.length - 4);
+  return `${start}XXXX${last4}`;
+}
+
+function maskEmail(email: string | null | undefined): string | null | undefined {
+  if (!email) return email;
+  // 형식: user@example.com → u***@example.com
+  const [local, domain] = email.split('@');
+  if (!local || !domain) return email;
+  const masked = local.charAt(0) + '*'.repeat(Math.max(1, local.length - 2)) + (local.length > 1 ? '' : '');
+  return `${masked}@${domain}`;
+}
+
+function maskName(name: string | null | undefined): string | null | undefined {
+  if (!name) return name;
+  // 형식: 김철수 → 김*수, John Doe → J***e
+  if (name.length <= 2) return name;
+  const first = name.charAt(0);
+  const last = name.charAt(name.length - 1);
+  const masked = '*'.repeat(Math.max(1, name.length - 2));
+  return `${first}${masked}${last}`;
+}
+
+export function maskContactInfo<T extends object>(contact: T, ctx: AuthContext): T {
+  // GLOBAL_ADMIN: 마스킹 없음
+  if (ctx.role === 'GLOBAL_ADMIN') return contact;
+
+  // contact 객체 깊은 복사 (원본 수정 방지)
+  const masked = { ...contact } as any;
+
+  // OWNER: 부분 마스킹
+  if (ctx.role === 'OWNER') {
+    if ('phone' in masked) masked.phone = maskPhoneNumber(masked.phone);
+    if ('email' in masked) masked.email = maskEmail(masked.email);
+    return masked;
+  }
+
+  // AGENT: 할당된 고객은 전체, 공유받은 고객은 마스킹
+  if (ctx.role === 'AGENT' || ctx.role === 'FREE_SALES') {
+    // FREE_SALES: 모든 고객 마스킹
+    if (ctx.role === 'FREE_SALES') {
+      if ('phone' in masked) masked.phone = maskPhoneNumber(masked.phone);
+      if ('email' in masked) masked.email = maskEmail(masked.email);
+      if ('name' in masked) masked.name = maskName(masked.name);
+      return masked;
+    }
+
+    // AGENT: 할당된 고객은 전체, 공유받은 고객은 마스킹
+    // 규칙: createdBy === userId → 전체 공개
+    //       assignedUserId === userId → 전체 공개
+    //       sharedWith (공유받음) → 마스킹
+    const isOwned = ('createdBy' in masked && masked.createdBy === ctx.userId) ||
+                    ('assignedUserId' in masked && masked.assignedUserId === ctx.userId);
+
+    if (!isOwned) {
+      // 공유받은 고객: 마스킹
+      if ('phone' in masked) masked.phone = maskPhoneNumber(masked.phone);
+      if ('email' in masked) masked.email = maskEmail(masked.email);
+      if ('name' in masked) masked.name = maskName(masked.name);
+    }
+    return masked;
+  }
+
+  return contact;
 }
 
 /** 삭제 권한 체크 (판매원 AGENT/FREE_SALES 불가) */

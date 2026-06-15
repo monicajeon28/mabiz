@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, buildContactWhere } from "@/lib/rbac";
+import { getAuthContext, buildContactWhere, maskContactInfo } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { detectLenses } from "@/lib/lens-detector";
 import { detectRiskFlags } from "@/lib/risk-detector";
@@ -86,18 +86,21 @@ export async function GET(_req: Request, { params }: Params) {
         Math.floor((Date.now() - new Date(contact.lastContactedAt).getTime()) / (1000 * 60 * 60 * 24))
         : null;
 
+    // P0-1 Security Fix: Apply PII masking
+    const masked = maskContactInfo(contact, ctx);
+
     return NextResponse.json({
       ok: true,
       data: {
         // 기본 정보
         basicInfo: {
-          id: contact.id,
-          name: contact.name,
-          phone: contact.phone,
-          email: contact.email,
-          type: contact.type,
-          createdAt: contact.createdAt,
-          updatedAt: contact.updatedAt,
+          id: masked.id,
+          name: masked.name,
+          phone: masked.phone,
+          email: masked.email,
+          type: masked.type,
+          createdAt: masked.createdAt,
+          updatedAt: masked.updatedAt,
         },
 
         // 여행 정보
