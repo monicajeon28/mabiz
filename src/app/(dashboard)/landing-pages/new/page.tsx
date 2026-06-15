@@ -6,6 +6,8 @@ import { ArrowLeft, ImageIcon, Code, Upload, X, GripVertical, Plus, Trash2, Smar
 import dynamic from "next/dynamic";
 import { ImageLibraryModal } from "@/components/image-library/ImageLibraryModal";
 import { MAX_IMAGE_UPLOAD_BYTES, prepareImageForUpload } from "@/lib/client-image-compress";
+import { BlockEditor } from "./BlockEditor";
+import { Block, BlocksConfig } from "@/lib/landing-page-blocks";
 
 // ═════════════════════════════════════════════════════════════
 // Step 1-5: Russell Brunson 형식 기반 에디터 상수
@@ -259,6 +261,16 @@ export default function NewLandingPage() {
   const [productPrice, setProductPrice]     = useState("");
   const [cycleDay, setCycleDay]             = useState("1");
   const [expireDate, setExpireDate]         = useState("");
+
+  // 블록 에디터 상태
+  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [showBlockEditor, setShowBlockEditor] = useState(false);
+  const [selectedFeatures, setSelectedFeatures] = useState({
+    video: false,
+    timer: false,
+    testimonial: false,
+    faq: false,
+  });
 
   // 기타
   const [buttonTitle, setButtonTitle]           = useState("");
@@ -591,23 +603,40 @@ ${footerBlock}
         productPrice: parseInt(productPrice) || 0,
         ...(paymentType === "subscription" ? { cycleDay: parseInt(cycleDay), expireDate } : {}),
       } : {}),
+      // Phase C: 블록 에디터 데이터 저장
+      ...(blocks.length > 0 ? {
+        blocksConfig: JSON.stringify({
+          blocks: blocks,
+          selectedFeatures: selectedFeatures,
+        } as BlocksConfig),
+      } : {}),
     };
 
-    if (editorMode === "image") {
-      const pageId = savedPageId || (await ensurePage());
-      if (!pageId) { setSaving(false); return; }
+    // Phase C: 블록 에디터 모드 확인
+    let htmlToSave = html;
+    let editorModeToSave = editorMode;
+
+    if (blocks.length > 0) {
+      // 블록으로부터 HTML 생성
+      htmlToSave = buildBlocksHtml();
+      editorModeToSave = "html"; // 블록도 최종적으로 HTML로 저장
+    } else if (editorMode === "image") {
       const imgTags = images.map((img) => {
-        // GIF는 움직임 유지를 위해 원본 스트리밍(공개 엔드포인트), 그 외는 썸네일 사용
         const src = img.mimeType === "image/gif"
           ? `/api/public/landing-image?id=${img.driveFileId}`
           : (img.fullUrl ?? `https://drive.google.com/thumbnail?id=${img.driveFileId}&sz=w1920`);
         const ar  = img.width && img.height ? `aspect-ratio:${img.width}/${img.height};` : "";
         return `<img src="${src}" alt="" style="width:100%;display:block;${ar}" loading="lazy">`;
       }).join("\n");
-      const generatedHtml = `<div style="line-height:0;">\n${imgTags}\n</div>`;
+      htmlToSave = `<div style="line-height:0;">\n${imgTags}\n</div>`;
+    }
+
+    if (blocks.length > 0 || editorMode === "image") {
+      const pageId = savedPageId || (await ensurePage());
+      if (!pageId) { setSaving(false); return; }
       const res  = await fetch(`/api/landing-pages/${pageId}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...common, htmlContent: generatedHtml, editorMode: "image" }),
+        body: JSON.stringify({ ...common, htmlContent: htmlToSave, editorMode: editorModeToSave }),
       });
       const data = await res.json();
       if (data.ok) router.push(`/landing-pages/${pageId}`);
@@ -615,7 +644,7 @@ ${footerBlock}
     } else {
       const res  = await fetch("/api/landing-pages", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...common, htmlContent: html, editorMode: "html" }),
+        body: JSON.stringify({ ...common, htmlContent: htmlToSave, editorMode: "html" }),
       });
       const data = await res.json();
       if (data.ok) router.push(`/landing-pages/${data.page.id}`);
@@ -642,6 +671,178 @@ ${footerBlock}
 
   const toggleField    = (key: string) => setFormFields((p) => ({ ...p, [key]: { enabled: !p[key].enabled, required: !p[key].enabled ? p[key].required : false } }));
   const toggleRequired = (key: string) => setFormFields((p) => ({ ...p, [key]: { ...p[key], required: !p[key].required } }));
+
+  // URL을 안전하게 검증하는 헬퍼 함수 (XSS 공격 방지)
+  const isValidImageUrl = (url: string): boolean => {
+    if (!url) return false;
+    try {
+      const parsed = new URL(url);
+      // http, https, data만 허용 (javascript: 프로토콜 차단)
+      return ['http:', 'https:', 'data:'].includes(parsed.protocol);
+    } catch {
+      // URL 파싱 실패 = 유효하지 않은 URL
+      return false;
+    }
+  };
+
+  // 블록 기반 페이지 HTML 생성
+  const buildBlocksHtml = useCallback((): string => {
+    if (blocks.length === 0) return "";
+
+    let html = "";
+    blocks.forEach((block: any) => {
+      switch (block.type) {
+        case "heading": {
+          const headingAlign = block.data.align || "center";
+          const sizeMap: Record<string, string> = { small: "16px", medium: "24px", large: "32px", xl: "48px" };
+          const headingSize = sizeMap[block.data.fontSize || "large"] || "32px";
+          html += `<div style="text-align:${headingAlign};margin:24px 0;padding:0 20px">
+            <h1 style="font-size:${headingSize};font-weight:bold;color:#1a1a1a;margin:0">${block.data.text}</h1>
+          </div>`;
+          break;
+        }
+
+        case "body": {
+          const bodyBlock = block as any;
+          html += `<div style="margin:16px 0;padding:0 20px">
+            <p style="font-size:16px;color:#555;line-height:1.6;margin:0">${bodyBlock.data.text.replace(/\n/g, "<br>")}</p>
+          </div>`;
+          break;
+        }
+
+        case "image": {
+          const imgBlock = block as any;
+          const imgUrl = imgBlock.data.url;
+          // URL 검증: javascript: 프로토콜 차단
+          if (!isValidImageUrl(imgUrl)) {
+            console.warn(`Invalid image URL: ${imgUrl}`);
+            break;  // 유효하지 않은 URL은 렌더링 스킵
+          }
+          const ar =
+            imgBlock.data.aspectRatio && imgBlock.data.width && imgBlock.data.height
+              ? `aspect-ratio:${imgBlock.data.aspectRatio};`
+              : "";
+          html += `<div style="margin:20px 0;line-height:0">
+            <img src="${encodeURI(imgUrl)}" alt="${imgBlock.data.alt}" style="width:100%;display:block;${ar}" loading="lazy">
+          </div>`;
+          break;
+        }
+
+        case "cta": {
+          const ctaBlock = block as any;
+          const colors: Record<string, string> = {
+            blue: "#1E2D4E",
+            red: "#dc2626",
+            green: "#16a34a",
+            yellow: "#eab308",
+            dark: "#000",
+          };
+          const bg = colors[ctaBlock.data.color] || "#1E2D4E";
+          const sizeMap: Record<string, string> = { small: "12px 24px", medium: "15px 32px", large: "18px 40px" };
+          const size = sizeMap[ctaBlock.data.size || "medium"] || "15px 32px";
+          html += `<div style="text-align:center;margin:24px 0;padding:0 20px">
+            <button style="background:${bg};color:#fff;border:none;border-radius:8px;padding:${size};font-size:16px;font-weight:bold;cursor:pointer">${ctaBlock.data.text}</button>
+          </div>`;
+          break;
+        }
+
+        case "divider": {
+          html += `<div style="margin:32px 0;border-top:1px solid #e5e7eb"></div>`;
+          break;
+        }
+
+        case "footer": {
+          const footerBlock = block as any;
+          html += `<footer style="text-align:${footerBlock.data.align || "center"};margin:32px 0;padding:20px;color:#999;font-size:12px">${footerBlock.data.text.replace(/\n/g, "<br>")}</footer>`;
+          break;
+        }
+
+        case "video": {
+          const videoBlock = block as any;
+          const videoUrl = videoBlock.data.url;
+          // URL 검증: javascript: 프로토콜 차단
+          if (videoUrl && isValidImageUrl(videoUrl)) {
+            html += `<div style="margin:24px 0;padding:0 20px">
+              <iframe width="100%" height="400" src="${encodeURI(videoUrl)}" frameborder="0" ${videoBlock.data.autoplay ? "autoplay" : ""} ${videoBlock.data.loop ? "loop" : ""} allowfullscreen></iframe>
+            </div>`;
+          } else if (videoUrl) {
+            console.warn(`Invalid video URL: ${videoUrl}`);
+          }
+          break;
+        }
+
+        case "timer": {
+          const timerBlock = block as any;
+          if (timerBlock.data.enabled) {
+            html += `<div style="text-align:center;margin:24px 0;padding:20px;background:#fff3cd;border-radius:8px">
+              <p style="margin:0 0 10px;color:#856404">${timerBlock.data.title || "마감까지"}</p>
+              <div id="timer-${timerBlock.id}" style="font-size:24px;font-weight:bold;color:#dc3545">계산 중...</div>
+              <script>
+                const deadline = new Date('${timerBlock.data.deadline}').getTime();
+                setInterval(() => {
+                  const now = new Date().getTime();
+                  const diff = deadline - now;
+                  if (diff > 0) {
+                    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                    const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+                    const mins = Math.floor((diff / 1000 / 60) % 60);
+                    const secs = Math.floor((diff / 1000) % 60);
+                    document.getElementById('timer-${timerBlock.id}').textContent = days + '일 ' + hours + '시간 ' + mins + '분 ' + secs + '초';
+                  }
+                }, 1000);
+              </script>
+            </div>`;
+          }
+          break;
+        }
+
+        case "testimonial": {
+          const testimonialBlock = block as any;
+          html += `<div style="margin:24px 0;padding:0 20px">
+            <h3 style="font-size:20px;font-weight:bold;margin:0 0 16px">💬 고객 후기</h3>
+            <div style="display:grid;gap:12px">
+              ${testimonialBlock.data.items
+                .map(
+                  (item: any) =>
+                    `<div style="padding:12px;border:1px solid #e5e7eb;border-radius:8px">
+                  <p style="margin:0 0 8px;font-size:14px;color:#555">"${item.text}"</p>
+                  <p style="margin:0;font-size:12px;font-weight:bold;color:#333">- ${item.author}${item.role ? " (" + item.role + ")" : ""}</p>
+                </div>`
+                )
+                .join("")}
+            </div>
+          </div>`;
+          break;
+        }
+
+        case "faq": {
+          const faqBlock = block as any;
+          html += `<div style="margin:24px 0;padding:0 20px">
+            <h3 style="font-size:20px;font-weight:bold;margin:0 0 16px">❓ 자주 묻는 질문</h3>
+            <div style="display:grid;gap:8px">
+              ${faqBlock.data.items
+                .map(
+                  (item: any) =>
+                    `<details style="padding:12px;border:1px solid #e5e7eb;border-radius:8px">
+                  <summary style="font-weight:bold;cursor:pointer">Q. ${item.question}</summary>
+                  <p style="margin:8px 0 0;color:#555">A. ${item.answer}</p>
+                </details>`
+                )
+                .join("")}
+            </div>
+          </div>`;
+          break;
+        }
+      }
+    });
+
+    return html;
+  }, [blocks]);
+
+  // 블록 에디터 모달이 열리면 기존 HTML 파싱 → 블록으로 변환 (추후)
+  const handleOpenBlockEditor = () => {
+    setShowBlockEditor(true);
+  };
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
@@ -671,6 +872,29 @@ ${footerBlock}
         </div>
 
         {error && <p className="text-red-500 text-sm px-4 py-2 bg-red-50 border-b border-red-100 shrink-0">{error}</p>}
+
+        {/* 블록 에디터 모달 */}
+        {showBlockEditor && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
+              <h2 className="font-bold text-gray-900">블록 에디터</h2>
+              <button
+                onClick={() => setShowBlockEditor(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <BlockEditor
+                blocks={blocks}
+                onBlocksChange={setBlocks}
+                selectedFeatures={selectedFeatures}
+                onFeaturesChange={setSelectedFeatures}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Step 1: 기대효과 팝업 모달 */}
         {showExpectationModal && (
@@ -761,6 +985,48 @@ ${footerBlock}
             })()}
           </div>
 
+          {/* Step 2-B: 그룹 선택 (퍼널 설정) */}
+          <div className="px-4 py-4 bg-white border-b border-gray-100">
+            <div className="mb-6 p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
+              <h3 className="text-sm font-bold mb-3 text-blue-900">⚙️ 퍼널 설정 (그룹 선택)</h3>
+
+              <label className="block text-sm font-medium mb-3 text-gray-700">
+                이 퍼널을 어느 고객 그룹으로 보낼 건가요?
+              </label>
+
+              <select
+                value={selectedGroupId}
+                onChange={(e) => setSelectedGroupId(e.target.value)}
+                className="w-full border-2 border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-400 bg-white"
+              >
+                <option value="">-- 그룹을 선택하세요 --</option>
+                {groups.map(g => (
+                  <option key={g.id} value={g.id}>
+                    {g.name} {g.funnelId ? "✓ (문자퍼널 활성)" : "(문자퍼널 없음)"}
+                  </option>
+                ))}
+              </select>
+
+              {/* 선택 후 배너 */}
+              {selectedGroupId && (
+                <div className="mt-3 p-3 bg-green-100 border-l-4 border-green-500 rounded">
+                  <p className="text-sm text-green-700 font-bold">
+                    ✓ {groups.find(g => g.id === selectedGroupId)?.name || "그룹"}의 문자퍼널이 연결됩니다
+                  </p>
+                </div>
+              )}
+
+              {/* 그룹이 없을 때 안내 */}
+              {selectedGroupId === "" && groups.length === 0 && (
+                <div className="mt-3 p-3 bg-yellow-100 border-l-4 border-yellow-500 rounded">
+                  <p className="text-sm text-yellow-700">
+                    ⚠️ 사용 가능한 그룹이 없습니다. 먼저 그룹을 생성해주세요.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Step 3: CTA 선택지 */}
           <div className="px-4 py-4 bg-white border-b border-gray-100">
             <p className="text-sm font-semibold text-gray-800 mb-3">Step 3: 신청 버튼 심리학 선택</p>
@@ -789,7 +1055,7 @@ ${footerBlock}
             </div>
           </div>
 
-          {/* 에디터 모드 + 그룹 */}
+          {/* 에디터 모드 + 그룹 + 블록 에디터 버튼 */}
           <div className="px-4 py-3 bg-white border-b border-gray-100 flex items-center gap-3 flex-wrap">
             <div className="flex bg-gray-100 rounded-lg p-0.5">
               <button onClick={() => setEditorMode("image")}
@@ -799,6 +1065,13 @@ ${footerBlock}
               <button onClick={() => setEditorMode("html")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${editorMode === "html" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}>
                 <Code className="w-4 h-4" /> HTML형
+              </button>
+              <button
+                onClick={handleOpenBlockEditor}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors text-gray-500 hover:text-purple-700`}
+                title="블록 기반 에디터 (베타)"
+              >
+                🧩 블록
               </button>
             </div>
             <select value={selectedGroupId} onChange={(e) => setSelectedGroupId(e.target.value)}
