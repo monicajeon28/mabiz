@@ -282,3 +282,135 @@ export async function triggerGroupEmailFunnel(
 
   return createResult.count > 0;
 }
+
+/**
+ * FunnelEmail (새 독립 모델) 트리거 — 그룹의 funnelEmailId → ScheduledEmailMessage 생성
+ * GroupEmailFunnel과 달리 GroupEmailConfig 없이 발송자 이메일을 직접 지정.
+ */
+export async function triggerFunnelEmail(
+  opts: EmailTriggerOptions
+): Promise<boolean> {
+  const { contactId, groupId, organizationId, reEntryPolicy } = opts;
+  const isReset = typeof reEntryPolicy === "string" && reEntryPolicy.includes("RESET");
+
+  // 1. 그룹의 funnelEmailId 조회
+  const group = await prisma.contactGroup.findFirst({
+    where: { id: groupId, organizationId },
+    select: { funnelEmailId: true, name: true },
+  });
+
+  if (!group?.funnelEmailId) return false;
+
+  // 2. FunnelEmail + 메시지 조회
+  const funnelEmail = await prisma.funnelEmail.findFirst({
+    where: { id: group.funnelEmailId, organizationId, isActive: true },
+    select: {
+      id: true,
+      title: true,
+      sendHour: true,
+      sendMinute: true,
+      createdByUserId: true,
+      messages: {
+        orderBy: { order: "asc" },
+        select: {
+          id: true,
+          order: true,
+          daysAfter: true,
+          subject: true,
+          bodyHtml: true,
+        },
+      },
+    },
+  });
+
+  if (!funnelEmail || funnelEmail.messages.length === 0) {
+    return false;
+  }
+
+  // 3. Contact 조회 + 이메일/수신거부 체크
+  const contact = await prisma.contact.findFirst({
+    where: { id: contactId, organizationId },
+    select: { id: true, name: true, email: true, phone: true, optOutAt: true },
+  });
+
+  if (!contact || !contact.email || contact.optOutAt) {
+    return false;
+  }
+
+  // 4. 멱등성 체크 / RESET 처리
+  const existing = await prisma.scheduledEmailMessage.findMany({
+    where: { organizationId, contactId, groupId, status: "PENDING" },
+    select: { id: true },
+  });
+
+  if (existing.length > 0) {
+    if (isReset) {
+      await prisma.scheduledEmailMessage.updateMany({
+        where: { id: { in: existing.map((r) => r.id) }, status: "PENDING" },
+        data: { status: "CANCELLED" },
+      });
+    } else {
+      return false;
+    }
+  }
+
+  // 5. 발송 기준일 및 변수
+  const nowUtc = new Date();
+  const anchor = opts.anchorDate ?? nowUtc;
+  const kstAnchorDayjs = dayjs(anchor).tz(KST_TZ);
+
+  const variables = {
+    name: contact.name ?? "",
+    email: contact.email,
+    phone: contact.phone ?? "",
+    groupName: group.name ?? "",
+  };
+
+  // 6. daysAfter → scheduledAt 변환
+  const recordsToCreate = funnelEmail.messages.map((msg) => {
+    let scheduledAt: Date;
+
+    if (msg.daysAfter === 0) {
+      scheduledAt = new Date(nowUtc.getTime() + 1_000);
+    } else {
+      const kstTarget = kstAnchorDayjs
+        .add(msg.daysAfter, "day")
+        .hour(funnelEmail.sendHour)
+        .minute(funnelEmail.sendMinute)
+        .second(0)
+        .millisecond(0);
+      scheduledAt = kstTarget.toDate();
+      if (scheduledAt <= nowUtc) {
+        scheduledAt = kstTarget.add(1, "day").toDate();
+      }
+    }
+
+    return {
+      organizationId,
+      contactId,
+      groupId,
+      day: msg.daysAfter,
+      subject: msg.subject,
+      htmlContent: msg.bodyHtml,
+      variables: variables as Record<string, string>,
+      status: "PENDING" as const,
+      scheduledAt,
+      provider: "SMTP",
+      senderUserId: funnelEmail.createdByUserId,
+    };
+  });
+
+  const result = await prisma.scheduledEmailMessage.createMany({
+    data: recordsToCreate,
+    skipDuplicates: true,
+  });
+
+  logger.log("[FunnelEmailTrigger] 자동이메일 스케줄 생성", {
+    contactId,
+    groupId,
+    funnelEmailId: funnelEmail.id,
+    inserted: result.count,
+  });
+
+  return result.count > 0;
+}
