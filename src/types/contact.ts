@@ -74,4 +74,7 @@ export interface Contact {
   // 엑셀 가져오기
   inflowDate?: string | null;
   surveyData?: SurveyData | null;
+  // 신청 이력
+  signupCount?: number;
+  signupHistory?: string | any[];
 }
