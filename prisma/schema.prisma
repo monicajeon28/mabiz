@@ -90,6 +90,8 @@ model Organization {
   profitCalculations         ProfitCalculation[]
   // Contact Audit Logs
   contactAuditLogs           ContactAuditLog[]
+  // Unsubscribed
+  unsubscribed               Unsubscribed[]
 }
 
 model OrgSmsConfig {
@@ -1027,6 +1029,25 @@ model SmsOptOut {
   phone      String   @unique
   optedOutAt DateTime @default(now())
   reason     String?
+}
+
+model Unsubscribed {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  phone          String   // 필수: 010-1234-5678 또는 01012345678 (정규화됨)
+  name           String?  // 선택: 이름
+
+  reason         String?  // 선택: 수신거부 사유
+  createdAt      DateTime @default(now())
+  createdBy      String   // 누가 신청: "SELF" (자가) 또는 사용자 ID (관리자)
+
+  // 중복 방지: 조직 + 전화번호 조합은 유니크 (이름은 다를 수 있음)
+  @@unique([organizationId, phone])
+  @@index([organizationId])
+  @@index([phone])
+  @@index([organizationId, createdAt])
 }
 
 model SmsLog {
