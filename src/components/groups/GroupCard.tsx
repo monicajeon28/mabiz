@@ -54,7 +54,7 @@ export function GroupCard({
             <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">{group.description}</p>
           ) : (
             <p className="text-sm text-orange-600 font-medium mt-0.5">
-              ⚠️ 아직 퍼널을 연결하지 않았나요? 고객이 신청 후 3일간 자동으로 메시지를 받지 못합니다.
+              ⚠️ 아직 자동 메시지를 연결하지 않았나요? 고객이 신청 후 3일간 자동으로 메시지를 받지 못합니다.
             </p>
           )}
 
@@ -62,11 +62,11 @@ export function GroupCard({
           {group.funnelId ? (
             <div className="flex items-center gap-1 mt-1.5">
               <GitBranch className="w-3 h-3 text-green-500" aria-hidden="true" />
-              <span className="text-sm text-green-600 font-medium">퍼널 연결됨: {group.funnelName}</span>
+              <span className="text-sm text-green-600 font-medium">자동 메시지 연결됨: {group.funnelName}</span>
             </div>
           ) : (
             <div className="flex items-center gap-1 mt-1.5">
-              <span className="text-sm text-gray-600">퍼널 없음</span>
+              <span className="text-sm text-gray-600">자동 메시지 없음</span>
             </div>
           )}
         </div>

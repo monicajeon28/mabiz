@@ -239,10 +239,10 @@ export function GroupForm({
                 </td>
               </tr>
 
-              {/* 퍼널톡 */}
+              {/* 카카오 자동화 */}
               <tr className="border-b border-gray-100">
                 <td className="py-3 pr-4 text-gray-700 font-medium whitespace-nowrap align-top pt-3.5">
-                  퍼널톡
+                  카카오 자동화
                 </td>
                 <td className="py-3 space-y-2">
                   {([0, 1, 2] as const).map((i) => (
@@ -252,7 +252,7 @@ export function GroupForm({
                       onChange={(e) => handleFunnelChange(i, e.target.value)}
                       className="w-full border border-gray-200 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400"
                     >
-                      <option value="">연결할 퍼널톡 선택</option>
+                      <option value="">연결할 카카오 자동화 선택</option>
                       {funnels.map((f) => (
                         <option key={f.id} value={f.id}>{f.name}</option>
                       ))}
@@ -261,10 +261,10 @@ export function GroupForm({
                 </td>
               </tr>
 
-              {/* 퍼널문자 */}
+              {/* 자동 문자 */}
               <tr className="border-b border-gray-100">
                 <td className="py-3 pr-4 text-gray-700 font-medium whitespace-nowrap align-top pt-3.5">
-                  퍼널문자
+                  자동 문자
                 </td>
                 <td className="py-3 space-y-2">
                   {([0, 1, 2] as const).map((i) => (
@@ -274,7 +274,7 @@ export function GroupForm({
                       onChange={(e) => handleSmsChange(i, e.target.value)}
                       className="w-full border border-gray-200 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400"
                     >
-                      <option value="">연결할 퍼널문자 선택</option>
+                      <option value="">연결할 자동 문자 선택</option>
                       {funnelSmsList.map((f) => (
                         <option key={f.id} value={f.id}>{f.title}</option>
                       ))}
@@ -283,10 +283,10 @@ export function GroupForm({
                 </td>
               </tr>
 
-              {/* 퍼널메일 */}
+              {/* 자동 이메일 */}
               <tr className="border-b border-gray-100">
                 <td className="py-3 pr-4 text-gray-700 font-medium whitespace-nowrap align-top pt-3.5">
-                  퍼널메일
+                  자동 이메일
                 </td>
                 <td className="py-3 space-y-2">
                   {([0, 1, 2] as const).map((i) => (
@@ -296,7 +296,7 @@ export function GroupForm({
                       onChange={(e) => handleEmailChange(i, e.target.value)}
                       className="w-full border border-gray-200 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400"
                     >
-                      <option value="">연결할 퍼널메일 선택</option>
+                      <option value="">연결할 자동 이메일 선택</option>
                       {funnelEmailList.map((f) => (
                         <option key={f.id} value={f.id}>{f.name}</option>
                       ))}
@@ -323,7 +323,7 @@ export function GroupForm({
                       },
                       {
                         value: 'RESET_ALL_RESTART' as ReEntryPolicy,
-                        label: '유입시간변경 O, 고객정보변경 O (*0일차 퍼널 부터 다시 시작)',
+                        label: '유입시간변경 O, 고객정보변경 O (*신청 첫날부터 자동 메시지 다시 시작)',
                       },
                     ] as const
                   ).map((opt) => (

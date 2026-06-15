@@ -258,7 +258,7 @@ function PersonalEmailForm({ role }: { role: UserRole }) {
 
         {/* SMTP 서버 설정 */}
         <div>
-          <p className="text-base font-semibold text-gray-800 mb-1.5">SMTP 서버 설정</p>
+          <p className="text-base font-semibold text-gray-800 mb-1.5">이메일 서버 설정</p>
           {form.smtpHost.includes("gmail") && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3 text-sm text-blue-800">
               <strong>Gmail 사용 시:</strong> 구글 계정에서{" "}
@@ -300,7 +300,7 @@ function PersonalEmailForm({ role }: { role: UserRole }) {
           <div className="space-y-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                SMTP 계정 (아이디) <span className="text-red-500">*</span>
+                아이디 <span className="text-red-500">*</span>
               </label>
               <input
                 type="email"
@@ -334,7 +334,7 @@ function PersonalEmailForm({ role }: { role: UserRole }) {
                 className="w-5 h-5 rounded border-gray-300 text-blue-600"
               />
               <span className="text-base text-gray-700">
-                보안 연결 사용 (TLS/SSL — 포트 465 사용 시 체크)
+                보안 연결 사용 (포트 465 사용 시 체크)
               </span>
             </label>
           </div>
