@@ -431,6 +431,75 @@ export async function sendExpirationWarningEmail(
 }
 
 /**
+ * L10 (Urgency Final) - 재서명 완료
+ * "계약서가 확정되었습니다. 축하합니다!"
+ *
+ * 심리학:
+ * - L10: 긴박감 해제 (최종 완료)
+ * - L7: 함께 목표 달성
+ */
+export async function sendReSignCompletedEmail(
+  contactEmail: string,
+  context: EmailContext,
+  organizationId?: string
+): Promise<boolean> {
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <h2 style="color: #1f2937; margin-top: 0;">✅ 계약서가 최종 확정되었습니다!</h2>
+
+      <p style="color: #374151; font-size: 16px; line-height: 1.6;">
+        안녕하세요, <strong>${context.customerName}</strong>님!
+      </p>
+
+      <p style="color: #4b5563; font-size: 15px; line-height: 1.6;">
+        귀하의 재서명이 완료되었으며,<br>
+        <strong>수정된 계약서가 최종 확정되었습니다.</strong>
+      </p>
+
+      <div style="background: #dbeafe; padding: 16px; border-radius: 8px; margin: 24px 0; border-left: 4px solid #10b981;">
+        <p style="color: #1f2937; font-weight: 600; margin-top: 0;">✅ 적용된 수정사항</p>
+        <p style="color: #374151; margin: 8px 0;"><strong>${context.fieldName}</strong></p>
+        <div style="background: white; padding: 12px; border-radius: 6px; margin: 12px 0; font-family: 'Courier New', monospace;">
+          <p style="color: #6b7280; margin: 4px 0;"><strike>${context.currentValue}</strike></p>
+          <p style="color: #10b981; margin: 4px 0; font-weight: bold;">↓</p>
+          <p style="color: #10b981; margin: 4px 0; font-weight: bold;">${context.newValue}</p>
+        </div>
+      </div>
+
+      <div style="background: #f0fdf4; padding: 16px; border-radius: 8px; margin: 20px 0;">
+        <p style="color: #15803d; font-size: 15px; line-height: 1.6;">
+          🎉 <strong>모든 절차가 완료되었습니다.</strong><br>
+          계약서는 완전히 유효하며, 언제든지 조회하실 수 있습니다.
+        </p>
+      </div>
+
+      <p style="color: #4b5563; font-size: 14px; line-height: 1.6;">
+        <strong>다음 단계:</strong>
+      </p>
+      <ul style="color: #4b5563; font-size: 14px; line-height: 1.8;">
+        <li>📥 계약서를 다시 다운로드할 수 있습니다</li>
+        <li>📧 계약서 사본이 이메일로 전송됩니다</li>
+        <li>⏱️ 다음 예정일: [자동으로 생성됨]</li>
+      </ul>
+
+      <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+
+      <p style="color: #6b7280; font-size: 13px; margin-bottom: 8px;">
+        감사합니다!<br>
+        <strong>마비즈 CRM 팀</strong>
+      </p>
+    </div>
+  `;
+
+  return sendSystemEmail({
+    to: contactEmail,
+    subject: `✅ 계약서 재서명 완료 - ${context.fieldName}`,
+    html,
+    organizationId,
+  });
+}
+
+/**
  * 종료 알림 - 최종 상태
  * (승인됨, 거절됨, 만료됨, 대안 수락)
  */
