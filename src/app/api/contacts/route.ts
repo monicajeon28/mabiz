@@ -23,7 +23,7 @@ function normalizeCustomerType(type: string | undefined): 'PURCHASED' | 'INQUIRY
   return undefined;
 }
 
-// GET /api/contacts — 고객 목록 (역할 기반 + P0-6 출처 기반)
+// GET /api/contacts — 고객 목록 (역할 기반 + P0-6 출처 기반 + Team-B 탭 카테고리)
 export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
@@ -35,6 +35,7 @@ export async function GET(req: Request) {
     const type = customerOnly ? undefined : rawType;
     const channel = searchParams.get("channel"); // b2c, b2b, direct
     const sourceType = searchParams.get("sourceType"); // P0-6: user, inquiry, affiliate, landing_page, education, gold_member
+    const visibility = searchParams.get("visibility"); // Team-B: SHARED | ADMIN_ONLY
     const q       = searchParams.get("q");
     const groupId = searchParams.get("groupId");
     const tagParam = searchParams.get("tags");                      // 쉼표 구분 태그 필터
@@ -47,6 +48,12 @@ export async function GET(req: Request) {
     const safeLimit = Math.min(Number(searchParams.get("limit")) || 30, 200); // limit 상한 강제 (200건)
 
     const baseWhere = buildContactWhere(ctx, {
+      // Team-B: 탭 카테고리 필터 (visibility 명시적 지정 시 buildContactWhere의 기본값 덮어씌우기)
+      ...(visibility === 'ADMIN_ONLY'
+        ? { visibility: 'ADMIN_ONLY' }
+        : visibility === 'SHARED'
+        ? { visibility: 'SHARED' }
+        : {}),
       // customerOnly: PURCHASED (구매완료) 고객만, purchasedAt NOT NULL 필수
       ...(customerOnly
         ? {
