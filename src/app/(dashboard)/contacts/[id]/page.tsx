@@ -19,6 +19,7 @@ import ContactAffiliateCard from "./ContactAffiliateCard";
 import ContactRiskPanel from "./ContactRiskPanel";
 import { SignupHistoryTab } from "./SignupHistoryTab";
 import { FunnelSetupPanel } from "./FunnelSetupPanel";
+import { GrantObjectionPanel } from "./GrantObjectionPanel";
 import { getAllObjectionIds, getObjectionData } from "@/lib/objections/validation";
 import objectionsData from "@/../TRACK_A_OBJECTIONS.json";
 import { Contact, CallLog, Memo } from "@/types/contact";
@@ -1098,6 +1099,13 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
       <div className="space-y-2">
         {/* Funnel Setup Panel (Russell Brunson) */}
         <FunnelSetupPanel contactId={id} contactName={contact.name} />
+
+        {/* Grant Cardone Objection Panel */}
+        <GrantObjectionPanel
+          contactId={id}
+          contactName={contact.name}
+          lensInfo={contact.lensInfo as Record<string, number> | undefined}
+        />
 
         {/* Accordion: 그룹 관리 */}
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
