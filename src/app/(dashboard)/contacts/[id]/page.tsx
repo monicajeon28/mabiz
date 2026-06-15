@@ -26,7 +26,11 @@ import type { ObjectionData } from "@/lib/objections/validation";
 import { SendDbResponse } from "@/types/api";
 import { useContactOperations, EMPTY_CALL_FORM } from "./use-contact-operations";
 
-type Group = { id: string; name: string; funnelId?: string | null };
+type Group = {
+  id: string;
+  name: string;
+  funnelId?: string | null;
+};
 
 // 크루즈 여행사 특화 추천 태그
 const SUGGESTED_TAGS = [
@@ -69,7 +73,8 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   const { toast } = useToast();
 
   const [contact,       setContact]       = useState<Contact | null>(null);
-  const [tab,           setTab]           = useState<"call" | "memo" | "group" | "sms" | "reservations" | "signup-history">("call");
+  const [tab,           setTab]           = useState<"call" | "memo" | "sms">("call");
+  const [openSections,  setOpenSections]  = useState<Set<string>>(new Set());
   const [loading,       setLoading]       = useState(true);
   const [smsLogs,       setSmsLogs]       = useState<{ id: string; phone: string; contentPreview: string; status: string; channel: string; sentAt: string }[]>([]);
   const [smsLoading,    setSmsLoading]    = useState(false);
@@ -674,7 +679,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   );
   if (!contact) return <div className="p-6 text-gray-500">고객을 찾을 수 없습니다.</div>;
 
-  const currentGroups = contact.groups.map((g) => g.group);
+  const currentGroups: Group[] = contact.groups.map((g) => g.group);
   const availableGroups = allGroups.filter((g) => !currentGroups.some((cg) => cg.id === g.id));
 
   return (
@@ -1000,15 +1005,12 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         );
       })()}
 
-      {/* 탭 */}
-      <div className="flex border-b border-gray-200 mb-4">
+      {/* 3-Tab Navigation */}
+      <div className="flex gap-3 border-b border-gray-200 mb-6 overflow-x-auto">
         {[
-          { key: "call",         label: `📞 콜기록 (${contact.callLogs.length})` },
-          { key: "memo",         label: `📝 메모 (${contact.memos.length})` },
-          { key: "group",        label: "🔄 퍼널" },
-          { key: "sms",          label: "💬 발송내역" },
-          { key: "signup-history", label: `📋 신청이력 (${contact.signupCount || 0})` },
-          { key: "reservations", label: "🚢 예약" },
+          { key: "call",  label: `📞 콜기록 (${contact.callLogs.length})` },
+          { key: "memo",  label: `📝 메모 (${contact.memos.length})` },
+          { key: "sms",   label: "💬 발송내역" },
         ].map((t) => (
           <button
             key={t.key}
@@ -1031,22 +1033,8 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                     setSmsLoading(false);
                   });
               }
-              if (t.key === "reservations" && !reservationLoaded) {
-                setReservationLoading(true);
-                fetch(`/api/contacts/${contact.id}/reservations`, { credentials: 'include' })
-                  .then(r => r.json())
-                  .then(d => {
-                    if (d.ok) setReservations(d.reservations ?? []);
-                    setReservationLoaded(true);
-                    setReservationLoading(false);
-                  })
-                  .catch(err => {
-                    logger.error("[ContactDetail] 예약 fetch 실패", { contactId: contact.id, err });
-                    setReservationLoading(false);
-                  });
-              }
             }}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            className={`px-5 py-3 text-base font-bold border-b-2 whitespace-nowrap transition-colors min-h-12 ${
               tab === t.key
                 ? "border-gold-500 text-navy-900"
                 : "border-transparent text-gray-400 hover:text-gray-600"
@@ -1094,64 +1082,6 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         />
       )}
 
-      {/* Group Tab */}
-      {tab === "group" && (
-        <ContactGroupTab
-          contact={contact}
-          allGroups={allGroups}
-          selectedGroup={selectedGroup}
-          setSelectedGroup={setSelectedGroup}
-          assigning={assigning}
-          assignMsg={assignMsg}
-          assignGroup={assignGroup}
-          funnels={funnels}
-          selectedFunnelId={selectedFunnelId}
-          setSelectedFunnelId={setSelectedFunnelId}
-          enrollStartDate={enrollStartDate}
-          setEnrollStartDate={setEnrollStartDate}
-          enrollSendNow={enrollSendNow}
-          setEnrollSendNow={setEnrollSendNow}
-          enrolling={enrolling}
-          setEnrolling={setEnrolling}
-          enrollError={enrollError}
-          setEnrollError={setEnrollError}
-          handleFunnelEnroll={async () => {
-            if (!selectedFunnelId) return;
-            setEnrolling(true);
-            setEnrollError('');
-            const res = await fetch(`/api/funnels/${selectedFunnelId}/enroll`, {
-              method: 'POST',
-              credentials: 'include',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contactId: contact.id,
-                startDate: enrollStartDate || undefined,
-                sendNow: enrollSendNow,
-              }),
-            });
-            const d = await res.json();
-            if (d.ok) {
-              setSelectedFunnelId('');
-              setEnrollStartDate('');
-              setEnrollSendNow(false);
-              // Refresh contact data to reflect updated vipSequences
-              fetch(`/api/contacts/${id}`, { credentials: 'include' })
-                .then(r => r.json())
-                .then(contactData => {
-                  if (contactData.ok) {
-                    setContact(contactData.contact);
-                  }
-                })
-                .catch(err => logger.error('[handleFunnelEnroll refresh]', { err }));
-            } else {
-              setEnrollError(d.message ?? '등록 실패');
-            }
-            setEnrolling(false);
-          }}
-          transferLogs={transferLogs}
-          loadingTransfer={loadingTransfer}
-        />
-      )}
 
       {/* SMS Tab */}
       {tab === "sms" && (
@@ -1163,93 +1093,282 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         />
       )}
 
-      {/* Signup History Tab */}
-      {tab === "signup-history" && (
-        <SignupHistoryTab contactId={id} />
-      )}
-
-      {/* Reservations Tab */}
-      {tab === "reservations" && (
-        <div className="space-y-3">
-          {reservationLoading ? (
-            <div className="text-center text-sm text-gray-400 py-8">불러오는 중...</div>
-          ) : reservations.length === 0 ? (
-            <p className="text-center text-sm text-gray-400 py-8">연결된 예약 정보가 없습니다.</p>
-          ) : (
-            reservations.map((r) => (
-              <div key={r.id} className="bg-white border border-gray-200 rounded-xl p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                      r.status === "CONFIRMED"  ? "bg-green-100 text-green-700"  :
-                      r.status === "CANCELLED"  ? "bg-red-100 text-red-700"     :
-                      r.status === "PENDING"    ? "bg-yellow-100 text-yellow-700" :
-                                                  "bg-gray-100 text-gray-500"
-                    }`}>
-                      {r.status === "CONFIRMED" ? "✅ 예약확정" : r.status === "CANCELLED" ? "❌ 취소됨" : r.status === "PENDING" ? "⏳ 확인중" : r.status}
-                    </span>
-                    <span className="text-xs text-gray-400">예약 #{r.id}</span>
-                  </div>
-                  <span className="text-xs text-gray-400">
-                    {new Date(r.createdAt).toLocaleDateString("ko-KR")}
-                  </span>
-                </div>
-
-                <div>
-                  <p className="text-sm font-semibold text-gray-900">
-                    {r.trip.cruiseName ?? r.trip.shipName ?? "크루즈 정보 없음"}
-                  </p>
-                  {r.trip.reservationCode && (
-                    <p className="text-xs text-gray-500">예약코드: {r.trip.reservationCode}</p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-600">
-                  {r.trip.startDate && (
-                    <div><span className="text-gray-400">출발: </span>
-                      {new Date(r.trip.startDate).toLocaleDateString("ko-KR")}
+      {/* Accordion Sections (그룹/분석/주의신호/신청이력/예약) */}
+      <div className="space-y-2">
+        {/* Accordion: 그룹 관리 */}
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <button
+            onClick={() => {
+              setOpenSections(prev => {
+                const next = new Set(prev);
+                if (next.has('groups')) next.delete('groups');
+                else next.add('groups');
+                return next;
+              });
+            }}
+            className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
+          >
+            <span className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-purple-500" />
+              그룹 관리 ({currentGroups.length})
+            </span>
+            <ChevronDown
+              className={`w-4 h-4 text-gray-400 transition-transform ${
+                openSections.has('groups') ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+          {openSections.has('groups') && (
+            <div className="px-4 py-3 border-t border-gray-100 space-y-2">
+              {currentGroups.length === 0 ? (
+                <p className="text-xs text-gray-400">배정된 그룹이 없습니다.</p>
+              ) : (
+                <div className="space-y-2">
+                  {currentGroups.map((g) => (
+                    <div key={g.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-2">
+                      <span className="text-sm text-gray-700">{g.name}</span>
+                      {g.funnelId && (
+                        <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-600">
+                          퍼널 연동
+                        </span>
+                      )}
                     </div>
-                  )}
-                  {r.trip.endDate && (
-                    <div><span className="text-gray-400">귀국: </span>
-                      {new Date(r.trip.endDate).toLocaleDateString("ko-KR")}
-                    </div>
-                  )}
-                  {r.trip.nights > 0 && (
-                    <div><span className="text-gray-400">기간: </span>{r.trip.nights}박</div>
-                  )}
-                  {r.totalPeople > 0 && (
-                    <div><span className="text-gray-400">인원: </span>{r.totalPeople}명</div>
-                  )}
-                  {r.cabinType && (
-                    <div><span className="text-gray-400">객실: </span>{r.cabinType}</div>
-                  )}
-                  {r.paymentAmount && (
-                    <div><span className="text-gray-400">결제: </span>
-                      {r.paymentAmount.toLocaleString()}원
-                    </div>
-                  )}
+                  ))}
                 </div>
-
-                {(r.passportStatus !== "PENDING" || r.pnrStatus !== "PENDING") && (
-                  <div className="flex gap-2 pt-1">
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">
-                      여권 {r.passportStatus}
-                    </span>
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">
-                      PNR {r.pnrStatus}
-                    </span>
-                  </div>
-                )}
-
-                {r.remarks && (
-                  <p className="text-xs text-gray-500 border-t border-gray-100 pt-2">{r.remarks}</p>
+              )}
+              <div className="pt-2 border-t border-gray-100 space-y-2">
+                {availableGroups.length > 0 ? (
+                  <>
+                    <select
+                      value={selectedGroup}
+                      onChange={(e) => setSelectedGroup(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-purple-400"
+                    >
+                      <option value="">+ 그룹 추가</option>
+                      {availableGroups.map((g) => (
+                        <option key={g.id} value={g.id}>{g.name}</option>
+                      ))}
+                    </select>
+                    {assignMsg && (
+                      <p className={`text-xs font-medium ${assignMsg.startsWith("✅") ? "text-green-600" : "text-red-500"}`}>
+                        {assignMsg}
+                      </p>
+                    )}
+                    <button
+                      onClick={assignGroup}
+                      disabled={!selectedGroup || assigning}
+                      className="w-full px-3 py-2 text-xs font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
+                    >
+                      {assigning ? "배정 중..." : "그룹 배정"}
+                    </button>
+                  </>
+                ) : (
+                  <p className="text-xs text-gray-400 text-center py-2">추가 가능한 그룹이 없습니다.</p>
                 )}
               </div>
-            ))
+            </div>
           )}
         </div>
-      )}
+
+        {/* Accordion: 심리 분석 (렌즈) */}
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <button
+            onClick={() => {
+              setOpenSections(prev => {
+                const next = new Set(prev);
+                if (next.has('analysis')) next.delete('analysis');
+                else next.add('analysis');
+                return next;
+              });
+            }}
+            className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
+          >
+            <span className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+              <GitBranch className="w-4 h-4 text-blue-500" />
+              심리 분석 (L0-L10)
+            </span>
+            <ChevronDown
+              className={`w-4 h-4 text-gray-400 transition-transform ${
+                openSections.has('analysis') ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+          {openSections.has('analysis') && (
+            <div className="px-4 py-3 border-t border-gray-100">
+              <p className="text-xs text-gray-500 mb-2">
+                Grant Cardone 10가지 심리 렌즈로 고객 성향 분석
+              </p>
+              <div className="text-xs text-gray-600 space-y-1">
+                <p>L0: 부재중 고객 (3-6/6-12/1년+)</p>
+                <p>L1: 가격 민감도</p>
+                <p>L2: 준비 복잡도</p>
+                <p>L3: 경쟁사 언급</p>
+                <p>L4-L10: 추가 렌즈 분석 (확장 중)</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Accordion: 주의 신호 */}
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <button
+            onClick={() => {
+              setOpenSections(prev => {
+                const next = new Set(prev);
+                if (next.has('alerts')) next.delete('alerts');
+                else next.add('alerts');
+                return next;
+              });
+            }}
+            className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
+          >
+            <span className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+              <AlarmClock className="w-4 h-4 text-red-500" />
+              주의 신호 (위험도)
+            </span>
+            <ChevronDown
+              className={`w-4 h-4 text-gray-400 transition-transform ${
+                openSections.has('alerts') ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+          {openSections.has('alerts') && (
+            <div className="px-4 py-3 border-t border-gray-100">
+              <p className="text-xs text-gray-500">
+                실시간 위험도 감지 시스템이 자동으로 신호를 추적합니다.
+              </p>
+              <p className="text-xs text-gray-400 mt-2">
+                Risk Score: 아래 📊 위험도 섹션에서 확인하세요.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Accordion: 신청 이력 */}
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <button
+            onClick={() => {
+              setOpenSections(prev => {
+                const next = new Set(prev);
+                if (next.has('signup')) next.delete('signup');
+                else next.add('signup');
+                return next;
+              });
+            }}
+            className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
+          >
+            <span className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-blue-500" />
+              신청 이력 ({contact.signupCount || 0})
+            </span>
+            <ChevronDown
+              className={`w-4 h-4 text-gray-400 transition-transform ${
+                openSections.has('signup') ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+          {openSections.has('signup') && (
+            <div className="px-4 py-3 border-t border-gray-100">
+              <SignupHistoryTab contactId={id} />
+            </div>
+          )}
+        </div>
+
+        {/* Accordion: 예약 정보 */}
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <button
+            onClick={() => {
+              setOpenSections(prev => {
+                const next = new Set(prev);
+                if (next.has('reservations')) next.delete('reservations');
+                else next.add('reservations');
+                return next;
+              });
+              if (!reservationLoaded) {
+                setReservationLoading(true);
+                fetch(`/api/contacts/${contact.id}/reservations`, { credentials: 'include' })
+                  .then(r => r.json())
+                  .then(d => {
+                    if (d.ok) setReservations(d.reservations ?? []);
+                    setReservationLoaded(true);
+                    setReservationLoading(false);
+                  })
+                  .catch(err => {
+                    logger.error("[ContactDetail] 예약 fetch 실패", { contactId: contact.id, err });
+                    setReservationLoading(false);
+                  });
+              }
+            }}
+            className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
+          >
+            <span className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-green-500" />
+              예약 정보 ({reservations.length})
+            </span>
+            <ChevronDown
+              className={`w-4 h-4 text-gray-400 transition-transform ${
+                openSections.has('reservations') ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+          {openSections.has('reservations') && (
+            <div className="px-4 py-3 border-t border-gray-100 space-y-3">
+              {reservationLoading ? (
+                <div className="text-center text-sm text-gray-400 py-4">불러오는 중...</div>
+              ) : reservations.length === 0 ? (
+                <p className="text-center text-sm text-gray-400 py-4">연결된 예약 정보가 없습니다.</p>
+              ) : (
+                <div className="space-y-3">
+                  {reservations.map((r) => (
+                    <div key={r.id} className="bg-gray-50 rounded-lg p-3 space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-0.5 rounded-full font-medium ${
+                            r.status === "CONFIRMED"  ? "bg-green-100 text-green-700"  :
+                            r.status === "CANCELLED"  ? "bg-red-100 text-red-700"     :
+                            r.status === "PENDING"    ? "bg-yellow-100 text-yellow-700" :
+                                                        "bg-gray-100 text-gray-500"
+                          }`}>
+                            {r.status === "CONFIRMED" ? "✅ 예약확정" : r.status === "CANCELLED" ? "❌ 취소됨" : r.status === "PENDING" ? "⏳ 확인중" : r.status}
+                          </span>
+                          <span className="text-gray-400">예약 #{r.id}</span>
+                        </div>
+                        <span className="text-gray-400">
+                          {new Date(r.createdAt).toLocaleDateString("ko-KR")}
+                        </span>
+                      </div>
+                      <p className="font-semibold text-gray-900">
+                        {r.trip.cruiseName ?? r.trip.shipName ?? "크루즈 정보 없음"}
+                      </p>
+                      {r.trip.reservationCode && (
+                        <p className="text-gray-500">예약코드: {r.trip.reservationCode}</p>
+                      )}
+                      <div className="grid grid-cols-2 gap-2 text-gray-600 border-t border-gray-200 pt-2">
+                        {r.trip.startDate && (
+                          <div><span className="text-gray-400">출발: </span>
+                            {new Date(r.trip.startDate).toLocaleDateString("ko-KR")}
+                          </div>
+                        )}
+                        {r.trip.endDate && (
+                          <div><span className="text-gray-400">귀국: </span>
+                            {new Date(r.trip.endDate).toLocaleDateString("ko-KR")}
+                          </div>
+                        )}
+                        {r.trip.nights > 0 && (
+                          <div><span className="text-gray-400">기간: </span>{r.trip.nights}박</div>
+                        )}
+                        {r.totalPeople > 0 && (
+                          <div><span className="text-gray-400">인원: </span>{r.totalPeople}명</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
