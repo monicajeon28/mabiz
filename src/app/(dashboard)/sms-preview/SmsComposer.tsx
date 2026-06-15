@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback } from "react";
 import { FileText, Plus, Trash2 } from "lucide-react";
+import { SMS_VARIABLES_REGISTRY } from "@/lib/sms-variables";
 import { SmsPreviewPanel } from "./SmsPreviewPanel";
 import { SmsLensPreview } from "./SmsLensPreview";
 import { SmsTestSend } from "./SmsTestSend";
@@ -111,7 +112,7 @@ export function SmsComposer() {
           <div className="flex gap-2 mb-4">
             <input
               type="text"
-              placeholder="변수명 (예: name)"
+              placeholder="변수명 (예: name, destination, price)"
               value={varKey}
               onChange={(e) => setVarKey(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAddVariable()}
@@ -126,33 +127,72 @@ export function SmsComposer() {
             </button>
           </div>
 
+          {/* 추천 변수 목록 */}
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-xs font-semibold text-blue-900 mb-2">추천 변수</p>
+            <div className="flex flex-wrap gap-1.5">
+              {Object.entries(SMS_VARIABLES_REGISTRY).map(([key, meta]) => (
+                <button
+                  key={key}
+                  onClick={() => {
+                    if (!variables.hasOwnProperty(key)) {
+                      setVariables((prev) => ({ ...prev, [key]: "" }));
+                    }
+                  }}
+                  disabled={variables.hasOwnProperty(key)}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-white border border-blue-300 rounded hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title={meta.label}
+                >
+                  <code className="font-mono">{`{{${key}}}`}</code>
+                  <span className="hidden sm:inline text-blue-600">({meta.label})</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* 변수 목록 */}
           <div className="space-y-2 max-h-[300px] overflow-y-auto">
-            {Object.entries(variables).map(([key, value]) => (
-              <div
-                key={key}
-                className="border border-gray-200 rounded-lg p-3 bg-gray-50 hover:bg-gray-100 transition-colors"
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <code className="text-xs font-semibold text-gray-700 bg-gray-200 px-1.5 py-0.5 rounded">
-                    {`{{${key}}}`}
-                  </code>
-                  <button
-                    onClick={() => handleRemoveVariable(key)}
-                    className="p-1 hover:bg-red-100 rounded transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-red-600" />
-                  </button>
+            {Object.entries(variables).map(([key, value]) => {
+              const varMeta = SMS_VARIABLES_REGISTRY[key];
+              const label = varMeta?.label || key;
+
+              return (
+                <div
+                  key={key}
+                  className="border border-gray-200 rounded-lg p-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <code className="text-xs font-semibold text-gray-700 bg-gray-200 px-1.5 py-0.5 rounded">
+                        {`{{${key}}}`}
+                      </code>
+                      <span className="text-xs text-gray-600">
+                        {label}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveVariable(key)}
+                      className="p-1 hover:bg-red-100 rounded transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                    </button>
+                  </div>
+
+                  {/* 변수 입력값 한글 레이블 */}
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">
+                    값 입력: {label}
+                  </label>
+
+                  <input
+                    type="text"
+                    value={value}
+                    onChange={(e) => handleVariableChange(key, e.target.value)}
+                    placeholder={`예: ${varMeta?.defaultValue || label}`}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                  />
                 </div>
-                <input
-                  type="text"
-                  value={value}
-                  onChange={(e) => handleVariableChange(key, e.target.value)}
-                  placeholder={`${key} 값 입력`}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {Object.keys(variables).length === 0 && (
