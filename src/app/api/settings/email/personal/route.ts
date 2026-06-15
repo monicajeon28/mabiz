@@ -102,7 +102,7 @@ export async function PUT(req: Request) {
       );
     }
 
-    if (!senderEmail.includes("@")) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(senderEmail)) {
       return NextResponse.json(
         { ok: false, message: "유효한 이메일 주소를 입력하세요" },
         { status: 400 }
@@ -223,7 +223,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { testEmail } = body as { testEmail?: string };
 
-    if (!testEmail || !testEmail.includes("@")) {
+    if (!testEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testEmail)) {
       return NextResponse.json(
         { ok: false, message: "유효한 수신 이메일 주소를 입력하세요." },
         { status: 400 }
