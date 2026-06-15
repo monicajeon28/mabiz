@@ -8,6 +8,8 @@ import { checkRateLimitAsync } from '@/lib/rate-limit';
 import { saveContractToDrive } from '@/lib/affiliate/document-drive-sync';
 import { generatePurchaseContractPdf } from '@/lib/purchase-contract-pdf';
 import { sendSystemEmail, COMPANY_EMAIL } from '@/lib/system-email';
+import { extractAllContactFieldValues, validateAllFieldValues } from '@/lib/utils/contract-field-mapper';
+import type { ContractInputField } from '@/lib/types/contract-templates';
 
 type Companion = {
   name: string;      // 이름 (필수)
@@ -201,24 +203,54 @@ export async function GET(req: Request) {
       });
     }
 
-    // Phase 6: Contact 조회 (자동 채우기 데이터)
+    // Phase 6: Contact 조회 + Template에서 inputFields 추출
     let contactData: Record<string, unknown> | null = null;
+    let templateInputFields: ContractInputField[] | null = null;
+    let inputFieldDefaults: Record<string, unknown> | null = null;
+
     if (doc.contactId) {
       const contact = await prisma.contact.findUnique({
         where: { id: doc.contactId },
-        select: { name: true, phone: true, email: true, createdAt: true },
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          email: true,
+          cruiseInterest: true,
+          productName: true,
+          budgetRange: true,
+          departureDate: true,
+          bookingRef: true,
+        },
       });
       if (contact) {
-        contactData = {
-          name: contact.name,
-          phone: contact.phone,
-          email: contact.email,
-          // birthDate는 Contact 테이블에 없으므로 생략
-        };
+        contactData = contact as Record<string, unknown>;
       }
     }
 
-    const inputFields = getInputFields(contactData);
+    // Phase 6: 템플릿에서 inputFields 추출
+    if (data && typeof data === 'object') {
+      const templateData = data as Record<string, unknown>;
+      if (Array.isArray(templateData.inputFields)) {
+        templateInputFields = templateData.inputFields as ContractInputField[];
+      }
+    }
+
+    // Phase 6: 기본값 추출 (Contact 데이터로부터 자동 채우기)
+    if (templateInputFields && contactData) {
+      try {
+        const fieldNames = templateInputFields.map(f => f.contactFieldName).filter(Boolean) as string[];
+        inputFieldDefaults = extractAllContactFieldValues(contactData, fieldNames);
+      } catch (extractErr) {
+        logger.warn('[PurchaseContractSign GET] inputFields 추출 오류', {
+          docId,
+          error: extractErr instanceof Error ? extractErr.message : String(extractErr),
+        });
+      }
+    }
+
+    // Phase 6: 기본 inputFields (템플릿에 없으면 폴백)
+    const inputFields = templateInputFields ?? getInputFields(contactData);
 
     return NextResponse.json({
       ok: true,
@@ -237,12 +269,7 @@ export async function GET(req: Request) {
         companyName:        data.companyName        ?? null,
       },
       inputFields,
-      inputFieldDefaults: contactData ? {
-        signerName: contactData.name ?? null,
-        signerPhone: contactData.phone ?? null,
-        signerEmail: contactData.email ?? null,
-        signerBirthDate: null,
-      } : null,
+      inputFieldDefaults,
       alreadySigned: false,
     });
   } catch (e) {
@@ -273,10 +300,10 @@ export async function POST(req: Request) {
       companions: Companion[];
       signatureImage: string;
       signerName: string;
-      inputValues?: InputValue[]; // Phase 6: 입력 필드 값 배열
+      inputValues?: Record<string, any>; // Phase 6: 입력 필드 값 객체 (fieldId → 값)
     };
 
-    const { docId, token, companions = [], signatureImage, signerName, inputValues = [] } = body;
+    const { docId, token, companions = [], signatureImage, signerName, inputValues = {} } = body;
 
     // 필수값 검증
     if (!docId || !token || !signatureImage || !signerName) {
@@ -286,27 +313,31 @@ export async function POST(req: Request) {
       );
     }
 
-    // Phase 6: Input field 값 검증
-    if (Array.isArray(inputValues) && inputValues.length > 0) {
-      const fields = getInputFields(null);
-      const fieldMap = new Map(fields.map(f => [f.id, f]));
+    // Phase 6: 문서 사전 조회 (inputFields 검증용)
+    const docForValidation = await prisma.salesDocument.findUnique({
+      where: { id: docId },
+      select: { generatedData: true },
+    });
 
-      for (const inputValue of inputValues) {
-        const field = fieldMap.get(inputValue.fieldId);
-        if (!field) {
-          return NextResponse.json(
-            { ok: false, message: `알 수 없는 필드: ${inputValue.fieldId}` },
-            { status: 400 },
-          );
-        }
+    let templateInputFields: ContractInputField[] | null = null;
+    if (docForValidation?.generatedData && typeof docForValidation.generatedData === 'object') {
+      const data = docForValidation.generatedData as Record<string, unknown>;
+      if (Array.isArray(data.inputFields)) {
+        templateInputFields = data.inputFields as ContractInputField[];
+      }
+    }
 
-        const validation = validateInputValue(field, inputValue.value);
-        if (!validation.valid) {
-          return NextResponse.json(
-            { ok: false, message: validation.error ?? '입력값 검증 실패' },
-            { status: 400 },
-          );
-        }
+    // Phase 6: Input field 값 검증 (templateInputFields가 있는 경우만)
+    if (templateInputFields && Object.keys(inputValues).length > 0) {
+      const validation = validateAllFieldValues(templateInputFields, inputValues);
+      if (!validation.isValid) {
+        const errorMessages = Object.entries(validation.errors)
+          .map(([fieldId, error]) => error)
+          .join(' / ');
+        return NextResponse.json(
+          { ok: false, message: errorMessages, fieldErrors: validation.errors },
+          { status: 400 },
+        );
       }
     }
 
@@ -389,11 +420,10 @@ export async function POST(req: Request) {
 
       // Phase 6: inputValues를 generatedData에 병합
       let mergedData = { ...existingData };
-      if (Array.isArray(inputValues) && inputValues.length > 0) {
-        const inputMap = new Map(inputValues.map(iv => [iv.fieldId, iv.value]));
+      if (Object.keys(inputValues).length > 0) {
         mergedData = {
           ...mergedData,
-          inputValues: Object.fromEntries(inputMap), // { signerName, signerPhone, signerEmail, signerBirthDate }
+          inputValues: { ...inputValues }, // { signerName, signerPhone, signerEmail, signerBirthDate, ... }
         };
       }
 

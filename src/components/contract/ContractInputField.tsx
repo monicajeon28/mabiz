@@ -1,24 +1,34 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import type {
+  ContractInputField as TemplateField,
+  ContractInputFieldType,
+} from '@/lib/types/contract-templates';
 
-export type InputFieldType = 'text' | 'checkbox' | 'date' | 'dropdown' | 'phone' | 'email' | 'number';
+/**
+ * Phase 6: 입력 필드 타입 정의
+ * email, phone, number를 추가로 지원하여 text와 구분
+ */
+export type InputFieldType = ContractInputFieldType | 'email' | 'phone' | 'number';
 
 export interface InputFieldOption {
   label: string;
   value: string;
 }
 
-export interface InputFieldDef {
-  key: string;
+/**
+ * Phase 6: 입력 필드 정의 인터페이스
+ * ContractInputField와 호환 가능하며 선택적으로 key/defaultValue 추가 지원
+ */
+export interface InputFieldDef extends Omit<TemplateField, 'id'> {
+  // 호환성: 'id' 또는 'key' 사용 가능
+  id?: string;
+  key?: string;
   type: InputFieldType;
-  label: string;
-  required?: boolean;
-  placeholder?: string;
-  pattern?: string;
-  options?: InputFieldOption[];
   defaultValue?: string;
-  helpText?: string;
+  /** Contact 필드값 자동 초기화 (선택사항) */
+  contactFieldName?: string | null;
 }
 
 export interface InputFieldValue {
@@ -55,7 +65,9 @@ export function ContractInputField({
 
   const handleChange = useCallback(
     (newValue: string | boolean) => {
-      onChange(field.key, newValue);
+      // Handle both key and id properties for compatibility
+      const fieldKey = field.key || (field as any).id || '';
+      onChange(fieldKey, newValue);
     },
     [field.key, onChange]
   );
@@ -67,7 +79,8 @@ export function ContractInputField({
   const showError = touched && error;
 
   switch (field.type) {
-    case 'text':
+    case 'text': {
+      const maxLength = field.maxLength ?? 100;
       return (
         <div className="space-y-1">
           <label className="block text-sm font-medium text-gray-700">
@@ -81,7 +94,7 @@ export function ContractInputField({
             onBlur={handleBlur}
             placeholder={field.placeholder}
             disabled={disabled}
-            maxLength={100}
+            maxLength={maxLength}
             className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition ${
               showError
                 ? 'border-red-500 focus:ring-red-500'
@@ -94,6 +107,7 @@ export function ContractInputField({
           {showError && <p className="text-xs text-red-600">{error}</p>}
         </div>
       );
+    }
 
     case 'email':
       return (

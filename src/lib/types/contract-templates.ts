@@ -6,7 +6,7 @@ export type StatusType = "ACTIVE" | "ARCHIVED" | "DRAFT";
 export type InstanceStatusType = "DRAFT" | "SENT" | "SIGNED" | "COMPLETED";
 
 // Phase 6: 입력필드 타입 정의
-export type ContractInputFieldType = "text" | "checkbox" | "date" | "dropdown";
+export type ContractInputFieldType = "text" | "email" | "phone" | "number" | "checkbox" | "date" | "dropdown";
 
 /**
  * 계약서 템플릿 입력필드 정의 (Phase 6)
@@ -62,6 +62,9 @@ export interface ContractInputField {
     fieldId: string;
     value: string | boolean;
   };
+
+  // 기본값 (UI에서 초기 표시값)
+  defaultValue?: string;
 }
 
 /**

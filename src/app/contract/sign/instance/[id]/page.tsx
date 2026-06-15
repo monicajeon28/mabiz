@@ -427,7 +427,9 @@ export default function ContractSignPage({ params }: { params: { id: string } })
                   setFormFields(fields);
                 }}
                 contactAutoFill={
-                  contract.boundData ? (contract.boundData as Record<string, string>) : {}
+                  contract.boundData
+                    ? (contract.boundData as Record<string, string | boolean>)
+                    : null
                 }
                 showCompactPreview={true}
               />
