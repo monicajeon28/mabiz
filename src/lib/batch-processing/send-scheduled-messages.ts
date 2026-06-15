@@ -104,6 +104,7 @@ export async function sendScheduledMessages(
               textContent: true,
               variables: true,
               organizationId: true,
+              senderUserId: true,
             },
             take: LIMIT,
             orderBy: { scheduledAt: "asc" },
@@ -258,6 +259,8 @@ async function sendBatch(
           textContent: msg.textContent,
           variables: msg.variables,
           email: contact.email,
+          senderUserId: msg.senderUserId ?? undefined,
+          groupId: msg.groupId ?? undefined,
         });
 
         // ScheduledEmailMessage 상태 업데이트
