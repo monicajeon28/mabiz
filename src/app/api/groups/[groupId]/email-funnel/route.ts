@@ -155,6 +155,12 @@ export async function POST(
     let funnel;
 
     if (existing) {
+      // 최신 이메일 설정 조회 (이메일 설정 변경 시 emailConfigId 갱신)
+      const latestEmailConfig = await prisma.groupEmailConfig.findUnique({
+        where: { groupId },
+        select: { id: true },
+      });
+
       // 기존 메시지 삭제 후 재생성
       funnel = await prisma.$transaction(async (tx) => {
         await tx.groupEmailFunnelMessage.deleteMany({
@@ -166,6 +172,7 @@ export async function POST(
           data: {
             title,
             isActive,
+            ...(latestEmailConfig ? { emailConfigId: latestEmailConfig.id } : {}),
             updatedAt: new Date(),
             messages: {
               create: messages.map((m, idx) => ({
