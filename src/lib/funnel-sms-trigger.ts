@@ -14,6 +14,12 @@
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { validateSenderPhone, checkFunnelSmsIdempotency } from "@/lib/funnel-sms-helpers";
+import {
+  renderSmsTemplate,
+  getContactVariables,
+  getProductVariables,
+  mergeVariables,
+} from "@/lib/sms-variables";
 
 interface TriggerOptions {
   contactId:      string;
@@ -168,7 +174,27 @@ export async function triggerGroupFunnelSms(opts: TriggerOptions): Promise<boole
         // 유입 에피소드(anchorEpoch)를 포함해 재유입 시 새 시퀀스가 생성되도록 한다.
         // 같은 유입은 동일 channel → 부분 UNIQUE 인덱스로 race 중복 차단.
         const channel = `FUNNEL_SMS:${funnelSmsId}:${msg.id}:${anchorEpoch}`;
-        const message = msg.content.replace(/\[이름\]/g, contact.name ?? "");
+
+        // [Phase A] 동적 변수 시스템 적용
+        // Contact 기본 정보에서 변수 추출 (productName을 destination으로 사용)
+        const contactVars = getContactVariables(contact);
+        // 커스텀 변수 (managerPhone, remainingSeats 등 optional)
+        const customVars = {
+          managerPhone: "1800-CRUISE", // 기본값
+          remainingSeats: "10", // 기본값
+        };
+        const allVars = mergeVariables(contactVars, customVars);
+
+        // 템플릿의 {{변수}}를 실제 값으로 치환
+        const message = renderSmsTemplate(msg.content, allVars);
+
+        logger.log("[FunnelSmsTrigger] SMS 메시지 동적 변수 처리", {
+          funnelSmsId,
+          messageId: msg.id,
+          daysAfter: msg.daysAfter,
+          contactName: contact.name,
+          variablesUsed: Object.keys(allVars).length,
+        });
 
         return {
           organizationId,
