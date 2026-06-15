@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { MessageSquare, Mail, Users, Shield, FileText, Lock, ScrollText, CheckCircle, XCircle } from 'lucide-react';
+import { MessageSquare, Mail, Users, Shield, FileText, Lock, ScrollText, CheckCircle, XCircle, Download } from 'lucide-react';
 
 const items = [
   {
@@ -53,6 +53,13 @@ const items = [
     title: '조직 설정',
     desc: '회사명 변경, 플랜 확인, 대리점 코드',
     color: 'bg-orange-50 text-orange-600',
+  },
+  {
+    href: '/settings/backup',
+    icon: Download,
+    title: '데이터 백업',
+    desc: 'Contact 정보를 Google Drive에 자동 백업',
+    color: 'bg-indigo-50 text-indigo-600',
   },
 ];
 
