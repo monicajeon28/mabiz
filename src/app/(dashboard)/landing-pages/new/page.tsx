@@ -8,6 +8,7 @@ import { ImageLibraryModal } from "@/components/image-library/ImageLibraryModal"
 import { MAX_IMAGE_UPLOAD_BYTES, prepareImageForUpload } from "@/lib/client-image-compress";
 import { BlockEditor } from "./BlockEditor";
 import { Block, BlocksConfig } from "@/lib/landing-page-blocks";
+import { LandingPageMetrics } from "./LandingPageMetrics";
 
 // ═════════════════════════════════════════════════════════════
 // Step 1-5: Russell Brunson 형식 기반 에디터 상수
@@ -469,7 +470,7 @@ ${footerBlock}
     const s = autoSlug;
     const res  = await fetch("/api/landing-pages", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: autoTitle, slug: s, htmlContent: "", editorMode: "image", groupId: selectedGroupId || null }),
+      body: JSON.stringify({ title: autoTitle, slug: s, htmlContent: "", editorMode: "image", groupId: selectedGroupId && selectedGroupId.trim() ? selectedGroupId : null }),
     });
     const data = await res.json();
     if (!data.ok) { setError(data.message ?? "페이지 생성 실패"); return null; }
@@ -578,77 +579,97 @@ ${footerBlock}
     if (!title.trim() || !slug.trim()) { setError("제목과 슬러그를 입력하세요."); return; }
     setSaving(true); setError("");
 
-    const common = {
-      title, slug, groupId: selectedGroupId || null,
-      commentEnabled,
-      commentConfig: commentEnabled ? { count: commentCount, dateFrom: commentDateFrom, dateTo: commentDateTo } : undefined,
-      ...(exposureTitle  ? { exposureTitle }                                   : {}),
-      ...(exposureImage  ? { exposureImage }                                   : {}),
-      infoCollection: true,
-      formConfig: {
-        fields: formFields, additionalFields,
-        footer: footer.trim() || null,
-        ...(b2bEduType ? { b2bEduType } : {}),
-      },
-      ...(buttonTitle        ? { buttonTitle }        : {}),
-      ...(completionPageUrl  ? { completionPageUrl }  : {}),
-      ...(headerScript       ? { headerScript }       : {}),
-      ...(description        ? { description }        : {}),
-      // Step 1-5: Russell Brunson 형식, CTA, SMS 자동화 추가
-      pageFormat,
-      ctaType,
-      ...(smsDayRange ? { smsDayRange } : {}),
-      ...(paymentEnabled ? {
-        paymentEnabled: true, paymentType, productName,
-        productPrice: parseInt(productPrice) || 0,
-        ...(paymentType === "subscription" ? { cycleDay: parseInt(cycleDay), expireDate } : {}),
-      } : {}),
-      // Phase C: 블록 에디터 데이터 저장
-      ...(blocks.length > 0 ? {
-        blocksConfig: JSON.stringify({
-          blocks: blocks,
-          selectedFeatures: selectedFeatures,
-        } as BlocksConfig),
-      } : {}),
-    };
+    // AbortController로 10초 타임아웃 설정 (P1-2: Timeout 에러 핸들링)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    // Phase C: 블록 에디터 모드 확인
-    let htmlToSave = html;
-    let editorModeToSave = editorMode;
+    try {
+      const common = {
+        title, slug, groupId: selectedGroupId && selectedGroupId.trim() ? selectedGroupId : null,
+        commentEnabled,
+        commentConfig: commentEnabled ? { count: commentCount, dateFrom: commentDateFrom, dateTo: commentDateTo } : undefined,
+        ...(exposureTitle  ? { exposureTitle }                                   : {}),
+        ...(exposureImage  ? { exposureImage }                                   : {}),
+        infoCollection: true,
+        formConfig: {
+          fields: formFields, additionalFields,
+          footer: footer.trim() || null,
+          ...(b2bEduType ? { b2bEduType } : {}),
+        },
+        ...(buttonTitle        ? { buttonTitle }        : {}),
+        ...(completionPageUrl  ? { completionPageUrl }  : {}),
+        ...(headerScript       ? { headerScript }       : {}),
+        ...(description        ? { description }        : {}),
+        // Step 1-5: Russell Brunson 형식, CTA, SMS 자동화 추가
+        pageFormat,
+        ctaType,
+        ...(smsDayRange ? { smsDayRange } : {}),
+        ...(paymentEnabled ? {
+          paymentEnabled: true, paymentType, productName,
+          productPrice: parseInt(productPrice) || 0,
+          ...(paymentType === "subscription" ? { cycleDay: parseInt(cycleDay), expireDate } : {}),
+        } : {}),
+        // Phase C: 블록 에디터 데이터 저장
+        ...(blocks.length > 0 ? {
+          blocksConfig: JSON.stringify({
+            blocks: blocks,
+            selectedFeatures: selectedFeatures,
+          } as BlocksConfig),
+        } : {}),
+      };
 
-    if (blocks.length > 0) {
-      // 블록으로부터 HTML 생성
-      htmlToSave = buildBlocksHtml();
-      editorModeToSave = "html"; // 블록도 최종적으로 HTML로 저장
-    } else if (editorMode === "image") {
-      const imgTags = images.map((img) => {
-        const src = img.mimeType === "image/gif"
-          ? `/api/public/landing-image?id=${img.driveFileId}`
-          : (img.fullUrl ?? `https://drive.google.com/thumbnail?id=${img.driveFileId}&sz=w1920`);
-        const ar  = img.width && img.height ? `aspect-ratio:${img.width}/${img.height};` : "";
-        return `<img src="${src}" alt="" style="width:100%;display:block;${ar}" loading="lazy">`;
-      }).join("\n");
-      htmlToSave = `<div style="line-height:0;">\n${imgTags}\n</div>`;
-    }
+      // Phase C: 블록 에디터 모드 확인
+      let htmlToSave = html;
+      let editorModeToSave = editorMode;
 
-    if (blocks.length > 0 || editorMode === "image") {
-      const pageId = savedPageId || (await ensurePage());
-      if (!pageId) { setSaving(false); return; }
-      const res  = await fetch(`/api/landing-pages/${pageId}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...common, htmlContent: htmlToSave, editorMode: editorModeToSave }),
-      });
-      const data = await res.json();
-      if (data.ok) router.push(`/landing-pages/${pageId}`);
-      else { setError(data.message ?? "저장 실패"); setSaving(false); }
-    } else {
-      const res  = await fetch("/api/landing-pages", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...common, htmlContent: htmlToSave, editorMode: "html" }),
-      });
-      const data = await res.json();
-      if (data.ok) router.push(`/landing-pages/${data.page.id}`);
-      else { setError(data.message ?? "저장 실패"); setSaving(false); }
+      if (blocks.length > 0) {
+        // 블록으로부터 HTML 생성
+        htmlToSave = buildBlocksHtml();
+        editorModeToSave = "html"; // 블록도 최종적으로 HTML로 저장
+      } else if (editorMode === "image") {
+        const imgTags = images.map((img) => {
+          const src = img.mimeType === "image/gif"
+            ? `/api/public/landing-image?id=${img.driveFileId}`
+            : (img.fullUrl ?? `https://drive.google.com/thumbnail?id=${img.driveFileId}&sz=w1920`);
+          const ar  = img.width && img.height ? `aspect-ratio:${img.width}/${img.height};` : "";
+          return `<img src="${src}" alt="" style="width:100%;display:block;${ar}" loading="lazy">`;
+        }).join("\n");
+        htmlToSave = `<div style="line-height:0;">\n${imgTags}\n</div>`;
+      }
+
+      if (blocks.length > 0 || editorMode === "image") {
+        const pageId = savedPageId || (await ensurePage());
+        if (!pageId) { setSaving(false); return; }
+        const res  = await fetch(`/api/landing-pages/${pageId}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...common, htmlContent: htmlToSave, editorMode: editorModeToSave }),
+          signal: controller.signal,
+        });
+        const data = await res.json();
+        if (data.ok) router.push(`/landing-pages/${pageId}`);
+        else { setError(data.message ?? "저장 실패"); setSaving(false); }
+      } else {
+        const res  = await fetch("/api/landing-pages", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...common, htmlContent: htmlToSave, editorMode: "html" }),
+          signal: controller.signal,
+        });
+        const data = await res.json();
+        if (data.ok) router.push(`/landing-pages/${data.page.id}`);
+        else { setError(data.message ?? "저장 실패"); setSaving(false); }
+      }
+    } catch (err) {
+      // 타임아웃 감지 (P1-2: Timeout 에러 핸들링)
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setError("저장 시간 초과 (10초). 네트워크 연결을 확인하고 다시 시도해주세요.");
+      } else if (err instanceof Error) {
+        setError(`저장 실패: ${err.message}`);
+      } else {
+        setError("저장 실패: 알 수 없는 오류");
+      }
+      setSaving(false);
+    } finally {
+      clearTimeout(timeoutId);
     }
   };
 
@@ -985,6 +1006,19 @@ ${footerBlock}
             })()}
           </div>
 
+          {/* Step 2-C: L2/L10 성과 지표 (Step 2 완료 후 표시) */}
+          {(() => {
+            const requiredFields = IMAGE_FIELDS_BY_FORMAT[pageFormat].filter(f => f.required);
+            const completionRate = requiredFields.length > 0
+              ? Math.round((Math.min(images.length, requiredFields.length) / requiredFields.length) * 100)
+              : 100;
+            return (
+              <div className="px-4 py-3 bg-white border-b border-gray-100">
+                <LandingPageMetrics format={pageFormat} title={title} completionRate={completionRate} />
+              </div>
+            );
+          })()}
+
           {/* Step 2-B: 그룹 선택 (퍼널 설정) */}
           <div className="px-4 py-4 bg-white border-b border-gray-100">
             <div className="mb-6 p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
@@ -1002,7 +1036,7 @@ ${footerBlock}
                 <option value="">-- 그룹을 선택하세요 --</option>
                 {groups.map(g => (
                   <option key={g.id} value={g.id}>
-                    {g.name} {g.funnelId ? "✓ (문자퍼널 활성)" : "(문자퍼널 없음)"}
+                    {g.name} {g.funnelId ? "📱 자동 발송" : "⚠️ 미연결"}
                   </option>
                 ))}
               </select>
@@ -1011,7 +1045,16 @@ ${footerBlock}
               {selectedGroupId && (
                 <div className="mt-3 p-3 bg-green-100 border-l-4 border-green-500 rounded">
                   <p className="text-sm text-green-700 font-bold">
-                    ✓ {groups.find(g => g.id === selectedGroupId)?.name || "그룹"}의 문자퍼널이 연결됩니다
+                    ✓ {groups.find(g => g.id === selectedGroupId)?.name || "그룹"}의 자동 문자퍼널이 활성화됩니다
+                  </p>
+                </div>
+              )}
+
+              {/* 그룹 미선택 경고 */}
+              {selectedGroupId === "" && groups.length > 0 && (
+                <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                  <p className="text-sm text-yellow-800">
+                    <strong>⚠️ 그룹을 선택하지 않으면 자동 문자가 발송되지 않습니다.</strong>
                   </p>
                 </div>
               )}
@@ -1098,7 +1141,7 @@ ${footerBlock}
               </div>
             )}
             {groups.find((g) => g.id === selectedGroupId)?.funnelId && (
-              <span className="text-sm text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">🔄 등록 즉시 자동 문자</span>
+              <span className="text-sm text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">📨 등록 즉시 Day 0 메시지 발송</span>
             )}
           </div>
 

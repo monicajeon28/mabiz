@@ -667,6 +667,8 @@ model ContactGroup {
   @@index([seq])
   // P2-13: memberCount 인덱스 (GROUP BY / 정렬 성능 최적화)
   @@index([organizationId, memberCount], map: "idx_group_org_membercount")
+  // P1-3: organizationId + createdAt 정렬 (Groups 조회 최적화)
+  @@index([organizationId, createdAt(sort: Desc)], map: "idx_group_org_created")
 }
 
 model GroupToken {
@@ -6084,9 +6086,10 @@ model ContractInstance {
 }
 
 model ContractAuditLog {
-  id          String   @id @default(cuid())
-  contractId  String
-  contract    ContractInstance @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
+  contractId     String
+  organizationId String  // P1-3: 조직별 감사 로그 조회 성능 최적화
+  contract       ContractInstance @relation(fields: [contractId], references: [id], onDelete: Cascade)
 
   action      String   // "signed", "viewed", "downloaded", "emailed", "resent", "modification_requested", "modification_approved", "modification_rejected", "modification_alternative_proposed"
   timestamp   DateTime @default(now())
@@ -6099,6 +6102,8 @@ model ContractAuditLog {
   @@index([contractId])
   @@index([timestamp])
   @@index([contractId, timestamp], map: "idx_audit_contract_time")
+  // P1-3: organizationId + timestamp (조직별 감사 로그 조회 최적화)
+  @@index([organizationId, timestamp(sort: Desc)], map: "idx_audit_org_time")
 }
 
 // Phase 5: Russell Brunson 심리학 기반 계약 수정요청 시스템
