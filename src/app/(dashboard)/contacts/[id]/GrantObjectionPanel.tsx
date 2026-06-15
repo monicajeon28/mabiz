@@ -120,7 +120,7 @@ export function GrantObjectionPanel({
       >
         <span className="text-sm font-semibold text-gray-900 flex items-center gap-2">
           <span className="text-lg">🎯</span>
-          Objection 극복 가이드 (Grant Cardone)
+          고객 이의 대응 가이드
         </span>
         <ChevronDown
           className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
@@ -133,10 +133,10 @@ export function GrantObjectionPanel({
           <div className="flex gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
             <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
             <div className="text-sm text-blue-800">
-              <p className="font-medium">Grant Cardone의 심리학 렌즈별 이의 극복</p>
+              <p className="font-medium">고객 유형별 맞춤 이의 대응</p>
               <p className="text-xs mt-1">
-                고객의 주요 이의를 선택하고 맞춤형 응답을 발송하세요. 렌즈 스코어는 자동으로
-                감소합니다.
+                고객의 주요 이의를 선택하고 맞춤형 응답을 발송하세요. 점수가 자동으로
+                업데이트됩니다.
               </p>
             </div>
           </div>
@@ -171,7 +171,7 @@ export function GrantObjectionPanel({
               ))
             ) : (
               <div className="text-xs text-gray-500">
-                활성화된 렌즈가 없습니다. Contact의 렌즈 스코어를 확인하세요.
+                고객 유형 분석 정보가 없습니다. 상담 내용을 먼저 입력해주세요.
               </div>
             )}
           </div>

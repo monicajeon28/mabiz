@@ -53,7 +53,7 @@ const panelMobileVariants = {
 const TAB_LIST: { key: TabKey; icon: React.ReactNode; label: string }[] = [
   { key: "call",      icon: <Phone className="w-4 h-4" />,         label: "콜기록" },
   { key: "memo",      icon: <FileText className="w-4 h-4" />,      label: "메모" },
-  { key: "funnel",    icon: <GitBranch className="w-4 h-4" />,     label: "퍼널" },
+  { key: "funnel",    icon: <GitBranch className="w-4 h-4" />,     label: "자동화" },
   { key: "sms",       icon: <MessageSquare className="w-4 h-4" />, label: "문자" },
   { key: "affiliate", icon: <Building2 className="w-4 h-4" />,     label: "제휴" },
 ];
@@ -530,9 +530,9 @@ export default function ContactSlidePanel({
       .then(r => r.json())
       .then(d => {
         if (d.ok) setFunnels(d.funnels ?? []);
-        else setFunnelError("퍼널 목록을 불러오지 못했습니다.");
+        else setFunnelError("자동 메시지 목록을 불러오지 못했습니다.");
       })
-      .catch(() => setFunnelError("퍼널 불러오기 실패. 다시 시도하세요."));
+      .catch(() => setFunnelError("자동 메시지 불러오기 실패. 다시 시도하세요."));
   }, [activeTab]);
 
   const handleFunnelEnroll = useCallback(async () => {
@@ -558,7 +558,7 @@ export default function ContactSlidePanel({
           vipSequences: [...(prev.vipSequences ?? []), newSeq],
         } : prev);
         setSelectedFunnelId(""); setEnrollStartDate(""); setEnrollSendNow(false);
-        toast({ title: "퍼널 등록 완료", variant: "success" });
+        toast({ title: "자동 메시지 등록 완료", variant: "success" });
         onRefresh?.({ id: contact.id });
       } else { setEnrollError(d.message ?? "등록 실패"); }
     } catch (err) { logger.error("[handleFunnelEnroll failed]", { err }); setEnrollError(err instanceof Error ? err.message : "네트워크 오류"); }

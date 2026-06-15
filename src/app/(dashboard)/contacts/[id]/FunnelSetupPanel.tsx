@@ -191,7 +191,7 @@ export function FunnelSetupPanel({ contactId, contactName }: FunnelSetupPanelPro
       if (data.ok) {
         toast({
           title: "저장 완료",
-          description: "Day 0-3 퍼널 설정이 저장되었습니다.",
+          description: "자동 메시지 설정이 저장되었습니다.",
           variant: "default",
         });
         setIsOpen(false);
@@ -230,7 +230,7 @@ export function FunnelSetupPanel({ contactId, contactName }: FunnelSetupPanelPro
       >
         <span className="text-sm font-semibold text-gray-900 flex items-center gap-2">
           <span className="text-lg">🔄</span>
-          Day 0-3 퍼널 설정 (Russell Brunson)
+          신청 후 자동 메시지 설정 (4일간)
         </span>
         <ChevronDown
           className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
@@ -244,9 +244,9 @@ export function FunnelSetupPanel({ contactId, contactName }: FunnelSetupPanelPro
           <div className="flex gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
             <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
             <div className="text-sm text-blue-800">
-              <p className="font-medium">Russell Brunson의 퍼널 자동화</p>
+              <p className="font-medium">고객 유형별 자동 메시지 발송</p>
               <p className="text-xs mt-1">
-                Grant Cardone 심리 렌즈(L1/L3/L10)별로 Day 0-3 메시지 자동 발송. 50대도 쓸 수 있는 드롭다운 선택만으로 완성!
+                고객 성향에 맞게 신청 후 4일간 자동으로 메시지가 발송됩니다. 드롭다운 선택만으로 완성!
               </p>
             </div>
           </div>
@@ -256,7 +256,7 @@ export function FunnelSetupPanel({ contactId, contactName }: FunnelSetupPanelPro
             {/* L1: Price Sensitivity */}
             <LensSection
               lens="L1"
-              lensName="🔴 가격 민감도 (L1)"
+              lensName="🔴 가격이 부담스러운 고객"
               description="가격이 비싼 고객들께 보낼 메시지"
               enabled={l1Enabled}
               onEnabledChange={setL1Enabled}
@@ -271,7 +271,7 @@ export function FunnelSetupPanel({ contactId, contactName }: FunnelSetupPanelPro
             {/* L3: Competitive Comparison */}
             <LensSection
               lens="L3"
-              lensName="🔵 경쟁사 비교 (L3)"
+              lensName="🔵 다른 상품과 비교하는 고객"
               description="경쟁사와 비교하는 고객들께 보낼 메시지"
               enabled={l3Enabled}
               onEnabledChange={setL3Enabled}
@@ -286,7 +286,7 @@ export function FunnelSetupPanel({ contactId, contactName }: FunnelSetupPanelPro
             {/* L10: Immediate Purchase */}
             <LensSection
               lens="L10"
-              lensName="🟢 즉시 구매 (L10)"
+              lensName="🟢 바로 구매하고 싶은 고객"
               description="지금 바로 사고 싶어하는 고객들께 보낼 메시지"
               enabled={l10Enabled}
               onEnabledChange={setL10Enabled}

@@ -44,15 +44,15 @@ export default function FunnelEnrollSection({
     <div className="bg-white border border-gray-200 rounded-xl p-4">
       <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
         <GitBranch className="w-4 h-4 text-blue-500" />
-        퍼널 직접 등록
+        자동 메시지 직접 등록
       </h3>
-      <p className="text-xs text-gray-400 mb-3">그룹 없이 퍼널에 바로 등록합니다</p>
+      <p className="text-xs text-gray-400 mb-3">그룹 없이 자동 메시지에 바로 등록합니다</p>
 
       <div className="space-y-3">
         {funnelError && <p className="text-xs text-red-500 mb-2">{funnelError}</p>}
         {!funnelError && funnels.length === 0 && (
           <p className="text-xs text-gray-400 text-center py-3">
-            등록 가능한 퍼널이 없습니다.<br />관리자에게 퍼널 생성을 요청하세요.
+            등록 가능한 자동 메시지이 없습니다.<br />관리자에게 자동 메시지 생성을 요청하세요.
           </p>
         )}
 
@@ -61,7 +61,7 @@ export default function FunnelEnrollSection({
           onChange={(e) => setSelectedFunnelId(e.target.value)}
           className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
         >
-          <option value="">퍼널 선택</option>
+          <option value="">자동 메시지 선택</option>
           {funnels.map((f) => (
             <option key={f.id} value={f.id} disabled={enrolledFunnelIds.has(f.id)}>
               {f.name}{enrolledFunnelIds.has(f.id) ? " (이미 등록됨)" : ""}
@@ -94,13 +94,13 @@ export default function FunnelEnrollSection({
           disabled={!selectedFunnelId || enrolling}
           className="w-full py-2.5 bg-navy-900 text-white rounded-xl text-sm font-medium disabled:opacity-50 hover:bg-navy-800"
         >
-          {enrolling ? "등록 중..." : "퍼널 등록"}
+          {enrolling ? "등록 중..." : "자동 메시지 등록"}
         </button>
       </div>
 
       {enrolledSequences.length > 0 && (
         <div className="mt-4 border-t pt-3">
-          <p className="text-xs font-medium text-gray-500 mb-2">등록된 퍼널</p>
+          <p className="text-xs font-medium text-gray-500 mb-2">등록된 자동 메시지</p>
           <div className="space-y-1.5">
             {enrolledSequences.map((seq) => {
               const funnel = funnels.find((f) => f.id === seq.funnelId);
