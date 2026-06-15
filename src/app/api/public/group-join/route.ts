@@ -4,6 +4,7 @@ import { logger } from '@/lib/logger';
 import { triggerGroupFunnelSms } from '@/lib/funnel-sms-trigger';
 import { shouldResetOnReentry } from '@/lib/funnel-sms-helpers';
 import { checkRateLimitAsync } from '@/lib/rate-limit';
+import { triggerGroupEmailFunnel } from '@/lib/funnel-email-trigger';
 
 // 전화번호 정규화 (010-1234-5678 → 01012345678)
 function normalizePhone(phone: string): string {
@@ -145,14 +146,27 @@ export async function POST(req: Request) {
       );
     }
 
+    // 이메일 퍼널(GroupEmailFunnel) 트리거 — 그룹에 이메일 퍼널 설정된 경우만 실행
+    await triggerGroupEmailFunnel({
+      contactId:      contact.id,
+      groupId:        group.id,
+      organizationId: group.organizationId,
+      anchorDate:     member.addedAt,
+    }).catch((err) => {
+      logger.error('[group-join] EmailFunnel trigger 실패', { seq, contactId: contact.id, err });
+    });
+
     logger.log('[group-join]', { seq, contactId: contact.id, groupId: group.id });
+
+    // 확인 페이지 URL (프론트엔드에서 redirect 가능)
+    const confirmUrl = `/confirm/${contact.id}?group=${group.id}`;
 
     if (resultUrl) {
       // Next.js 15: redirect는 절대 URL 필요
       const absoluteUrl = new URL(resultUrl, req.url).toString();
       return NextResponse.redirect(absoluteUrl, { status: 302 });
     }
-    return NextResponse.json({ ok: true, message: '신청이 완료되었습니다.' });
+    return NextResponse.json({ ok: true, message: '신청이 완료되었습니다.', confirmUrl });
   } catch (err) {
     logger.error('[POST /api/public/group-join]', { err });
     return NextResponse.json({ ok: false, message: '처리 중 오류가 발생했습니다.' }, { status: 500 });
