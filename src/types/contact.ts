@@ -39,6 +39,15 @@ export interface SurveyData {
   [key: string]: unknown;
 }
 
+export type ContactVisibility = 'SHARED' | 'ADMIN_ONLY';
+
+export interface ContactShare {
+  id: string;
+  sharedBy: string;
+  sharedTo: string;
+  createdAt: Date;
+}
+
 export interface Contact {
   id: string;
   name: string;
@@ -77,4 +86,16 @@ export interface Contact {
   // 신청 이력
   signupCount?: number;
   signupHistory?: string | any[];
+  // 공유 설정
+  visibility?: ContactVisibility;
+  sharedWith?: ContactShare[];
+}
+
+export interface ContactWithSharing extends Contact {
+  visibility: ContactVisibility;
+  sharedWith: ContactShare[];
+}
+
+export interface ContactShareRequest {
+  sharedTo: string;
 }

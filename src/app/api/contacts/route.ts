@@ -47,14 +47,58 @@ export async function GET(req: Request) {
     const page    = Number.isNaN(rawPage) ? 1 : Math.min(Math.max(1, rawPage), 10000);
     const safeLimit = Math.min(Number(searchParams.get("limit")) || 30, 200); // limit 상한 강제 (200건)
 
-    const baseWhere = buildContactWhere(ctx, {
-      // Team-B: 탭 카테고리 필터 (visibility 명시적 지정 시 buildContactWhere의 기본값 덮어씌우기)
-      ...(visibility === 'ADMIN_ONLY'
-        ? { visibility: 'ADMIN_ONLY' }
-        : visibility === 'SHARED'
-        ? { visibility: 'SHARED' }
-        : {}),
-      // customerOnly: PURCHASED (구매완료) 고객만, purchasedAt NOT NULL 필수
+    // visibility 필터: SHARED 탭과 ADMIN_ONLY 탭 분리
+    let baseWhere: Prisma.ContactWhereInput;
+
+    if (visibility === 'ADMIN_ONLY') {
+      // 관리자전용 탭: GLOBAL_ADMIN만 접근, visibility='ADMIN_ONLY' Contact만
+      if (ctx.role !== 'GLOBAL_ADMIN') {
+        return NextResponse.json({ ok: true, contacts: [], total: 0, page, limit: safeLimit });
+      }
+      baseWhere = { visibility: 'ADMIN_ONLY' as const, deletedAt: null };
+    } else if (visibility === 'SHARED') {
+      // 공유 탭: visibility='SHARED' + 역할별 필터 + sharedWith 조인
+      if (ctx.role === 'GLOBAL_ADMIN') {
+        // GLOBAL_ADMIN: 자신의 판매원 + 공유받음 Contact
+        baseWhere = {
+          visibility: 'SHARED' as const,
+          OR: [
+            { sharedWith: { some: { sharedTo: ctx.userId } } }, // 공유받은 Contact
+          ],
+          deletedAt: null,
+        };
+      } else if (ctx.role === 'OWNER') {
+        // OWNER(대리점장): 자신의 고객 + 공유받음 Contact
+        baseWhere = {
+          visibility: 'SHARED' as const,
+          organizationId: ctx.organizationId!,
+          OR: [
+            { assignedUserId: ctx.userId }, // 자신의 고객
+            { createdBy: ctx.userId }, // 작성한 고객
+            { sharedWith: { some: { sharedTo: ctx.userId } } }, // 공유받은 Contact
+          ],
+          deletedAt: null,
+        };
+      } else {
+        // AGENT/SALES_AGENT: 자신 작성/할당 + 공유받음 Contact
+        baseWhere = {
+          visibility: 'SHARED' as const,
+          organizationId: ctx.organizationId!,
+          OR: [
+            { assignedUserId: ctx.userId },
+            { createdBy: ctx.userId },
+            { sharedWith: { some: { sharedTo: ctx.userId } } },
+          ],
+          deletedAt: null,
+        };
+      }
+    } else {
+      // 기본 필터 (모든 탭): buildContactWhere 사용
+      baseWhere = buildContactWhere(ctx, {});
+    }
+
+    // 추가 필터: customerOnly, type, channel 등
+    const additionalWhere = {
       ...(customerOnly
         ? {
             type: { in: ["CUSTOMER", "구매완료", "PURCHASED"] },
@@ -98,16 +142,21 @@ export async function GET(req: Request) {
       ...(assignedTo === "unassigned" ? { assignedUserId: null }
         : assignedTo ? { assignedUserId: assignedTo }
         : {}),
-    });
+    };
+
+    // 최종 where 조합: baseWhere + additionalWhere를 AND로 병합
+    const finalWhere: Prisma.ContactWhereInput = {
+      AND: [baseWhere, additionalWhere],
+    };
 
     // cursor 기반 페이지네이션 또는 offset 기반 페이지네이션
-    let where: Prisma.ContactWhereInput = baseWhere;
+    let where: Prisma.ContactWhereInput = finalWhere;
     let skip = 0;
     let take = safeLimit + 1;  // hasMore 판단용 +1
 
     if (cursor) {
       // id: { gt: cursor } 는 cursor 자체를 이미 제외하므로 skip = 0
-      where = { ...baseWhere, id: { gt: cursor } };
+      where = { ...finalWhere, id: { gt: cursor } };
     } else {
       take = safeLimit;  // offset 방식일 때는 +1 안 함
       skip = (page - 1) * safeLimit;
@@ -115,7 +164,7 @@ export async function GET(req: Request) {
 
     const [contacts, total] = await Promise.all([
       prisma.contact.findMany({
-        where: cursor ? where : baseWhere,
+        where: cursor ? where : finalWhere,
         orderBy: sortBy === "purchasedAt_desc" ? { purchasedAt: "desc" as const }
                : sortBy === "purchasedAt_asc"  ? { purchasedAt: "asc"  as const }
                : { id: "asc" as const },
@@ -142,11 +191,20 @@ export async function GET(req: Request) {
           affiliateAgentId: true,
           inquiryProductCode: true,
           surveyData: true,
+          visibility: true,
           groups: { select: { id: true, groupId: true, addedAt: true, group: { select: { id: true, name: true, color: true } } } },
+          sharedWith: {
+            where: { sharedTo: ctx.userId },
+            select: {
+              sharedBy: true,
+              createdAt: true,
+            },
+            take: 1,
+          },
           _count: { select: { callLogs: true } },
         },
       }),
-      prisma.contact.count({ where: baseWhere }),
+      prisma.contact.count({ where: finalWhere }),
     ]);
 
     // cursor 기반일 때 +1 제거
@@ -214,9 +272,28 @@ export async function GET(req: Request) {
     const affiliateNameMap = new Map<string, string>();
     affiliateMembers.forEach((m) => affiliateNameMap.set(m.id, m.displayName ?? m.id));
 
+    // ── 공유 정보 배치 조회 (공유한 사용자 이름) ──────────────────────────
+    const sharedByIds = [...new Set(
+      masked
+        .flatMap((c) => (c.sharedWith ?? []).map((s) => s.sharedBy))
+        .filter((x): x is string => !!x)
+    )];
+
+    const sharedByMembers = sharedByIds.length > 0
+      ? await prisma.organizationMember.findMany({
+          where: { id: { in: sharedByIds }, isActive: true },
+          select: { id: true, displayName: true },
+        })
+      : [];
+
+    const sharedByNameMap = new Map<string, string>();
+    sharedByMembers.forEach((m) => sharedByNameMap.set(m.id, m.displayName ?? m.id));
+
     const contactsWithTransfer = masked.map((c) => {
       const log = latestLog.get(c.id);
       const transferInfo = !log ? null : log.toUserId ? nameMap.get(log.toUserId) : null;
+      const sharedInfo = (c.sharedWith ?? [])[0];
+      const sharedByName = sharedInfo ? sharedByNameMap.get(sharedInfo.sharedBy) : undefined;
 
       return {
         ...c,
@@ -226,15 +303,31 @@ export async function GET(req: Request) {
         // P0-6/7: 제휴 담당자 실제 이름
         affiliateManagerName: c.affiliateManagerId ? affiliateNameMap.get(c.affiliateManagerId) : undefined,
         affiliateAgentName: c.affiliateAgentId ? affiliateNameMap.get(c.affiliateAgentId) : undefined,
+        // Team-A: 공유 출처
+        sharedByName,
       };
     });
 
-    // cursor 기반이면 cursor 응답, 아니면 offset 응답
-    if (cursor) {
-      return NextResponse.json({ ok: true, data: contactsWithTransfer, nextCursor, hasMore, limit: safeLimit });
+    // 관리자전용 탭: 출처별 통계 (limit=1일 때 = 통계 요청)
+    let sourceStats = null;
+    if (visibility === 'ADMIN_ONLY' && safeLimit === 1) {
+      const allAdminContacts = await prisma.contact.findMany({
+        where: { visibility: 'ADMIN_ONLY' as const, deletedAt: null },
+        select: { sourceType: true },
+      });
+      sourceStats = {
+        b2c: allAdminContacts.filter((c) => c.sourceType === 'user').length,
+        b2b: allAdminContacts.filter((c) => c.sourceType === 'inquiry').length,
+        admin: allAdminContacts.filter((c) => !c.sourceType || c.sourceType === 'UNKNOWN').length,
+      };
     }
 
-    return NextResponse.json({ ok: true, contacts: contactsWithTransfer, total, page, limit: safeLimit });
+    // cursor 기반이면 cursor 응답, 아니면 offset 응답
+    if (cursor) {
+      return NextResponse.json({ ok: true, data: contactsWithTransfer, nextCursor, hasMore, limit: safeLimit, sourceStats });
+    }
+
+    return NextResponse.json({ ok: true, contacts: contactsWithTransfer, total, page, limit: safeLimit, sourceStats });
   } catch (err) {
     logger.error("[GET /api/contacts]", { err });
     return handleApiError(err);
