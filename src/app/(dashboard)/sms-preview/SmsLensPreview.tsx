@@ -18,12 +18,12 @@ interface LensTemplate {
 }
 
 const LENSES = [
-  { id: "L0", label: "L0: 부재중 (0-6개월)" },
-  { id: "L1", label: "L1: 가격 거부" },
-  { id: "L2", label: "L2: 준비 불안" },
-  { id: "L3", label: "L3: 경쟁사 비교" },
-  { id: "L6", label: "L6: 타이밍/손실회피" },
-  { id: "L10", label: "L10: 즉시 구매 유도" },
+  { id: "L0", label: "L0: 신규 고객 (신뢰)", korean: "신규 고객", emoji: "🤝" },
+  { id: "L1", label: "L1: 가격 민감 (손실회피)", korean: "가격 민감", emoji: "💰" },
+  { id: "L2", label: "L2: 준비 불안 (복잡도)", korean: "준비 불안", emoji: "❓" },
+  { id: "L3", label: "L3: 경쟁사 비교 (차별성)", korean: "경쟁사 비교", emoji: "🏆" },
+  { id: "L6", label: "L6: 타이밍 (긴박감)", korean: "타이밍", emoji: "⏱️" },
+  { id: "L10", label: "L10: 즉시 구매 (마감)", korean: "즉시 구매", emoji: "🎯" },
 ];
 
 /**
@@ -68,19 +68,20 @@ export function SmsLensPreview() {
       </div>
 
       {/* 렌즈 선택 버튼 */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mb-6">
+      <div className="flex flex-wrap gap-2 mb-6">
         {LENSES.map((lens) => (
           <button
             key={lens.id}
             onClick={() => setSelectedLens(lens.id)}
-            className={`px-3 py-2 rounded text-xs sm:text-sm font-medium transition-all ${
+            className={`px-4 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${
               selectedLens === lens.id
-                ? "bg-purple-600 text-white shadow-md"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                ? "bg-purple-600 text-white shadow-md scale-105"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-sm"
             }`}
             title={lens.label}
           >
-            {lens.id}
+            <span className="text-lg">{lens.emoji}</span>
+            <span className="text-sm whitespace-nowrap">{lens.korean}</span>
           </button>
         ))}
       </div>
