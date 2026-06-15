@@ -113,7 +113,7 @@ export async function POST(req: Request, { params }: Params) {
     let funnelStarted = false;
 
     // 신청 기록 저장 (unique constraint로 race condition 방어)
-    let regId: string;
+    let regId: string = '';
     try {
       const reg = await prisma.crmLandingRegistration.create({
         data: {
@@ -279,23 +279,25 @@ export async function POST(req: Request, { params }: Params) {
       }
 
       // 퍼널 시작 (비블로킹)
-      if (landingPage.groupId && typeof landingPage.groupId === "string" && member) {
+      if (landingPage.groupId && typeof landingPage.groupId === "string" && member && contact) {
         // 트랜잭션 이후: 퍼널 트리거는 비블로킹으로 진행
         // contact.id와 member.addedAt은 트랜잭션으로 보장됨
         const groupId = landingPage.groupId; // 클로저에서 사용할 수 있게 캡처
+        const contactId = contact.id; // 클로저에서 사용할 수 있게 캡처
+        const anchorDate = member.addedAt; // 클로저에서 사용할 수 있게 캡처
         triggerGroupFunnel({
-          contactId:      contact.id,
+          contactId:      contactId,
           groupId:        groupId,
           organizationId: orgId,
         }).then(async (triggered) => {
           // ★ 퍼널문자(FunnelSms) 트리거 — 그룹에 funnelSmsId가 연결된 경우
           // fire-and-forget: 실패해도 신청 등록은 유지
           const smsTriggered = await triggerGroupFunnelSms({
-            contactId:      contact.id,
+            contactId:      contactId,
             groupId:        groupId,
             organizationId: orgId,
             // 발송 기준일 = 고객이 그룹에 들어온 날(최초 입력일).
-            anchorDate:     member.addedAt,
+            anchorDate:     anchorDate,
           }).catch((err) => {
             logger.error('[LandingRegister] 퍼널문자 트리거 실패', { err });
             return false;
@@ -323,10 +325,19 @@ export async function POST(req: Request, { params }: Params) {
     if (orgId && landingPage.smsL6Day0Enabled) {
       const smsContact = await prisma.contact.findFirst({
         where: { phone: normalizedPhone, organizationId: orgId },
-        select: { id: true, optOutAt: true },
+        select: { id: true, optOutAt: true, lensMetadata: true },
       });
       if (smsContact && !smsContact.optOutAt) {
         // [T14] opt-out 고객은 Day 0 SMS도 건너뜀
+        // 렌즈 감지: lensMetadata에서 lens 추출 (없으면 L0 기본값)
+        let lensType: 'L0' | 'L1' | 'L2' | 'L3' | 'L6' | 'L7' | 'L8' | 'L9' | 'L10' = 'L0';
+        if (smsContact.lensMetadata && typeof smsContact.lensMetadata === 'object') {
+          const metadata = smsContact.lensMetadata as any;
+          if (metadata.lens && ['L0', 'L1', 'L2', 'L3', 'L6', 'L7', 'L8', 'L9', 'L10'].includes(metadata.lens)) {
+            lensType = metadata.lens;
+          }
+        }
+
         const scheduleResult = await scheduleDay0To3Sms({
           organizationId: orgId,
           contactId: smsContact.id,
@@ -334,6 +345,7 @@ export async function POST(req: Request, { params }: Params) {
           pageFormat: landingPage.pageFormat || "hybrid",
           pageTitle: landingPage.title,
           createdByUserId: landingPage.createdByUserId,
+          lensType,
         });
 
         if (scheduleResult.success) {
