@@ -126,7 +126,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     // 만료 여부만 먼저 확인 (expiresAt 체크)
     const instance = await prisma.contractInstance.findUnique({
       where: { id },
-      select: { expiresAt: true, boundData: true },
+      select: { expiresAt: true, boundData: true, organizationId: true },
     });
 
     if (!instance) {
@@ -174,6 +174,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     // 감사 로그 기록 (non-blocking)
     await logContractAction({
       contractId: id,
+      organizationId: instance.organizationId,
       action: 'signed',
       userId: undefined,
       ipAddress: ip,

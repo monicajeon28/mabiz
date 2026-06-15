@@ -123,6 +123,7 @@ export async function POST(
           await tx.contractAuditLog.create({
             data: {
               contractId: contractId,
+              organizationId: contract.organizationId,
               action: "re_signed",
               timestamp: new Date(),
               userId: session.userId,
