@@ -137,8 +137,13 @@ export async function PATCH(req: Request, { params }: Params) {
     const ctx  = await getAuthContext();
     const { id } = await params;
     const body   = await req.json();
-    const where  = buildContactWhere(ctx, { id });
 
+    // FREE_SALES 역할 미리 차단
+    if (ctx.role === 'FREE_SALES') {
+      return NextResponse.json({ ok: false }, { status: 403 });
+    }
+
+    const where  = buildContactWhere(ctx, { id });
     const existing = await prisma.contact.findFirst({ where });
     if (!existing) return NextResponse.json({ ok: false }, { status: 404 });
 
@@ -155,11 +160,29 @@ export async function PATCH(req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, message: '전화번호는 비워둘 수 없습니다.' }, { status: 400 });
     }
 
-    // organizationId 포함: findFirst → update 사이 TOCTOU 방지
-    // 추가 보안: 권한 재검증 (조직 일치 확인)
+    // ═══════════════════════════════════════════════════════════════
+    // 권한 검증: buildContactWhere 필터 + 추가 역할별 검증
+    // ═══════════════════════════════════════════════════════════════
+    // TOCTOU 방지: organizationId 확인
     if (existing.organizationId !== resolveOrgId(ctx)) {
       return NextResponse.json(
         { ok: false, message: '권한이 없습니다' },
+        { status: 403 }
+      );
+    }
+
+    // AGENT: 할당된 Contact만 수정 가능 (할당되지 않은 Contact는 읽기만)
+    if (ctx.role === 'AGENT' && existing.assignedUserId && existing.assignedUserId !== ctx.userId) {
+      return NextResponse.json(
+        { ok: false, message: '할당된 고객만 수정할 수 있습니다' },
+        { status: 403 }
+      );
+    }
+
+    // OWNER: ADMIN_ONLY Contact 수정 불가 (관리자 전용)
+    if (ctx.role === 'OWNER' && existing.visibility === 'ADMIN_ONLY') {
+      return NextResponse.json(
+        { ok: false, message: '관리자만 수정 가능한 고객입니다' },
         { status: 403 }
       );
     }
