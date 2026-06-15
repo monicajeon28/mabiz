@@ -207,8 +207,19 @@ export async function POST(req: Request, { params }: Params) {
     const successCount = results.filter((r) => r.status === "fulfilled").length;
     const failCount    = results.filter((r) => r.status === "rejected").length;
 
+    // ★ P0-2 FIX: memberCount 캐시 업데이트
+    // 추가된 멤버 수를 카운트해서 contactGroup.memberCount 갱신
+    const newMemberCount = await prisma.contactGroupMember.count({
+      where: { groupId },
+    });
+    await prisma.contactGroup.update({
+      where: { id: groupId },
+      data: { memberCount: newMemberCount },
+    });
+
     logger.log("[POST /api/groups/members] 그룹 배정 완료", {
       groupId, successCount, failCount,
+      memberCount: newMemberCount,
       funnelTriggered: !!group.funnelId,
     });
 
@@ -250,6 +261,22 @@ export async function DELETE(req: Request, { params }: Params) {
 
     await prisma.contactGroupMember.deleteMany({
       where: { groupId, contactId: { in: contactIds } },
+    });
+
+    // ★ P0-2 FIX: memberCount 캐시 업데이트
+    // 제거된 멤버 수를 반영해서 contactGroup.memberCount 갱신
+    const updatedMemberCount = await prisma.contactGroupMember.count({
+      where: { groupId },
+    });
+    await prisma.contactGroup.update({
+      where: { id: groupId },
+      data: { memberCount: updatedMemberCount },
+    });
+
+    logger.log("[DELETE /api/groups/[id]/members] 멤버 제거 완료", {
+      groupId,
+      removedCount: contactIds.length,
+      memberCount: updatedMemberCount,
     });
 
     return NextResponse.json({ ok: true });
