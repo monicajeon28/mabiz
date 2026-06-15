@@ -72,6 +72,7 @@ export async function triggerGroupEmailFunnel(
       id: true,
       title: true,
       emailConfigId: true,
+      createdByUserId: true,
       messages: {
         orderBy: [{ day: "asc" }, { order: "asc" }],
         select: {
@@ -250,13 +251,14 @@ export async function triggerGroupEmailFunnel(
       organizationId,
       contactId,
       groupId,
-      day:         msg.day,
-      subject:     msg.subject,   // {{name}} 등 동적변수 원본 그대로 저장
-      htmlContent: msg.bodyHtml,  // Cron 발송 시 치환
-      variables:   variables as Record<string, string>,
-      status:      "PENDING" as const,
+      day:          msg.day,
+      subject:      msg.subject,   // {{name}} 등 동적변수 원본 그대로 저장
+      htmlContent:  msg.bodyHtml,  // Cron 발송 시 치환
+      variables:    variables as Record<string, string>,
+      status:       "PENDING" as const,
       scheduledAt,
-      provider:    emailConfig.emailProvider,
+      provider:     emailConfig.emailProvider,
+      senderUserId: emailFunnel.createdByUserId,  // resolveUserEmailConfig에서 개인 SMTP 조회용
     };
   });
 

@@ -100,6 +100,7 @@ model Organization {
   groupEmailConfigs          GroupEmailConfig[]
   groupEmailFunnels          GroupEmailFunnel[]
   groupEmailFunnelMessages   GroupEmailFunnelMessage[]
+  userEmailConfigs           UserEmailConfig[]
   emailSentLogs              EmailSentLog[]
   emailAuditLogs             EmailAuditLog[]
   // Jeff Bezos: Day 0-3 병렬 처리
@@ -7172,6 +7173,9 @@ model ScheduledEmailMessage {
   groupId        String?
   day            Int      // 0, 1, 2, 3
 
+  // 발신자 (resolveUserEmailConfig에서 사용)
+  senderUserId   String?  // GroupEmailFunnel.createdByUserId 복사
+
   // Email 콘텐츠
   subject        String
   htmlContent    String   @db.Text
@@ -7474,13 +7478,41 @@ model EmailAuditLog {
   @@map("EmailAuditLog")
 }
 
-// Contact와의 이메일 발송 상태 추적
-// Contact 모델에 추가할 필드:
-// - emailDay0Sent: Boolean @default(false)
-// - emailDay1Sent: Boolean @default(false)
-// - emailDay2Sent: Boolean @default(false)
-// - emailDay3Sent: Boolean @default(false)
-// - emailDay0SentAt: DateTime?
-// - emailDay1SentAt: DateTime?
-// - emailDay2SentAt: DateTime?
-// - emailDay3SentAt: DateTime?
+// ============================================================================
+// 개인별 이메일 SMTP 설정 (UserEmailConfig)
+// 알리고 UserSmsConfig 패턴과 동일 — 개인 > 그룹 > 조직 순서 폴백
+// ============================================================================
+model UserEmailConfig {
+  id                     String    @id @default(cuid())
+  organizationId         String
+  userId                 String    // OrganizationMember.userId
+
+  emailProvider          String    @default("SMTP") // "SMTP" | "GMAIL" | "SENDGRID"
+
+  // 발신자 정보
+  senderName             String    @default("")
+  senderEmail            String    @default("")
+
+  // SMTP 설정
+  smtpHost               String?
+  smtpPort               Int?      @default(587)
+  smtpUsername           String?
+  smtpPasswordEncrypted  String?   @db.Text // 암호화됨
+  smtpSecure             Boolean?  @default(false) // true: TLS, false: STARTTLS
+
+  // 상태
+  isActive               Boolean   @default(false)
+  isVerified             Boolean   @default(false)
+  testedAt               DateTime?
+  testResult             String?   // "SUCCESS" | "FAILED"
+  testErrorMessage       String?
+
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@map("UserEmailConfig")
+}
