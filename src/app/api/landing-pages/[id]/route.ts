@@ -5,7 +5,6 @@ import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, canDelete } from "@/l
 import { logger } from "@/lib/logger";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
 import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
-import { regenerateSmsSequence } from "@/lib/landing-sms-generator";
 import { IMAGE_FIELDS_BY_FORMAT, CTA_PSYCHOLOGY_MAP } from "@/lib/landing-page-constants";
 
 const PatchSchema = z.object({
@@ -179,23 +178,8 @@ export async function PATCH(req: Request, { params }: Params) {
       },
     });
 
-    // Phase 3: SMS 시퀀스 재생성 (pageFormat이나 ctaType이 변경되었으면)
-    // 단, 현재 페이지에 이미 CrmLandingPageSms가 있으면 기존 것을 활용하고 업데이트만 함
-    if (validFormat !== undefined || ctaType !== undefined) {
-      try {
-        const ctaData = CTA_PSYCHOLOGY_MAP[ctaType || existing.ctaType] || CTA_PSYCHOLOGY_MAP.default;
-        await regenerateSmsSequence(
-          id,
-          validFormat || existing.pageFormat || 'hybrid',
-          ctaData.text,
-          companyName || "마비즈"
-        );
-        logger.log("[PATCH /api/landing-pages/[id]] SMS 시퀀스 재생성", { pageId: id });
-      } catch (smsErr) {
-        logger.error("[PATCH /api/landing-pages/[id]] SMS 재생성 실패", { err: smsErr, pageId: id });
-        // SMS 재생성 실패는 페이지 업데이트 성공을 방해하지 않음
-      }
-    }
+    // Phase 3: SMS 시퀀스 자동 재생성 기능 제거 (2026-06-15)
+    // SMS 자동화 기능이 삭제되었습니다. 수동 SMS 관리 시스템으로 전환합니다.
 
     return NextResponse.json({ ok: true, page });
   } catch (err) {

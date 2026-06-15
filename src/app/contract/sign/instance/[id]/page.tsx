@@ -4,12 +4,15 @@ import { useState, useEffect, useRef } from 'react';
 import { showError, showSuccess } from '@/components/ui/Toast';
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import DOMPurify from 'dompurify';
+import { ContractSignForm, useContractSignForm } from '@/components/contract/ContractSignForm';
+import type { InputFieldDef, InputFieldValue } from '@/components/contract/ContractInputField';
 
 interface ContractData {
   status: string;
   templateName: string;
   renderedHtml: string;
   boundData: Record<string, unknown>;
+  inputFields?: InputFieldDef[];
   expiresAt: string | null;
   alreadySigned: boolean;
   signedAt: string | null;
@@ -113,6 +116,8 @@ export default function ContractSignPage({ params }: { params: { id: string } })
   const [generatingPreview, setGeneratingPreview] = useState(false);
   const [dragOverDrop, setDragOverDrop] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [formFields, setFormFields] = useState<InputFieldValue[]>([]);
+  const { formData, isValid, handleFieldsChange, validate } = useContractSignForm();
 
   const contractId = params.id;
 
@@ -238,6 +243,14 @@ export default function ContractSignPage({ params }: { params: { id: string } })
       return;
     }
 
+    // 입력 필드 유효성 검사 (필드가 있는 경우)
+    if (contract?.inputFields && contract.inputFields.length > 0) {
+      if (!validate(contract.inputFields)) {
+        showError('모든 필수 입력 필드를 올바르게 채워주세요');
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
       const res = await fetch(`/api/public/contract-instances/${contractId}/sign`, {
@@ -246,6 +259,7 @@ export default function ContractSignPage({ params }: { params: { id: string } })
         body: JSON.stringify({
           signerName,
           signatureImage,
+          inputFields: formData, // 입력 필드 데이터 포함
         }),
       });
 
@@ -394,9 +408,30 @@ export default function ContractSignPage({ params }: { params: { id: string } })
         {step === 'sign' && (
           <div className="space-y-8">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Step 2. 서명 입력</h2>
-              <p className="text-gray-600">가장 편한 방식을 선택하여 서명을 입력해주세요.</p>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Step 2. {contract?.inputFields && contract.inputFields.length > 0 ? '정보 입력 & 서명' : '서명 입력'}
+              </h2>
+              <p className="text-gray-600">
+                {contract?.inputFields && contract.inputFields.length > 0
+                  ? '계약서에 필요한 정보를 입력한 후 서명해주세요'
+                  : '가장 편한 방식을 선택하여 서명을 입력해주세요.'}
+              </p>
             </div>
+
+            {/* 입력 필드 렌더링 (있는 경우) */}
+            {contract?.inputFields && contract.inputFields.length > 0 && (
+              <ContractSignForm
+                inputFields={contract.inputFields}
+                onFieldsChange={(fields) => {
+                  handleFieldsChange(fields);
+                  setFormFields(fields);
+                }}
+                contactAutoFill={
+                  contract.boundData ? (contract.boundData as Record<string, string>) : {}
+                }
+                showCompactPreview={true}
+              />
+            )}
 
             {/* 서명 방식 선택 라디오 버튼 */}
             <div className="border-2 border-gray-300 rounded-lg p-6 bg-white space-y-4">

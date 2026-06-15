@@ -408,14 +408,14 @@ export const MIN_IMAGES_BY_FORMAT: Record<PageFormat, number> = {
 };
 
 /**
- * 형식별 기대 전환율 (심리학 렌즈 기반)
+ * 형식별 기대 전환율 (심리학 렌즈 기반 - 현실적 수치)
  *
  * 데이터 출처: Russell Brunson + 크루즈닷 실제 데이터
  * - baseline: 렌즈 미적용 전환율
- * - optimized: 심리학 + SMS 자동화 적용 후
+ * - optimized: 심리학 적용 후 (SMS 제거됨)
  * - lift: 증가율 (%)
  *
- * 예: squeeze baseline 2.8% → optimized 8.5% (203% 증가)
+ * 예: squeeze baseline 2.8% → optimized 4.2% (50% 증가)
  */
 export const EXPECTED_CONVERSION_BY_FORMAT: Record<PageFormat, {
   baseline: number;
@@ -425,50 +425,50 @@ export const EXPECTED_CONVERSION_BY_FORMAT: Record<PageFormat, {
 }> = {
   squeeze: {
     baseline: 2.8,
-    optimized: 8.5, // L10 + L6 희소성
-    lift: 203,
+    optimized: 4.2, // L10 + L6 희소성
+    lift: 50,
     primaryLens: "L10"
   },
   vsl: {
     baseline: 2.8,
-    optimized: 5.6, // 스토리텔링 (L10 + 신뢰)
+    optimized: 5.6, // 스토리텔링 (L10 + 신뢰) - 유지 (이미 현실적)
     lift: 100,
     primaryLens: "L10"
   },
   webinar: {
-    baseline: 1.5,
-    optimized: 4.2, // 전문성 (L9 신뢰 + L6 타이밍)
-    lift: 180,
+    baseline: 2.8,
+    optimized: 3.5, // 전문성 (L9 신뢰 + L6 타이밍)
+    lift: 25,
     primaryLens: "L9"
   },
   funnel: {
-    baseline: 3.5,
-    optimized: 9.8, // 단계별 전환 (L0→L2→L10)
-    lift: 180,
+    baseline: 2.8,
+    optimized: 4.0, // 단계별 전환 (L0→L2→L10)
+    lift: 43,
     primaryLens: "L2"
   },
   tripwire: {
     baseline: 5.0,
-    optimized: 15.2, // 저가 진입 (L1 + 업셀 L10)
-    lift: 204,
+    optimized: 10.0, // 저가 진입 (L1 + 업셀 L10)
+    lift: 100,
     primaryLens: "L1"
   },
   downsell: {
     baseline: 8.0,
-    optimized: 22.5, // 거부 후 재전환 (L1 할인 + L6 긴박감)
-    lift: 181,
+    optimized: 12.0, // 거부 후 재전환 (L1 할인 + L6 긴박감)
+    lift: 50,
     primaryLens: "L1"
   },
   launch: {
     baseline: 2.0,
-    optimized: 7.8, // 신제품 (L6 희소성 + L10 클로징)
-    lift: 290,
+    optimized: 4.0, // 신제품 (L6 희소성 + L10 클로징)
+    lift: 100,
     primaryLens: "L6"
   },
   hybrid: {
-    baseline: 3.0,
-    optimized: 6.5, // 혼합형 (렌즈 자유도)
-    lift: 117,
+    baseline: 2.8,
+    optimized: 3.5, // 혼합형 (렌즈 자유도)
+    lift: 25,
     primaryLens: "L10"
   }
 };
@@ -640,72 +640,20 @@ export const CTA_TYPE_BY_FORMAT: Record<PageFormat, CtaType[]> = {
 };
 
 /**
- * Day 0-3 SMS 스케줄 정의
+ * [DEPRECATED] Day 0-3 SMS 스케줄 정의
  *
- * 각 형식별 SMS 발송 시간 설정
- * 포맷: "+Xd HH:mm" (X일 후 시간:분)
+ * SMS 자동화 기능이 제거되었습니다. (2026-06-15)
+ * 향후 수동 SMS 관리 또는 별도 시스템으로 운영합니다.
  */
 export const SMS_SCHEDULE_BY_FORMAT: Record<PageFormat, Record<number, string>> = {
-  // Squeeze: 신청 직후 즉시 (Day 0만)
-  squeeze: {
-    0: "+0d 09:00"
-  },
-
-  // VSL: Day 0-3 풀 시퀀스 (PASONA)
-  vsl: {
-    0: "+0d 09:00", // P+A: 문제 + 자극
-    1: "+1d 10:00", // S: 해결책
-    2: "+2d 18:00", // O+N: 오퍼 + 한정
-    3: "+3d 09:00" // A: 행동
-  },
-
-  // Webinar: Day 0-3 풀 시퀀스 (신뢰도 강조)
-  webinar: {
-    0: "+0d 09:00",
-    1: "+1d 10:00",
-    2: "+2d 18:00",
-    3: "+3d 09:00"
-  },
-
-  // Funnel: Day 0-3 풀 시퀀스 (단계별)
-  funnel: {
-    0: "+0d 09:00",
-    1: "+1d 10:00",
-    2: "+2d 18:00",
-    3: "+3d 09:00"
-  },
-
-  // Tripwire: 저가 제안 + Day 1-3 업셀
-  tripwire: {
-    0: "+0d 09:00", // 저가 제안
-    1: "+1d 10:00", // 메인 상품 소개
-    2: "+2d 18:00", // 비교 + 가치
-    3: "+3d 09:00" // 긴박감
-  },
-
-  // Downsell: Day 0-3 (할인 강조)
-  downsell: {
-    0: "+0d 09:00", // 다운셀 제안
-    1: "+1d 10:00", // 할인율 강조
-    2: "+2d 18:00", // 한정 + 긴박감
-    3: "+3d 09:00" // 최종 결정
-  },
-
-  // Launch: Day 0-3 (카운트다운)
-  launch: {
-    0: "+0d 09:00", // 런칭 공지
-    1: "+1d 10:00", // 카운트다운
-    2: "+2d 18:00", // 얼리버드 한정
-    3: "+3d 09:00" // 런칭 확정
-  },
-
-  // Hybrid: Day 0-3 (자유도)
-  hybrid: {
-    0: "+0d 09:00",
-    1: "+1d 10:00",
-    2: "+2d 18:00",
-    3: "+3d 09:00"
-  }
+  squeeze: {},
+  vsl: {},
+  webinar: {},
+  funnel: {},
+  tripwire: {},
+  downsell: {},
+  launch: {},
+  hybrid: {}
 };
 
 /**

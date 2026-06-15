@@ -815,13 +815,15 @@ model CrmLandingPage {
   ctaType           String    @default("default") @db.VarChar(20) // default|urgent|explore|reserve
   imageFieldConfig  Json?     // [{fieldId, required, category, ...}]
 
+  // Phase C: 블록 기반 에디터 설정 (2026-06-15)
+  blocksConfig      Json?     // {blocks: Block[], selectedFeatures: {video, timer, testimonial, faq}}
+
   comments      CrmLandingComment[]
   group         ContactGroup?            @relation(fields: [groupId], references: [id])
   organization  Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   registrations CrmLandingRegistration[]
   shares        CrmLandingShare[]
   images        CrmLandingPageImage[]
-  smsSequences  CrmLandingPageSms[]      @relation("PageSmsSequences")
 
   @@unique([slug, organizationId])
   @@unique([organizationId, id])
@@ -5979,6 +5981,9 @@ model ContractTemplate {
   // 필드 매핑
   fieldMapping Json @default("{}")
 
+  // Phase 6: 계약서 입력 필드 정의 (text/checkbox/date/dropdown)
+  inputFields Json @default("[]") // Array<InputFieldDef>
+
   // 심리학 렌즈 태그
   psychologyLenses String[] @default([])
 
@@ -6026,6 +6031,9 @@ model ContractInstance {
   // 실제 데이터
   boundData Json @default("{}")
 
+  // Phase 6: 계약서 입력 필드 데이터 (서명 시 수집)
+  inputFields Json @default("[]") // Array<InputFieldValue>
+
   // 진행 상태
   status String @default("DRAFT") // "DRAFT"|"SENT"|"SIGNED"|"COMPLETED"
 
@@ -6043,6 +6051,11 @@ model ContractInstance {
   smsDay2SentAt DateTime?
   smsDay3Sent   Boolean   @default(false)
   smsDay3SentAt DateTime?
+
+  // Phase 4: 재전송 자동화 추적 (Day 7+ Follow-up)
+  retryCount       Int       @default(0) // 전체 재시도 횟수
+  reminderCount    Int       @default(0) // 재전송 횟수 (최대 3회)
+  lastReminderSentAt DateTime? @db.Timestamptz(6) // 마지막 재전송 시각
 
   // 유효기한 (L10 긴박감)
   expiresAt DateTime? @db.Timestamptz(6) // 기본값: createdAt + 24시간
@@ -6063,6 +6076,8 @@ model ContractInstance {
   @@index([contactId])
   @@index([status])
   @@index([expiresAt])
+  @@index([organizationId, status, createdAt], map: "idx_contract_instance_reminder_lookup", where: raw("status = 'SENT' AND \"reminderCount\" < 3"))
+  @@index([organizationId, lastReminderSentAt], map: "idx_contract_instance_last_reminder_sent")
 }
 
 model ContractTemplateAuditLog {
@@ -6822,24 +6837,8 @@ model FunnelSmsMessage {
   @@map("FunnelSmsMessage")
 }
 
-// Phase 1: Landing Page SMS 자동화 시퀀스 (2026-06-15)
-model CrmLandingPageSms {
-  id            String    @id @default(cuid())
-  pageId        String
-  page          CrmLandingPage @relation("PageSmsSequences", fields: [pageId], references: [id], onDelete: Cascade)
-
-  day           Int       // 0, 1, 2, 3
-  text          String    @db.Text
-  schedule      String    // "+0d 09:00", "+1d 10:00" 형식
-  status        String    @default("PENDING") @db.VarChar(20) // PENDING|SENT|FAILED
-
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  @@index([pageId, day])
-  @@index([status])
-  @@map("CrmLandingPageSms")
-}
+// [DEPRECATED] Landing Page SMS 자동화 시퀀스 (2026-06-15)
+// SMS 자동화 기능이 제거되었습니다. 수동 SMS 관리로 전환합니다.
 
 model ProfitCalculation {
   id             String   @id @default(cuid())
