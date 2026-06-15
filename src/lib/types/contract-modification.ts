@@ -263,3 +263,62 @@ export interface ModificationRequestResponse {
   error?: string;
   message?: string;
 }
+
+/**
+ * Phase 5: 자동 승인 규칙 엔진 타입
+ * @author Team-A (Contract Rules Engine)
+ * @date 2026-06-15
+ */
+
+/**
+ * 필드 설정 타입 (AUTO_APPROVABLE_FIELDS 값)
+ */
+export interface FieldAutoApprovalConfig {
+  label: string;
+  description: string;
+  autoApprovalRatio?: number; // 예상 자동승인율 (0-1)
+  [key: string]: any; // 필드별 추가 설정
+}
+
+/**
+ * 자동 승인 검증 결과
+ */
+export interface AutoApprovalValidationResult {
+  isAutoApprovable: boolean;
+  reason: string;
+  autoApprovalConfig?: {
+    fieldName: string;
+    fieldConfig: FieldAutoApprovalConfig;
+    validationsPassed: string[]; // ✅ 통과한 검증 항목
+    validationsFailed?: string[]; // ❌ 실패한 검증 항목
+    psychologyLenses?: string[]; // 적용된 심리학 렌즈 (L6, L7, L9, L10 등)
+  };
+}
+
+/**
+ * 자동 승인 통계
+ */
+export interface AutoApprovalStatistics {
+  totalRequests: number;
+  autoApprovedCount: number;
+  autoApprovalRate: number; // 0-1 범위
+  byField: Record<
+    string,
+    {
+      total: number;
+      autoApproved: number;
+      autoApprovalRate: number;
+    }
+  >;
+  successMessage?: string;
+}
+
+/**
+ * 모든 필드 일괄 평가 결과
+ */
+export interface BulkAutoApprovalResult {
+  allAutoApprovable: boolean; // 모든 필드가 자동 승인 가능?
+  results: AutoApprovalValidationResult[];
+  reason: string;
+  autoApprovalRate: number; // (자동승인가능 필드 수 / 전체 필드 수)
+}

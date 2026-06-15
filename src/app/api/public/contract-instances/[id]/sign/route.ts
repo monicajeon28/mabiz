@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { logContractAction } from '@/lib/contract-audit-log';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -169,6 +170,16 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         { status: 200 }
       );
     }
+
+    // 감사 로그 기록 (non-blocking)
+    await logContractAction({
+      contractId: id,
+      action: 'signed',
+      userId: undefined,
+      ipAddress: ip,
+      userAgent: req.headers.get('user-agent') ?? undefined,
+      details: `${body.signerName ?? '비회원'}이 계약서에 서명`,
+    });
 
     logger.log('[PublicContractSign] 서명 완료', {
       id,
