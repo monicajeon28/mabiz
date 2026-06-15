@@ -220,7 +220,7 @@ function CallListCard({
 
       <div className="space-y-2 text-sm">
         <div className="flex items-center justify-between">
-          <span className="text-gray-600">퍼널 단계:</span>
+          <span className="text-gray-600">진행 단계:</span>
           <span className="font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded">
             {item.funnelStage}
           </span>
@@ -230,7 +230,7 @@ function CallListCard({
           <span className="font-medium">{item.daysSince}일</span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-gray-600">심리학 렌즈:</span>
+          <span className="text-gray-600">고객 유형:</span>
           <span className="font-medium bg-purple-100 text-purple-800 px-2 py-1 rounded">
             {item.psyLens}
           </span>
