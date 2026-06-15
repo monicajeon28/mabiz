@@ -22,17 +22,21 @@ import { logger } from "@/lib/logger";
  * {
  *   "ok": true,
  *   "preview": "안녕하세요 김철수님! 부산으로 떠나세요.",
+ *   "length": 31,
+ *   "messageType": "SMS",
+ *   "maxLength": 90,
  *   "missingVariables": [],
  *   "warnings": []
  * }
  */
+
 /**
  * SMS 길이 검증 함수
- * - 한글: 90자 이내 (SMS 기본)
- * - 영문/숫자: 160자 이내
- * - LMS (장문): 450자 이내
+ * - 한글: 90자 이내 (SMS 기본) / 450자 (LMS 장문)
+ * - 영문/숫자: 160자 이내 (SMS 기본) / 450자 (LMS 장문)
  *
- * 반환: { valid, length, messageType, maxLength }
+ * @param message SMS 메시지
+ * @returns { valid, length, messageType, maxLength }
  */
 function validateSmsLength(message: string): {
   valid: boolean;
