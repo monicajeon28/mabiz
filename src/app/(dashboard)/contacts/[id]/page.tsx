@@ -75,10 +75,27 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   const { toast } = useToast();
 
   const [contact,       setContact]       = useState<Contact | null>(null);
-  const [tab,           setTab]           = useState<"call" | "memo" | "sms">("call");
+  const [tab,           setTab]           = useState<"call" | "memo" | "sms" | "funnel">("call");
   const [openSections,  setOpenSections]  = useState<Set<string>>(new Set());
   const [loading,       setLoading]       = useState(true);
   const [smsLogs,       setSmsLogs]       = useState<{ id: string; phone: string; contentPreview: string; status: string; channel: string; sentAt: string }[]>([]);
+
+  // 퍼널 현황 탭
+  type FunnelSmsSchedule = {
+    id: string; scheduledAt: string; status: string;
+    round: number | null; channel: string; preview: string;
+    sentAt: string | null; failureReason: string | null; funnelSmsId: string | null;
+  };
+  type FunnelEmailSchedule = {
+    id: string; scheduledAt: string; status: string;
+    day: number; subject: string; provider: string;
+    sentAt: string | null; failureReason: string | null;
+    openedAt: string | null; clickedAt: string | null;
+  };
+  const [funnelSmsSchedules,   setFunnelSmsSchedules]   = useState<FunnelSmsSchedule[]>([]);
+  const [funnelEmailSchedules, setFunnelEmailSchedules] = useState<FunnelEmailSchedule[]>([]);
+  const [funnelLoading,        setFunnelLoading]        = useState(false);
+  const [funnelLoaded,         setFunnelLoaded]         = useState(false);
   const [smsLoading,    setSmsLoading]    = useState(false);
   const [smsPage,       setSmsPage]       = useState(1);
   const [smsHasMore,    setSmsHasMore]    = useState(true);
@@ -1007,12 +1024,13 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         );
       })()}
 
-      {/* 3-Tab Navigation */}
+      {/* 4-Tab Navigation */}
       <div className="flex gap-3 border-b border-gray-200 mb-6 overflow-x-auto">
         {[
-          { key: "call",  label: `📞 콜기록 (${contact.callLogs.length})` },
-          { key: "memo",  label: `📝 메모 (${contact.memos.length})` },
-          { key: "sms",   label: "💬 발송내역" },
+          { key: "call",   label: `📞 콜기록 (${contact.callLogs.length})` },
+          { key: "memo",   label: `📝 메모 (${contact.memos.length})` },
+          { key: "sms",    label: "💬 발송내역" },
+          { key: "funnel", label: "📅 퍼널 현황" },
         ].map((t) => (
           <button
             key={t.key}
@@ -1033,6 +1051,23 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                   .catch(err => {
                     logger.error("[ContactDetail] SMS 로그 fetch 실패", { contactId: contact.id, err });
                     setSmsLoading(false);
+                  });
+              }
+              if (t.key === "funnel" && !funnelLoaded) {
+                setFunnelLoading(true);
+                fetch(`/api/contacts/${contact.id}/funnel-schedule`, { credentials: 'include' })
+                  .then(r => r.json())
+                  .then(d => {
+                    if (d.ok) {
+                      setFunnelSmsSchedules(d.smsSchedules ?? []);
+                      setFunnelEmailSchedules(d.emailSchedules ?? []);
+                      setFunnelLoaded(true);
+                    }
+                    setFunnelLoading(false);
+                  })
+                  .catch(err => {
+                    logger.error("[ContactDetail] 퍼널 현황 fetch 실패", { contactId: contact.id, err });
+                    setFunnelLoading(false);
                   });
               }
             }}
@@ -1093,6 +1128,146 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
           onOpenSmsModal={openSmsModal}
           onOpenSchedModal={openSchedModal}
         />
+      )}
+
+      {/* Funnel Schedule Tab */}
+      {tab === "funnel" && (
+        <div className="space-y-4">
+          {funnelLoading ? (
+            <div className="py-12 text-center text-gray-400 text-sm">불러오는 중...</div>
+          ) : (
+            <>
+              {/* SMS 발송 일정 */}
+              <div className="bg-white rounded-xl border border-gray-200 p-4">
+                <h3 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
+                  <span>📱</span> 문자 발송 일정
+                  <span className="text-xs font-normal text-gray-400 ml-1">
+                    ({funnelSmsSchedules.length}건)
+                  </span>
+                </h3>
+                {funnelSmsSchedules.length === 0 ? (
+                  <p className="text-sm text-gray-400 py-4 text-center">등록된 문자 발송 일정이 없습니다.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {funnelSmsSchedules.map((sms) => {
+                      const statusColor =
+                        sms.status === "SENT"    ? "bg-green-100 text-green-700" :
+                        sms.status === "FAILED"  ? "bg-red-100 text-red-600"    :
+                        sms.status === "PENDING" ? "bg-blue-50 text-blue-600"   :
+                                                   "bg-gray-100 text-gray-500";
+                      const statusLabel =
+                        sms.status === "SENT"    ? "✅ 발송완료" :
+                        sms.status === "FAILED"  ? "❌ 실패"     :
+                        sms.status === "PENDING" ? "⏳ 대기중"   : sms.status;
+                      const roundLabel = sms.round !== null ? `Day ${sms.round}` : "";
+
+                      return (
+                        <div key={sms.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              {roundLabel && (
+                                <span className="text-xs font-bold px-2 py-0.5 bg-gray-200 text-gray-600 rounded">
+                                  {roundLabel}
+                                </span>
+                              )}
+                              <span className={`text-xs font-medium px-2 py-0.5 rounded ${statusColor}`}>
+                                {statusLabel}
+                              </span>
+                              <span className="text-xs text-gray-400">
+                                {new Date(sms.scheduledAt).toLocaleString("ko-KR")}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-700 truncate">{sms.preview}</p>
+                            {sms.failureReason && (
+                              <p className="text-xs text-red-500 mt-1">{sms.failureReason}</p>
+                            )}
+                            {sms.sentAt && (
+                              <p className="text-xs text-green-600 mt-0.5">
+                                발송: {new Date(sms.sentAt).toLocaleString("ko-KR")}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* 이메일 발송 일정 */}
+              {contact.email && (
+                <div className="bg-white rounded-xl border border-gray-200 p-4">
+                  <h3 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <span>📧</span> 이메일 발송 일정
+                    <span className="text-xs font-normal text-gray-400 ml-1">
+                      ({funnelEmailSchedules.length}건)
+                    </span>
+                  </h3>
+                  {funnelEmailSchedules.length === 0 ? (
+                    <p className="text-sm text-gray-400 py-4 text-center">등록된 이메일 발송 일정이 없습니다.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {funnelEmailSchedules.map((email) => {
+                        const statusColor =
+                          email.status === "SENT"    ? "bg-green-100 text-green-700" :
+                          email.status === "FAILED"  ? "bg-red-100 text-red-600"    :
+                          email.status === "BOUNCED" ? "bg-orange-100 text-orange-600" :
+                          email.status === "PENDING" ? "bg-blue-50 text-blue-600"   :
+                                                       "bg-gray-100 text-gray-500";
+                        const statusLabel =
+                          email.status === "SENT"    ? "✅ 발송완료" :
+                          email.status === "FAILED"  ? "❌ 실패"     :
+                          email.status === "BOUNCED" ? "🔄 반송됨"  :
+                          email.status === "PENDING" ? "⏳ 대기중"   : email.status;
+
+                        return (
+                          <div key={email.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <span className="text-xs font-bold px-2 py-0.5 bg-gray-200 text-gray-600 rounded">
+                                  Day {email.day}
+                                </span>
+                                <span className={`text-xs font-medium px-2 py-0.5 rounded ${statusColor}`}>
+                                  {statusLabel}
+                                </span>
+                                <span className="text-xs text-gray-400">
+                                  {new Date(email.scheduledAt).toLocaleString("ko-KR")}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-700 truncate font-medium">{email.subject}</p>
+                              {email.openedAt && (
+                                <p className="text-xs text-purple-600 mt-0.5">
+                                  열람: {new Date(email.openedAt).toLocaleString("ko-KR")}
+                                </p>
+                              )}
+                              {email.clickedAt && (
+                                <p className="text-xs text-blue-600 mt-0.5">
+                                  클릭: {new Date(email.clickedAt).toLocaleString("ko-KR")}
+                                </p>
+                              )}
+                              {email.failureReason && (
+                                <p className="text-xs text-red-500 mt-1">{email.failureReason}</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 이메일 없는 경우 안내 */}
+              {!contact.email && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
+                  <p className="text-sm text-amber-700">
+                    이메일 주소가 없어 이메일 발송 일정이 없습니다.
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       )}
 
       {/* Accordion Sections (그룹/분석/주의신호/신청이력/예약) */}

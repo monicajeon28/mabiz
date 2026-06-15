@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Check, Lock, Shield, Users } from "lucide-react";
+import { ArrowLeft, Check, Lock, Mail, Shield, Users } from "lucide-react";
 import Link from "next/link";
 import { showError, showSuccess } from "@/components/ui/Toast";
 import { logger } from "@/lib/logger";
@@ -10,6 +10,9 @@ import { TripleChoiceCTA } from "@/components/groups/TripleChoiceCTA";
 import { OfferSection } from "@/components/groups/OfferSection";
 import { Day0SMSPreview } from "@/components/groups/Day0SMSPreview";
 import { TrustBadge } from "@/components/groups/TrustBadge";
+import { GroupEmailSettings } from "@/components/groups/GroupEmailSettings";
+
+type ActiveTab = "overview" | "email-settings";
 
 type GroupDetail = {
   id: string;
@@ -30,6 +33,7 @@ export default function GroupDetailPage() {
   const [group, setGroup] = useState<GroupDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
 
   // L10 렌즈: 즉시구매 클로징 상태
   const [selectedTier, setSelectedTier] = useState<MembershipTier>("premium"); // 추천값으로 기본 선택
@@ -241,10 +245,16 @@ export default function GroupDetailPage() {
     },
   };
 
+  // ─── 탭 정의 ──────────────────────────────────────────────────────────────
+  const tabs: { id: ActiveTab; label: string; icon: React.ReactNode }[] = [
+    { id: "overview", label: "그룹 개요", icon: <Users className="w-4 h-4" /> },
+    { id: "email-settings", label: "📧 이메일 설정", icon: <Mail className="w-4 h-4" /> },
+  ];
+
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
-      {/* 헤더: L7+L9 신뢰 강조 */}
-      <div className="mb-8">
+      {/* ── 헤더: L7+L9 신뢰 강조 ──────────────────────────────────── */}
+      <div className="mb-6">
         <Link href="/groups" className="flex items-center gap-2 text-navy-900 hover:text-navy-700 mb-4">
           <ArrowLeft className="w-4 h-4" />
           그룹 목록으로
@@ -269,106 +279,137 @@ export default function GroupDetailPage() {
         </div>
       </div>
 
-      {/* L7 + L9: 신뢰 배지 섹션 */}
-      <TrustBadge groupName={group.name} />
+      {/* ── 탭 네비게이션 ────────────────────────────────────────────── */}
+      <div className="flex gap-1 border-b border-gray-200 mb-6">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-5 py-3 text-base font-medium rounded-t-lg transition ${
+              activeTab === tab.id
+                ? "border-b-2 border-blue-600 text-blue-600 bg-blue-50"
+                : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            }`}
+            style={{ minHeight: "48px" }}
+          >
+            {tab.icon}
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-      {/* L10 렌즈: 특별 혜택 섹션 (시간/가격/수량 희소성) */}
-      <OfferSection
-        discountPercent={40}
-        originalPrice={1500000}
-        deadlineAt={new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString()}
-        remainingSlots={3}
-      />
+      {/* ── 탭 콘텐츠 ────────────────────────────────────────────────── */}
 
-      {/* L10 렌즈: 3중선택 CTA - 거부 불가능한 심리학 */}
-      <TripleChoiceCTA
-        groupId={groupId}
-        groupName={group.name}
-        onApply={() => handleTripleChoiceAction('apply')}
-        onConsult={() => handleTripleChoiceAction('consult')}
-        isLoading={isSubmitting}
-      />
+      {/* 그룹 개요 탭 */}
+      {activeTab === "overview" && (
+        <>
+          {/* L7 + L9: 신뢰 배지 섹션 */}
+          <TrustBadge groupName={group.name} />
 
-      {/* L10 렌즈: Day 0 감정적 마무리 SMS 미리보기 */}
-      <Day0SMSPreview customerName="고객님" />
+          {/* L10 렌즈: 특별 혜택 섹션 (시간/가격/수량 희소성) */}
+          <OfferSection
+            discountPercent={40}
+            originalPrice={1500000}
+            deadlineAt={new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString()}
+            remainingSlots={3}
+          />
 
-      {/* 멤버십 티어 상세 설명 (하단 참고용) */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6 md:p-8 mt-8">
-        <div className="mb-8">
-          <h2 className="text-xl font-bold text-navy-900 mb-2">
-            멤버십 플랜 비교
-          </h2>
-          <p className="text-sm text-gray-600">
-            가입 완료 시 <span className="font-semibold text-green-600">즉시 커뮤니티에 접근</span>할 수 있습니다.
-          </p>
-        </div>
+          {/* L10 렌즈: 3중선택 CTA - 거부 불가능한 심리학 */}
+          <TripleChoiceCTA
+            groupId={groupId}
+            groupName={group.name}
+            onApply={() => handleTripleChoiceAction('apply')}
+            onConsult={() => handleTripleChoiceAction('consult')}
+            isLoading={isSubmitting}
+          />
 
-        {/* 참고: 멤버십 플랜 상세 비교표 */}
-        <div className="grid md:grid-cols-3 gap-4">
-          {(Object.entries(tiers) as Array<[MembershipTier, typeof tiers[MembershipTier]]>).map(
-            ([tierId, tier]) => (
-              <div
-                key={tierId}
-                className={`relative border rounded-xl p-5 transition-all ${
-                  tier.recommended
-                    ? "border-green-400 bg-green-50 shadow-md ring-2 ring-green-200"
-                    : "border-gray-200 bg-white"
-                }`}
-              >
-                {/* 추천 배지 */}
-                {tier.recommended && (
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                    <span className="bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-                      ⭐ 권장
-                    </span>
+          {/* L10 렌즈: Day 0 감정적 마무리 SMS 미리보기 */}
+          <Day0SMSPreview customerName="고객님" />
+
+          {/* 멤버십 티어 상세 설명 (하단 참고용) */}
+          <div className="bg-white border border-gray-200 rounded-xl p-6 md:p-8 mt-8">
+            <div className="mb-8">
+              <h2 className="text-xl font-bold text-navy-900 mb-2">
+                멤버십 플랜 비교
+              </h2>
+              <p className="text-sm text-gray-600">
+                가입 완료 시 <span className="font-semibold text-green-600">즉시 커뮤니티에 접근</span>할 수 있습니다.
+              </p>
+            </div>
+
+            {/* 참고: 멤버십 플랜 상세 비교표 */}
+            <div className="grid md:grid-cols-3 gap-4">
+              {(Object.entries(tiers) as Array<[MembershipTier, typeof tiers[MembershipTier]]>).map(
+                ([tierId, tier]) => (
+                  <div
+                    key={tierId}
+                    className={`relative border rounded-xl p-5 transition-all ${
+                      tier.recommended
+                        ? "border-green-400 bg-green-50 shadow-md ring-2 ring-green-200"
+                        : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    {/* 추천 배지 */}
+                    {tier.recommended && (
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                        <span className="bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+                          ⭐ 권장
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 mb-2">
+                      {tier.icon && <span className="text-navy-900">{tier.icon}</span>}
+                      <span className="font-bold text-gray-900">{tier.name}</span>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-3">{tier.description}</p>
+
+                    <div className="mb-4 pt-3 border-t border-gray-200">
+                      <p className="text-2xl font-bold text-navy-900">{tier.price}</p>
+                      <p className="text-xs text-gray-500">/월</p>
+                    </div>
+
+                    <ul className="space-y-2 text-xs text-gray-700">
+                      {tier.features.map((feature, idx) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <Check className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                )}
-
-                <div className="flex items-center gap-2 mb-2">
-                  {tier.icon && <span className="text-navy-900">{tier.icon}</span>}
-                  <span className="font-bold text-gray-900">{tier.name}</span>
-                </div>
-                <p className="text-sm text-gray-600 mb-3">{tier.description}</p>
-
-                <div className="mb-4 pt-3 border-t border-gray-200">
-                  <p className="text-2xl font-bold text-navy-900">{tier.price}</p>
-                  <p className="text-xs text-gray-500">/월</p>
-                </div>
-
-                <ul className="space-y-2 text-xs text-gray-700">
-                  {tier.features.map((feature, idx) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <Check className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )
-          )}
-        </div>
-      </div>
-
-      {/* 추가 정보 섹션 */}
-      <div className="mt-8 grid md:grid-cols-2 gap-6">
-        {/* 퍼널 정보 */}
-        {group.funnelId && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-            <p className="text-xs font-semibold text-blue-800 mb-1">🔗 연결된 퍼널</p>
-            <p className="text-sm font-medium text-blue-900">{group.funnelName}</p>
-            <p className="text-xs text-blue-700 mt-2">
-              가입 후 자동으로 이 퍼널이 시작됩니다.
-            </p>
+                )
+              )}
+            </div>
           </div>
-        )}
 
-        {/* 멤버 정보 */}
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-          <p className="text-xs font-semibold text-gray-700 mb-1">👥 커뮤니티</p>
-          <p className="text-2xl font-bold text-navy-900">{group._count.members}</p>
-          <p className="text-xs text-gray-600 mt-1">명의 활성 멤버</p>
-        </div>
-      </div>
+          {/* 추가 정보 섹션 */}
+          <div className="mt-8 grid md:grid-cols-2 gap-6">
+            {/* 퍼널 정보 */}
+            {group.funnelId && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <p className="text-xs font-semibold text-blue-800 mb-1">🔗 연결된 퍼널</p>
+                <p className="text-sm font-medium text-blue-900">{group.funnelName}</p>
+                <p className="text-xs text-blue-700 mt-2">
+                  가입 후 자동으로 이 퍼널이 시작됩니다.
+                </p>
+              </div>
+            )}
+
+            {/* 멤버 정보 */}
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+              <p className="text-xs font-semibold text-gray-700 mb-1">👥 커뮤니티</p>
+              <p className="text-2xl font-bold text-navy-900">{group._count.members}</p>
+              <p className="text-xs text-gray-600 mt-1">명의 활성 멤버</p>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* 이메일 설정 탭 */}
+      {activeTab === "email-settings" && (
+        <GroupEmailSettings groupId={groupId} />
+      )}
     </div>
   );
 }
