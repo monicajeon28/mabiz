@@ -155,6 +155,7 @@ export async function PATCH(
       await tx.contractAuditLog.create({
         data: {
           contractId: id,
+          organizationId: contract.organizationId,
           action:
             body.action === "ACCEPT"
               ? "modification_alternative_accepted"

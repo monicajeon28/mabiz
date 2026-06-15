@@ -125,6 +125,7 @@ export async function POST(
     const auditLog = await prisma.contractAuditLog.create({
       data: {
         contractId: contractId,
+        organizationId: contract.organizationId,
         action: body.action,
         timestamp: new Date(),
         userId: undefined, // 자동 시스템 로그

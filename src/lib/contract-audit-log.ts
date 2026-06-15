@@ -3,6 +3,7 @@ import { logger } from '@/lib/logger';
 
 export interface CreateAuditLogInput {
   contractId: string;
+  organizationId: string;
   action:
     | 'signed'
     | 'viewed'
@@ -31,6 +32,7 @@ export async function logContractAction(input: CreateAuditLogInput): Promise<voi
     await prisma.contractAuditLog.create({
       data: {
         contractId: input.contractId,
+        organizationId: input.organizationId,
         action: input.action,
         userId: input.userId,
         ipAddress: input.ipAddress,
