@@ -57,7 +57,7 @@ const DAY_INFO: Record<
   2: {
     label: "이틀 후",
     pasonaStage: "OFFER",
-    pasonaDesc: "오퍼 제시 단계 — 특별 혜택이나 할인을 제안하세요",
+    pasonaDesc: "혜택 안내 단계 — 특별 혜택이나 할인을 제안하세요",
     color: "#E67E22",
     bgColor: "#FEF5EC",
   },
@@ -171,11 +171,11 @@ export function GroupEmailFunnelBuilder({ groupId, hasEmailConfig }: Props) {
     // 빈 필드 검증
     for (const msg of messages) {
       if (!msg.subject.trim()) {
-        showError(`Day ${msg.day} (${DAY_INFO[msg.day].label}) 제목을 입력해주세요.`);
+        showError(`${DAY_INFO[msg.day].label} 이메일 제목을 입력해주세요.`);
         return;
       }
       if (!msg.bodyHtml.trim()) {
-        showError(`Day ${msg.day} (${DAY_INFO[msg.day].label}) 내용을 입력해주세요.`);
+        showError(`${DAY_INFO[msg.day].label} 이메일 내용을 입력해주세요.`);
         return;
       }
     }
@@ -245,7 +245,7 @@ export function GroupEmailFunnelBuilder({ groupId, hasEmailConfig }: Props) {
             이메일 퍼널을 설정하려면 먼저 이메일 설정 탭에서 이메일 계정을 연결하세요.
           </p>
           <p className="text-sm text-yellow-700 mt-3">
-            연결 방법: 이메일 설정 탭 → SMTP 정보 입력 → 테스트 → 저장
+            연결 방법: 이메일 설정 탭 → 이메일 서버 정보 입력 → 테스트 → 저장
           </p>
         </div>
       </div>
@@ -261,7 +261,7 @@ export function GroupEmailFunnelBuilder({ groupId, hasEmailConfig }: Props) {
       <div>
         <h2 className="text-xl font-bold text-gray-900">📧 이메일 자동 발송 설정</h2>
         <p className="mt-2 text-base text-gray-600">
-          신청하신 분들에게 자동으로 이메일을 보내요. PASONA 심리학 기법으로 설계됩니다.
+          신청하신 분들에게 자동으로 이메일을 보내요. 모니카가 설계한 단계별 방식으로 발송됩니다.
         </p>
       </div>
 
@@ -278,7 +278,7 @@ export function GroupEmailFunnelBuilder({ groupId, hasEmailConfig }: Props) {
               {funnel.isActive ? "자동 발송 중" : "발송 중지됨"}
             </span>
             <p className="text-sm text-gray-500 mt-0.5">
-              {funnel.messages.length}개 메시지 설정됨 (Day 0~{funnel.messages.length - 1})
+              {funnel.messages.length}개 메시지 설정됨 (신청 당일~{funnel.messages.length - 1}일 후)
             </p>
           </div>
         </div>
@@ -298,10 +298,9 @@ export function GroupEmailFunnelBuilder({ groupId, hasEmailConfig }: Props) {
               style={{ backgroundColor: info.bgColor }}
             >
               <span
-                className="text-lg font-bold"
-                style={{ color: info.color }}
+                className="text-2xl shrink-0"
               >
-                Day {msg.day}
+                {msg.day === 0 ? "📩" : msg.day === 1 ? "📬" : msg.day === 2 ? "🎁" : "⏰"}
               </span>
               <div>
                 <p className="text-base font-semibold text-gray-900">

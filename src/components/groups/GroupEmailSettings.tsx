@@ -273,7 +273,7 @@ export function GroupEmailSettings({ groupId }: Props) {
         {(
           [
             { value: "GMAIL" as EmailProvider, label: "지메일 (구글 계정)", hint: "가장 쉬운 방법" },
-            { value: "SMTP" as EmailProvider, label: "회사 이메일 서버 (SMTP)", hint: "" },
+            { value: "SMTP" as EmailProvider, label: "회사 이메일 서버", hint: "" },
             { value: "SENDGRID" as EmailProvider, label: "SendGrid", hint: "" },
           ] as { value: EmailProvider; label: string; hint: string }[]
         ).map((opt) => (
@@ -315,8 +315,8 @@ export function GroupEmailSettings({ groupId }: Props) {
             🔧 지메일 연동 준비 중
           </p>
           <p className="text-base text-yellow-800">
-            지메일 OAuth 연동은 곧 지원됩니다. 지금은{" "}
-            <strong>회사 이메일 서버(SMTP)</strong>를 선택해주세요.
+            지메일 직접 연동은 곧 지원됩니다. 지금은{" "}
+            <strong>회사 이메일 서버</strong>를 선택해주세요.
           </p>
           <p className="text-sm text-yellow-700">
             지메일 앱 비밀번호를 SMTP로 설정하면 지금도 사용할 수 있습니다.
@@ -334,7 +334,7 @@ export function GroupEmailSettings({ groupId }: Props) {
           </p>
           <p className="text-base text-purple-800 mt-1">
             SendGrid 연동은 곧 지원됩니다. 지금은{" "}
-            <strong>회사 이메일 서버(SMTP)</strong>를 선택해주세요.
+            <strong>회사 이메일 서버</strong>를 선택해주세요.
           </p>
         </div>
       )}
@@ -483,7 +483,7 @@ export function GroupEmailSettings({ groupId }: Props) {
               className="w-5 h-5 accent-blue-500 shrink-0"
             />
             <span className="text-base text-gray-800">
-              ✅ 보안 연결 사용 (TLS/SSL)
+              ✅ 보안 연결 사용
             </span>
           </label>
 

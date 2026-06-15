@@ -36,7 +36,7 @@ export function Day0SMSPreview({
   const variants: Record<SMSVariant, { title: string; icon: string; message: string; focus: string }> =
     {
       family: {
-        title: 'L7 - 동반자설득',
+        title: '가족과 함께',
         icon: '👨‍👩‍👧‍👦',
         message: `멤버십 신청 완료! 👨‍👩‍👧‍👦
 
@@ -47,7 +47,7 @@ export function Day0SMSPreview({
         focus: '가족의 함께함이 주는 안정감과 신뢰',
       },
       medical: {
-        title: 'L9 - 의료신뢰',
+        title: '의료 지원 강조',
         icon: '🏥',
         message: `멤버십 신청 완료! 🏥
 
@@ -58,7 +58,7 @@ export function Day0SMSPreview({
         focus: '의료 전문가의 권위성과 안전함',
       },
       timing: {
-        title: 'L6 - 손실회피',
+        title: '최고 타이밍',
         icon: '🎉',
         message: `멤버십 신청 완료! 🎉
 
@@ -124,19 +124,19 @@ export function Day0SMSPreview({
         {/* 심리학 주석 */}
         <div className="mt-4 pt-4 border-t border-gray-200">
           <p className="text-sm text-gray-500">
-            <span className="font-semibold">심리학 포커스:</span> {variant.focus}
+            <span className="font-semibold">이 메시지의 핵심:</span> {variant.focus}
           </p>
         </div>
       </div>
 
       {/* 추가 정보 */}
       <div className="bg-blue-100 rounded-lg p-4 text-sm text-blue-800">
-        <p className="font-semibold mb-2">📝 Day 0 SMS 발송 일정</p>
+        <p className="font-semibold mb-2">📝 자동 발송 일정</p>
         <ul className="space-y-1 text-blue-700">
-          <li>✓ Day 0 (신청 직후): 감정적 마무리 SMS (위 3가지 중 1개)</li>
-          <li>✓ Day 1: Follow-up + 이의 대응</li>
-          <li>✓ Day 2: 가치 강조 + 사례 스토리</li>
-          <li>✓ Day 3: 긴박감 + 최종 결정 촉구</li>
+          <li>✓ 신청 직후: 환영 메시지 (위 3가지 중 1개)</li>
+          <li>✓ 1일 후: 추가 안내 메시지</li>
+          <li>✓ 2일 후: 가치 정보 안내</li>
+          <li>✓ 3일 후: 최종 안내</li>
         </ul>
       </div>
     </div>
