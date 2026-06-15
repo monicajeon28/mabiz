@@ -9,6 +9,7 @@ import { normalizePhone } from "@/lib/phone-normalize";
 import { sendFunnelEmail } from "@/lib/email";
 import sanitizeHtml from "sanitize-html";
 import { replaceMessagePlaceholders } from "@/lib/message-replacements";
+import { scheduleDay0To3Sms } from "@/lib/landing-page-sms-scheduler";
 
 type FormConfig = {
   b2bEduType?: "INQUIRER" | "BUYER";
@@ -81,7 +82,7 @@ export async function POST(req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, message: '올바른 전화번호를 입력해 주세요.' }, { status: 400 });
     }
 
-    // 랜딩페이지 조회 (groupId 포함)
+    // 랜딩페이지 조회 (groupId + expireDate 포함)
     const landingPage = await prisma.crmLandingPage.findFirst({
       where: { id: landingPageId, isActive: true },
       select: {
@@ -90,10 +91,20 @@ export async function POST(req: Request, { params }: Params) {
         formConfig: true,
         smsL6Day0Enabled: true,
         createdByUserId: true,
+        expireDate: true,
+        pageFormat: true,
       },
     });
     if (!landingPage) {
       return NextResponse.json({ ok: false, message: "페이지를 찾을 수 없습니다." }, { status: 404 });
+    }
+
+    // [P0-5] 마감일 검증: 현재 시간이 expireDate를 지났으면 마감됨
+    if (landingPage.expireDate && new Date() > new Date(landingPage.expireDate)) {
+      return NextResponse.json(
+        { ok: false, message: "마감된 퍼널입니다. 이전 오퍼를 확인해주세요." },
+        { status: 410 }
+      ); // 410 Gone: 리소스가 더 이상 사용 불가
     }
 
     const orgId = landingPage.organizationId;
@@ -128,33 +139,82 @@ export async function POST(req: Request, { params }: Params) {
       throw e;
     }
 
-    // ★ 핵심: Contact upsert → 그룹 자동 배정 → 퍼널 자동 시작
+    // ★ 핵심: Contact + GroupMember 트랜잭션 보호 (Race Condition 방지)
     if (orgId) {
-      const contact = await prisma.contact.upsert({
-        where: {
-          phone_organizationId: { phone: normalizedPhone, organizationId: orgId },
-        },
-        create: {
-          organizationId: orgId,
-          name,
-          phone:     normalizedPhone,
-          email:     email ?? null,
-          type:      "LEAD",
-          utmSource: utmSource ?? null,
-          adminMemo: `랜딩페이지 신청 from: "${landingPage.title}"`,
-        },
-        update: {
-          name,
-          email: email ?? undefined,
-        },
-      });
+      let contact: { id: string };
+      let member: { addedAt: Date } | null = null;
+
+      try {
+        // P0-3: Serializable 레벨 트랜잭션으로 Contact + GroupMember 원자성 보장
+        const txResult = await prisma.$transaction(
+          async (tx) => {
+            // Step 1: Contact upsert (원자적)
+            const contact = await tx.contact.upsert({
+              where: {
+                phone_organizationId: { phone: normalizedPhone, organizationId: orgId },
+              },
+              create: {
+                organizationId: orgId,
+                name,
+                phone:     normalizedPhone,
+                email:     email ?? null,
+                type:      "LEAD",
+                utmSource: utmSource ?? null,
+                adminMemo: `랜딩페이지 신청 from: "${landingPage.title}"`,
+              },
+              update: {
+                name,
+                email: email ?? undefined,
+              },
+            });
+
+            // Step 2: 그룹 배정 (있으면) — Contact 결정 후 수행
+            let groupMember: { addedAt: Date } | null = null;
+            if (landingPage.groupId) {
+              const grp = await tx.contactGroup.findUnique({
+                where: { id: landingPage.groupId },
+                select: { reEntryPolicy: true },
+              });
+              groupMember = await tx.contactGroupMember.upsert({
+                where: {
+                  groupId_contactId: { groupId: landingPage.groupId, contactId: contact.id },
+                },
+                create: { groupId: landingPage.groupId, contactId: contact.id },
+                update: shouldResetOnReentry(grp?.reEntryPolicy) ? { addedAt: new Date() } : {},
+                select: { addedAt: true },
+              });
+            }
+
+            return { contact, groupMember };
+          },
+          {
+            isolationLevel: "Serializable", // ← Race Condition 완전 방지
+            timeout: 10000, // ← 10초 타임아웃
+          }
+        );
+
+        contact = txResult.contact;
+        member = txResult.groupMember;
+      } catch (txError) {
+        // 트랜잭션 실패 = 자동 롤백
+        logger.error("[LandingRegister] 트랜잭션 실패 (Contact + GroupMember)", {
+          error: txError instanceof Error ? txError.message : String(txError),
+          phone: normalizedPhone.substring(0, 4) + "***",
+        });
+        // Contact 생성 실패 시에도 등록 기록은 유지 (이미 생성됨)
+        return NextResponse.json(
+          { ok: false, message: "등록 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요." },
+          { status: 500 }
+        );
+      }
 
       // 리드 스코어 +30 (랜딩 등록 = 강력한 관심 신호)
+      // 비블로킹: 트랜잭션 완료 후 독립적으로 실행
       addLeadScore(contact.id, "LANDING_REGISTER").catch(() => {});
 
-      // B2B 문의자/구매자 자동 등록
+      // B2B 문의자/구매자 자동 등록 (트랜잭션 외부, 비블로킹)
       const fc = landingPage.formConfig as FormConfig | null;
-      if (fc?.b2bEduType) {
+      if (fc?.b2bEduType && (fc.b2bEduType === "INQUIRER" || fc.b2bEduType === "BUYER")) {
         const additionalFieldsMap = new Map(
           (fc.additionalFields ?? []).map((f) => [`custom_${f.id}`, f.name])
         );
@@ -167,33 +227,35 @@ export async function POST(req: Request, { params }: Params) {
           }
         }
         const notesText = notesLines.join('\n');
+        const b2bEduType = fc.b2bEduType; // 타입 좁히기
 
-        const existingProspect = await prisma.b2BProspect.findFirst({
+        prisma.b2BProspect.findFirst({
           where: { phone: normalizedPhone, organizationId: orgId },
           select: { id: true },
-        });
-        if (existingProspect) {
-          await prisma.b2BProspect.update({
-            where: { id: existingProspect.id },
-            data: { notes: notesText },
-          });
-        } else {
-          await prisma.b2BProspect.create({
-            data: {
-              organizationId: orgId,
-              name,
-              phone: normalizedPhone,
-              email: email ?? null,
-              eduType: fc.b2bEduType,
-              notes: notesText,
-              status: '잠재고객',
-            },
-          });
-        }
+        }).then(async (existingProspect) => {
+          if (existingProspect) {
+            await prisma.b2BProspect.update({
+              where: { id: existingProspect.id },
+              data: { notes: notesText },
+            });
+          } else {
+            await prisma.b2BProspect.create({
+              data: {
+                organizationId: orgId,
+                name,
+                phone: normalizedPhone,
+                email: email ?? null,
+                eduType: b2bEduType,
+                notes: notesText,
+                status: '잠재고객',
+              },
+            });
+          }
+        }).catch(() => {});
       }
 
       // autoFunnelId 직접 퍼널 시작 (그룹 경유 없이)
-      if (!funnelStarted && landingPage.autoFunnelId) {
+      if (!funnelStarted && landingPage.autoFunnelId && typeof landingPage.autoFunnelId === "string") {
         // P0-10: UUID 형식 검증 (path traversal 방지)
         if (!/^[a-f0-9\-]{36}$/.test(landingPage.autoFunnelId)) {
           logger.error('[LandingRegister] 잘못된 autoFunnelId 형식', { autoFunnelId: landingPage.autoFunnelId });
@@ -216,57 +278,48 @@ export async function POST(req: Request, { params }: Params) {
         }
       }
 
-      // 그룹 배정 + 퍼널 시작
-      if (landingPage.groupId) {
-        // 재유입 정책 조회: RESET 계열이면 addedAt=now 갱신 → 퍼널문자 0일차부터 재시작.
-        //  (랜딩 재신청이 대표적 재유입 경로). KEEP(기본)이면 최초 입력일 유지.
-        const grp = await prisma.contactGroup.findUnique({
-          where: { id: landingPage.groupId },
-          select: { reEntryPolicy: true },
-        });
-        const member = await prisma.contactGroupMember.upsert({
-          where: {
-            groupId_contactId: { groupId: landingPage.groupId, contactId: contact.id },
-          },
-          create: { groupId: landingPage.groupId, contactId: contact.id },
-          update: shouldResetOnReentry(grp?.reEntryPolicy) ? { addedAt: new Date() } : {},
-          select: { addedAt: true },
-        });
-
-        const triggered = await triggerGroupFunnel({
+      // 퍼널 시작 (비블로킹)
+      if (landingPage.groupId && typeof landingPage.groupId === "string" && member) {
+        // 트랜잭션 이후: 퍼널 트리거는 비블로킹으로 진행
+        // contact.id와 member.addedAt은 트랜잭션으로 보장됨
+        const groupId = landingPage.groupId; // 클로저에서 사용할 수 있게 캡처
+        triggerGroupFunnel({
           contactId:      contact.id,
-          groupId:        landingPage.groupId,
+          groupId:        groupId,
           organizationId: orgId,
-        });
+        }).then(async (triggered) => {
+          // ★ 퍼널문자(FunnelSms) 트리거 — 그룹에 funnelSmsId가 연결된 경우
+          // fire-and-forget: 실패해도 신청 등록은 유지
+          const smsTriggered = await triggerGroupFunnelSms({
+            contactId:      contact.id,
+            groupId:        groupId,
+            organizationId: orgId,
+            // 발송 기준일 = 고객이 그룹에 들어온 날(최초 입력일).
+            anchorDate:     member.addedAt,
+          }).catch((err) => {
+            logger.error('[LandingRegister] 퍼널문자 트리거 실패', { err });
+            return false;
+          });
 
-        // ★ 퍼널문자(FunnelSms) 트리거 — 그룹에 funnelSmsId가 연결된 경우
-        // fire-and-forget: 실패해도 신청 등록은 유지
-        const smsTriggered = await triggerGroupFunnelSms({
-          contactId:      contact.id,
-          groupId:        landingPage.groupId,
-          organizationId: orgId,
-          // 발송 기준일 = 고객이 그룹에 들어온 날(최초 입력일).
-          anchorDate:     member.addedAt,
+          // [T8] OR 연산으로 true 상태 유지 (autoFunnelId + groupId 동시 사용 시 오염 방지)
+          funnelStarted = funnelStarted || triggered || smsTriggered;
+
+          // funnelStarted 업데이트 (fire-and-forget)
+          if (triggered || smsTriggered) {
+            // id로 특정 행만 업데이트 (updateMany 다중 행 방지)
+            prisma.crmLandingRegistration.update({
+              where: { id: regId },
+              data:  { funnelStarted: true },
+            }).catch(() => {});
+          }
         }).catch((err) => {
-          logger.error('[LandingRegister] 퍼널문자 트리거 실패', { err });
-          return false;
+          logger.error('[LandingRegister] 퍼널 트리거 실패', { err });
         });
-
-        // [T8] OR 연산으로 true 상태 유지 (autoFunnelId + groupId 동시 사용 시 오염 방지)
-        funnelStarted = funnelStarted || triggered || smsTriggered;
-
-        // funnelStarted 업데이트 (fire-and-forget)
-        if (triggered || smsTriggered) {
-          // id로 특정 행만 업데이트 (updateMany 다중 행 방지)
-          prisma.crmLandingRegistration.update({
-            where: { id: regId },
-            data:  { funnelStarted: true },
-          }).catch(() => {});
-        }
       }
     }
 
-    // [T12] Day 0 SMS 즉시 예약 (smsL6Day0Enabled ON + orgId + contact 존재 시)
+    // [P0-2] Day 0-3 SMS 자동 예약 (smsL6Day0Enabled ON + orgId + contact 존재 시)
+    // PASONA 프레임워크 기반 4일간 자동 시퀀스
     if (orgId && landingPage.smsL6Day0Enabled) {
       const smsContact = await prisma.contact.findFirst({
         where: { phone: normalizedPhone, organizationId: orgId },
@@ -274,21 +327,30 @@ export async function POST(req: Request, { params }: Params) {
       });
       if (smsContact && !smsContact.optOutAt) {
         // [T14] opt-out 고객은 Day 0 SMS도 건너뜀
-        const defaultMsg = `${name}님, 신청해 주셔서 감사합니다. 곧 담당자가 안내해 드리겠습니다.`;
-        prisma.scheduledSms.create({
-          data: {
-            organizationId: orgId,
-            contactId: smsContact.id,
-            message: defaultMsg,
-            scheduledAt: new Date(), // 즉시 발송
-            status: "PENDING",
-            channel: "L6_DAY0",
-            // 랜딩 소유자 계정으로 발송 → BatchSender가 작성자별 개인 알리고 해석
-            createdByUserId: landingPage.createdByUserId ?? null,
-          },
-        }).catch((e) => logger.warn("[LandingRegister] Day 0 SMS 예약 실패", { err: e }));
+        const scheduleResult = await scheduleDay0To3Sms({
+          organizationId: orgId,
+          contactId: smsContact.id,
+          contactPhone: normalizedPhone,
+          pageFormat: landingPage.pageFormat || "hybrid",
+          pageTitle: landingPage.title,
+          createdByUserId: landingPage.createdByUserId,
+        });
+
+        if (scheduleResult.success) {
+          logger.log("[LandingRegister] Day 0-3 SMS 예약 완료", {
+            phone: normalizedPhone.substring(0, 4) + "***",
+            scheduled: scheduleResult.scheduled,
+          });
+        } else {
+          logger.warn("[LandingRegister] Day 0-3 SMS 예약 부분 실패", {
+            scheduled: scheduleResult.scheduled,
+            error: scheduleResult.error,
+          });
+        }
       } else if (smsContact?.optOutAt) {
-        logger.info("[LandingRegister] 수신 거부 고객 — Day 0 SMS 건너뜀", { phone: normalizedPhone.substring(0, 4) + "***" });
+        logger.info("[LandingRegister] 수신 거부 고객 — Day 0-3 SMS 건너뜀", {
+          phone: normalizedPhone.substring(0, 4) + "***",
+        });
       }
     }
 
