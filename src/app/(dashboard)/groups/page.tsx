@@ -595,7 +595,7 @@ export default function GroupsPage() {
                     loadMembers(memberModal.groupId, memberSearch, 1);
                   }
                 }}
-                placeholder="검색 필터"
+                placeholder="고객 검색"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none"
               />
               {memberLoading ? (
@@ -1027,7 +1027,7 @@ export default function GroupsPage() {
               className="flex items-center gap-1.5 px-3 py-2 text-sm bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-40"
             >
               <Trash2 className="w-4 h-4" />
-              {deleting ? "삭제 중..." : "그룹정보삭제"}
+              {deleting ? "삭제 중..." : "그룹 삭제"}
             </button>
           </div>
         </div>

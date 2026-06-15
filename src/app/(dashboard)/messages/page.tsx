@@ -41,15 +41,15 @@ const REPLACEMENTS = [
 
 const TEMPLATE_CATEGORIES = [
   { value: "",                label: "전체" },
-  // 심리학 렌즈 기반 Day 0-3 시퀀스
-  { value: "DAY_0",          label: "🔔 Day 0 (초대/문제)" },
-  { value: "DAY_1",          label: "📢 Day 1 (자극/솔루션)" },
-  { value: "DAY_2",          label: "💰 Day 2 (오퍼)" },
-  { value: "DAY_3",          label: "⚡ Day 3 (긴박/액션)" },
+  // 자동 메시지 회차별 시퀀스
+  { value: "DAY_0",          label: "🔔 첫 번째 메시지" },
+  { value: "DAY_1",          label: "📢 두 번째 메시지" },
+  { value: "DAY_2",          label: "💰 세 번째 메시지" },
+  { value: "DAY_3",          label: "⚡네 번째 메시지" },
   // 기타 카테고리
-  { value: "CARE_VIP",       label: "👑 VIP 케어" },
-  { value: "SEQUENCE",       label: "🔗 시퀀스" },
-  { value: "LIVE_BROADCAST", label: "📺 라이브 방송" },
+  { value: "CARE_VIP",       label: "👑 소중한 고객 케어" },
+  { value: "SEQUENCE",       label: "🔗 자동 시퀀스" },
+  { value: "LIVE_BROADCAST", label: "📺 생중계 알림" },
   { value: "GENERAL",        label: "📝 일반" },
 ];
 
@@ -619,17 +619,17 @@ function SmsTab() {
             )}
           </div>
 
-          {/* 치환변수 패널 */}
+          {/* 개인정보 & 홍보링크 패널 */}
           <div className="mt-2">
             <button onClick={() => setShowReplace(v => !v)}
               className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700">
               <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showReplace ? "rotate-180" : ""}`} />
-              자동채우기 & 개인링크
+              개인정보 & 개인 홍보링크
             </button>
             {showReplace && (
               <div className="mt-2 p-3 bg-gray-50 rounded-lg space-y-3">
                 <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1.5">자동채우기 항목 (클릭하면 메시지에 추가됩니다)</p>
+                  <p className="text-sm font-medium text-gray-600 mb-1.5">자동으로 채워질 항목 (클릭하면 메시지에 자동 추가)</p>
                   <div className="flex flex-wrap gap-1.5">
                     {REPLACEMENTS.map(r => (
                       <button key={r.label} onClick={() => insertAtCursor(r.label)}
@@ -657,7 +657,7 @@ function SmsTab() {
                         ))}
                       </div>
                       <p className="text-sm text-gray-600 mt-1">
-                        그룹 내 해당 고객의 링크가 삽입됩니다. 링크 없는 고객은 자동 제외됩니다.
+                        이 고객에게만 전용 링크가 발송됩니다. 링크가 없는 고객은 제외됩니다.
                       </p>
                     </>
                   ) : (

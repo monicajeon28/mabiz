@@ -184,7 +184,7 @@ function ShareModal({ pageId, pageTitle, onClose }: {
         {/* 헤더 */}
         <div className="flex items-center justify-between p-5 border-b">
           <div>
-            <h2 className="font-bold text-gray-900 text-base">랜딩페이지 공유</h2>
+            <h2 className="font-bold text-gray-900 text-base">홍보 페이지 공유</h2>
             <p className="text-sm text-gray-600 mt-0.5 truncate max-w-[280px]">{pageTitle}</p>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg">
@@ -432,11 +432,11 @@ function PageCard({
           )}
 
           <div className="flex items-center gap-3 mt-2 text-sm text-gray-500 flex-wrap">
-            {/* L6: Loss aversion — 미사용 경고 */}
+            {/* L6: 긴급한 상황 강조 — 미사용 경고 */}
             {page.viewCount === 0 && (
               <span className="inline-flex items-center gap-1 text-red-600 font-medium bg-red-50 px-2 py-0.5 rounded-full">
                 <span className="w-1.5 h-1.5 bg-red-600 rounded-full"></span>
-                미사용
+                아직 고객 없음
               </span>
             )}
             <span className="flex items-center gap-1">
@@ -453,7 +453,7 @@ function PageCard({
                       ? "bg-yellow-100 text-yellow-700"
                       : "bg-red-100 text-red-700"
                   }`}>
-                    전환율 {(page._count.registrations / page.viewCount * 100).toFixed(1)}%
+                    등록율 {(page._count.registrations / page.viewCount * 100).toFixed(1)}%
                   </span>
                 ) : (
                   <span className="text-gray-300">방문 없음</span>
@@ -463,23 +463,23 @@ function PageCard({
             <span>{new Date(page.createdAt).toLocaleDateString("ko-KR")}</span>
           </div>
 
-          {/* 퍼널 막대 그래프 */}
+          {/* 고객 흐름 막대 그래프 */}
           {statsMap[page.id] && (() => {
             const s = statsMap[page.id]!;
             const max = s.viewCount || 1;
             const bars = [
               { label: "방문", value: s.viewCount,      color: "bg-gray-400",   rate: null },
               { label: "등록", value: s.registered,     color: "bg-blue-500",   rate: s.rates.visitToRegister },
-              { label: "퍼널", value: s.funnelEntered,  color: "bg-purple-500", rate: s.rates.registerToFunnel },
+              { label: "자동메시지", value: s.funnelEntered,  color: "bg-purple-500", rate: s.rates.registerToFunnel },
               { label: "구매", value: s.purchased,      color: "bg-green-500",  rate: s.rates.funnelToPurchase },
             ];
             return (
               <div className="mt-3 bg-gray-50 rounded-xl p-3">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-semibold text-gray-600">퍼널 전환 그래프</p>
+                  <p className="text-sm font-semibold text-gray-600">고객 흐름 통계</p>
                   {s.viewCount > 0 && s.purchased > 0 && (
                     <span className="text-[11px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
-                      전체 전환 {s.rates.visitToPurchase}%
+                      전체 구매율 {s.rates.visitToPurchase}%
                     </span>
                   )}
                 </div>
@@ -515,9 +515,9 @@ function PageCard({
               onClick={() => onCloneShared(page.id)}
               disabled={cloningId === page.id}
               className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-white text-sm font-semibold disabled:opacity-50"
-              title="내 페이지로 복사"
+              title="내 페이지로 사본 만들기"
             >
-              {cloningId === page.id ? "복사중..." : <><Files className="w-3.5 h-3.5" /> 내 페이지로 복사</>}
+              {cloningId === page.id ? "복사중..." : <><Files className="w-3.5 h-3.5" /> 복사해서 쓰기</>}
             </button>
           ) : (
             <>
@@ -556,7 +556,7 @@ function PageCard({
                 onClick={() => onClone(page.id)}
                 disabled={cloningId === page.id}
                 className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 disabled:opacity-50"
-                title="복제 (사본 만들기)"
+                title="사본 만들기"
               >
                 {cloningId === page.id ? <span className="text-sm text-blue-500">복제중...</span> : <Files className="w-4 h-4" />}
               </button>
@@ -787,15 +787,15 @@ export default function LandingPagesPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
-      {/* L6: Loss aversion — 경쟁사 위험 경고 배너 */}
+      {/* L6: 긴급한 상황 강조 — 경쟁사 위험 경고 배너 */}
       {pages.length === 0 && (
         <div className="mb-4 bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl p-4">
           <div className="flex items-start gap-3">
             <span className="text-xl">⚠️</span>
             <div>
-              <p className="font-bold text-red-900">아직 랜딩페이지가 없습니다</p>
+              <p className="font-bold text-red-900">아직 홍보 페이지가 없습니다</p>
               <p className="text-sm text-red-800 mt-1">
-                경쟁사는 이미 고객을 모으고 있습니다.
+                다른 업체들은 이미 고객을 모으고 있습니다.
                 <span className="font-semibold"> 지금 만들지 않으면 고객 기회를 놓칠 수 있습니다.</span>
               </p>
             </div>
@@ -805,8 +805,8 @@ export default function LandingPagesPage() {
 
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-xl font-bold text-navy-900">랜딩페이지</h1>
-          <p className="text-sm text-gray-500 mt-0.5">총 {pages.length}개{sharedPages.length > 0 ? ` · 공유받음 ${sharedPages.length}개` : ""}</p>
+          <h1 className="text-xl font-bold text-navy-900">홍보 페이지</h1>
+          <p className="text-sm text-gray-500 mt-0.5">총 {pages.length}개{sharedPages.length > 0 ? ` · 받은 페이지 ${sharedPages.length}개` : ""}</p>
         </div>
         <Link
           href="/landing-pages/new"
@@ -853,7 +853,7 @@ export default function LandingPagesPage() {
             {pages.length === 0 ? (
               <div className="text-center py-16">
                 <p className="text-4xl mb-3">📄</p>
-                <p className="font-medium text-gray-700">랜딩페이지가 없습니다</p>
+                <p className="font-medium text-gray-700">홍보 페이지가 없습니다</p>
                 <p className="text-sm text-gray-600 mt-1">+ 새 페이지 버튼으로 만들어보세요</p>
               </div>
             ) : (
@@ -894,7 +894,7 @@ export default function LandingPagesPage() {
                 className="flex items-center gap-2 text-sm font-semibold text-blue-700 mb-3"
               >
                 <Share2 className="w-4 h-4" />
-                받은 함 ({sharedPages.length})
+                받은 페이지 ({sharedPages.length})
                 {showShared ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               </button>
               {showShared && (

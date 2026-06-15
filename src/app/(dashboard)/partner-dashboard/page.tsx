@@ -1137,9 +1137,9 @@ function GoldTab({ data, loading, month, onDrilldown }: { data: GoldData | null;
 /* ─────────────────── 성과현황 탭 ─────────────────── */
 
 const ROLE_LABEL: Record<string, string> = {
-  OWNER: '대리점장', owner: '대리점장',
+  OWNER: '지점장', owner: '지점장',
   AGENT: '판매원', agent: '판매원',
-  FREE_SALES: '프리세일즈', free_sales: '프리세일즈',
+  FREE_SALES: '사전영업', free_sales: '사전영업',
   BRANCH_MANAGER: '지점장',
 };
 

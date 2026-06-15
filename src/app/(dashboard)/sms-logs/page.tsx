@@ -225,11 +225,14 @@ function formatDateOnly(iso: string | null): string {
   });
 }
 
-// 회차 라벨 1곳 고정: round = daysAfter = "N일차" (0-인덱스). round=0 → 유입 당일.
+// 회차 라벨 1곳 고정: round = daysAfter = "N번째" (0-인덱스). round=0 → 유입 당일.
 function roundLabel(round: number | null): string {
   if (round === null || round === undefined) return "회차 미상";
-  if (round === 0) return "0일차(당일)";
-  return `${round}일차`;
+  if (round === 0) return "첫 번째(당일)";
+  if (round === 1) return "두 번째";
+  if (round === 2) return "세 번째";
+  if (round === 3) return "네 번째";
+  return `${round + 1}번째`;
 }
 
 // ─── 통계 카드 컴포넌트 ────────────────────────────────────────────────────
@@ -542,10 +545,10 @@ export default function SmsLogsPage() {
       <div className="flex gap-1 mb-6 bg-gray-100 rounded-xl p-1 w-fit">
         {(
           [
-            { key: "logs", label: "발송 목록", icon: <MessageSquare className="w-3.5 h-3.5" /> },
-            { key: "funnel", label: "자동문자(예약발송)", icon: <Send className="w-3.5 h-3.5" /> },
-            { key: "stats", label: "통계 분석", icon: <BarChart2 className="w-3.5 h-3.5" /> },
-            { key: "abtest", label: "A/B 테스트", icon: <TrendingUp className="w-3.5 h-3.5" /> },
+            { key: "logs", label: "발송 기록", icon: <MessageSquare className="w-3.5 h-3.5" /> },
+            { key: "funnel", label: "자동문자 회차별", icon: <Send className="w-3.5 h-3.5" /> },
+            { key: "stats", label: "분석", icon: <BarChart2 className="w-3.5 h-3.5" /> },
+            { key: "abtest", label: "효과 테스트", icon: <TrendingUp className="w-3.5 h-3.5" /> },
           ] as const
         ).map((tab) => (
           <button
@@ -818,7 +821,7 @@ export default function SmsLogsPage() {
             ) : (
               <>
                 <StatCard
-                  label="총 발송예약"
+                  label="총 자동문자"
                   value={funnelSummary.total}
                   sub={`최근 ${days}일`}
                   icon={<Send className="w-4 h-4 text-blue-600" />}
@@ -873,7 +876,7 @@ export default function SmsLogsPage() {
               </select>
             </div>
 
-            {/* 퍼널문자 드롭다운 */}
+            {/* 자동문자 드롭다운 */}
             <div className="flex items-center gap-1.5">
               <Send className="w-3.5 h-3.5 text-gray-600" />
               <select
@@ -883,7 +886,7 @@ export default function SmsLogsPage() {
                 }
                 className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[200px]"
               >
-                <option value="">전체 자동문자</option>
+                <option value="">모든 자동문자</option>
                 {funnelOptions.map((f) => (
                   <option key={f.id} value={f.id}>
                     {f.title}
@@ -892,15 +895,15 @@ export default function SmsLogsPage() {
               </select>
             </div>
 
-            {/* 회차 필터 */}
+            {/* 메시지 회차 필터 */}
             <div className="flex items-center gap-1.5">
-              <span className="text-sm text-gray-600">회차</span>
+              <span className="text-sm text-gray-600">몇 번째</span>
               <select
                 value={funnelRound}
                 onChange={(e) => applyFunnelFilter("round", e.target.value)}
                 className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">전체 회차</option>
+                <option value="">모든 회차</option>
                 {[0, 1, 2, 3, 4, 5, 6, 7].map((r) => (
                   <option key={r} value={String(r)}>
                     {roundLabel(r)}
@@ -976,9 +979,9 @@ export default function SmsLogsPage() {
           ) : funnelRows.length === 0 ? (
             <div className="text-center py-16 text-gray-600">
               <Send className="w-12 h-12 mx-auto mb-3 opacity-20" />
-              <p className="text-sm">회차 발송 기록이 없습니다.</p>
+              <p className="text-sm">자동 발송 기록이 없습니다.</p>
               <p className="text-sm mt-1">
-                그룹에 자동문자를 연결하면 신청일 기준으로 자동 예약됩니다.
+                그룹에 자동문자를 연결하면 신청 후 자동으로 발송됩니다.
               </p>
             </div>
           ) : (
@@ -990,12 +993,12 @@ export default function SmsLogsPage() {
                     <thead>
                       <tr className="border-b border-gray-100 bg-gray-50">
                         <th className="text-left py-2.5 px-3 text-gray-500 font-medium">고객명</th>
-                        <th className="text-left py-2.5 px-3 text-gray-500 font-medium">수신번호</th>
-                        <th className="text-left py-2.5 px-3 text-gray-500 font-medium">DB 유입일</th>
-                        <th className="text-left py-2.5 px-3 text-gray-500 font-medium">회차</th>
-                        <th className="text-left py-2.5 px-3 text-gray-500 font-medium">발송 예정일시</th>
-                        <th className="text-left py-2.5 px-3 text-gray-500 font-medium">성공여부</th>
-                        <th className="text-left py-2.5 px-3 text-gray-500 font-medium">실제 발송일시</th>
+                        <th className="text-left py-2.5 px-3 text-gray-500 font-medium">전화번호</th>
+                        <th className="text-left py-2.5 px-3 text-gray-500 font-medium">신청일</th>
+                        <th className="text-left py-2.5 px-3 text-gray-500 font-medium">몇 번째</th>
+                        <th className="text-left py-2.5 px-3 text-gray-500 font-medium">발송 예정</th>
+                        <th className="text-left py-2.5 px-3 text-gray-500 font-medium">결과</th>
+                        <th className="text-left py-2.5 px-3 text-gray-500 font-medium">발송 완료</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1072,7 +1075,7 @@ export default function SmsLogsPage() {
                         </span>
                       </div>
                       <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
-                        <dt className="text-gray-500">DB 유입일</dt>
+                        <dt className="text-gray-500">신청일</dt>
                         <dd className="text-gray-700 text-right tabular-nums">
                           {formatDateOnly(row.addedAt)}
                         </dd>
@@ -1080,7 +1083,7 @@ export default function SmsLogsPage() {
                         <dd className="text-gray-700 text-right tabular-nums">
                           {formatDate(row.scheduledAt)}
                         </dd>
-                        <dt className="text-gray-500">실제 발송</dt>
+                        <dt className="text-gray-500">발송 완료</dt>
                         <dd className="text-gray-700 text-right tabular-nums">
                           {row.sentAt ? formatDate(row.sentAt) : "—"}
                         </dd>

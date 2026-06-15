@@ -130,8 +130,8 @@ export default function AnalyticsDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">📊 분석 대시보드</h1>
-          <p className="text-slate-600 mt-1">심리학 렌즈 기반 5계층 성과 분석</p>
+          <h1 className="text-3xl font-bold text-slate-900">📊 성과 보기</h1>
+          <p className="text-slate-600 mt-1">고객 심리 단계별 성과 분석</p>
         </div>
 
         <div className="flex items-center gap-4">
@@ -182,12 +182,12 @@ export default function AnalyticsDashboard() {
         </div>
       ) : summary ? (
         <>
-          {/* Layer 1: Hero KPI (5개 핵심지표) */}
+          {/* 핵심 지표 (5개) */}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-            {/* 수익 */}
+            {/* 매출 */}
             <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 hover:shadow-md transition">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-slate-700">수익</h3>
+                <h3 className="text-sm font-semibold text-slate-700">매출</h3>
                 {getIcon('revenue')}
               </div>
               <div className="space-y-3">
@@ -218,10 +218,10 @@ export default function AnalyticsDashboard() {
               </div>
             </div>
 
-            {/* 신규 고객 */}
+            {/* 새 고객 */}
             <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 hover:shadow-md transition">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-slate-700">신규 고객</h3>
+                <h3 className="text-sm font-semibold text-slate-700">새 고객</h3>
                 {getIcon('contacts')}
               </div>
               <div className="space-y-3">
@@ -252,10 +252,10 @@ export default function AnalyticsDashboard() {
               </div>
             </div>
 
-            {/* 전환율 */}
+            {/* 구매율 */}
             <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 hover:shadow-md transition">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-slate-700">전환율</h3>
+                <h3 className="text-sm font-semibold text-slate-700">구매율</h3>
                 {getIcon('conversion')}
               </div>
               <div className="space-y-3">
@@ -286,10 +286,10 @@ export default function AnalyticsDashboard() {
               </div>
             </div>
 
-            {/* LTV */}
+            {/* 고객 생명값 */}
             <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 hover:shadow-md transition">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-slate-700">LTV</h3>
+                <h3 className="text-sm font-semibold text-slate-700">고객 생명값</h3>
                 {getIcon('ltv')}
               </div>
               <div className="space-y-3">
@@ -346,12 +346,12 @@ export default function AnalyticsDashboard() {
             </div>
           </div>
 
-          {/* Layer 2: 렌즈별 성과 (L0-L10) */}
+          {/* 고객 심리단계별 성과 (L0-L10) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
               <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <Zap className="w-5 h-5 text-yellow-500" />
-                심리학 렌즈별 성과 (상위 5개)
+                고객 심리 단계별 성과 (상위 5개)
               </h2>
 
               <div className="space-y-3">
@@ -363,14 +363,14 @@ export default function AnalyticsDashboard() {
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="font-semibold text-slate-900">
-                        {idx + 1}. Lens {lens.lens.toUpperCase()}
+                        {idx + 1}. 단계 {lens.lens.toUpperCase()}
                       </div>
                       <div className="text-sm font-bold text-blue-600">
                         {lens.conversionRate.toFixed(1)}%
                       </div>
                     </div>
                     <div className="flex items-center justify-between text-sm text-slate-600">
-                      <span>{lens.totalContacts}명 고객 ({lens.conversions}건 전환)</span>
+                      <span>{lens.totalContacts}명 고객 ({lens.conversions}건 구매)</span>
                       <div className="w-32 h-2 bg-slate-200 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-blue-500 rounded-full"
@@ -386,15 +386,15 @@ export default function AnalyticsDashboard() {
                 href="/analytics/segments"
                 className="mt-4 text-sm text-blue-600 hover:text-blue-700 font-medium"
               >
-                → 전체 렌즈 분석 보기
+                → 전체 심리단계 분석 보기
               </Link>
             </div>
 
-            {/* Layer 3: 채널별 성과 */}
+            {/* 소통 채널별 성과 */}
             <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
               <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-blue-500" />
-                채널별 성과 (ROAS 기준)
+                소통 채널별 성과 (투자수익 기준)
               </h2>
 
               <div className="space-y-3">
@@ -409,14 +409,14 @@ export default function AnalyticsDashboard() {
                         {idx + 1}. {channel.channel}
                       </div>
                       <div className="text-sm font-bold text-green-600">
-                        ROAS {channel.roas.toFixed(2)}x
+                        투자수익 {channel.roas.toFixed(2)}배
                       </div>
                     </div>
                     <div className="flex items-center justify-between text-sm text-slate-600">
                       <span>
-                        발송 {channel.sent}건 / 오픈율 {channel.openRate.toFixed(1)}%
+                        발송 {channel.sent}건 / 열람 {channel.openRate.toFixed(1)}%
                       </span>
-                      <span className="text-blue-600 font-medium">클릭율 {channel.clickRate.toFixed(1)}%</span>
+                      <span className="text-blue-600 font-medium">클릭 {channel.clickRate.toFixed(1)}%</span>
                     </div>
                   </Link>
                 ))}
@@ -431,11 +431,11 @@ export default function AnalyticsDashboard() {
             </div>
           </div>
 
-          {/* Layer 4: 위험도 대시보드 */}
+          {/* 위험신호 경고 시스템 */}
           <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 mb-8">
             <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
               <AlertCircle className="w-5 h-5 text-red-500" />
-              위험도 경고 시스템
+              위험신호 경고 시스템
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -451,7 +451,7 @@ export default function AnalyticsDashboard() {
                 <div className="text-2xl font-bold text-yellow-600">
                   {summary.hero.riskScore.status === 'YELLOW' ? '점검 필요' : '양호'}
                 </div>
-                <div className="text-xs text-yellow-700 mt-2">렌즈별 전환율 모니터링 필요</div>
+                <div className="text-xs text-yellow-700 mt-2">심리단계별 구매율 모니터링 필요</div>
               </div>
 
               <div className="p-4 rounded-lg bg-red-50 border border-red-200">
@@ -471,11 +471,11 @@ export default function AnalyticsDashboard() {
             </Link>
           </div>
 
-          {/* Layer 5: 실시간 모니터링 */}
+          {/* 실시간 모니터링 및 자동 리포트 */}
           <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
             <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
               <Zap className="w-5 h-5 text-blue-500" />
-              실시간 모니터링 및 자동 리포트
+              실시간 확인 및 자동 리포트
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -483,10 +483,10 @@ export default function AnalyticsDashboard() {
                 href="/analytics/realtime"
                 className="p-4 rounded-lg bg-blue-50 border border-blue-200 hover:bg-blue-100 transition cursor-pointer"
               >
-                <div className="font-semibold text-blue-900 mb-2">📡 실시간 KPI</div>
+                <div className="font-semibold text-blue-900 mb-2">📡 실시간 핵심지표</div>
                 <div className="text-sm text-blue-700">
                   5분 주기 자동 업데이트<br />
-                  WebSocket 실시간 스트리밍
+                  지금 바로 확인 가능
                 </div>
               </Link>
 

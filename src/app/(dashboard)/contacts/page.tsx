@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import Link from "next/link";
@@ -799,7 +799,7 @@ export default function ContactsPage() {
               <div className="bg-white rounded-lg p-2 mt-1 border border-gray-200 text-xs space-y-0.5">
                 <p className="font-medium text-gray-700 mb-1">열 이름 (한국어·영어 모두 인식해요)</p>
                 <p>이름 / name / 성명</p>
-                <p>전화번호 / 연락처 / phone / 휴대폰</p>
+                <p>전화번호 / 👥 고객 / phone / 휴대폰</p>
                 <p>이메일 / email &nbsp;|&nbsp; 관심크루즈 / 크루즈</p>
                 <p>예산 / budget &nbsp;|&nbsp; 메모 / 비고</p>
                 <p>유형 / 구분 &nbsp;|&nbsp; 유입날짜 / 유입일 / 등록일</p>
@@ -858,7 +858,7 @@ export default function ContactsPage() {
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-2xl font-bold text-navy-900">연락처</h1>
+          <h1 className="text-2xl font-bold text-navy-900">👥 고객</h1>
           <p className="text-sm text-gray-500 mt-0.5">총 {total.toLocaleString()}명</p>
         </div>
         <div className="flex gap-2">
@@ -1807,3 +1807,5 @@ export default function ContactsPage() {
     </div>
   );
 }
+
+

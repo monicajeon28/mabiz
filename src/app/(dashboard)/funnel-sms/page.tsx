@@ -117,7 +117,7 @@ export default function FunnelSmsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("퍼널문자를 삭제하시겠습니까? 연결된 그룹에서도 해제됩니다.")) return;
+    if (!confirm("이 자동문자를 삭제하시겠습니까? 연결된 그룹도 함께 해제됩니다.")) return;
     try {
       const ac = new AbortController();
       const timer = setTimeout(() => ac.abort(), 10_000);
@@ -128,7 +128,7 @@ export default function FunnelSmsPage() {
       clearTimeout(timer);
       const d = await res.json() as { ok: boolean; message?: string };
       if (d.ok) {
-        showSuccess("퍼널문자가 삭제되었습니다.");
+        showSuccess("자동문자가 삭제되었습니다.");
         loadList(page, filter);
       } else {
         showError(d.message ?? "삭제에 실패했습니다.");
@@ -148,10 +148,10 @@ export default function FunnelSmsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <MessageSquare className="w-6 h-6 text-blue-600" />
-            퍼널문자 관리
+            자동문자 관리
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            그룹에 연결된 자동 SMS 시퀀스를 관리합니다.
+            고객이 신청하면 자동으로 메시지가 발송되도록 설정합니다.
           </p>
         </div>
         <button
@@ -159,7 +159,7 @@ export default function FunnelSmsPage() {
           className="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
         >
           <Plus className="w-4 h-4" />
-          퍼널문자 만들기
+          자동문자 만들기
         </button>
       </div>
 

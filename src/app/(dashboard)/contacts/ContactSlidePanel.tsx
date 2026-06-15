@@ -51,11 +51,11 @@ const panelMobileVariants = {
 };
 
 const TAB_LIST: { key: TabKey; icon: React.ReactNode; label: string }[] = [
-  { key: "call",      icon: <Phone className="w-4 h-4" />,         label: "콜기록" },
-  { key: "memo",      icon: <FileText className="w-4 h-4" />,      label: "메모" },
-  { key: "funnel",    icon: <GitBranch className="w-4 h-4" />,     label: "자동화" },
-  { key: "sms",       icon: <MessageSquare className="w-4 h-4" />, label: "문자" },
-  { key: "affiliate", icon: <Building2 className="w-4 h-4" />,     label: "제휴" },
+  { key: "call",      icon: <Phone className="w-4 h-4" />,         label: "📞 전화기록" },
+  { key: "memo",      icon: <FileText className="w-4 h-4" />,      label: "📝 메모" },
+  { key: "funnel",    icon: <GitBranch className="w-4 h-4" />,     label: "🔄 자동메시지" },
+  { key: "sms",       icon: <MessageSquare className="w-4 h-4" />, label: "📱 문자" },
+  { key: "affiliate", icon: <Building2 className="w-4 h-4" />,     label: "🏢 담당자" },
 ];
 
 // ── SMS 인라인 모달 ──────────────────────────────────────────────────────────
@@ -112,7 +112,7 @@ function SmsModal({
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md mx-auto p-5 space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900">{mode === "instant" ? "즉시 발송" : "예약 발송"} — {contact.name}</h3>
+          <h3 className="font-semibold text-gray-900">{mode === "instant" ? "지금 발송" : "예약해서 발송"} — {contact.name}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
         </div>
         <p className="text-xs text-gray-400">{contact.phone}</p>
@@ -216,7 +216,7 @@ function DbShareModal({ contact, onClose, onShared }: { contact: { id: string; n
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="이름 / 아이디 / 조직 검색..."
+            placeholder="이름·아이디·조직 검색..."
             className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -239,7 +239,7 @@ function DbShareModal({ contact, onClose, onShared }: { contact: { id: string; n
           <button onClick={handleShare} disabled={sharing || !selectedId}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
             {sharing ? <Loader className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
-            {sharing ? "전달 중..." : "전달하기"}
+            {sharing ? "보내는 중..." : "전달하기"}
           </button>
           <button onClick={onClose} className="flex-1 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-sm">취소</button>
         </div>
@@ -530,7 +530,7 @@ export default function ContactSlidePanel({
       .then(r => r.json())
       .then(d => {
         if (d.ok) setFunnels(d.funnels ?? []);
-        else setFunnelError("자동 메시지 목록을 불러오지 못했습니다.");
+        else setFunnelError("자동 메시지를 불러올 수 없습니다.");
       })
       .catch(() => setFunnelError("자동 메시지 불러오기 실패. 다시 시도하세요."));
   }, [activeTab]);
@@ -558,7 +558,7 @@ export default function ContactSlidePanel({
           vipSequences: [...(prev.vipSequences ?? []), newSeq],
         } : prev);
         setSelectedFunnelId(""); setEnrollStartDate(""); setEnrollSendNow(false);
-        toast({ title: "자동 메시지 등록 완료", variant: "success" });
+        toast({ title: "자동 메시지 등록됨", variant: "success" });
         onRefresh?.({ id: contact.id });
       } else { setEnrollError(d.message ?? "등록 실패"); }
     } catch (err) { logger.error("[handleFunnelEnroll failed]", { err }); setEnrollError(err instanceof Error ? err.message : "네트워크 오류"); }
@@ -742,3 +742,4 @@ export default function ContactSlidePanel({
     </AnimatePresence>
   );
 }
+

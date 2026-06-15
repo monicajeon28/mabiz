@@ -142,8 +142,8 @@ export default function AffiliateSalesPage() {
     <div className="p-4 md:p-6 max-w-6xl mx-auto">
       <div className="mb-5 flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-bold text-navy-900">판매 관리</h1>
-          <p className="text-sm text-gray-500 mt-0.5">GMcruise AffiliateSale 승인/거절/환불</p>
+          <h1 className="text-xl font-bold text-navy-900">판매 건 관리</h1>
+          <p className="text-sm text-gray-500 mt-0.5">판매 건을 승인·반려·환불 처리합니다</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {["", "PENDING", "PENDING_APPROVAL", "APPROVED", "CONFIRMED", "REJECTED", "REFUNDED", "CANCELLED"].map((s) => (
@@ -174,14 +174,14 @@ export default function AffiliateSalesPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">ID</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">번호</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">판매원</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">고객</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">고객 연락처</th>
                   <th className="text-right px-4 py-3 font-medium text-gray-500 text-sm">판매액</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">기간</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">여행 기간</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">상태</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">수당 귀속</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">액션</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">수당 담당자</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">처리</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -296,14 +296,14 @@ export default function AffiliateSalesPage() {
       {confirmTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !confirming && setConfirmTarget(null)}>
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-gray-900">구매확인 — 수당 귀속</h3>
+            <h3 className="text-lg font-bold text-gray-900">판매 건 확인 — 수당 담당자 정하기</h3>
             <p className="mt-3 text-sm text-gray-600">
-              판매 <strong>#{confirmTarget.sale.id}</strong>의 수당을{" "}
+              판매 건 <strong>#{confirmTarget.sale.id}</strong>의 수당을{" "}
               <strong className="text-indigo-700">{confirmTarget.name}</strong>
-              <span className="text-gray-500"> ({OWNER_LABEL[confirmTarget.ownerType]})</span>에게 귀속 확정합니다.
+              <span className="text-gray-500"> ({OWNER_LABEL[confirmTarget.ownerType]})</span>님께 드립니다.
             </p>
             <p className="mt-2 text-xs text-gray-400">
-              확정하면 크루즈닷몰로 전달되어 수당이 확정됩니다.{confirmTarget.ownerType === "BRANCH_MANAGER" ? " (대리점장 수당에서 1,000원이 프리세일즈 DB값으로 전달됩니다.)" : ""} 환불 시 자동 해제됩니다.
+              확정하면 시스템에 저장되어 수당이 정해집니다.{confirmTarget.ownerType === "BRANCH_MANAGER" ? " (지점장 수당에서 1,000원이 사전영업 항목으로 나뉩니다.)" : ""} 환불하면 자동으로 취소됩니다.
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setConfirmTarget(null)} disabled={confirming}

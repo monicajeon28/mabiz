@@ -109,7 +109,7 @@ export default function CampaignsPage() {
 
   const handleDeltaSetup = () => {
     if (!selectedId) {
-      alert('렌탈 SMS 자동화를 설정할 캠페인을 먼저 선택해주세요.');
+      alert('자동 메시지를 설정할 항목을 먼저 선택해주세요.');
       return;
     }
     router.push(`/campaigns/${selectedId}/delta-setup`);
@@ -120,8 +120,8 @@ export default function CampaignsPage() {
       {/* 헤더 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">캠페인 관리</h1>
-          <p className="text-sm text-gray-500 mt-1">SMS/이메일 캠페인을 생성하고 관리합니다.</p>
+          <h1 className="text-2xl font-bold text-gray-900">자동 메시지</h1>
+          <p className="text-sm text-gray-500 mt-1">문자와 이메일을 한번에 보내고 관리합니다.</p>
         </div>
         <span className="px-4 py-2 bg-gray-100 text-gray-400 text-sm font-medium rounded-lg cursor-not-allowed select-none">
           + 캠페인 만들기 (준비 중)
@@ -179,7 +179,7 @@ export default function CampaignsPage() {
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="w-8 px-4 py-3"></th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-600">제목</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-600">이름</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-600">상태</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-600">채널</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-600">진행률</th>
@@ -203,7 +203,7 @@ export default function CampaignsPage() {
                         className="accent-blue-600 cursor-pointer"
                       />
                     </td>
-                    {/* 제목 */}
+                    {/* 이름 */}
                     <td className="px-4 py-3">
                       <span className="font-medium text-gray-900 line-clamp-1 max-w-[240px] block" title={c.title}>
                         {c.title}
@@ -296,7 +296,7 @@ export default function CampaignsPage() {
           </div>
         </button>
 
-        {/* 렌탈 SMS 자동화 */}
+        {/* 자동 메시지 설정 */}
         <button
           onClick={handleDeltaSetup}
           className={`flex items-start gap-3 p-4 bg-white rounded-xl border shadow-sm hover:shadow-md transition-all text-left group ${
@@ -313,9 +313,9 @@ export default function CampaignsPage() {
             ⚙️
           </div>
           <div>
-            <p className="font-semibold text-gray-900 text-sm">렌탈 SMS 자동화</p>
+            <p className="font-semibold text-gray-900 text-sm">자동 메시지 설정</p>
             <p className={`text-xs mt-0.5 ${selectedId ? 'text-orange-600 font-medium' : 'text-gray-500'}`}>
-              {selectedId ? '선택된 캠페인으로 설정하기' : '캠페인을 먼저 선택하세요'}
+              {selectedId ? '선택된 항목으로 설정하기' : '항목을 먼저 선택하세요'}
             </p>
           </div>
         </button>
