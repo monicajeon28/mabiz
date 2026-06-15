@@ -211,7 +211,7 @@ function PersonalEmailForm({ role }: { role: UserRole }) {
             <button
               key={p.label}
               onClick={() => applyPreset(p)}
-              className={`px-4 py-2 text-sm rounded-full border transition-colors ${
+              className={`px-4 py-3 text-base rounded-full border transition-colors min-h-[48px] ${
                 form.smtpHost === p.host && p.host !== ""
                   ? "bg-navy-900 text-white border-navy-900"
                   : "bg-white text-gray-600 border-gray-200 hover:border-navy-900"
