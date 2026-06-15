@@ -452,6 +452,11 @@ model Contact {
   signupCount        Int     @default(1) // 총 신청 횟수 (1부터 시작, 재신청 시 +1)
   signupHistory      Json?   @default("[]") // [{index, landingPageId, landingPageTitle, groupId, groupName, createdAt, email, phone}, ...]
 
+  // Contact 접근 권한 분류 (2026-06-15)
+  visibility         String  @default("SHARED") @db.VarChar(20) // "SHARED", "ADMIN_ONLY", "PERSONAL"
+  createdBy          String? // 판매원 ID (Contact 작성자)
+  managerId          String? // 대리점장 ID (Contact 관리자)
+
   @@unique([phone, organizationId])
   @@unique([bookingRef, organizationId], map: "uq_contact_booking_org") // P0-ISS-02: UPSERT 멱등성
   @@unique([email, organizationId], map: "uq_contact_email_org") // Webhook: Customer email upsert
@@ -524,6 +529,10 @@ model Contact {
   @@index([signupMethod], map: "idx_contact_signup_method")
   // P1-22: 태그 배열 필터링 인덱스 추가 (hasEvery 성능 최적화)
   @@index([organizationId, tags], map: "idx_contact_org_tags")
+  // RBAC 인덱스 (2026-06-15)
+  @@index([organizationId, visibility], map: "idx_contact_org_visibility")
+  @@index([organizationId, createdBy], map: "idx_contact_org_created_by")
+  @@index([organizationId, managerId], map: "idx_contact_org_manager_id")
 }
 
 model ContactAuditLog {
