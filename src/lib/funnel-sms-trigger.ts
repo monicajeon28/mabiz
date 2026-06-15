@@ -11,6 +11,9 @@
  *   - 그룹 멤버 추가 → triggerGroupFunnelSms()
  */
 
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { validateSenderPhone, checkFunnelSmsIdempotency } from "@/lib/funnel-sms-helpers";
@@ -20,6 +23,10 @@ import {
   getProductVariables,
   mergeVariables,
 } from "@/lib/sms-variables";
+
+// dayjs 플러그인 활성화 (KST 타임존 지원)
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 interface TriggerOptions {
   contactId:      string;
@@ -80,10 +87,14 @@ export async function triggerGroupFunnelSms(opts: TriggerOptions): Promise<boole
   // 같은 유입 → 같은 epoch → channel 동일 → 중복 차단.
   // 재유입(RESET 정책)으로 addedAt이 now로 갱신되면 epoch가 달라져 새 시퀀스 허용(0일차부터 재시작).
   const anchorEpoch = anchor.getTime();
-  const kstAnchor = new Date(anchor.getTime() + 9 * 60 * 60 * 1000);
-  const kstYear  = kstAnchor.getUTCFullYear();
-  const kstMonth = kstAnchor.getUTCMonth();  // 0-indexed
-  const kstDay   = kstAnchor.getUTCDate();
+
+  // [P0-3] KST 타임존 안전 계산: dayjs + timezone 플러그인 사용
+  // 문제: Date.UTC() + UTC offset 수동 계산 → 자정 경계에서 버그 가능
+  // 해결: dayjs.tz()로 표준 타임존 라이브러리 활용
+  const kstAnchorDayjs = dayjs(anchor).tz("Asia/Seoul");
+  const kstYear  = kstAnchorDayjs.year();
+  const kstMonth = kstAnchorDayjs.month();  // 0-indexed (dayjs month도 0-based)
+  const kstDay   = kstAnchorDayjs.date();
 
   // 5. 각 FunnelSms마다 스케줄 생성 (개별 실패 격리)
   let successCount = 0;
@@ -101,6 +112,42 @@ export async function triggerGroupFunnelSms(opts: TriggerOptions): Promise<boole
           existingStatus: idempotency.existingStatus,
         });
         continue;
+      }
+
+      // [P0-1] 재신청 시 기존 Day 1-3 SMS 캔슬 로직
+      // 재입장(addedAt 갱신, RESET 정책) 시 이전 유입 에피소드의 PENDING SMS는 취소
+      // 최초 신청(anchorEpoch 처음) vs 재신청(anchorEpoch 변경) 구분:
+      // 같은 group + contact 조합에 다른 epoch 기존 스케줄이 있으면 → 모두 CANCELLED 처리
+      const previousSchedules = await prisma.scheduledSms.findMany({
+        where: {
+          organizationId,
+          contactId,
+          funnelSmsId,
+          status: "PENDING",
+          // 현재 유입 에피소드(anchorEpoch)의 것이 아닌 기존 스케줄들
+          NOT: {
+            channel: {
+              endsWith: `:${anchorEpoch}`,
+            },
+          },
+        },
+        select: { id: true },
+      });
+
+      if (previousSchedules.length > 0) {
+        // 이전 에피소드 스케줄을 모두 CANCELLED 처리
+        await prisma.scheduledSms.updateMany({
+          where: {
+            id: { in: previousSchedules.map((s) => s.id) },
+          },
+          data: { status: "CANCELLED" as const },
+        });
+        logger.log("[FunnelSmsTrigger] 재신청 시 기존 Day 1-3 SMS 취소", {
+          contactId,
+          funnelSmsId,
+          cancelledCount: previousSchedules.length,
+          newAnchorEpoch: anchorEpoch,
+        });
       }
 
       // 5-2. FunnelSms + messages 조회
@@ -156,19 +203,25 @@ export async function triggerGroupFunnelSms(opts: TriggerOptions): Promise<boole
           // 즉시발송: 현재 시각으로 설정 (Cron이 PENDING 상태를 즉시 감지하여 발송)
           scheduledAt = new Date(nowUtc.getTime() + 1000); // 1초 뒤 (안전마진)
         } else {
-          // 예약발송: KST 벽시계 시각 기준으로 계산
-          // sendHour < 9 (KST 0~8시)에서 일자가 어긋나는 자정 경계 버그 방지
-          const kstTargetMs = Date.UTC(
-            kstYear, kstMonth, kstDay + msg.daysAfter, sendHour, sendMinute, 0, 0
-          );
-          scheduledAt = new Date(kstTargetMs - 9 * 60 * 60 * 1000);
+          // [P0-3] 예약발송: dayjs + timezone으로 안전한 KST 계산
+          // sendHour < 9 (KST 0~8시)에서도 자정 경계 버그 방지
+          const targetDay = kstDay + msg.daysAfter;
+          const kstTargetDayjs = dayjs()
+            .tz("Asia/Seoul")
+            .year(kstYear)
+            .month(kstMonth)
+            .date(targetDay)
+            .hour(sendHour)
+            .minute(sendMinute)
+            .second(0)
+            .millisecond(0);
+
+          scheduledAt = kstTargetDayjs.toDate();
 
           // 과거시각 보정 — 설정시각이 현재시각보다 이른 경우 다음 날로 미룸
           if (scheduledAt <= nowUtc) {
-            const kstNextMs = Date.UTC(
-              kstYear, kstMonth, kstDay + msg.daysAfter + 1, sendHour, sendMinute, 0, 0
-            );
-            scheduledAt = new Date(kstNextMs - 9 * 60 * 60 * 1000);
+            const kstNextDayjs = kstTargetDayjs.add(1, "day");
+            scheduledAt = kstNextDayjs.toDate();
           }
         }
         // 유입 에피소드(anchorEpoch)를 포함해 재유입 시 새 시퀀스가 생성되도록 한다.
