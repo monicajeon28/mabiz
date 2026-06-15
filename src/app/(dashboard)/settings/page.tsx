@@ -30,21 +30,21 @@ const items = [
     href: '/settings/sms',
     icon: MessageSquare,
     title: '문자(SMS) 설정',
-    desc: '문자 자동 발송 서비스 연동 (알리고)',
+    desc: '자동으로 문자 보내기 (서비스 연결)',
     color: 'bg-green-50 text-green-600',
   },
   {
     href: '/settings/email',
     icon: Mail,
     title: '이메일 설정',
-    desc: '이메일 자동 발송 연동 (Gmail, Naver 등)',
+    desc: '자동으로 이메일 보내기 (서비스 연결)',
     color: 'bg-blue-50 text-blue-600',
   },
   {
     href: '/settings/members',
     icon: Users,
     title: '팀원 관리',
-    desc: '판매원 초대, 역할·권한 설정',
+    desc: '판매원 초대, 할 일 설정',
     color: 'bg-purple-50 text-purple-600',
   },
   {
@@ -57,8 +57,8 @@ const items = [
   {
     href: '/settings/backup',
     icon: Download,
-    title: '데이터 백업',
-    desc: 'Contact 정보를 Google Drive에 자동 백업',
+    title: '데이터 자동 저장',
+    desc: '고객 정보를 자동으로 저장 (안전하게 보관)',
     color: 'bg-indigo-50 text-indigo-600',
   },
 ];

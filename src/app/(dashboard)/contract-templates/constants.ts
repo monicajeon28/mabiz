@@ -13,17 +13,17 @@ export const PSYCHOLOGY_LENSES = [
 ];
 
 export const LENS_LABELS: Record<string, string> = {
-  L0_REACTIVATION: "L0 - 부재고객 재활성화",
-  L1_PRICE_OBJECTION: "L1 - 가격 이의 대응",
-  L2_COMPLEXITY_ANXIETY: "L2 - 준비 불안감",
-  L3_DIFFERENTIATION: "L3 - 차별성 강조",
-  L4_FEATURES: "L4 - 기능",
-  L5_SELF_PROJECTION: "L5 - 자기 투영",
-  L6_TIMING_LOSS_AVERSION: "L6 - 타이밍 손실회피",
-  L7_COMPANION_PERSUASION: "L7 - 동반자 설득",
-  L8_REPURCHASE_HABITUAL: "L8 - 재구매 습관화",
-  L9_HEALTH_MEDICAL_TRUST: "L9 - 의료 신뢰",
-  L10_IMMEDIATE_PURCHASE: "L10 - 즉시 구매",
+  L0_REACTIVATION: "오랫동안 안 온 고객",
+  L1_PRICE_OBJECTION: "비용 상담 필요",
+  L2_COMPLEXITY_ANXIETY: "준비 방법 설명 필요",
+  L3_DIFFERENTIATION: "우리 특장점 설명",
+  L4_FEATURES: "상품 정보 제공",
+  L5_SELF_PROJECTION: "고객 상황 맞춤",
+  L6_TIMING_LOSS_AVERSION: "지금이 최적 시기",
+  L7_COMPANION_PERSUASION: "가족과 함께 결정",
+  L8_REPURCHASE_HABITUAL: "단골 고객 케어",
+  L9_HEALTH_MEDICAL_TRUST: "안전성 확인",
+  L10_IMMEDIATE_PURCHASE: "지금 바로 결정",
 };
 
 export const CATEGORY_LABEL: Record<string, string> = {
@@ -35,9 +35,9 @@ export const CATEGORY_LABEL: Record<string, string> = {
 };
 
 export const STATUS_LABEL: Record<string, string> = {
-  ACTIVE: "활성",
+  ACTIVE: "사용 중",
   ARCHIVED: "보관됨",
-  DRAFT: "임시저장",
+  DRAFT: "작성 중",
 };
 
 export const STATUS_CLASS: Record<string, string> = {
