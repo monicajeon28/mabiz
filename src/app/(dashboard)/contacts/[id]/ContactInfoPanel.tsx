@@ -157,31 +157,70 @@ function ContactInfoPanelComponent({
         </button>
       </div>
 
-      {/* 전달됨 뱃지 */}
+      {/* 공유 배지 — Steve Jobs 신뢰도 강화 */}
       {transferLogs.length > 0 && (() => {
         const latest = transferLogs[0];
         const targetName = latest.toUserName ?? latest.toUserOrgName ?? "알 수 없음";
+        const sharedDate = new Date(latest.createdAt);
+        const daysAgo = Math.floor((Date.now() - sharedDate.getTime()) / (1000 * 60 * 60 * 24));
+        const dateStr = daysAgo === 0 ? "오늘" : daysAgo === 1 ? "어제" : `${daysAgo}일 전`;
+        const orgName = latest.toUserOrgName ?? latest.toOrg?.name ?? "본사";
+
         return (
-          <div className="flex items-center justify-between bg-purple-50 border border-purple-200 rounded-xl px-4 py-2.5 mb-4">
-            <div className="flex items-center gap-2">
-              <Share2 className="w-4 h-4 text-purple-500 shrink-0" />
-              <div>
-                <span className="text-sm font-semibold text-purple-700">→ {targetName}</span>
-                <span className="text-xs text-purple-400 ml-2">({latest.toUserOrgName ?? latest.toOrg?.name ?? "본사"})</span>
-                <p className="text-xs text-purple-400 mt-0.5">
-                  {new Date(latest.createdAt).toLocaleDateString("ko-KR")} 전달
-                  {latest.transferType === "ORG_COPY" && " · 복사본 공유"}
-                </p>
+          <div className="space-y-2 mb-4">
+            {/* 메인 공유 배지 */}
+            <div className="flex items-center justify-between bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl px-4 py-3 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-3 flex-1">
+                {/* 아이콘: 공유 + 신뢰도 배지 */}
+                <div className="relative shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-purple-200 flex items-center justify-center">
+                    <Share2 className="w-4 h-4 text-purple-600" />
+                  </div>
+                  <div className="absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold border border-white">
+                    ✓
+                  </div>
+                </div>
+
+                {/* 공유자 정보 */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-navy-900">
+                    {targetName}이 공유함
+                  </p>
+                  <p className="text-xs text-purple-600 mt-0.5">
+                    {sharedDate.toLocaleDateString("ko-KR")} ({dateStr})
+                    {latest.transferType === "ORG_COPY" && " · 복사본"}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {orgName}에서 당신을 위해 이 고객을 공유했습니다
+                  </p>
+                </div>
               </div>
+
+              {/* 회수 버튼 */}
+              {latest.canRecall && (
+                <button
+                  onClick={() => handleRecall(latest)}
+                  disabled={recalling}
+                  className="shrink-0 text-xs text-red-500 hover:text-red-700 hover:underline font-medium disabled:opacity-50 ml-3 px-2.5 py-1 rounded-lg hover:bg-red-50 transition-colors"
+                >
+                  {recalling ? "회수 중..." : "회수"}
+                </button>
+              )}
             </div>
-            {latest.canRecall && (
-              <button
-                onClick={() => handleRecall(latest)}
-                disabled={recalling}
-                className="text-xs text-red-500 hover:text-red-700 hover:underline font-medium disabled:opacity-50 shrink-0 ml-2"
-              >
-                {recalling ? "회수 중..." : "회수하기"}
-              </button>
+
+            {/* 다중 공유 시: "N명이 공유 중" 안내 */}
+            {transferLogs.length > 1 && (
+              <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                <div className="w-5 h-5 rounded-full bg-blue-200 flex items-center justify-center text-xs font-bold text-blue-600 shrink-0 mt-0.5">
+                  i
+                </div>
+                <div className="text-xs text-blue-700">
+                  <p className="font-medium">{transferLogs.length}명이 공유 중</p>
+                  <p className="text-blue-600 mt-0.5">
+                    {transferLogs.slice(1).map(log => log.toUserName ?? log.toUserOrgName ?? "알 수 없음").join(", ")}
+                  </p>
+                </div>
+              </div>
             )}
           </div>
         );
