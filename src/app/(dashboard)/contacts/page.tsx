@@ -943,31 +943,41 @@ export default function ContactsPage() {
 
       {/* Contact 탭 (Team-B UI) - 50대 친화 UX */}
       <div className="mb-6">
-        {/* 탭 버튼 (크고 명확한 텍스트) */}
+        {/* 탭 버튼 (크고 명확한 텍스트) + 설명 */}
         <div className="flex gap-3 mb-4 flex-wrap">
-          <button
-            onClick={() => { setActiveTab('SHARED'); setPage(1); }}
-            className={`px-8 py-4 rounded-xl font-bold text-base md:text-lg transition-all transform ${
-              activeTab === 'SHARED'
-                ? 'bg-blue-600 text-white shadow-lg scale-105'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            📋 공유 카테고리 <br className="md:hidden" />
-            <span className="text-sm md:text-base font-semibold">({sharedCount}명)</span>
-          </button>
-          {isAdmin && (
+          <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
             <button
-              onClick={() => { setActiveTab('ADMIN_ONLY'); setPage(1); }}
-              className={`px-8 py-4 rounded-xl font-bold text-base md:text-lg transition-all transform ${
-                activeTab === 'ADMIN_ONLY'
+              onClick={() => { setActiveTab('SHARED'); setPage(1); }}
+              className={`px-8 py-4 rounded-xl font-bold text-base md:text-lg transition-all transform text-left ${
+                activeTab === 'SHARED'
                   ? 'bg-blue-600 text-white shadow-lg scale-105'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              🔒 관리자 전용 <br className="md:hidden" />
-              <span className="text-sm md:text-base font-semibold">({adminOnlyCount}명)</span>
+              📋 공유받은 고객 <br className="md:hidden" />
+              <span className="text-sm md:text-base font-semibold">({sharedCount}명)</span>
             </button>
+            {activeTab === 'SHARED' && (
+              <p className="text-sm text-gray-600 px-1">다른 팀원과 함께 관리하는 고객 목록</p>
+            )}
+          </div>
+          {isAdmin && (
+            <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
+              <button
+                onClick={() => { setActiveTab('ADMIN_ONLY'); setPage(1); }}
+                className={`px-8 py-4 rounded-xl font-bold text-base md:text-lg transition-all transform text-left ${
+                  activeTab === 'ADMIN_ONLY'
+                    ? 'bg-blue-600 text-white shadow-lg scale-105'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                🔒 관리자 전용 <br className="md:hidden" />
+                <span className="text-sm md:text-base font-semibold">({adminOnlyCount}명)</span>
+              </button>
+              {activeTab === 'ADMIN_ONLY' && (
+                <p className="text-sm text-gray-600 px-1">오직 당신만 볼 수 있는 고객 목록</p>
+              )}
+            </div>
           )}
         </div>
 
@@ -975,7 +985,7 @@ export default function ContactsPage() {
         <div className="px-4 py-3 bg-blue-50 rounded-xl border-l-4 border-blue-400">
           <p className="text-base font-medium text-gray-800 leading-relaxed">
             ⓘ {activeTab === 'SHARED'
-              ? '대리점장, 판매원, 관리자 모두 함께 보는 고객 정보입니다. 클릭해서 공유할 수 있어요.'
+              ? '팀원들과 함께 보는 고객들입니다. 선택해서 팀에 공유할 수 있어요.'
               : '👔 관리자만 따로 보관하는 특별한 고객 정보입니다. 다른 직원들에게 공유되지 않습니다.'}
           </p>
           {/* Team-A: 관리자 전용 탭 통계 */}
@@ -1014,7 +1024,7 @@ export default function ContactsPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-600" />
           <input
             type="text"
-            placeholder="🔍 이름, 전화번호 검색"
+            placeholder={filterGroupId ? "🔍 그룹 멤버 이름이나 번호 검색" : "🔍 이름 또는 전화번호 검색"}
             value={q}
             onChange={(e) => { setQ(e.target.value); setPage(1); }}
             className="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-lg text-base font-medium focus:outline-none focus:border-gold-500"
@@ -1316,20 +1326,20 @@ export default function ContactsPage() {
                   {/* 정보 */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-gray-900">{c.name}</span>
+                      <span className="font-bold text-base text-gray-900">{c.name}</span>
                       {/* 리드 스코어 뱃지 — HOT만 강조, WARM/COLD는 서브로 */}
                       {c.type === "LEAD" && (
-                        <span className={`text-sm px-1.5 py-0.5 rounded-full font-bold ${tierInfo.color}`}>
+                        <span className={`text-base px-2 py-1 rounded-full font-bold ${tierInfo.color}`}>
                           {tierInfo.label}
                         </span>
                       )}
-                      <span className={`text-sm px-2 py-0.5 rounded-full font-medium ${typeInfo.color}`}>
+                      <span className={`text-base px-2.5 py-1 rounded-full font-bold ${typeInfo.color}`}>
                         {typeInfo.label}
                       </span>
                       {(c.groups ?? []).slice(0, 2).map((g) => (
                         <span
                           key={g.group.id}
-                          className="text-sm px-2 py-0.5 rounded-full bg-gray-100 text-gray-600"
+                          className="text-sm px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 font-medium"
                         >
                           {g.group.name}
                         </span>
@@ -1352,12 +1362,12 @@ export default function ContactsPage() {
                         );
                       })()
                     )}
-                    <div className="text-sm text-gray-500 mt-0.5 flex items-center gap-3 flex-wrap">
+                    <div className="text-base text-gray-600 mt-1 flex items-center gap-4 flex-wrap font-medium">
                       <span>{c.phone}</span>
-                      {c.cruiseInterest && <span className="text-gold-500">{c.cruiseInterest}</span>}
+                      {c.cruiseInterest && <span className="text-gold-600 font-bold">{c.cruiseInterest}</span>}
                       {(c._count?.callLogs ?? 0) > 0 && (
-                        <span className="flex items-center gap-1">
-                          <Phone className="w-3 h-3" /> {c._count?.callLogs ?? 0}회
+                        <span className="flex items-center gap-1 font-bold">
+                          <Phone className="w-4 h-4" /> {c._count?.callLogs ?? 0}회
                         </span>
                       )}
                       {/* D-day 뱃지 */}
@@ -1410,8 +1420,8 @@ export default function ContactsPage() {
                         )}
                         {/* Team-A: 공유 출처 표시 (공유 탭에서만) */}
                         {activeTab === 'SHARED' && c.sharedByName && (
-                          <span className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 font-medium">
-                            ✅ {c.sharedByName}가 공유
+                          <span className="px-2.5 py-0.5 rounded-lg bg-purple-100 text-purple-700 font-medium text-sm border border-purple-200">
+                            👥 {c.sharedByName}가 공유
                           </span>
                         )}
                       </div>
