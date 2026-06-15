@@ -105,6 +105,14 @@ export default function ContractSignPage({ params }: { params: { id: string } })
   const [signerName, setSignerName] = useState('');
   const [signatureImage, setSignatureImage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [signatureMode, setSignatureMode] = useState<'draw' | 'auto' | 'image'>('draw');
+  const [autoSignName, setAutoSignName] = useState('');
+  const [autoSignFont, setAutoSignFont] = useState<'brush' | 'comic' | 'hand' | 'modern' | 'classic'>('brush');
+  const [autoSignPreview, setAutoSignPreview] = useState<string | null>(null);
+  const [uploadedImageBase64, setUploadedImageBase64] = useState<string | null>(null);
+  const [generatingPreview, setGeneratingPreview] = useState(false);
+  const [dragOverDrop, setDragOverDrop] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const contractId = params.id;
 
@@ -137,9 +145,96 @@ export default function ContractSignPage({ params }: { params: { id: string } })
     fetchContract();
   }, [contractId]);
 
+  const handleGeneratePreview = async () => {
+    if (!autoSignName.trim()) {
+      showError('이름을 입력해주세요');
+      return;
+    }
+
+    setGeneratingPreview(true);
+    try {
+      const res = await fetch('/api/contract/generate-auto-signature', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: autoSignName,
+          font: autoSignFont,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError(data.message || '서명 생성 실패');
+        return;
+      }
+
+      setAutoSignPreview(data.signatureImage);
+    } catch (e) {
+      showError('서명 생성 실패');
+    } finally {
+      setGeneratingPreview(false);
+    }
+  };
+
+  const processImageFile = (file: File) => {
+    const validMimes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+    if (!validMimes.includes(file.type)) {
+      showError('PNG, JPG, GIF, WebP 형식만 지원합니다');
+      return;
+    }
+
+    if (file.size > 500 * 1024) {
+      showError('파일 크기가 500KB를 초과합니다');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const base64 = e.target?.result as string;
+        setUploadedImageBase64(base64);
+      } catch (err) {
+        showError('파일 읽기 실패');
+      }
+    };
+    reader.onerror = () => {
+      showError('파일 읽기 실패');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleImageDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverDrop(false);
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      processImageFile(files[0]);
+    }
+  };
+
+  const handleImageFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.currentTarget.files;
+    if (files && files.length > 0) {
+      processImageFile(files[0]);
+    }
+  };
+
+  const resetSignatureMode = () => {
+    if (signatureMode === 'auto') {
+      setAutoSignPreview(null);
+      setAutoSignName('');
+    } else if (signatureMode === 'image') {
+      setUploadedImageBase64(null);
+    }
+    setSignatureImage(null);
+  };
+
   const handleSubmitSignature = async () => {
     if (!signatureImage) {
-      showError('서명을 입력해주세요');
+      showError('서명을 선택해주세요');
       return;
     }
 
@@ -300,27 +395,230 @@ export default function ContractSignPage({ params }: { params: { id: string } })
           <div className="space-y-8">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Step 2. 서명 입력</h2>
-              <p className="text-gray-600">아래에 서명을 입력해주세요.</p>
+              <p className="text-gray-600">가장 편한 방식을 선택하여 서명을 입력해주세요.</p>
             </div>
 
-            {!signatureImage ? (
-              <CanvasSignature onSignatureCapture={setSignatureImage} />
-            ) : (
-              <div className="space-y-4">
-                <div className="border-2 border-gray-300 rounded-lg p-4 bg-white">
-                  <img src={signatureImage} alt="서명" className="h-32 mx-auto" />
+            {/* 서명 방식 선택 라디오 버튼 */}
+            <div className="border-2 border-gray-300 rounded-lg p-6 bg-white space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                📌 서명 방식 선택
+              </h3>
+
+              {/* 직접 그리기 */}
+              <label className={`flex items-start gap-4 p-4 border-2 rounded-lg cursor-pointer transition ${
+                signatureMode === 'draw' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
+              }`}>
+                <input
+                  type="radio"
+                  name="signature-mode"
+                  value="draw"
+                  checked={signatureMode === 'draw'}
+                  onChange={(e) => {
+                    setSignatureMode(e.target.value as 'draw' | 'auto' | 'image');
+                    setSignatureImage(null);
+                  }}
+                  className="w-5 h-5 text-blue-600 mt-1 flex-shrink-0"
+                />
+                <div className="flex-1">
+                  <p className="font-medium text-gray-900">✏️ 직접 그리기</p>
+                  <p className="text-sm text-gray-600 mt-1">마우스나 터치로 서명을 그려주세요</p>
                 </div>
-                <button
-                  onClick={() => setSignatureImage(null)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  다시 작성
-                </button>
+              </label>
+
+              {/* 자동생성 */}
+              <label className={`flex items-start gap-4 p-4 border-2 rounded-lg cursor-pointer transition ${
+                signatureMode === 'auto' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
+              }`}>
+                <input
+                  type="radio"
+                  name="signature-mode"
+                  value="auto"
+                  checked={signatureMode === 'auto'}
+                  onChange={(e) => {
+                    setSignatureMode(e.target.value as 'draw' | 'auto' | 'image');
+                    setSignatureImage(null);
+                    setAutoSignPreview(null);
+                  }}
+                  className="w-5 h-5 text-blue-600 mt-1 flex-shrink-0"
+                />
+                <div className="flex-1">
+                  <p className="font-medium text-gray-900">🎨 자동생성</p>
+                  <p className="text-sm text-gray-600 mt-1">폰트를 선택하고 자동 생성된 서명 사용</p>
+                </div>
+              </label>
+
+              {/* 이미지업로드 */}
+              <label className={`flex items-start gap-4 p-4 border-2 rounded-lg cursor-pointer transition ${
+                signatureMode === 'image' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
+              }`}>
+                <input
+                  type="radio"
+                  name="signature-mode"
+                  value="image"
+                  checked={signatureMode === 'image'}
+                  onChange={(e) => {
+                    setSignatureMode(e.target.value as 'draw' | 'auto' | 'image');
+                    setSignatureImage(null);
+                    setUploadedImageBase64(null);
+                  }}
+                  className="w-5 h-5 text-blue-600 mt-1 flex-shrink-0"
+                />
+                <div className="flex-1">
+                  <p className="font-medium text-gray-900">📸 이미지업로드</p>
+                  <p className="text-sm text-gray-600 mt-1">기존 서명 이미지를 업로드해주세요</p>
+                </div>
+              </label>
+            </div>
+
+            {/* 모드별 렌더링 */}
+            {signatureMode === 'draw' && !signatureImage && (
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">서명을 그려주세요</h3>
+                <CanvasSignature onSignatureCapture={setSignatureImage} />
               </div>
             )}
 
+            {signatureMode === 'auto' && !signatureImage && (
+              <div className="border-2 border-gray-300 rounded-lg p-6 bg-white space-y-6">
+                <h3 className="text-lg font-semibold text-gray-900">자동 서명 생성</h3>
+
+                {/* 이름 입력 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    이름 <span className="text-red-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={autoSignName}
+                    onChange={(e) => setAutoSignName(e.target.value.slice(0, 20))}
+                    placeholder="이름을 입력해주세요"
+                    maxLength={20}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">{autoSignName.length} / 20자</p>
+                </div>
+
+                {/* 폰트 선택 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    폰트 선택
+                  </label>
+                  <select
+                    value={autoSignFont}
+                    onChange={(e) => setAutoSignFont(e.target.value as typeof autoSignFont)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  >
+                    <option value="brush">손글씨 스타일 (Brush)</option>
+                    <option value="comic">만화체 (Comic)</option>
+                    <option value="hand">손写 필기체 (Hand)</option>
+                    <option value="modern">모던체 (Modern)</option>
+                    <option value="classic">클래식 (Classic)</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">폰트를 선택하면 미리보기가 업데이트됩니다</p>
+                </div>
+
+                {/* 미리보기 생성 버튼 */}
+                <button
+                  onClick={handleGeneratePreview}
+                  disabled={generatingPreview || !autoSignName.trim()}
+                  className="w-full px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {generatingPreview ? '생성 중...' : '미리보기'}
+                </button>
+
+                {/* 생성된 서명 미리보기 */}
+                {autoSignPreview && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 mb-2">생성된 서명</p>
+                    <div className="border-2 border-gray-300 rounded-lg p-6 bg-gray-50">
+                      <img src={autoSignPreview} alt="자동생성 서명" className="h-32 mx-auto" />
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSignatureImage(autoSignPreview);
+                      }}
+                      className="w-full mt-4 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700"
+                    >
+                      이 서명 사용
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {signatureMode === 'image' && !signatureImage && (
+              <div className="border-2 border-gray-300 rounded-lg p-6 bg-white space-y-6">
+                <h3 className="text-lg font-semibold text-gray-900">이미지 업로드</h3>
+
+                {/* 드래그드롭 영역 */}
+                <div
+                  onDrop={handleImageDrop}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragOverDrop(true);
+                  }}
+                  onDragLeave={() => setDragOverDrop(false)}
+                  className={`border-2 border-dashed rounded-lg p-8 text-center transition ${
+                    dragOverDrop ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50'
+                  }`}
+                >
+                  <p className="text-3xl mb-2">📸</p>
+                  <p className="text-gray-900 font-medium">이미지를 여기에 드래그하거나</p>
+                  <p className="text-sm text-gray-600 mt-1">아래 버튼을 클릭하여 파일을 선택해주세요</p>
+                  <p className="text-xs text-gray-500 mt-2">PNG, JPG, GIF, WebP (최대 500KB)</p>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="mt-4 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700"
+                  >
+                    파일 선택
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/gif,image/webp"
+                    onChange={handleImageFileSelect}
+                    className="hidden"
+                  />
+                </div>
+
+                {/* 업로드된 이미지 표시 */}
+                {uploadedImageBase64 && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 mb-2">업로드된 서명</p>
+                    <div className="border-2 border-gray-300 rounded-lg p-6 bg-gray-50">
+                      <img src={uploadedImageBase64} alt="업로드 서명" className="h-32 mx-auto object-contain" />
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSignatureImage(uploadedImageBase64);
+                      }}
+                      className="w-full mt-4 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700"
+                    >
+                      이 이미지 사용
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 선택된 서명 확인 및 제출 */}
             {signatureImage && (
-              <>
+              <div className="space-y-6 border-2 border-green-300 rounded-lg p-6 bg-green-50">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">선택된 서명</h3>
+                  <div className="border-2 border-gray-300 rounded-lg p-4 bg-white">
+                    <img src={signatureImage} alt="선택된 서명" className="h-32 mx-auto" />
+                  </div>
+                </div>
+
+                <button
+                  onClick={resetSignatureMode}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  다시 선택
+                </button>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     서명자 이름 (선택사항)
@@ -341,7 +639,7 @@ export default function ContractSignPage({ params }: { params: { id: string } })
                 >
                   {submitting ? '제출 중...' : '서명 완료'}
                 </button>
-              </>
+              </div>
             )}
           </div>
         )}
