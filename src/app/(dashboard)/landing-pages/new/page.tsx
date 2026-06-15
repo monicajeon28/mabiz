@@ -7,6 +7,156 @@ import dynamic from "next/dynamic";
 import { ImageLibraryModal } from "@/components/image-library/ImageLibraryModal";
 import { MAX_IMAGE_UPLOAD_BYTES, prepareImageForUpload } from "@/lib/client-image-compress";
 
+// ═════════════════════════════════════════════════════════════
+// Step 1-5: Russell Brunson 형식 기반 에디터 상수
+// ═════════════════════════════════════════════════════════════
+
+type PageFormat = 'squeeze' | 'vsl' | 'webinar' | 'funnel' | 'tripwire' | 'downsell' | 'launch' | 'hybrid';
+
+const FORMAT_EMOJI: Record<PageFormat, string> = {
+  squeeze: '🤏',
+  vsl: '🎥',
+  webinar: '📺',
+  funnel: '🔗',
+  tripwire: '⚡',
+  downsell: '💰',
+  launch: '🚀',
+  hybrid: '🎯',
+};
+
+const FORMAT_LABELS: Record<PageFormat, string> = {
+  squeeze: 'Squeeze Page',
+  vsl: 'VSL (영상)',
+  webinar: 'Webinar',
+  funnel: 'Sales Funnel',
+  tripwire: 'Tripwire',
+  downsell: 'Downsell',
+  launch: 'Launch',
+  hybrid: 'Hybrid',
+};
+
+// 형식별 기대 전환율
+const EXPECTED_CONVERSION_BY_FORMAT: Record<PageFormat, { baseline: number; optimized: number; lift: number }> = {
+  squeeze: { baseline: 15, optimized: 45, lift: 200 },
+  vsl: { baseline: 18, optimized: 52, lift: 189 },
+  webinar: { baseline: 12, optimized: 48, lift: 300 },
+  funnel: { baseline: 8, optimized: 35, lift: 338 },
+  tripwire: { baseline: 25, optimized: 60, lift: 140 },
+  downsell: { baseline: 30, optimized: 65, lift: 117 },
+  launch: { baseline: 20, optimized: 55, lift: 175 },
+  hybrid: { baseline: 22, optimized: 58, lift: 164 },
+};
+
+// 형식별 최소 이미지 권장 개수
+const MIN_IMAGES_BY_FORMAT: Record<PageFormat, number> = {
+  squeeze: 2,
+  vsl: 1,
+  webinar: 3,
+  funnel: 4,
+  tripwire: 2,
+  downsell: 3,
+  launch: 5,
+  hybrid: 3,
+};
+
+// 형식별 필수 이미지 필드
+const IMAGE_FIELDS_BY_FORMAT: Record<PageFormat, Array<{ name: string; required: boolean }>> = {
+  squeeze: [{ name: 'Hero Image', required: true }],
+  vsl: [{ name: 'Video Thumbnail', required: true }],
+  webinar: [
+    { name: 'Header Image', required: true },
+    { name: 'Speaker Photo', required: true },
+    { name: 'Social Proof Image', required: true },
+  ],
+  funnel: [
+    { name: 'Step 1 Image', required: true },
+    { name: 'Step 2 Image', required: true },
+    { name: 'Step 3 Image', required: true },
+    { name: 'Step 4 Image', required: true },
+  ],
+  tripwire: [
+    { name: 'Hero Image', required: true },
+    { name: 'Offer Image', required: false },
+  ],
+  downsell: [
+    { name: 'Product Image', required: true },
+    { name: 'Testimonial', required: false },
+    { name: 'Guarantee Badge', required: false },
+  ],
+  launch: [
+    { name: 'Banner', required: true },
+    { name: 'Product 1', required: true },
+    { name: 'Product 2', required: true },
+    { name: 'Social Proof', required: true },
+    { name: 'CTA Hero', required: true },
+  ],
+  hybrid: [
+    { name: 'Header', required: true },
+    { name: 'Content', required: false },
+    { name: 'CTA', required: false },
+  ],
+};
+
+// CTA 심리학 맵
+const CTA_PSYCHOLOGY_MAP: Record<string, { emoji: string; text: string; psychology: string }> = {
+  default: { emoji: '✓', text: '신청하기', psychology: '기본 액션' },
+  urgency: { emoji: '⚡', text: '지금 신청하기', psychology: '긴박감' },
+  exclusive: { emoji: '👑', text: '제한된 자리 예약', psychology: '희소성' },
+  fomo: { emoji: '🔥', text: '마감 전 신청', psychology: '손실회피' },
+};
+
+// Day 0-3 SMS 템플릿
+const SMS_TEMPLATES_BY_FORMAT: Record<PageFormat, Record<string, { text: string; psychology: string }>> = {
+  squeeze: {
+    day0: { text: '[마비즈] 크루즈 여행 특별 정보 전달받기로 선택하셨어요! 놓칠 수 없는 5가지 기밀 노하우를 공개합니다.', psychology: 'PASONA-P' },
+    day1: { text: '[마비즈] 실제 고객들이 크루즈로 가족 추억 만든 방법 공개. 당신의 걱정도 이렇게 해결됩니다!', psychology: 'PASONA-S' },
+    day2: { text: '[마비즈] 💎 VIP 크루즈 패키지 특가 정보 단독 공개. 평생 이 가격 다시 안 나옵니다.', psychology: 'PASONA-O' },
+    day3: { text: '[마비즈] 예약 마감 24시간 남음! 지금 신청하면 5백만원 혜택 추가. 링크: www.mabiz.io', psychology: 'PASONA-A' },
+  },
+  vsl: {
+    day0: { text: '[마비즈] 크루즈 여행 영상 공개했어요. 16분 영상이 당신의 모든 의문을 풀어줄 거예요.', psychology: 'PASONA-P' },
+    day1: { text: '[마비즈] 영상 보신 분들의 반응 "우와... 이렇게 저렴한데 이 수준이라니"', psychology: 'PASONA-S' },
+    day2: { text: '[마비즈] 🎁 영상 시청자 한정 선물 이벤트. 신청하면 크루즈 선상 스파 무료!', psychology: 'PASONA-O' },
+    day3: { text: '[마비즈] 마감 임박! 영상 할인 쿠폰은 오늘까지만 유효합니다.', psychology: 'PASONA-A' },
+  },
+  webinar: {
+    day0: { text: '[마비즈] 웨비나 참석 감사합니다! 다시 보기 링크를 보내드렸어요.', psychology: 'PASONA-P' },
+    day1: { text: '[마비즈] 웨비나 참석자들이 공유한 실제 크루즈 스토리를 더 보고 싶으신가요?', psychology: 'PASONA-S' },
+    day2: { text: '[마비즈] 🌟 웨비나 특가: 오늘 신청자 한정 + 여행 가이드북 무료!', psychology: 'PASONA-O' },
+    day3: { text: '[마비즈] 웨비나 특가는 오늘 자정에 종료됩니다!', psychology: 'PASONA-A' },
+  },
+  funnel: {
+    day0: { text: '[마비즈] Step 1 완료! 다음 단계로 진행하셨어요. Step 2를 확인해보세요.', psychology: 'PASONA-P' },
+    day1: { text: '[마비즈] 제가 Step 1에서 놓친 게 있을까봐 연락했어요. 궁금한 거 있으신가요?', psychology: 'PASONA-S' },
+    day2: { text: '[마비즈] 💎 특별 오퍼! Step 2 신청 고객들은 추가 20% 할인받으세요!', psychology: 'PASONA-O' },
+    day3: { text: '[마비즈] 남은 Step은 2개. 오늘 완료하면 VIP 해석 무료!', psychology: 'PASONA-A' },
+  },
+  tripwire: {
+    day0: { text: '[마비즈] 초저가 스타터 상품 신청 완료! 이제 업그레이드 옵션을 보여드릴게요.', psychology: 'PASONA-P' },
+    day1: { text: '[마비즈] 97% 고객들이 선택하는 업그레이드 패키지를 확인해보세요.', psychology: 'PASONA-S' },
+    day2: { text: '[마비즈] ⚡ 오늘 업그레이드 신청 시 추가 5백만원 상품권 증정!', psychology: 'PASONA-O' },
+    day3: { text: '[마비즈] 마감! 업그레이드 특가는 오늘 자정까지만 유효합니다.', psychology: 'PASONA-A' },
+  },
+  downsell: {
+    day0: { text: '[마비즈] 신청감사합니다! 하지만 예산이 맞지 않으신가요? 더 저렴한 옵션이 있습니다.', psychology: 'PASONA-P' },
+    day1: { text: '[마비즈] 다운셀 패키지도 기본 기능은 모두 포함돼요. 실제 사용자 후기 확인하세요.', psychology: 'PASONA-S' },
+    day2: { text: '[마비즈] 💰 지금 다운셀 신청 시 1개월 무료 추가!', psychology: 'PASONA-O' },
+    day3: { text: '[마비즈] 다운셀 무료 추가 혜택은 오늘까지만 유효합니다!', psychology: 'PASONA-A' },
+  },
+  launch: {
+    day0: { text: '[마비즈] 런칭 감사합니다! 5가지 상품 중 어떤 걸 원하시나요?', psychology: 'PASONA-P' },
+    day1: { text: '[마비즈] 각 상품별 고객 만족도 공개! 가장 인기 있는 건?', psychology: 'PASONA-S' },
+    day2: { text: '[마비즈] 🎁 런칭 한정 번들 세트. 개별 구매보다 30% 저렴!', psychology: 'PASONA-O' },
+    day3: { text: '[마비즈] 런칭 특가는 이 주말이 마지막입니다!', psychology: 'PASONA-A' },
+  },
+  hybrid: {
+    day0: { text: '[마비즈] 신청해주셨어요! 다음 단계를 확인해보세요.', psychology: 'PASONA-P' },
+    day1: { text: '[마비즈] 혹시 질문이 있으신가요? 이 문제 대부분 이렇게 해결돼요!', psychology: 'PASONA-S' },
+    day2: { text: '[마비즈] 💝 신청자 한정 특별 혜택 확인하세요!', psychology: 'PASONA-O' },
+    day3: { text: '[마비즈] 마감 임박! 지금 신청하시면 추가 보너스를 드립니다!', psychology: 'PASONA-A' },
+  },
+};
+
 const HtmlEditor = dynamic(
   () => import("@/components/editor/HtmlEditor").then((m) => m.HtmlEditor),
   { ssr: false, loading: () => <div className="h-96 bg-gray-100 animate-pulse rounded-xl" /> }
@@ -65,6 +215,13 @@ export default function NewLandingPage() {
   const [error, setError]               = useState("");
   const [groups, setGroups]             = useState<{ id: string; name: string; funnelId: string | null }[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState("");
+
+  // Step 1-5: Russell Brunson 형식 선택
+  const [pageFormat, setPageFormat]     = useState<PageFormat>('hybrid');
+  const [expectedMetrics, setExpectedMetrics] = useState<{ current: number; target: number; lift: number }>({ current: 22, target: 58, lift: 164 });
+  const [showExpectationModal, setShowExpectationModal] = useState(false);
+  const [ctaType, setCtaType]           = useState<string>('default');
+  const [smsDayRange, setSmsDayRange]   = useState<'0-3' | null>(null);
 
   // HTML 에디터 — 백지 시작
   const [html, setHtml] = useState("");
@@ -131,6 +288,17 @@ export default function NewLandingPage() {
       .catch(err => { if (err instanceof Error && err.name === 'AbortError') return; });
     return () => ctrl.abort();
   }, []);
+
+  // Step 1: 형식 변경 시 기대값 자동 계산 + 모달 표시
+  useEffect(() => {
+    const metric = EXPECTED_CONVERSION_BY_FORMAT[pageFormat];
+    setExpectedMetrics({
+      current: metric.baseline,
+      target: metric.optimized,
+      lift: metric.lift,
+    });
+    setShowExpectationModal(true);
+  }, [pageFormat]);
 
   const handleTitleChange = (t: string) => {
     setTitle(t);
@@ -414,6 +582,10 @@ ${footerBlock}
       ...(completionPageUrl  ? { completionPageUrl }  : {}),
       ...(headerScript       ? { headerScript }       : {}),
       ...(description        ? { description }        : {}),
+      // Step 1-5: Russell Brunson 형식, CTA, SMS 자동화 추가
+      pageFormat,
+      ctaType,
+      ...(smsDayRange ? { smsDayRange } : {}),
       ...(paymentEnabled ? {
         paymentEnabled: true, paymentType, productName,
         productPrice: parseInt(productPrice) || 0,
@@ -500,8 +672,122 @@ ${footerBlock}
 
         {error && <p className="text-red-500 text-sm px-4 py-2 bg-red-50 border-b border-red-100 shrink-0">{error}</p>}
 
+        {/* Step 1: 기대효과 팝업 모달 */}
+        {showExpectationModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl p-6 max-w-md shadow-2xl">
+              <h3 className="text-lg font-bold mb-4 text-gray-900">이 형식 선택 시 기대 효과</h3>
+              <div className="space-y-4 mb-6">
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm text-blue-600 font-medium mb-1">현재 기대 전환율</p>
+                  <p className="text-2xl font-bold text-gray-900">{expectedMetrics.current}%</p>
+                </div>
+                <div className="flex items-center justify-center">
+                  <div className="text-2xl text-yellow-500">⬇️</div>
+                </div>
+                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                  <p className="text-sm text-green-600 font-medium mb-1">심리학 최적화 후</p>
+                  <p className="text-2xl font-bold text-gray-900">{expectedMetrics.target}%</p>
+                  <p className="text-sm text-green-600 font-semibold mt-1">+{expectedMetrics.lift}% 증가</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowExpectationModal(false)}
+                className="w-full bg-yellow-400 text-yellow-900 font-bold py-2.5 rounded-lg hover:bg-yellow-500 transition-colors"
+              >
+                확인 후 계속하기
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* 스크롤 본문 */}
         <div className="flex-1 overflow-y-auto">
+
+          {/* Step 1: 형식 선택 카드 */}
+          <div className="px-4 py-4 bg-white border-b border-gray-100">
+            <p className="text-sm font-semibold text-gray-800 mb-3">Step 1: 랜딩페이지 형식 선택</p>
+            <div className="grid grid-cols-4 gap-2">
+              {(['squeeze', 'vsl', 'webinar', 'funnel', 'tripwire', 'downsell', 'launch', 'hybrid'] as PageFormat[]).map(fmt => (
+                <button
+                  key={fmt}
+                  onClick={() => setPageFormat(fmt)}
+                  className={`p-3 rounded-lg border-2 text-center transition ${
+                    pageFormat === fmt
+                      ? 'border-yellow-400 bg-yellow-50 shadow-md'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="text-2xl mb-1">{FORMAT_EMOJI[fmt]}</div>
+                  <div className="text-xs font-bold text-gray-700">{FORMAT_LABELS[fmt]}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Step 2: 이미지 필드 + 위험신호 */}
+          <div className="px-4 py-3 bg-white border-b border-gray-100">
+            {(() => {
+              const requiredFields = IMAGE_FIELDS_BY_FORMAT[pageFormat].filter(f => f.required);
+              const completionRate = requiredFields.length > 0
+                ? Math.round((Math.min(images.length, requiredFields.length) / requiredFields.length) * 100)
+                : 100;
+              return (
+                <>
+                  {completionRate < 100 && (
+                    <div className="mb-3 p-3 bg-blue-50 border-l-4 border-blue-400 rounded">
+                      <div className="flex justify-between mb-2">
+                        <p className="text-sm font-bold text-blue-700">필수 이미지 필드</p>
+                        <span className="text-sm font-bold text-blue-600">{completionRate}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="h-2 rounded-full bg-blue-500 transition-all"
+                          style={{ width: `${completionRate}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {pageFormat !== 'hybrid' && images.length < MIN_IMAGES_BY_FORMAT[pageFormat] && (
+                    <div className="p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded">
+                      <p className="text-sm font-bold text-yellow-700">제안해요</p>
+                      <p className="text-sm text-yellow-600 mt-1">
+                        {FORMAT_LABELS[pageFormat]} 형식은 {MIN_IMAGES_BY_FORMAT[pageFormat]}장 이상을 권장합니다.
+                      </p>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+
+          {/* Step 3: CTA 선택지 */}
+          <div className="px-4 py-4 bg-white border-b border-gray-100">
+            <p className="text-sm font-semibold text-gray-800 mb-3">Step 3: 신청 버튼 심리학 선택</p>
+            <div className="space-y-2">
+              {Object.entries(CTA_PSYCHOLOGY_MAP).map(([key, value]) => (
+                <label
+                  key={key}
+                  className="flex items-center p-3 border-2 rounded-lg hover:bg-gray-50 cursor-pointer transition"
+                  style={{ borderColor: ctaType === key ? '#f59e0b' : '#e5e7eb' }}
+                >
+                  <input
+                    type="radio"
+                    name="cta"
+                    value={key}
+                    checked={ctaType === key}
+                    onChange={(e) => setCtaType(e.target.value)}
+                    className="mr-3 w-4 h-4 accent-yellow-400"
+                  />
+                  <span className="text-lg mr-2">{value.emoji}</span>
+                  <div className="flex-1">
+                    <span className="text-sm font-semibold text-gray-700">{value.text}</span>
+                    <span className="text-xs text-gray-500 ml-2">({value.psychology})</span>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
 
           {/* 에디터 모드 + 그룹 */}
           <div className="px-4 py-3 bg-white border-b border-gray-100 flex items-center gap-3 flex-wrap">
@@ -688,7 +974,34 @@ ${footerBlock}
               <div className="pt-3 border-t border-gray-100 flex items-center gap-2 mt-3">
                 <label className="text-sm text-gray-500 shrink-0 w-20">버튼 텍스트</label>
                 <input type="text" value={buttonTitle} onChange={(e) => setButtonTitle(e.target.value)}
-                  placeholder="신청하기 (기본값)" className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400" />
+                  placeholder={CTA_PSYCHOLOGY_MAP[ctaType]?.text || "신청하기 (기본값)"}
+                  className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400" />
+              </div>
+
+              {/* Step 5: SMS 자동화 미리보기 */}
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <h4 className="font-bold text-sm mb-3 text-blue-700">📨 SMS 자동화 (Day 0-3)</h4>
+                <label className="flex items-center mb-3">
+                  <input
+                    type="checkbox"
+                    checked={smsDayRange === '0-3'}
+                    onChange={(e) => setSmsDayRange(e.target.checked ? '0-3' : null)}
+                    className="mr-2 w-4 h-4 accent-blue-500"
+                  />
+                  <span className="text-sm text-blue-700">Day 0-3 자동화 활성화</span>
+                </label>
+
+                {smsDayRange === '0-3' && SMS_TEMPLATES_BY_FORMAT[pageFormat] && (
+                  <div className="space-y-2 mt-3 max-h-48 overflow-y-auto">
+                    {Object.entries(SMS_TEMPLATES_BY_FORMAT[pageFormat]).map(([dayKey, config]) => (
+                      <div key={dayKey} className="p-2 bg-white rounded border border-blue-100">
+                        <span className="font-bold text-blue-600 text-xs">{dayKey.toUpperCase()}: </span>
+                        <span className="text-xs text-gray-700 font-medium ml-1 italic">({config.psychology})</span>
+                        <p className="text-sm text-gray-600 mt-1 leading-tight">{config.text.substring(0, 90)}...</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>

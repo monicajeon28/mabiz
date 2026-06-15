@@ -810,18 +810,25 @@ model CrmLandingPage {
   smsL6Day1Enabled Boolean @default(true)
   smsL6Day2Enabled Boolean @default(true)
 
+  // Phase 1: Russell Brunson 8가지 형식 + SMS 자동화 (2026-06-15)
+  pageFormat        String    @default("hybrid") @db.VarChar(30)  // squeeze|vsl|webinar|funnel|tripwire|downsell|launch|hybrid
+  ctaType           String    @default("default") @db.VarChar(20) // default|urgent|explore|reserve
+  imageFieldConfig  Json?     // [{fieldId, required, category, ...}]
+
   comments      CrmLandingComment[]
   group         ContactGroup?            @relation(fields: [groupId], references: [id])
   organization  Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   registrations CrmLandingRegistration[]
   shares        CrmLandingShare[]
   images        CrmLandingPageImage[]
+  smsSequences  CrmLandingPageSms[]      @relation("PageSmsSequences")
 
   @@unique([slug, organizationId])
   @@unique([organizationId, id])
   @@index([organizationId])
   @@index([organizationId, createdByUserId, createdAt])
   @@index([shortlink]) // shortlink 조회 성능 최적화
+  @@index([organizationId, pageFormat]) // Russell Brunson 형식 필터링 성능
   @@map("CrmLandingPage")
 }
 
@@ -6813,6 +6820,25 @@ model FunnelSmsMessage {
   @@unique([funnelSmsId, order])
   @@index([funnelSmsId])
   @@map("FunnelSmsMessage")
+}
+
+// Phase 1: Landing Page SMS 자동화 시퀀스 (2026-06-15)
+model CrmLandingPageSms {
+  id            String    @id @default(cuid())
+  pageId        String
+  page          CrmLandingPage @relation("PageSmsSequences", fields: [pageId], references: [id], onDelete: Cascade)
+
+  day           Int       // 0, 1, 2, 3
+  text          String    @db.Text
+  schedule      String    // "+0d 09:00", "+1d 10:00" 형식
+  status        String    @default("PENDING") @db.VarChar(20) // PENDING|SENT|FAILED
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([pageId, day])
+  @@index([status])
+  @@map("CrmLandingPageSms")
 }
 
 model ProfitCalculation {
