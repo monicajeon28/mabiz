@@ -46,6 +46,11 @@ type Contact = {
     canRecall: boolean;
   } | null;
   visibility?: string;
+  sharedWith?: Array<{
+    sharedBy: string;
+    createdAt: string;
+  }>;
+  sharedByName?: string;
 };
 
 type ContactTab = 'SHARED' | 'ADMIN_ONLY';
@@ -141,6 +146,7 @@ export default function ContactsPage() {
   const [total, setTotal] = useState(0);
   const [sharedCount, setSharedCount] = useState(0);
   const [adminOnlyCount, setAdminOnlyCount] = useState(0);
+  const [adminOnlyStats, setAdminOnlyStats] = useState<{ b2c: number; b2b: number; admin: number }>({ b2c: 0, b2b: 0, admin: 0 });
   const [q, setQ] = useState("");
   const [type, setType] = useState("");
   const [loading, setLoading] = useState(true);
@@ -430,7 +436,12 @@ export default function ContactsPage() {
     if (filterGroupId)            params.set("groupId",    filterGroupId);
     if (filterAssignedTo)         params.set("assignedTo", filterAssignedTo);
     if (selectedTags.length > 0)  params.set("tags",       selectedTags.join(","));
-    if (activeTab === 'ADMIN_ONLY') params.set("visibility", "ADMIN_ONLY");
+    // Team-B: 탭별로 명시적으로 visibility 설정 (SHARED/ADMIN_ONLY)
+    if (activeTab === 'ADMIN_ONLY') {
+      params.set("visibility", "ADMIN_ONLY");
+    } else {
+      params.set("visibility", "SHARED");
+    }
 
     try {
       const res = await fetch(`/api/contacts?${params}`, { signal });
@@ -476,7 +487,11 @@ export default function ContactsPage() {
     };
   }, [q, type, page, filterGroupId, filterSourceType, filterAssignedTo, selectedTags, fetchContacts]);
 
-  useEffect(() => { setPage(1); }, [filterGroupId, filterSourceType, filterAssignedTo, selectedTags]); // P0-6
+  // Team-B: 탭 변경 시 필터 리셋 (혼동 방지)
+  useEffect(() => {
+    setPage(1);
+    // 탭 변경 시 검색어는 유지하되, 필터는 리셋하지 않음 (사용자 의도 존중)
+  }, [filterGroupId, filterSourceType, filterAssignedTo, selectedTags, activeTab]); // P0-6 + activeTab
 
   // [L6] setTimeout cleanup (백업 메시지 자동 숨김)
   useEffect(() => {
@@ -500,7 +515,12 @@ export default function ContactsPage() {
       if (g.ok) setGroups(g.groups ?? []);
       if (a.ok) { setAssignStats(a.stats ?? []); setUnassignedCount(a.unassigned ?? 0); }
       if (shared.ok) setSharedCount(shared.total ?? 0);
-      if (adminOnly?.ok) setAdminOnlyCount(adminOnly.total ?? 0);
+      if (adminOnly?.ok) {
+        setAdminOnlyCount(adminOnly.total ?? 0);
+        if (adminOnly.sourceStats) {
+          setAdminOnlyStats(adminOnly.sourceStats);
+        }
+      }
     }).catch(err => {
       if (err instanceof Error && err.name !== 'AbortError') logger.error('[assign-stats failed]', { err });
     });
@@ -921,41 +941,63 @@ export default function ContactsPage() {
         </div>
       </div>
 
-      {/* Contact 탭 (Team-B UI) */}
+      {/* Contact 탭 (Team-B UI) - 50대 친화 UX */}
       <div className="mb-6">
-        {/* 탭 버튼 */}
-        <div className="flex gap-2 mb-3">
+        {/* 탭 버튼 (크고 명확한 텍스트) */}
+        <div className="flex gap-3 mb-4 flex-wrap">
           <button
             onClick={() => { setActiveTab('SHARED'); setPage(1); }}
-            className={`px-6 py-3 rounded-lg font-semibold text-lg transition ${
+            className={`px-8 py-4 rounded-xl font-bold text-base md:text-lg transition-all transform ${
               activeTab === 'SHARED'
-                ? 'bg-blue-600 text-white shadow-lg'
+                ? 'bg-blue-600 text-white shadow-lg scale-105'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            📋 공유 카테고리 ({sharedCount})
+            📋 공유 카테고리 <br className="md:hidden" />
+            <span className="text-sm md:text-base font-semibold">({sharedCount}명)</span>
           </button>
           {isAdmin && (
             <button
               onClick={() => { setActiveTab('ADMIN_ONLY'); setPage(1); }}
-              className={`px-6 py-3 rounded-lg font-semibold text-lg transition ${
+              className={`px-8 py-4 rounded-xl font-bold text-base md:text-lg transition-all transform ${
                 activeTab === 'ADMIN_ONLY'
-                  ? 'bg-blue-600 text-white shadow-lg'
+                  ? 'bg-blue-600 text-white shadow-lg scale-105'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              🔒 관리자 전용 ({adminOnlyCount})
+              🔒 관리자 전용 <br className="md:hidden" />
+              <span className="text-sm md:text-base font-semibold">({adminOnlyCount}명)</span>
             </button>
           )}
         </div>
 
-        {/* 설명문 */}
-        <div className="px-4 py-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
-          <p className="text-sm text-gray-700">
+        {/* 설명문 (크고 명확) */}
+        <div className="px-4 py-3 bg-blue-50 rounded-xl border-l-4 border-blue-400">
+          <p className="text-base font-medium text-gray-800 leading-relaxed">
             ⓘ {activeTab === 'SHARED'
-              ? '대리점장, 판매원, 관리자 모두 조회 가능한 DB입니다'
-              : '관리자만 관리하는 DB입니다'}
+              ? '대리점장, 판매원, 관리자 모두 함께 보는 고객 정보입니다. 클릭해서 공유할 수 있어요.'
+              : '👔 관리자만 따로 보관하는 특별한 고객 정보입니다. 다른 직원들에게 공유되지 않습니다.'}
           </p>
+          {/* Team-A: 관리자 전용 탭 통계 */}
+          {activeTab === 'ADMIN_ONLY' && adminOnlyCount > 0 && (
+            <div className="mt-3 pt-3 border-t border-blue-200 text-sm text-gray-700 space-y-1">
+              <div className="font-semibold text-gray-800 mb-2">📊 출처별 현황</div>
+              <div className="flex gap-3">
+                <div className="flex items-center gap-1">
+                  <span className="text-base">🌐</span>
+                  <span>B2C 유입: <span className="font-bold text-blue-700">{adminOnlyStats.b2c}명</span></span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-base">🏢</span>
+                  <span>B2B 유입: <span className="font-bold text-blue-700">{adminOnlyStats.b2b}명</span></span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-base">👤</span>
+                  <span>관리자 직입: <span className="font-bold text-blue-700">{adminOnlyStats.admin}명</span></span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -966,26 +1008,26 @@ export default function ContactsPage() {
         </div>
       )}
 
-      {/* 검색 + 필터 */}
-      <div className="flex gap-2 mb-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
+      {/* 검색 + 필터 (50대 친화 - 큰 텍스트) */}
+      <div className="flex gap-2 mb-4 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-600" />
           <input
             type="text"
-            placeholder="이름, 전화번호 검색"
+            placeholder="🔍 이름, 전화번호 검색"
             value={q}
             onChange={(e) => { setQ(e.target.value); setPage(1); }}
-            className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gold-500"
+            className="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-lg text-base font-medium focus:outline-none focus:border-gold-500"
           />
         </div>
         <div className="relative">
-          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
+          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-600" />
           <select
             value={type}
             onChange={(e) => { setType(e.target.value); setPage(1); }}
-            className="pl-9 pr-8 py-2 border border-gray-200 rounded-lg text-sm appearance-none bg-white focus:outline-none focus:border-gold-500"
+            className="pl-11 pr-8 py-3 border border-gray-200 rounded-lg text-base font-medium appearance-none bg-white focus:outline-none focus:border-gold-500"
           >
-            <option value="">전체</option>
+            <option value="">📊 유형 전체</option>
             <option value="잠재고객">잠재고객</option>
             <option value="문자">문자</option>
             <option value="부재">부재</option>
@@ -1050,16 +1092,16 @@ export default function ContactsPage() {
         )}
       </div>
 
-      {/* P0-6: 출처별 필터 칩 */}
-      <div className="flex gap-2 flex-wrap px-0 pb-2">
+      {/* P0-6: 출처별 필터 칩 (50대 친화 - 큰 폰트) */}
+      <div className="flex gap-2 flex-wrap px-0 pb-3">
         {Object.entries(SOURCE_TYPE_LABELS).map(([key, { icon, label, color }]) => (
           <button
             key={key}
             onClick={() => setFilterSourceType(filterSourceType === key ? "" : key)}
-            className={`text-sm px-2.5 py-1 rounded-full transition-colors ${
+            className={`text-sm font-medium px-3.5 py-2 rounded-full transition-all ${
               filterSourceType === key
-                ? `${color} font-bold`
-                : `${color} hover:opacity-80`
+                ? `${color} font-bold shadow-md ring-2 ring-offset-1`
+                : `${color} hover:shadow-sm`
             }`}
           >
             {icon} {label}
@@ -1067,37 +1109,37 @@ export default function ContactsPage() {
         ))}
       </div>
 
-      {/* 담당자별 통계 바 */}
+      {/* 담당자별 통계 바 (50대 친화) */}
       {assignStats.length > 0 && (
-        <div className="flex gap-2 flex-wrap px-0 pb-2">
+        <div className="flex gap-2 flex-wrap px-0 pb-3">
           {assignStats.filter(s => s.count > 0).map((s) => (
             <button key={s.userId} onClick={() => setFilterAssignedTo(s.userId === filterAssignedTo ? "" : s.userId)}
-              className={`text-sm px-2.5 py-1 rounded-full transition-colors ${filterAssignedTo === s.userId ? "bg-purple-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-purple-100"}`}>
-              {s.displayName} <span className="font-bold">{s.count}</span>
+              className={`text-sm font-medium px-3.5 py-2 rounded-full transition-all ${filterAssignedTo === s.userId ? "bg-purple-600 text-white shadow-md ring-2 ring-purple-200" : "bg-gray-100 text-gray-700 hover:bg-purple-100"}`}>
+              {s.displayName} <span className="font-bold text-base">{s.count}</span>
             </button>
           ))}
           {unassignedCount > 0 && (
             <button onClick={() => setFilterAssignedTo(filterAssignedTo === "unassigned" ? "" : "unassigned")}
-              className={`text-sm px-2.5 py-1 rounded-full transition-colors ${filterAssignedTo === "unassigned" ? "bg-red-600 text-white" : "bg-red-50 text-red-600 hover:bg-red-100"}`}>
-              미배정 <span className="font-bold">{unassignedCount}</span>
+              className={`text-sm font-medium px-3.5 py-2 rounded-full transition-all ${filterAssignedTo === "unassigned" ? "bg-red-600 text-white shadow-md ring-2 ring-red-200" : "bg-red-50 text-red-700 hover:bg-red-100"}`}>
+              미배정 <span className="font-bold text-base">{unassignedCount}</span>
             </button>
           )}
         </div>
       )}
 
-      {/* 태그 칩 필터 */}
+      {/* 태그 칩 필터 (50대 친화) */}
       {allTags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 px-0 pb-3">
+        <div className="flex flex-wrap gap-2 px-0 pb-3">
           {allTags.map(tag => (
             <button
               key={tag}
               onClick={() => setSelectedTags(prev =>
                 prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
               )}
-              className={`px-2.5 py-1 rounded-full text-sm font-medium transition-colors ${
+              className={`px-3.5 py-2 rounded-full text-sm font-medium transition-all ${
                 selectedTags.includes(tag)
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-200'
+                  : 'bg-gray-100 text-gray-700 hover:bg-blue-100'
               }`}
             >
               #{tag}
@@ -1106,9 +1148,9 @@ export default function ContactsPage() {
           {selectedTags.length > 0 && (
             <button
               onClick={() => setSelectedTags([])}
-              className="px-2.5 py-1 rounded-full text-sm text-gray-600 hover:text-gray-600"
+              className="px-3 py-2 rounded-full text-sm text-gray-600 font-medium hover:text-gray-800 hover:bg-gray-50"
             >
-              초기화
+              🔄 초기화
             </button>
           )}
         </div>
@@ -1331,10 +1373,32 @@ export default function ContactsPage() {
                     </div>
 
                     {/* 출처 정보 */}
-                    {(c.sourceType || c.createdAt) && (
+                    {(c.sourceType || c.createdAt || c.sharedByName) && (
                       <div className="text-sm text-gray-600 mt-2 flex items-center gap-2 flex-wrap">
                         {c.createdAt && <span className="text-gray-600">신청: {formatCreatedAt(c.createdAt)}</span>}
-                        {c.sourceType && (
+                        {activeTab === 'ADMIN_ONLY' && (
+                          // 관리자전용 탭: 출처 강조 표시
+                          (() => {
+                            let label = '기타 유입';
+                            let icon = '❓';
+                            if (c.sourceType === 'user') {
+                              label = 'B2C 유입';
+                              icon = '🌐';
+                            } else if (c.sourceType === 'inquiry') {
+                              label = 'B2B 유입';
+                              icon = '🏢';
+                            } else if (!c.sourceType || c.sourceType === 'UNKNOWN') {
+                              label = '관리자 직입';
+                              icon = '👤';
+                            }
+                            return (
+                              <span className="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-semibold">
+                                {icon} {label}
+                              </span>
+                            );
+                          })()
+                        )}
+                        {activeTab === 'SHARED' && c.sourceType && (
                           <>
                             <span className={`px-2 py-0.5 rounded-full ${SOURCE_TYPE_LABELS[c.sourceType]?.color || "bg-gray-100 text-gray-600"}`}>
                               {SOURCE_TYPE_LABELS[c.sourceType]?.icon} {getSourceLabel(c)}
@@ -1343,6 +1407,12 @@ export default function ContactsPage() {
                             {c.affiliateAgentName && <span className="text-gray-600">판매원: {c.affiliateAgentName}</span>}
                             {c.inquiryProductCode && <span className="text-gray-600">상품: {c.inquiryProductCode}</span>}
                           </>
+                        )}
+                        {/* Team-A: 공유 출처 표시 (공유 탭에서만) */}
+                        {activeTab === 'SHARED' && c.sharedByName && (
+                          <span className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 font-medium">
+                            ✅ {c.sharedByName}가 공유
+                          </span>
                         )}
                       </div>
                     )}

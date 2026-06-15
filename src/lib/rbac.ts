@@ -7,6 +7,7 @@
  *   AGENT         - 자기에게 배당된 고객만 접근, 삭제 불가 (330만 직속판매원)
  *   FREE_SALES    - 내 판매 현황 + 어필리에이트 링크만 (고객 DB 접근 없음)
  */
+import { ContactVisibility } from "@prisma/client";
 
 import 'server-only';
 import { getMabizSession } from '@/lib/auth';
@@ -81,7 +82,7 @@ export function buildContactWhere(ctx: AuthContext, extra: Record<string, unknow
     return {
       ...extra,
       organizationId: ctx.organizationId!,
-      visibility: { not: "ADMIN_ONLY" }, // 대리점장은 ADMIN_ONLY 제외
+      visibility: { not: ContactVisibility.ADMIN_ONLY }, // 대리점장은 ADMIN_ONLY 제외
       deletedAt: null,
     };
   }
@@ -94,7 +95,7 @@ export function buildContactWhere(ctx: AuthContext, extra: Record<string, unknow
       { assignedUserId: ctx.userId }, // 할당된 고객 (idx_contact_org_assigned)
       { createdBy: ctx.userId }, // 작성한 고객 (idx_contact_org_created_by)
     ],
-    visibility: { not: "ADMIN_ONLY" },
+    visibility: { not: ContactVisibility.ADMIN_ONLY },
     deletedAt: null,
   };
 }
