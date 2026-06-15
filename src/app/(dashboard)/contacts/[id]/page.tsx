@@ -18,6 +18,7 @@ import ContactSmsTab from "./ContactSmsTab";
 import ContactAffiliateCard from "./ContactAffiliateCard";
 import ContactRiskPanel from "./ContactRiskPanel";
 import { SignupHistoryTab } from "./SignupHistoryTab";
+import { FunnelSetupPanel } from "./FunnelSetupPanel";
 import { getAllObjectionIds, getObjectionData } from "@/lib/objections/validation";
 import objectionsData from "@/../TRACK_A_OBJECTIONS.json";
 import { Contact, CallLog, Memo } from "@/types/contact";
@@ -1095,6 +1096,9 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
 
       {/* Accordion Sections (그룹/분석/주의신호/신청이력/예약) */}
       <div className="space-y-2">
+        {/* Funnel Setup Panel (Russell Brunson) */}
+        <FunnelSetupPanel contactId={id} contactName={contact.name} />
+
         {/* Accordion: 그룹 관리 */}
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <button
