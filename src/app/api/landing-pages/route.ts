@@ -6,6 +6,8 @@ import { logger } from "@/lib/logger";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
 import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
 import { generateUniqueShortlink } from "@/lib/landing-page-utils";
+import { generateSmsSequence } from "@/lib/landing-sms-generator";
+import { IMAGE_FIELDS_BY_FORMAT, CTA_PSYCHOLOGY_MAP } from "@/lib/landing-page-constants";
 
 // GET /api/landing-pages
 export async function GET() {
@@ -113,13 +115,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '자기 조직만 랜딩페이지 생성 가능합니다' }, { status: 403 });
     }
 
-    const { title, slug, htmlContent, groupId, editorMode, commentEnabled, ...rest } = body;
+    const {
+      title, slug, htmlContent, groupId, editorMode, commentEnabled,
+      pageFormat, ctaType, smsDayRange, companyName,
+      ...rest
+    } = body;
 
     if (!title?.trim() || !slug?.trim()) {
       return NextResponse.json({ ok: false, message: "제목과 슬러그는 필수입니다." }, { status: 400 });
     }
 
     const mode = editorMode === 'image' ? 'image' : 'html';
+
+    // Phase 3: pageFormat 유효성 검증
+    const VALID_FORMATS = ['squeeze', 'vsl', 'webinar', 'funnel', 'tripwire', 'downsell', 'launch', 'hybrid'];
+    const validFormat = VALID_FORMATS.includes(pageFormat) ? pageFormat : 'hybrid';
+
+    // Phase 3: ctaType 유효성 검증
+    const VALID_CTA_TYPES = ['default', 'urgent', 'explore', 'reserve'];
+    const validCtaType = VALID_CTA_TYPES.includes(ctaType) ? ctaType : 'default';
 
     // 무작위 8자 shortlink 생성 (충돌 시 자동 재시도)
     const shortlink = await generateUniqueShortlink();
@@ -133,6 +147,10 @@ export async function POST(req: Request) {
           groupId: groupId ?? null,
           editorMode: mode,
           commentEnabled: commentEnabled === true,
+          // Phase 3: pageFormat + ctaType + imageFieldConfig
+          pageFormat: validFormat,
+          ctaType: validCtaType,
+          imageFieldConfig: IMAGE_FIELDS_BY_FORMAT[validFormat] ?? {},
           // 에디터 고도화 필드
           ...(rest.description      ? { description: rest.description }            : {}),
           ...(rest.buttonTitle      ? { buttonTitle: rest.buttonTitle }             : {}),
@@ -172,6 +190,19 @@ export async function POST(req: Request) {
 
       return newPage;
     });
+
+    // Phase 3: SMS 시퀀스 자동 생성 (비동기, 트랜잭션 외부)
+    // smsDayRange가 "0-3"이고 ctaType이 valid하면 SMS 생성
+    if (smsDayRange === "0-3") {
+      const ctaData = CTA_PSYCHOLOGY_MAP[validCtaType] || CTA_PSYCHOLOGY_MAP.default;
+      await generateSmsSequence(
+        page.id,
+        validFormat,
+        ctaData.text,
+        companyName || "마비즈",
+        smsDayRange
+      );
+    }
 
     logger.log("[POST /api/landing-pages] 생성", { id: page.id, shortlink: page.shortlink });
     return NextResponse.json({ ok: true, page }, { status: 201 });

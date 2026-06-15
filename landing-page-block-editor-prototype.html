@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>마비즈 CRM - Landing Page 블록 에디터 (프로토타입)</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --blue: #3b82f6;
+      --blue-dark: #1e40af;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-400: #9ca3af;
+      --gray-500: #6b7280;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --red: #ef4444;
+      --green: #10b981;
+      --purple: #8b5cf6;
+      --orange: #f59e0b;
+      --border-radius: 0.75rem;
+      --transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+      background: var(--gray-100);
+      color: var(--gray-700);
+      line-height: 1.5;
+      overflow: hidden;
+    }
+
+    /* ─── 전체 레이아웃 ─── */
+    .editor-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    .editor-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.5rem;
+      background: white;
+      border-bottom: 1px solid var(--gray-200);
+      gap: 1.5rem;
+    }
+
+    .editor-header-left {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .editor-header-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--gray-700);
+    }
+
+    .editor-header-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-left: auto;
+    }
+
+    .btn {
+      padding: 0.5rem 1rem;
+      border: 1px solid var(--gray-300);
+      background: white;
+      color: var(--gray-700);
+      border-radius: var(--border-radius);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn:hover {
+      background: var(--gray-50);
+      border-color: var(--gray-400);
+    }
+
+    .btn-primary {
+      background: var(--blue);
+      color: white;
+      border-color: var(--blue);
+    }
+
+    .btn-primary:hover {
+      background: var(--blue-dark);
+      border-color: var(--blue-dark);
+    }
+
+    .btn-sm {
+      padding: 0.375rem 0.75rem;
+      font-size: 0.8125rem;
+    }
+
+    .btn-icon {
+      width: 2rem;
+      height: 2rem;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.5rem;
+    }
+
+    /* ─── 메인 컨텐츠 ─── */
+    .editor-body {
+      display: flex;
+      gap: 1px;
+      flex: 1;
+      background: var(--gray-200);
+      overflow: hidden;
+    }
+
+    /* ─── 좌측 팔레트 ─── */
+    .palette {
+      width: 250px;
+      background: white;
+      border-right: 1px solid var(--gray-200);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .palette-header {
+      padding: 1rem;
+      border-bottom: 1px solid var(--gray-200);
+    }
+
+    .palette-search {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid var(--gray-300);
+      border-radius: var(--border-radius);
+      font-size: 0.875rem;
+    }
+
+    .palette-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.75rem;
+    }
+
+    .palette-section {
+      margin-bottom: 1.5rem;
+    }
+
+    .palette-section-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--gray-500);
+      padding: 0.5rem 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .block-item {
+      padding: 0.75rem;
+      background: var(--gray-50);
+      border: 1px solid var(--gray-200);
+      border-radius: var(--border-radius);
+      margin-bottom: 0.5rem;
+      cursor: grab;
+      transition: var(--transition);
+      user-select: none;
+    }
+
+    .block-item:hover {
+      background: var(--gray-100);
+      border-color: var(--blue);
+      box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+    }
+
+    .block-item.dragging {
+      opacity: 0.5;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .block-item-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--gray-700);
+    }
+
+    .block-item-icon {
+      font-size: 1.25rem;
+    }
+
+    .block-item-label {
+      flex: 1;
+    }
+
+    .block-item-help {
+      width: 1.25rem;
+      height: 1.25rem;
+      border-radius: 50%;
+      background: var(--gray-200);
+      border: none;
+      color: var(--gray-600);
+      cursor: help;
+      font-size: 0.75rem;
+      font-weight: 700;
+      transition: var(--transition);
+    }
+
+    .block-item-help:hover {
+      background: var(--blue);
+      color: white;
+    }
+
+    .block-item-preview {
+      font-size: 0.75rem;
+      color: var(--gray-500);
+      background: white;
+      padding: 0.5rem;
+      border-radius: 0.375rem;
+      margin-bottom: 0.375rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .block-item-hint {
+      font-size: 0.7rem;
+      color: var(--gray-400);
+      font-style: italic;
+    }
+
+    /* ─── 중앙 캔버스 ─── */
+    .canvas-container {
+      flex: 1;
+      background: var(--gray-50);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .canvas-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      background: white;
+      border-bottom: 1px solid var(--gray-200);
+      font-size: 0.875rem;
+      color: var(--gray-600);
+    }
+
+    .canvas-responsive {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .canvas-responsive-tab {
+      padding: 0.375rem 0.75rem;
+      background: var(--gray-100);
+      border: 1px solid var(--gray-300);
+      border-radius: 0.375rem;
+      cursor: pointer;
+      font-size: 0.8125rem;
+      transition: var(--transition);
+    }
+
+    .canvas-responsive-tab.active {
+      background: var(--blue);
+      color: white;
+      border-color: var(--blue);
+    }
+
+    .canvas-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 2rem;
+      display: flex;
+      justify-content: center;
+    }
+
+    .canvas-inner {
+      width: 100%;
+      max-width: 800px;
+      background: white;
+      border-radius: var(--border-radius);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      padding: 2rem;
+      min-height: 600px;
+    }
+
+    .canvas-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 300px;
+      color: var(--gray-400);
+      text-align: center;
+      gap: 1rem;
+    }
+
+    .canvas-empty-icon {
+      font-size: 4rem;
+    }
+
+    .canvas-empty-text {
+      font-size: 1rem;
+      color: var(--gray-500);
+      font-weight: 500;
+    }
+
+    .canvas-empty-hint {
+      font-size: 0.875rem;
+      color: var(--gray-400);
+    }
+
+    .block {
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      background: var(--gray-50);
+      border: 2px solid var(--gray-300);
+      border-radius: var(--border-radius);
+      position: relative;
+      transition: var(--transition);
+    }
+
+    .block.selected {
+      border-color: var(--blue);
+      background: white;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .block-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--gray-500);
+      margin-bottom: 0.75rem;
+    }
+
+    .block-content {
+      color: var(--gray-700);
+      margin-bottom: 1rem;
+    }
+
+    .block-hero {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 3rem 2rem;
+      text-align: center;
+    }
+
+    .block-hero-title {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+
+    .block-hero-subtitle {
+      font-size: 1.125rem;
+      margin-bottom: 1.5rem;
+      opacity: 0.9;
+    }
+
+    .block-hero-btn {
+      background: white;
+      color: #667eea;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 0.375rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .block-controls {
+      display: flex;
+      gap: 0.5rem;
+      position: absolute;
+      right: 1rem;
+      top: 1rem;
+      background: white;
+      padding: 0.375rem;
+      border-radius: 0.5rem;
+      border: 1px solid var(--gray-300);
+    }
+
+    .block-controls button {
+      width: 1.75rem;
+      height: 1.75rem;
+      padding: 0;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--gray-500);
+      font-size: 0.9rem;
+      transition: var(--transition);
+      border-radius: 0.375rem;
+    }
+
+    .block-controls button:hover {
+      background: var(--gray-100);
+      color: var(--gray-700);
+    }
+
+    .block-controls button.delete:hover {
+      background: var(--red);
+      color: white;
+    }
+
+    /* ─── 우측 설정 패널 ─── */
+    .settings {
+      width: 250px;
+      background: white;
+      border-left: 1px solid var(--gray-200);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .settings-header {
+      padding: 1rem;
+      border-bottom: 1px solid var(--gray-200);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .settings-title {
+      font-weight: 600;
+      color: var(--gray-700);
+      flex: 1;
+    }
+
+    .settings-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+    }
+
+    .settings-empty {
+      text-align: center;
+      color: var(--gray-400);
+      padding: 2rem 1rem;
+      font-size: 0.875rem;
+    }
+
+    .field-group {
+      margin-bottom: 1.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--gray-100);
+    }
+
+    .field-group:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .field-group-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--gray-500);
+      margin-bottom: 0.75rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .field-group-title:hover {
+      color: var(--gray-600);
+    }
+
+    .field {
+      margin-bottom: 1rem;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .field-label {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--gray-700);
+      margin-bottom: 0.375rem;
+    }
+
+    .field-help {
+      width: 1.125rem;
+      height: 1.125rem;
+      border-radius: 50%;
+      background: var(--gray-200);
+      border: none;
+      color: var(--gray-600);
+      cursor: help;
+      font-size: 0.75rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: var(--transition);
+    }
+
+    .field-help:hover {
+      background: var(--blue);
+      color: white;
+    }
+
+    .field-input {
+      padding: 0.5rem;
+      border: 1px solid var(--gray-300);
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      transition: var(--transition);
+    }
+
+    .field-input:focus {
+      outline: none;
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .field-textarea {
+      min-height: 4rem;
+      resize: vertical;
+    }
+
+    .field-select {
+      padding: 0.5rem;
+      border: 1px solid var(--gray-300);
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      background: white;
+    }
+
+    .field-color {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .field-color-preview {
+      width: 2.5rem;
+      height: 2.5rem;
+      border: 1px solid var(--gray-300);
+      border-radius: 0.375rem;
+      cursor: pointer;
+    }
+
+    .field-color-input {
+      flex: 1;
+      padding: 0.5rem;
+      border: 1px solid var(--gray-300);
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      font-family: monospace;
+    }
+
+    .field-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .toggle-switch {
+      width: 2.25rem;
+      height: 1.25rem;
+      background: var(--gray-300);
+      border: none;
+      border-radius: 9999px;
+      cursor: pointer;
+      position: relative;
+      transition: var(--transition);
+    }
+
+    .toggle-switch.active {
+      background: var(--green);
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      width: 1rem;
+      height: 1rem;
+      background: white;
+      border-radius: 50%;
+      top: 0.125rem;
+      left: 0.125rem;
+      transition: var(--transition);
+    }
+
+    .toggle-switch.active::after {
+      left: 1rem;
+    }
+
+    .settings-footer {
+      padding: 1rem;
+      border-top: 1px solid var(--gray-200);
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .settings-footer button {
+      flex: 1;
+      padding: 0.75rem;
+      border: 1px solid var(--gray-300);
+      background: white;
+      border-radius: var(--border-radius);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 600;
+      transition: var(--transition);
+    }
+
+    .settings-footer button:first-child:hover {
+      background: var(--gray-50);
+    }
+
+    .settings-footer button:last-child {
+      background: var(--blue);
+      color: white;
+      border-color: var(--blue);
+    }
+
+    .settings-footer button:last-child:hover {
+      background: var(--blue-dark);
+    }
+
+    /* ─── 토스트 ─── */
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      padding: 1rem 1.5rem;
+      background: var(--gray-700);
+      color: white;
+      border-radius: var(--border-radius);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      animation: slideUp 300ms ease-out;
+      z-index: 1000;
+    }
+
+    @keyframes slideUp {
+      from {
+        transform: translateY(1rem);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    /* ─── 모달 ─── */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: var(--border-radius);
+      padding: 1.5rem;
+      max-width: 400px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--gray-700);
+    }
+
+    .modal-body {
+      font-size: 0.875rem;
+      color: var(--gray-600);
+      margin-bottom: 1.5rem;
+      line-height: 1.6;
+    }
+
+    .modal-buttons {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: flex-end;
+    }
+
+    .modal-buttons button {
+      padding: 0.5rem 1rem;
+      border: 1px solid var(--gray-300);
+      background: white;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 600;
+      transition: var(--transition);
+    }
+
+    .modal-buttons button:hover {
+      background: var(--gray-50);
+    }
+
+    .modal-buttons button.delete {
+      background: var(--red);
+      color: white;
+      border-color: var(--red);
+    }
+
+    .modal-buttons button.delete:hover {
+      background: #dc2626;
+    }
+
+    /* ─── 반응형 ─── */
+    @media (max-width: 1200px) {
+      .palette {
+        width: 200px;
+      }
+      .settings {
+        width: 200px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .editor-body {
+        flex-direction: column;
+      }
+      .palette {
+        width: 100%;
+        height: 150px;
+        border-right: none;
+        border-bottom: 1px solid var(--gray-200);
+      }
+      .settings {
+        width: 100%;
+        height: 150px;
+        border-left: none;
+        border-top: 1px solid var(--gray-200);
+      }
+      .canvas-scroll {
+        padding: 1rem;
+      }
+      .canvas-inner {
+        padding: 1rem;
+      }
+    }
+
+    /* ─── 스크롤바 ─── */
+    .palette-scroll::-webkit-scrollbar,
+    .canvas-scroll::-webkit-scrollbar,
+    .settings-scroll::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .palette-scroll::-webkit-scrollbar-track,
+    .canvas-scroll::-webkit-scrollbar-track,
+    .settings-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .palette-scroll::-webkit-scrollbar-thumb,
+    .canvas-scroll::-webkit-scrollbar-thumb,
+    .settings-scroll::-webkit-scrollbar-thumb {
+      background: var(--gray-300);
+      border-radius: 4px;
+    }
+
+    .palette-scroll::-webkit-scrollbar-thumb:hover,
+    .canvas-scroll::-webkit-scrollbar-thumb:hover,
+    .settings-scroll::-webkit-scrollbar-thumb:hover {
+      background: var(--gray-400);
+    }
+  </style>
+</head>
+<body>
+  <div class="editor-container">
+    <!-- 헤더 -->
+    <div class="editor-header">
+      <div class="editor-header-left">
+        <button class="btn btn-icon">←</button>
+        <div class="editor-header-title">파일럿 모집 페이지</div>
+      </div>
+      <div class="editor-header-controls">
+        <button class="btn">👁️ 미리보기</button>
+        <div style="width: 1px; height: 1.5rem; background: var(--gray-300);"></div>
+        <button class="btn" id="saveDraft">💾 임시저장</button>
+        <button class="btn btn-primary">📤 배포</button>
+      </div>
+    </div>
+
+    <!-- 메인 컨텐츠 -->
+    <div class="editor-body">
+      <!-- 좌측 팔레트 -->
+      <div class="palette">
+        <div class="palette-header">
+          <input type="text" class="palette-search" placeholder="🔍 블록 검색..." />
+        </div>
+        <div class="palette-scroll">
+          <!-- 섹션 1: Hero & CTA -->
+          <div class="palette-section">
+            <div class="palette-section-title">🎯 Hero & CTA</div>
+
+            <div class="block-item" draggable="true" data-type="hero">
+              <div class="block-item-header">
+                <span class="block-item-icon">🎯</span>
+                <span class="block-item-label">Hero 섹션</span>
+                <button class="block-item-help">?</button>
+              </div>
+              <div class="block-item-preview">큰 제목 + 배경</div>
+              <div class="block-item-hint">드래그해서 추가</div>
+            </div>
+
+            <div class="block-item" draggable="true" data-type="button">
+              <div class="block-item-header">
+                <span class="block-item-icon">🎯</span>
+                <span class="block-item-label">CTA 버튼</span>
+                <button class="block-item-help">?</button>
+              </div>
+              <div class="block-item-preview">클릭 유도 버튼</div>
+              <div class="block-item-hint">드래그해서 추가</div>
+            </div>
+
+            <div class="block-item" draggable="true" data-type="feature">
+              <div class="block-item-header">
+                <span class="block-item-icon">🎯</span>
+                <span class="block-item-label">특징 리스트</span>
+                <button class="block-item-help">?</button>
+              </div>
+              <div class="block-item-preview">3개 기능 카드</div>
+              <div class="block-item-hint">드래그해서 추가</div>
+            </div>
+          </div>
+
+          <!-- 섹션 2: 텍스트 -->
+          <div class="palette-section">
+            <div class="palette-section-title">📝 텍스트</div>
+
+            <div class="block-item" draggable="true" data-type="heading">
+              <div class="block-item-header">
+                <span class="block-item-icon">📝</span>
+                <span class="block-item-label">제목 (H1-H6)</span>
+                <button class="block-item-help">?</button>
+              </div>
+              <div class="block-item-preview">구간별 섹션 제목</div>
+              <div class="block-item-hint">드래그해서 추가</div>
+            </div>
+
+            <div class="block-item" draggable="true" data-type="paragraph">
+              <div class="block-item-header">
+                <span class="block-item-icon">📝</span>
+                <span class="block-item-label">단락</span>
+                <button class="block-item-help">?</button>
+              </div>
+              <div class="block-item-preview">본문 텍스트</div>
+              <div class="block-item-hint">드래그해서 추가</div>
+            </div>
+          </div>
+
+          <!-- 섹션 3: 이미지 -->
+          <div class="palette-section">
+            <div class="palette-section-title">🖼️ 이미지</div>
+
+            <div class="block-item" draggable="true" data-type="image">
+              <div class="block-item-header">
+                <span class="block-item-icon">🖼️</span>
+                <span class="block-item-label">이미지</span>
+                <button class="block-item-help">?</button>
+              </div>
+              <div class="block-item-preview">사진 또는 스크린샷</div>
+              <div class="block-item-hint">드래그해서 추가</div>
+            </div>
+          </div>
+
+          <!-- 섹션 4: 폼 -->
+          <div class="palette-section">
+            <div class="palette-section-title">📋 폼</div>
+
+            <div class="block-item" draggable="true" data-type="form">
+              <div class="block-item-header">
+                <span class="block-item-icon">📋</span>
+                <span class="block-item-label">신청 폼</span>
+                <button class="block-item-help">?</button>
+              </div>
+              <div class="block-item-preview">이름, 전화번호, 이메일</div>
+              <div class="block-item-hint">드래그해서 추가</div>
+            </div>
+          </div>
+
+          <!-- 섹션 5: 기타 -->
+          <div class="palette-section">
+            <div class="palette-section-title">🎨 레이아웃</div>
+
+            <div class="block-item" draggable="true" data-type="spacer">
+              <div class="block-item-header">
+                <span class="block-item-icon">🎨</span>
+                <span class="block-item-label">공백</span>
+                <button class="block-item-help">?</button>
+              </div>
+              <div class="block-item-preview">여백 추가</div>
+              <div class="block-item-hint">드래그해서 추가</div>
+            </div>
+
+            <div class="block-item" draggable="true" data-type="divider">
+              <div class="block-item-header">
+                <span class="block-item-icon">🎨</span>
+                <span class="block-item-label">구분선</span>
+                <button class="block-item-help">?</button>
+              </div>
+              <div class="block-item-preview">섹션 구분</div>
+              <div class="block-item-hint">드래그해서 추가</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 중앙 캔버스 -->
+      <div class="canvas-container">
+        <!-- 반응형 탭 -->
+        <div class="canvas-controls">
+          <span>반응형 미리보기:</span>
+          <div class="canvas-responsive">
+            <button class="canvas-responsive-tab active" data-size="100%">💻 PC</button>
+            <button class="canvas-responsive-tab" data-size="768px">⌨️ 태블릿</button>
+            <button class="canvas-responsive-tab" data-size="375px">📱 모바일</button>
+          </div>
+          <span style="margin-left: auto; font-size: 0.8rem; color: var(--gray-400);">
+            Ctrl+Z: 취소 | Ctrl+Y: 반복
+          </span>
+        </div>
+
+        <!-- 캔버스 -->
+        <div class="canvas-scroll">
+          <div class="canvas-inner" id="canvas" style="width: 100%;">
+            <!-- 처음엔 비어있음 -->
+            <div class="canvas-empty">
+              <div class="canvas-empty-icon">📦</div>
+              <div class="canvas-empty-text">블록을 추가하세요</div>
+              <div class="canvas-empty-hint">좌측 팔레트에서 드래그해주세요</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 우측 설정 패널 -->
+      <div class="settings">
+        <div class="settings-header">
+          <span class="settings-title" id="settingsTitle">설정</span>
+        </div>
+        <div class="settings-scroll" id="settingsContent">
+          <div class="settings-empty">
+            블록을 선택하면<br />설정이 표시됩니다
+          </div>
+        </div>
+        <div class="settings-footer" id="settingsFooter" style="display: none;">
+          <button onclick="resetSettings()">↻ 초기화</button>
+          <button onclick="saveSettings()">✓ 저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 도움말 모달 -->
+  <div class="modal" id="helpModal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-title" id="helpTitle">Hero 섹션</div>
+      <div class="modal-body" id="helpBody">
+        페이지의 가장 눈에 띄는 영역입니다. 사용자의 주의를 끌고 서비스를 간단히 설명합니다.
+        <br /><br />
+        💡 팁: 40글자 이내 제목 추천<br />
+        ❌ 피하기: 긴 문장, 복잡한 단어
+      </div>
+      <div class="modal-buttons">
+        <button onclick="closeHelp()">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 삭제 확인 모달 -->
+  <div class="modal" id="deleteModal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-title">블록을 삭제하시겠어요?</div>
+      <div class="modal-body">
+        이 작업은 실행 취소할 수 없습니다.
+      </div>
+      <div class="modal-buttons">
+        <button onclick="closeDeleteModal()">취소</button>
+        <button class="delete" onclick="confirmDelete()">삭제</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ─── 상태 관리 ───
+    const state = {
+      blocks: [],
+      selectedBlockId: null,
+      nextId: 1,
+      history: {
+        past: [],
+        present: [],
+        future: []
+      }
+    };
+
+    const blockHelps = {
+      hero: {
+        title: 'Hero 섹션',
+        body: '페이지의 가장 눈에 띄는 영역입니다. 제목, 부제목, 배경 이미지를 포함합니다.<br/><br/>💡 팁: 40글자 이내 제목<br/>❌ 피하기: 긴 문장'
+      },
+      button: {
+        title: 'CTA 버튼',
+        body: '사용자가 클릭하도록 유도하는 버튼입니다. 색상, 텍스트, 링크를 커스터마이징할 수 있습니다.<br/><br/>💡 팁: "신청하기", "시작하기" 같은 명확한 텍스트<br/>❌ 피하기: "클릭" 같은 모호한 텍스트'
+      },
+      heading: {
+        title: '제목',
+        body: '섹션별 제목을 추가합니다. H1~H6 크기를 선택할 수 있습니다.<br/><br/>💡 팁: H1은 페이지당 1개, H2는 섹션당 1개<br/>❌ 피하기: 글꼴 크기로 제목 만들기'
+      },
+      image: {
+        title: '이미지',
+        body: '크루즈, 여행 관련 사진을 추가합니다.<br/><br/>💡 팁: 고화질 사진 (최소 800px), 최대 2MB<br/>❌ 피하기: 텍스트가 많은 사진'
+      }
+    };
+
+    // ─── 유틸리티 ───
+    function showToast(message) {
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2000);
+    }
+
+    function openHelp(blockType) {
+      const help = blockHelps[blockType] || blockHelps.hero;
+      document.getElementById('helpTitle').textContent = help.title;
+      document.getElementById('helpBody').innerHTML = help.body;
+      document.getElementById('helpModal').style.display = 'flex';
+    }
+
+    function closeHelp() {
+      document.getElementById('helpModal').style.display = 'none';
+    }
+
+    function openDeleteModal() {
+      document.getElementById('deleteModal').style.display = 'flex';
+    }
+
+    function closeDeleteModal() {
+      document.getElementById('deleteModal').style.display = 'none';
+    }
+
+    function confirmDelete() {
+      if (state.selectedBlockId) {
+        state.blocks = state.blocks.filter(b => b.id !== state.selectedBlockId);
+        state.selectedBlockId = null;
+        closeDeleteModal();
+        renderCanvas();
+        renderSettings();
+        showToast('블록이 삭제되었습니다');
+      }
+    }
+
+    // ─── 블록 추가 ───
+    function addBlock(type) {
+      const block = {
+        id: `block_${state.nextId++}`,
+        type: type,
+        settings: getDefaultSettings(type)
+      };
+      state.blocks.push(block);
+      state.selectedBlockId = block.id;
+      renderCanvas();
+      renderSettings();
+      showToast(`${type} 블록이 추가되었습니다`);
+    }
+
+    function getDefaultSettings(type) {
+      const defaults = {
+        hero: {
+          title: '큰 제목을 입력하세요',
+          subtitle: '부제목을 입력하세요',
+          buttonText: '신청하기',
+          buttonUrl: '#',
+          backgroundColor: '#667eea'
+        },
+        heading: {
+          text: '제목을 입력하세요',
+          level: 'h2',
+          color: '#000000'
+        },
+        paragraph: {
+          text: '텍스트를 입력하세요',
+          color: '#666666'
+        },
+        image: {
+          alt: '이미지 설명',
+          url: 'https://via.placeholder.com/400x300?text=이미지'
+        },
+        button: {
+          text: '버튼 텍스트',
+          url: '#',
+          color: '#3b82f6'
+        },
+        spacer: {
+          height: '40px'
+        },
+        divider: {
+          color: '#e5e7eb'
+        }
+      };
+      return defaults[type] || {};
+    }
+
+    // ─── 캔버스 렌더링 ───
+    function renderCanvas() {
+      const canvas = document.getElementById('canvas');
+
+      if (state.blocks.length === 0) {
+        canvas.innerHTML = `
+          <div class="canvas-empty">
+            <div class="canvas-empty-icon">📦</div>
+            <div class="canvas-empty-text">블록을 추가하세요</div>
+            <div class="canvas-empty-hint">좌측 팔레트에서 드래그해주세요</div>
+          </div>
+        `;
+        return;
+      }
+
+      canvas.innerHTML = state.blocks.map((block, idx) => `
+        <div class="block ${block.id === state.selectedBlockId ? 'selected' : ''}" data-id="${block.id}" onclick="selectBlock('${block.id}')">
+          <div class="block-label">${block.type.toUpperCase()} BLOCK</div>
+          ${renderBlockContent(block)}
+          <div class="block-controls">
+            <button title="위로 이동" onclick="moveBlock(${idx}, -1); event.stopPropagation();">↑</button>
+            <button title="아래로 이동" onclick="moveBlock(${idx}, 1); event.stopPropagation();">↓</button>
+            <button title="복제" onclick="duplicateBlock(${idx}); event.stopPropagation();">⎘</button>
+            <button class="delete" title="삭제" onclick="openDeleteModal(); event.stopPropagation();">✕</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderBlockContent(block) {
+      switch(block.type) {
+        case 'hero':
+          return `
+            <div class="block-hero">
+              <div class="block-hero-title">${block.settings.title}</div>
+              <div class="block-hero-subtitle">${block.settings.subtitle}</div>
+              <button class="block-hero-btn">${block.settings.buttonText}</button>
+            </div>
+          `;
+        case 'heading':
+          const level = block.settings.level || 'h2';
+          return `<${level} style="color: ${block.settings.color}">${block.settings.text}</${level}>`;
+        case 'paragraph':
+          return `<p style="color: ${block.settings.color}">${block.settings.text}</p>`;
+        case 'image':
+          return `<img src="${block.settings.url}" alt="${block.settings.alt}" style="width: 100%; border-radius: 0.5rem;" />`;
+        case 'button':
+          return `<button style="background: ${block.settings.color}; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer;">${block.settings.text}</button>`;
+        case 'spacer':
+          return `<div style="height: ${block.settings.height};"></div>`;
+        case 'divider':
+          return `<hr style="border: none; border-top: 2px solid ${block.settings.color}; margin: 1.5rem 0;" />`;
+        default:
+          return '<p>블록 콘텐츠</p>';
+      }
+    }
+
+    // ─── 블록 선택 ───
+    function selectBlock(blockId) {
+      state.selectedBlockId = blockId;
+      renderCanvas();
+      renderSettings();
+    }
+
+    // ─── 블록 이동 ───
+    function moveBlock(fromIdx, direction) {
+      const toIdx = fromIdx + direction;
+      if (toIdx < 0 || toIdx >= state.blocks.length) return;
+
+      [state.blocks[fromIdx], state.blocks[toIdx]] = [state.blocks[toIdx], state.blocks[fromIdx]];
+      renderCanvas();
+    }
+
+    // ─── 블록 복제 ───
+    function duplicateBlock(idx) {
+      const original = state.blocks[idx];
+      const copy = JSON.parse(JSON.stringify(original));
+      copy.id = `block_${state.nextId++}`;
+      state.blocks.splice(idx + 1, 0, copy);
+      renderCanvas();
+      showToast('블록이 복제되었습니다');
+    }
+
+    // ─── 설정 패널 렌더링 ───
+    function renderSettings() {
+      const settingsContent = document.getElementById('settingsContent');
+      const settingsFooter = document.getElementById('settingsFooter');
+      const settingsTitle = document.getElementById('settingsTitle');
+
+      if (!state.selectedBlockId) {
+        settingsContent.innerHTML = '<div class="settings-empty">블록을 선택하면<br />설정이 표시됩니다</div>';
+        settingsFooter.style.display = 'none';
+        return;
+      }
+
+      const block = state.blocks.find(b => b.id === state.selectedBlockId);
+      settingsTitle.textContent = `설정: ${block.type.toUpperCase()}`;
+      settingsFooter.style.display = 'flex';
+
+      let html = '';
+      switch(block.type) {
+        case 'hero':
+          html = `
+            <div class="field-group">
+              <div class="field-group-title">
+                📝 텍스트 설정
+              </div>
+              <div class="field">
+                <label class="field-label">
+                  제목
+                  <button class="field-help" onclick="openHelp('hero')">?</button>
+                </label>
+                <input type="text" class="field-input" value="${block.settings.title}" onchange="updateBlockSetting('title', this.value)" />
+              </div>
+              <div class="field">
+                <label class="field-label">부제목</label>
+                <input type="text" class="field-input" value="${block.settings.subtitle}" onchange="updateBlockSetting('subtitle', this.value)" />
+              </div>
+            </div>
+            <div class="field-group">
+              <div class="field-group-title">🎨 배경 설정</div>
+              <div class="field">
+                <label class="field-label">배경 색상</label>
+                <div class="field-color">
+                  <div class="field-color-preview" style="background: ${block.settings.backgroundColor};"></div>
+                  <input type="text" class="field-color-input" value="${block.settings.backgroundColor}" onchange="updateBlockSetting('backgroundColor', this.value)" />
+                </div>
+              </div>
+            </div>
+            <div class="field-group">
+              <div class="field-group-title">🔘 버튼 설정</div>
+              <div class="field">
+                <label class="field-label">버튼 텍스트</label>
+                <input type="text" class="field-input" value="${block.settings.buttonText}" onchange="updateBlockSetting('buttonText', this.value)" />
+              </div>
+              <div class="field">
+                <label class="field-label">버튼 링크</label>
+                <input type="text" class="field-input" value="${block.settings.buttonUrl}" onchange="updateBlockSetting('buttonUrl', this.value)" />
+              </div>
+            </div>
+          `;
+          break;
+        case 'heading':
+          html = `
+            <div class="field-group">
+              <div class="field">
+                <label class="field-label">제목 텍스트</label>
+                <input type="text" class="field-input" value="${block.settings.text}" onchange="updateBlockSetting('text', this.value)" />
+              </div>
+              <div class="field">
+                <label class="field-label">크기</label>
+                <select class="field-select" onchange="updateBlockSetting('level', this.value)">
+                  <option value="h1" ${block.settings.level === 'h1' ? 'selected' : ''}>H1 (가장 크게)</option>
+                  <option value="h2" ${block.settings.level === 'h2' ? 'selected' : ''}>H2</option>
+                  <option value="h3" ${block.settings.level === 'h3' ? 'selected' : ''}>H3</option>
+                  <option value="h4" ${block.settings.level === 'h4' ? 'selected' : ''}>H4</option>
+                  <option value="h5" ${block.settings.level === 'h5' ? 'selected' : ''}>H5</option>
+                  <option value="h6" ${block.settings.level === 'h6' ? 'selected' : ''}>H6 (가장 작게)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="field-label">색상</label>
+                <div class="field-color">
+                  <div class="field-color-preview" style="background: ${block.settings.color};"></div>
+                  <input type="text" class="field-color-input" value="${block.settings.color}" onchange="updateBlockSetting('color', this.value)" />
+                </div>
+              </div>
+            </div>
+          `;
+          break;
+        case 'paragraph':
+          html = `
+            <div class="field-group">
+              <div class="field">
+                <label class="field-label">텍스트</label>
+                <textarea class="field-input field-textarea" onchange="updateBlockSetting('text', this.value)">${block.settings.text}</textarea>
+              </div>
+              <div class="field">
+                <label class="field-label">색상</label>
+                <div class="field-color">
+                  <div class="field-color-preview" style="background: ${block.settings.color};"></div>
+                  <input type="text" class="field-color-input" value="${block.settings.color}" onchange="updateBlockSetting('color', this.value)" />
+                </div>
+              </div>
+            </div>
+          `;
+          break;
+        case 'image':
+          html = `
+            <div class="field-group">
+              <div class="field">
+                <label class="field-label">이미지 URL</label>
+                <input type="text" class="field-input" value="${block.settings.url}" onchange="updateBlockSetting('url', this.value)" />
+              </div>
+              <div class="field">
+                <label class="field-label">대체 텍스트</label>
+                <input type="text" class="field-input" value="${block.settings.alt}" onchange="updateBlockSetting('alt', this.value)" />
+              </div>
+            </div>
+          `;
+          break;
+      }
+
+      settingsContent.innerHTML = html;
+    }
+
+    function updateBlockSetting(key, value) {
+      const block = state.blocks.find(b => b.id === state.selectedBlockId);
+      if (block) {
+        block.settings[key] = value;
+        renderCanvas();
+      }
+    }
+
+    function resetSettings() {
+      const block = state.blocks.find(b => b.id === state.selectedBlockId);
+      if (block) {
+        block.settings = getDefaultSettings(block.type);
+        renderSettings();
+        renderCanvas();
+        showToast('설정이 초기화되었습니다');
+      }
+    }
+
+    function saveSettings() {
+      showToast('설정이 저장되었습니다');
+    }
+
+    // ─── 드래그 앤 드롭 ───
+    document.addEventListener('dragstart', (e) => {
+      if (e.target.classList.contains('block-item')) {
+        const type = e.target.dataset.type;
+        e.dataTransfer.effectAllowed = 'copy';
+        e.dataTransfer.setData('blockType', type);
+      }
+    });
+
+    document.getElementById('canvas').addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    });
+
+    document.getElementById('canvas').addEventListener('drop', (e) => {
+      e.preventDefault();
+      const type = e.dataTransfer.getData('blockType');
+      if (type) {
+        addBlock(type);
+      }
+    });
+
+    // ─── 반응형 탭 ───
+    document.querySelectorAll('.canvas-responsive-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.canvas-responsive-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const size = tab.dataset.size;
+        const canvasInner = document.querySelector('.canvas-inner');
+        canvasInner.style.maxWidth = size;
+      });
+    });
+
+    // ─── 도움말 버튼 ───
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('block-item-help')) {
+        const blockItem = e.target.closest('.block-item');
+        const type = blockItem.dataset.type;
+        openHelp(type);
+      }
+    });
+
+    // ─── 키보드 단축키 ───
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.key === 's') {
+        e.preventDefault();
+        saveSettings();
+      }
+      if (e.ctrlKey && e.key === 'z') {
+        e.preventDefault();
+        // 실행 취소 로직
+        showToast('실행 취소 (구현 예정)');
+      }
+      if (e.key === 'Delete' && state.selectedBlockId) {
+        openDeleteModal();
+      }
+    });
+
+    // ─── 저장 버튼 ───
+    document.getElementById('saveDraft').addEventListener('click', () => {
+      const data = JSON.stringify(state.blocks);
+      console.log('저장된 데이터:', data);
+      showToast('임시저장되었습니다');
+    });
+
+    // ─── 도움말 모달 외부 클릭 ───
+    document.getElementById('helpModal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('helpModal')) {
+        closeHelp();
+      }
+    });
+
+    document.getElementById('deleteModal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('deleteModal')) {
+        closeDeleteModal();
+      }
+    });
+
+    // ─── 초기 렌더링 ───
+    renderCanvas();
+    renderSettings();
+  </script>
+</body>
+</html>

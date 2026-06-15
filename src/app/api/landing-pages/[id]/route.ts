@@ -5,6 +5,8 @@ import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, canDelete } from "@/l
 import { logger } from "@/lib/logger";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
 import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
+import { regenerateSmsSequence } from "@/lib/landing-sms-generator";
+import { IMAGE_FIELDS_BY_FORMAT, CTA_PSYCHOLOGY_MAP } from "@/lib/landing-page-constants";
 
 const PatchSchema = z.object({
   title:          z.string().min(1).max(200).optional(),
@@ -41,6 +43,11 @@ const PatchSchema = z.object({
   regEmailEnabled: z.boolean().optional(),
   regEmailSubject: z.string().max(200).nullable().optional(), // P0-6: DoS 방지
   regEmailContent: z.string().max(10000).nullable().optional(), // P0-6: DoS 방지
+  // Phase 3: pageFormat + ctaType + SMS 재생성
+  pageFormat:     z.enum(['squeeze', 'vsl', 'webinar', 'funnel', 'tripwire', 'downsell', 'launch', 'hybrid']).optional(),
+  ctaType:        z.enum(['default', 'urgent', 'explore', 'reserve']).optional(),
+  imageFieldConfig: z.record(z.string(), z.any()).optional(),
+  companyName:    z.string().nullable().optional(),
   // 프론트엔드 전용 (DB 저장 안 함, strict 우회용)
   commentConfig:  z.any().optional(),
 }).strict();
@@ -97,8 +104,13 @@ export async function PATCH(req: Request, { params }: Params) {
       headerScript, exposureTitle, exposureImage, infoCollection, formConfig,
       paymentEnabled, paymentType, productName, productPrice, cycleDay, expireDate,
       regEmailEnabled, regEmailSubject, regEmailContent,
+      pageFormat, ctaType, imageFieldConfig, companyName,
     } = parsed.data;
     const sanitizedContent = htmlContent !== undefined ? sanitizeHtml(htmlContent) : undefined;
+
+    // Phase 3: pageFormat 유효성 검증
+    const VALID_FORMATS = ['squeeze', 'vsl', 'webinar', 'funnel', 'tripwire', 'downsell', 'launch', 'hybrid'];
+    const validFormat = pageFormat && VALID_FORMATS.includes(pageFormat) ? pageFormat : undefined;
 
     // ── 그룹 관리 연결: 대그룹(카테고리) + 소그룹(그룹명) → ContactGroup 생성/재사용 ──
     // groupSubName이 오면 groupId보다 우선. 같은 조직 내 (name, category) 동일 그룹이 있으면 재사용.
@@ -137,7 +149,7 @@ export async function PATCH(req: Request, { params }: Params) {
         ...(sanitizedContent  !== undefined ? { htmlContent: sanitizedContent }         : {}),
         ...(isActive          !== undefined ? { isActive }                              : {}),
         ...(isPublic          !== undefined ? { isPublic }                              : {}),
-        ...(resolvedGroupId   !== undefined ? { groupId: resolvedGroupId ?? null }      : {}),
+        ...(resolvedGroupId   !== undefined ? { groupId: resolvedGroupId }      : {}),
         ...(commentEnabled    !== undefined ? { commentEnabled }                        : {}),
         ...(autoFunnelId      !== undefined ? { autoFunnelId: autoFunnelId ?? null }    : {}),
         ...(editorMode        !== undefined ? { editorMode }                            : {}),
@@ -160,8 +172,31 @@ export async function PATCH(req: Request, { params }: Params) {
         ...(regEmailEnabled   !== undefined ? { regEmailEnabled }                                      : {}),
         ...(regEmailSubject   !== undefined ? { regEmailSubject: regEmailSubject ?? null }             : {}),
         ...(regEmailContent   !== undefined ? { regEmailContent: regEmailContent ?? null }             : {}),
+        // Phase 3: pageFormat + ctaType + imageFieldConfig
+        ...(validFormat       !== undefined ? { pageFormat: validFormat }                : {}),
+        ...(ctaType           !== undefined ? { ctaType }                               : {}),
+        ...(imageFieldConfig  !== undefined ? { imageFieldConfig: imageFieldConfig ?? null } : {}),
       },
     });
+
+    // Phase 3: SMS 시퀀스 재생성 (pageFormat이나 ctaType이 변경되었으면)
+    // 단, 현재 페이지에 이미 CrmLandingPageSms가 있으면 기존 것을 활용하고 업데이트만 함
+    if (validFormat !== undefined || ctaType !== undefined) {
+      try {
+        const ctaData = CTA_PSYCHOLOGY_MAP[ctaType || existing.ctaType] || CTA_PSYCHOLOGY_MAP.default;
+        await regenerateSmsSequence(
+          id,
+          validFormat || existing.pageFormat || 'hybrid',
+          ctaData.text,
+          companyName || "마비즈"
+        );
+        logger.log("[PATCH /api/landing-pages/[id]] SMS 시퀀스 재생성", { pageId: id });
+      } catch (smsErr) {
+        logger.error("[PATCH /api/landing-pages/[id]] SMS 재생성 실패", { err: smsErr, pageId: id });
+        // SMS 재생성 실패는 페이지 업데이트 성공을 방해하지 않음
+      }
+    }
+
     return NextResponse.json({ ok: true, page });
   } catch (err) {
     if ((err as { code?: string }).code === 'P2002') {
