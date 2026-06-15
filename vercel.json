@@ -135,6 +135,22 @@
     {
       "path": "/api/cron/backup-contacts",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/send-scheduled-messages?day=0&type=email",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/send-scheduled-messages?day=1&type=email",
+      "schedule": "5 1 * * *"
+    },
+    {
+      "path": "/api/cron/send-scheduled-messages?day=2&type=email",
+      "schedule": "5 5 * * *"
+    },
+    {
+      "path": "/api/cron/send-scheduled-messages?day=3&type=email",
+      "schedule": "5 1 * * *"
     }
   ]
 }
