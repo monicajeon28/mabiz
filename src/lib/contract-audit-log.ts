@@ -3,7 +3,19 @@ import { logger } from '@/lib/logger';
 
 export interface CreateAuditLogInput {
   contractId: string;
-  action: 'signed' | 'viewed' | 'downloaded' | 'emailed' | 'resent';
+  action:
+    | 'signed'
+    | 'viewed'
+    | 'downloaded'
+    | 'emailed'
+    | 'resent'
+    | 'modification_requested'
+    | 'modification_approved'
+    | 'modification_rejected'
+    | 'modification_alternative_proposed'
+    | 're_signing_invited'
+    | 're_signed'
+    | 're_sign_completed';
   userId?: string;
   ipAddress?: string;
   userAgent?: string;
@@ -93,6 +105,13 @@ export async function getContractAuditLogStats(contractId: string) {
         downloaded: logs.filter((l) => l.action === 'downloaded').length,
         emailed: logs.filter((l) => l.action === 'emailed').length,
         resent: logs.filter((l) => l.action === 'resent').length,
+        modification_requested: logs.filter((l) => l.action === 'modification_requested').length,
+        modification_approved: logs.filter((l) => l.action === 'modification_approved').length,
+        modification_rejected: logs.filter((l) => l.action === 'modification_rejected').length,
+        modification_alternative_proposed: logs.filter((l) => l.action === 'modification_alternative_proposed').length,
+        re_signing_invited: logs.filter((l) => l.action === 're_signing_invited').length,
+        re_signed: logs.filter((l) => l.action === 're_signed').length,
+        re_sign_completed: logs.filter((l) => l.action === 're_sign_completed').length,
       },
       firstEventAt: logs.length > 0 ? logs[logs.length - 1].timestamp : null,
       lastEventAt: logs.length > 0 ? logs[0].timestamp : null,
