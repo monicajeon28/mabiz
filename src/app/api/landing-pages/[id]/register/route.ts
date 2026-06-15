@@ -133,6 +133,34 @@ export async function POST(req: Request, { params }: Params) {
 
     const orgId = landingPage.organizationId;
 
+    // [T1-수신거부검증] 그룹 설정되어 있으면 수신거부 고객 DB에서 검증
+    if (orgId && landingPage.groupId) {
+      const unsubscribedContact = await prisma.contact.findUnique({
+        where: {
+          phone_organizationId: { phone: normalizedPhone, organizationId: orgId },
+        },
+        select: { optOutAt: true },
+      });
+
+      if (unsubscribedContact?.optOutAt) {
+        logger.warn('[LandingPageRegister] 수신거부 고객 신청 시도', {
+          phone: normalizedPhone.substring(0, 4) + "***",
+          landingPageId,
+          organizationId: orgId,
+        });
+
+        return NextResponse.json(
+          {
+            ok: false,
+            error: '이미 수신거부된 번호입니다.',
+            code: 'UNSUBSCRIBED',
+            message: '거부를 취소하려면 고객센터로 연락주세요.',
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     // 퍼널 시작 여부 (나중에 기록)
     let funnelStarted = false;
 
