@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronDown, ExternalLink } from 'lucide-react';
+import { ChevronDown, ExternalLink, HelpCircle } from 'lucide-react';
 
 interface MessageValue {
   order: number;
@@ -16,6 +16,20 @@ interface Props {
   sendHour: number;
   sendMinute: number;
 }
+
+const DAY_EXPLANATIONS: Record<number, string> = {
+  0: "신청 직후 즉시 발송",
+  1: "신청 다음날 오전 10시",
+  2: "신청 2일 후 오전 10시",
+  3: "신청 3일 후 오전 10시",
+};
+
+const VARIABLES_HELP = [
+  { label: '[이름]', description: '고객 이름' },
+  { label: '[전화번호]', description: '고객 휴대폰 번호' },
+  { label: '[날짜]', description: '발송 예정일' },
+  { label: '[담당자]', description: '담당 판매원 이름' },
+];
 
 interface ProductLink {
   id: string;
@@ -52,6 +66,10 @@ export default function FunnelSmsMessageEditor({ message, onChange, sendHour, se
   const [productLinks, setProductLinks] = useState<ProductLink[]>([]);
   const [kakaoOpenChat, setKakaoOpenChat] = useState('');
   const [loadingLinks, setLoadingLinks] = useState(false);
+
+  // 변수 도움말 표시 상태
+  const [showVariablesHelp, setShowVariablesHelp] = useState(false);
+  const [showDayHelp, setShowDayHelp] = useState(false);
 
   const bytes = getEucKrBytes(message.content);
   const autoMsgType: 'SMS' | 'LMS' = bytes > SMS_LIMIT ? 'LMS' : 'SMS';
@@ -140,7 +158,18 @@ export default function FunnelSmsMessageEditor({ message, onChange, sendHour, se
       {/* D+N 입력 + 발송일 미리보기 */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-gray-700 whitespace-nowrap">발송 시점</label>
+          <div className="flex items-center gap-1">
+            <label className="text-sm font-medium text-gray-700 whitespace-nowrap">발송 시점</label>
+            <button
+              type="button"
+              onClick={() => setShowDayHelp(!showDayHelp)}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+              title="발송 시점 설명"
+              aria-label="발송 시점 도움말"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+          </div>
           <input
             type="number" min={0} max={36500}
             value={message.daysAfter}
@@ -158,6 +187,26 @@ export default function FunnelSmsMessageEditor({ message, onChange, sendHour, se
         </div>
       </div>
 
+      {/* Day 0-3 설명 팝오버 */}
+      {showDayHelp && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-blue-900">발송 시점 설명</p>
+            <div className="grid grid-cols-2 gap-2 text-xs text-blue-800">
+              {[0, 1, 2, 3].map(day => (
+                <div key={day} className="flex items-start gap-1">
+                  <span className="font-semibold">Day {day}:</span>
+                  <span>{DAY_EXPLANATIONS[day] || `신청 ${day}일 후 오전 10시`}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-blue-700 mt-2 pt-2 border-t border-blue-200">
+              💡 Day 0은 신청 직후 즉시, Day 1-3은 해당 날짜 오전 10시에 자동 발송됩니다.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Day 0 메시지 안내 */}
       {message.daysAfter === 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
@@ -171,7 +220,18 @@ export default function FunnelSmsMessageEditor({ message, onChange, sendHour, se
       <div>
         {/* 변수 버튼 툴바 */}
         <div className="flex items-center gap-1.5 flex-wrap mb-2">
-          <span className="text-xs text-gray-400 mr-1">삽입:</span>
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-gray-400 mr-1">삽입:</span>
+            <button
+              type="button"
+              onClick={() => setShowVariablesHelp(!showVariablesHelp)}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+              title="사용 가능한 변수 목록"
+              aria-label="변수 도움말"
+            >
+              <HelpCircle className="w-3 h-3" />
+            </button>
+          </div>
 
           {/* 단순 변수들 */}
           {simpleVars.map(({ label, variable }) => (
@@ -242,6 +302,21 @@ export default function FunnelSmsMessageEditor({ message, onChange, sendHour, se
             [카톡방링크]
           </button>
         </div>
+
+        {/* 변수 도움말 박스 */}
+        {showVariablesHelp && (
+          <div className="mb-3 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+            <p className="text-xs font-medium text-emerald-900 mb-2">사용 가능한 변수</p>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {VARIABLES_HELP.map(v => (
+                <div key={v.label} className="flex items-start gap-2">
+                  <span className="font-mono font-medium text-emerald-700 flex-shrink-0">{v.label}</span>
+                  <span className="text-emerald-700">{v.description}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 텍스트영역 */}
         <textarea
