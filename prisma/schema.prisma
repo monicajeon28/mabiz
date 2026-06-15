@@ -7014,3 +7014,49 @@ model ProfitCalculation {
   @@index([organizationId, savedAt(sort: Desc)])
   @@index([organizationId, userId])
 }
+
+// SMS 테스트 발송 로그 (테스트 메시지 추적용)
+model SmsTestLog {
+  id            String   @id @default(cuid())
+  organizationId String
+  userId        String
+
+  // 테스트 발송 정보
+  phoneNumber   String   // 테스트 수신자 번호
+  message       String   @db.Text
+  variables     Json?    // 사용된 변수값 (추적용)
+  lens          String?  // L0/L1/L2/L6/L10 (어떤 렌즈인지)
+  day           Int?     // Day 0-3 (어떤 날인지)
+
+  // 발송 결과
+  sentAt        DateTime? // 발송 시간 (null이면 대기)
+  status        String   @default("PENDING") // PENDING/SENT/FAILED
+  errorMessage  String?  // 발송 실패 시 에러
+
+  // 메타
+  createdAt     DateTime @default(now())
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+// SMS 미리보기 로그 (분석용)
+model SmsPreviewLog {
+  id            String   @id @default(cuid())
+  organizationId String
+  userId        String
+
+  // 미리보기 정보
+  message       String   @db.Text
+  variables     Json?    // 사용된 변수값
+  lens          String?
+  day           Int?
+
+  // 마케터 피드백
+  feedback      String?  // "완벽함", "문자 자동 생략", 등
+  approved      Boolean @default(false) // 승인했나?
+
+  createdAt     DateTime @default(now())
+
+  @@index([organizationId, approved, createdAt(sort: Desc)])
+}
