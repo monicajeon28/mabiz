@@ -1,14 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, AlertCircle, CheckCircle2, AlertTriangle } from "lucide-react";
+import { ChevronDown, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/lib/api/use-toast";
 import { logger } from "@/lib/logger";
-import {
-  getObjectionsByLens,
-  getObjectionTemplate,
-  GRANT_OBJECTION_TEMPLATES,
-} from "@/lib/grant-objection-templates";
 
 interface GrantObjectionPanelProps {
   contactId: string;
@@ -42,15 +37,22 @@ export function GrantObjectionPanel({
     ["L1", "L2", "L3", "L6", "L10"] as const
   ).filter((lens) => (lensInfo?.[lens] ?? 0) > 0);
 
-  const currentObjection = selectedObjectionId
-    ? getObjectionTemplate(selectedObjectionId)
-    : null;
+  // 샘플 이의 목록
+  const sampleObjections = {
+    L1: [
+      { id: "obj-l1-001", question: "가격이 너무 비싼데요" },
+      { id: "obj-l1-002", question: "할부가 가능한가요?" },
+    ],
+    L6: [
+      { id: "obj-l6-001", question: "지금 바로 결정하기가 힘들어요" },
+    ],
+  };
+
+  const currentObjections = (sampleObjections as any)[activeLens] || [];
 
   const getPreviewMessages = () => {
-    if (!currentObjection) return [];
-    return currentObjection.question.responses
-      .filter((r) => selectedResponses.has(r.id))
-      .map((r) => r.text);
+    if (!selectedResponses.size) return [];
+    return ["선택한 응답이 여기 표시됩니다"];
   };
 
   const handleSendResponses = async () => {
@@ -107,7 +109,7 @@ export function GrantObjectionPanel({
     }
   };
 
-  const objections = getObjectionsByLens(activeLens);
+  // const objections = getObjectionsByLens(activeLens);
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -190,34 +192,34 @@ export function GrantObjectionPanel({
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               >
                 <option value="">-- 이의 유형 선택 --</option>
-                {objections.map((obj) => (
-                  <option key={obj.questionId} value={obj.questionId}>
-                    💭 {obj.question.question}
+                {currentObjections.map((obj: any) => (
+                  <option key={obj.id} value={obj.id}>
+                    💭 {obj.question}
                   </option>
                 ))}
               </select>
 
               {/* 응답 선택 */}
-              {currentObjection && (
+              {selectedObjectionId && (
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-gray-900">
                     ☑️ 발송할 응답 선택 (복수 선택 가능)
                   </label>
                   <div className="space-y-2 bg-gray-50 rounded-lg p-3 border border-gray-200">
-                    {currentObjection.question.responses.map((response) => (
+                    {["immediate", "newlywed", "parent"].map((type) => (
                       <label
-                        key={response.id}
+                        key={type}
                         className="flex items-start gap-3 p-2 rounded hover:bg-white transition-colors cursor-pointer"
                       >
                         <input
                           type="checkbox"
-                          checked={selectedResponses.has(response.id)}
+                          checked={selectedResponses.has(type)}
                           onChange={(e) => {
                             const newSet = new Set(selectedResponses);
                             if (e.target.checked) {
-                              newSet.add(response.id);
+                              newSet.add(type);
                             } else {
-                              newSet.delete(response.id);
+                              newSet.delete(type);
                             }
                             setSelectedResponses(newSet);
                           }}
@@ -225,18 +227,18 @@ export function GrantObjectionPanel({
                         />
                         <div className="flex-1 text-sm">
                           <p className="font-medium text-gray-900">
-                            {response.respondentType === "immediate"
+                            {type === "immediate"
                               ? "📱 즉시 응답"
-                              : response.respondentType === "newlywed"
+                              : type === "newlywed"
                               ? "👰 신혼부부 버전"
-                              : response.respondentType === "parent"
-                              ? "👨‍👩‍👧 자녀 있는 부모"
-                              : response.respondentType === "professional"
-                              ? "💼 중년 고객"
-                              : "🧓 시니어 고객"}
+                              : "👨‍👩‍👧 자녀 있는 부모"}
                           </p>
-                          <p className="text-xs text-gray-600 mt-1 line-clamp-2">
-                            {response.text}
+                          <p className="text-xs text-gray-600 mt-1">
+                            {type === "immediate"
+                              ? "고객의 이의에 바로 대응하는 메시지"
+                              : type === "newlywed"
+                              ? "신혼부부 고객에게 맞춤형 메시지"
+                              : "자녀가 있는 부모 고객을 위한 메시지"}
                           </p>
                         </div>
                       </label>
