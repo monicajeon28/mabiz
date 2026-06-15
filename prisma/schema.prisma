@@ -88,6 +88,8 @@ model Organization {
   funnelSmsList              FunnelSms[]
   // 수익 계산기 저장
   profitCalculations         ProfitCalculation[]
+  // Contact Audit Logs
+  contactAuditLogs           ContactAuditLog[]
 }
 
 model OrgSmsConfig {
@@ -408,6 +410,7 @@ model Contact {
   vipSequences               VipCareSequence[]
   marketingMessages          CrmMarketingMessage[]       @relation("CrmMarketingMessages")
   partnerSmsLogs             PartnerSmsLog[]
+  auditLogs                  ContactAuditLog[]
   // PHASE 7-3/4: Proactive Outreach Predictions
   churnPredictions           ChurnPrediction[]           @relation("ChurnPredictions")
   upsellOpportunities        UpsellOpportunity[]         @relation("UpsellOpportunities")
@@ -514,6 +517,27 @@ model Contact {
   @@index([signupMethod], map: "idx_contact_signup_method")
   // P1-22: 태그 배열 필터링 인덱스 추가 (hasEvery 성능 최적화)
   @@index([organizationId, tags], map: "idx_contact_org_tags")
+}
+
+model ContactAuditLog {
+  id              String   @id @default(cuid())
+  contactId       String
+  organizationId  String
+  userId          String?  // 누가 변경했는가
+  action          String   // "CREATE", "UPDATE", "DELETE", "IMPORT"
+  fieldChanged    String?  // "name", "phone", "status", "tags", "anxietyScore" 등
+  oldValue        String?  // JSON 문자열
+  newValue        String?  // JSON 문자열
+  reason          String?  // "이사 요청", "이의 대응" 등
+  createdAt       DateTime @default(now())
+
+  contact         Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+  @@index([organizationId])
+  @@index([createdAt])
+  @@index([action])
 }
 
 model ContactLensClassification {
@@ -6175,7 +6199,6 @@ model ContractModificationRequest {
   @@index([requestedByUserId])
   @@index([approvedByUserId])
   @@index([requestedAt])
-  @@index([organizationId: raw("COALESCE((SELECT \"organizationId\" FROM \"ContractInstance\" WHERE id = \"contractId\"))"), status], map: "idx_modification_request_org_status")
   @@index([contractId, status, expiresAt], map: "idx_modification_request_expiry_check")
 }
 

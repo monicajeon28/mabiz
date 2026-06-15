@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { getAuthContext, buildContactWhere, canDelete, maskContactInfo, actorDisplayName, resolveOrgId } from "@/lib/rbac";
 import { backupContactsToExcel } from "@/lib/backup-xlsx";
 import { logger } from "@/lib/logger";
+import { logContactChange, logContactChanges } from "@/lib/audit/log-contact-change";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -144,7 +145,7 @@ export async function PATCH(req: Request, { params }: Params) {
     const { name, phone, email, type, cruiseInterest, budgetRange,
             adminMemo, assignedUserId, tags,
             departureDate, productName, bookingRef, commentEnabled,
-            isActive } = body;
+            isActive, _auditReason } = body;
 
     // 필수 필드 빈 문자열 방지
     if (name !== undefined && (typeof name !== 'string' || name.trim() === '')) {
@@ -162,28 +163,136 @@ export async function PATCH(req: Request, { params }: Params) {
         { status: 403 }
       );
     }
+
+    // 업데이트될 데이터 구성
+    const updateData: Record<string, any> = {};
+    if (name !== undefined) updateData.name = name;
+    if (phone !== undefined && ctx.role !== "AGENT") updateData.phone = phone;
+    if (email !== undefined) updateData.email = email;
+    if (type !== undefined) updateData.type = type;
+    if (cruiseInterest !== undefined) updateData.cruiseInterest = cruiseInterest;
+    if (budgetRange !== undefined) updateData.budgetRange = budgetRange;
+    if (adminMemo !== undefined) updateData.adminMemo = adminMemo;
+    if (departureDate !== undefined) updateData.departureDate = departureDate ? new Date(departureDate) : null;
+    if (productName !== undefined) updateData.productName = productName;
+    if (bookingRef !== undefined) updateData.bookingRef = bookingRef;
+    if (Array.isArray(tags)) updateData.tags = tags;
+    if (assignedUserId !== undefined && ctx.role !== "AGENT") updateData.assignedUserId = assignedUserId;
+
     const contact = await prisma.contact.update({
       where: { id, organizationId: existing.organizationId },
-      data: {
-        ...(name           !== undefined ? { name }           : {}),
-        // 전화번호는 OWNER/GLOBAL_ADMIN만 변경 가능 (고유 식별키 보호)
-        ...(phone          !== undefined && ctx.role !== "AGENT" ? { phone } : {}),
-        ...(email          !== undefined ? { email }          : {}),
-        ...(type           !== undefined ? { type }           : {}),
-        ...(cruiseInterest !== undefined ? { cruiseInterest } : {}),
-        ...(budgetRange    !== undefined ? { budgetRange }    : {}),
-        ...(adminMemo      !== undefined ? { adminMemo }      : {}),
-        ...(departureDate  !== undefined ? { departureDate: departureDate ? new Date(departureDate) : null } : {}),
-        ...(productName    !== undefined ? { productName }    : {}),
-        ...(bookingRef     !== undefined ? { bookingRef }     : {}),
-        // 태그 (WO-25C) — 배열 전체 교체 방식
-        ...(Array.isArray(tags)          ? { tags }           : {}),
-        // OWNER/ADMIN만 담당자 변경 가능
-        ...(assignedUserId !== undefined && ctx.role !== "AGENT"
-          ? { assignedUserId }
-          : {}),
-      },
+      data: updateData,
     });
+
+    // 변경 이력 자동 기록 (비동기, 실패해도 계속 진행)
+    void (async () => {
+      const changes: Array<{
+        fieldChanged: string;
+        oldValue: any;
+        newValue: any;
+      }> = [];
+
+      // 각 필드별 변경 기록
+      if (name !== undefined && existing.name !== name) {
+        changes.push({
+          fieldChanged: 'name',
+          oldValue: existing.name,
+          newValue: name,
+        });
+      }
+      if (phone !== undefined && ctx.role !== "AGENT" && existing.phone !== phone) {
+        changes.push({
+          fieldChanged: 'phone',
+          oldValue: existing.phone,
+          newValue: phone,
+        });
+      }
+      if (email !== undefined && existing.email !== email) {
+        changes.push({
+          fieldChanged: 'email',
+          oldValue: existing.email,
+          newValue: email,
+        });
+      }
+      if (type !== undefined && existing.type !== type) {
+        changes.push({
+          fieldChanged: 'type',
+          oldValue: existing.type,
+          newValue: type,
+        });
+      }
+      if (cruiseInterest !== undefined && existing.cruiseInterest !== cruiseInterest) {
+        changes.push({
+          fieldChanged: 'cruiseInterest',
+          oldValue: existing.cruiseInterest,
+          newValue: cruiseInterest,
+        });
+      }
+      if (budgetRange !== undefined && existing.budgetRange !== budgetRange) {
+        changes.push({
+          fieldChanged: 'budgetRange',
+          oldValue: existing.budgetRange,
+          newValue: budgetRange,
+        });
+      }
+      if (adminMemo !== undefined && existing.adminMemo !== adminMemo) {
+        changes.push({
+          fieldChanged: 'adminMemo',
+          oldValue: existing.adminMemo,
+          newValue: adminMemo,
+        });
+      }
+      if (productName !== undefined && existing.productName !== productName) {
+        changes.push({
+          fieldChanged: 'productName',
+          oldValue: existing.productName,
+          newValue: productName,
+        });
+      }
+      if (bookingRef !== undefined && existing.bookingRef !== bookingRef) {
+        changes.push({
+          fieldChanged: 'bookingRef',
+          oldValue: existing.bookingRef,
+          newValue: bookingRef,
+        });
+      }
+      if (departureDate !== undefined && existing.departureDate?.toISOString() !== new Date(departureDate).toISOString()) {
+        changes.push({
+          fieldChanged: 'departureDate',
+          oldValue: existing.departureDate?.toISOString(),
+          newValue: departureDate ? new Date(departureDate).toISOString() : null,
+        });
+      }
+      if (Array.isArray(tags) && JSON.stringify(existing.tags) !== JSON.stringify(tags)) {
+        changes.push({
+          fieldChanged: 'tags',
+          oldValue: existing.tags,
+          newValue: tags,
+        });
+      }
+      if (assignedUserId !== undefined && ctx.role !== "AGENT" && existing.assignedUserId !== assignedUserId) {
+        changes.push({
+          fieldChanged: 'assignedUserId',
+          oldValue: existing.assignedUserId,
+          newValue: assignedUserId,
+        });
+      }
+
+      // 변경사항이 있으면 로깅
+      if (changes.length > 0) {
+        await logContactChanges({
+          contactId: id,
+          organizationId: existing.organizationId,
+          userId: ctx.userId,
+          action: 'UPDATE',
+          changes: changes.map(c => ({
+            ...c,
+            reason: _auditReason,
+          })),
+        });
+      }
+    })();
+
     void isActive; void commentEnabled; // 미사용 변수 TS 경고 방지
 
     return NextResponse.json({ ok: true, contact });
@@ -235,6 +344,15 @@ export async function DELETE(_req: Request, { params }: Params) {
         deletedBy:     ctx.userId,
         deletedByName: actorDisplayName(ctx),
       },
+    });
+
+    // 삭제 이력 기록
+    void logContactChange({
+      contactId: id,
+      organizationId: existing.organizationId,
+      userId: ctx.userId,
+      action: 'DELETE',
+      reason: '휴지통으로 이동',
     });
 
     // Drive 백업은 삭제보다 먼저 완료되어야 한다.
