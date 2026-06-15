@@ -653,7 +653,7 @@ export default function GroupsPage() {
           <div className="flex items-center gap-2">
             <button className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
               <Network className="w-4 h-4" />
-              퍼널설계
+              자동화 흐름
             </button>
             <button
               onClick={() => setShowCreate(true)}
@@ -768,7 +768,7 @@ export default function GroupsPage() {
                 <th className="px-3 py-3 text-left text-gray-500 font-medium">상위그룹</th>
                 <th className="px-3 py-3 text-center text-gray-500 font-medium">연결된 고객</th>
                 <th className="px-3 py-3 text-left text-gray-500 font-medium">
-                  연결한 퍼널톡 / 연결한 퍼널문자
+                  연결한 카카오톡 / 연결한 자동문자
                 </th>
                 <th className="px-3 py-3 text-center text-gray-500 font-medium">생성일</th>
                 <th className="px-3 py-3 text-center text-gray-500 font-medium">스크립트</th>
