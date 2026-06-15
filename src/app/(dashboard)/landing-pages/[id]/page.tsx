@@ -959,7 +959,7 @@ export default function EditLandingPage() {
               onClick={() => setShowAdvanced((v) => !v)}
               className="w-full flex items-center justify-between px-4 py-2 bg-gray-50 text-xs font-medium text-gray-600 hover:bg-gray-100"
             >
-              <span>고급 설정 (폼 필드 · 노출 제목/이미지 · 완료 URL · 헤더 스크립트)</span>
+              <span>추가 설정 (신청 항목 · 공유 제목/이미지 · 완료 후 이동 · 광고 추적 코드)</span>
               <span>{showAdvanced ? "▲" : "▼"}</span>
             </button>
             {showAdvanced && (
@@ -994,7 +994,7 @@ export default function EditLandingPage() {
                 </div>
                 {/* 완료 후 이동 URL */}
                 <div className="flex items-center gap-2">
-                  <label className="text-xs text-gray-500 w-24 shrink-0">완료 후 이동 URL</label>
+                  <label className="text-xs text-gray-500 w-24 shrink-0">신청 완료 후 이동</label>
                   <input
                     value={completionPageUrl}
                     onChange={(e) => setCompletionPageUrl(e.target.value)}
@@ -1024,11 +1024,11 @@ export default function EditLandingPage() {
                 </div>
                 {/* 헤더 스크립트 */}
                 <div className="flex items-start gap-2">
-                  <label className="text-xs text-gray-500 w-24 shrink-0 mt-1">헤더 스크립트</label>
+                  <label className="text-xs text-gray-500 w-24 shrink-0 mt-1">광고 추적 코드</label>
                   <textarea
                     value={headerScript}
                     onChange={(e) => setHeaderScript(e.target.value)}
-                    placeholder="<script>...</script> 픽셀 코드 등"
+                    placeholder="페이스북/구글 광고 추적 코드를 붙여넣으세요"
                     rows={2}
                     className="flex-1 border border-gray-200 rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-blue-400 resize-y"
                   />
@@ -1208,7 +1208,7 @@ export default function EditLandingPage() {
         <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
           <div className="max-w-2xl mx-auto">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-gray-800">퍼널 전환 통계</h2>
+              <h2 className="text-base font-semibold text-gray-800">신청자 흐름 통계</h2>
               <button onClick={loadStats} className="text-xs text-gray-500 hover:text-navy-900 underline">새로고침</button>
             </div>
             {statsLoading ? (
@@ -1220,8 +1220,8 @@ export default function EditLandingPage() {
                   { label: "방문",   value: stats.viewCount,    color: "bg-gray-100 text-gray-700",   rate: null },
                   { label: "신청",   value: stats.registered,   color: "bg-blue-100 text-blue-700",   rate: `방문→신청 ${stats.rates.visitToRegister}%` },
                   { label: "이메일", value: stats.emailSent,    color: "bg-indigo-100 text-indigo-700", rate: `신청→이메일 ${stats.rates.registerToEmail}%` },
-                  { label: "퍼널",   value: stats.funnelEntered, color: "bg-amber-100 text-amber-700",  rate: `신청→퍼널 ${stats.rates.registerToFunnel}%` },
-                  { label: "구매",   value: stats.purchased,    color: "bg-green-100 text-green-700",  rate: `퍼널→구매 ${stats.rates.funnelToPurchase}%` },
+                  { label: "자동문자", value: stats.funnelEntered, color: "bg-amber-100 text-amber-700",  rate: `신청→자동문자 ${stats.rates.registerToFunnel}%` },
+                  { label: "구매",   value: stats.purchased,    color: "bg-green-100 text-green-700",  rate: `자동문자→구매 ${stats.rates.funnelToPurchase}%` },
                 ].map((s, idx) => (
                   <div key={s.label}>
                     <div className={`flex items-center justify-between rounded-xl px-4 py-3 ${s.color}`}>
@@ -1255,7 +1255,7 @@ export default function EditLandingPage() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setAiModalOpen(false); }}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
             <h2 className="text-base font-bold text-gray-900 mb-1">✨ AI 카피 생성</h2>
-            <p className="text-xs text-gray-500 mb-4">PASONA 공식(P→A→S→O→N→A)으로 크루즈 랜딩 HTML 카피를 자동 생성합니다.</p>
+            <p className="text-xs text-gray-500 mb-4">상품명과 타겟 고객 정보를 입력하면 크루즈 랜딩 HTML 카피를 자동으로 만들어드립니다.</p>
 
             <div className="space-y-3">
               <div>
