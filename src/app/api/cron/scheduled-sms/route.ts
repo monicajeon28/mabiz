@@ -6,21 +6,78 @@ import { timingSafeEqual } from "crypto";
 import prisma from "@/lib/prisma";
 import { processPendingSms } from "@/lib/aligo/batch-sender";
 import { logger } from "@/lib/logger";
+import { Redis } from "@upstash/redis";
 
-// ✅ P0-6: Redis 기반 Cron 락 방지 (중복 실행 방지)
-let cronLockAcquired = false;
-let cronLockToken: string | null = null;
+// ✅ P1-8: Redis 분산 락 (멀티 인스턴스 동시 실행 방지)
+// Vercel에서 Cold Start 시 여러 인스턴스가 동시에 Cron 실행되는 것을 방지
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
+
+const CRON_LOCK_KEY = "cron:scheduled-sms:lock";
+const LOCK_TTL = 300; // 5분 (Cron maxDuration 60초 + 여유)
 
 /**
  * GET /api/cron/scheduled-sms
  * Vercel Cron (매 5분) — PENDING 상태 + scheduledAt <= now() 발송 처리
  * Authorization: Bearer CRON_SECRET
  *
- * 업그레이드 (2026-05-28):
+ * ✅ P1-8 업그레이드 (2026-06-15):
+ * - Redis 분산 락 도입 (인메모리 → Redis NX)
+ * - 멀티 인스턴스 환경에서 중복 발송 방지
+ * - Cold Start 시에도 정확히 1개 인스턴스만 실행 보장
+ *
+ * 이전 업그레이드 (2026-05-28):
  * - Aligo 배치 발송 API 사용 (처리량 증대)
  * - 자동 재시도 (최대 3회)
  * - 배송 상태 추적 지원
  */
+
+/**
+ * Redis를 사용한 분산 락 획득
+ * NX: Only if Not eXists (첫 번째만 성공)
+ * EX: Expire in seconds (자동 해제)
+ */
+async function acquireLock(): Promise<boolean> {
+  if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+    logger.warn("[CronScheduledSms] Redis 환경변수 미설정. 인메모리 락 사용.");
+    return true; // Fallback: 환경변수 없으면 락 없이 진행
+  }
+
+  try {
+    const result = await redis.set(CRON_LOCK_KEY, "locked", {
+      nx: true, // Only if Not eXists
+      ex: LOCK_TTL, // Expire in 300 seconds
+    });
+    return result === "OK";
+  } catch (err) {
+    logger.error("[CronScheduledSms] Redis 락 획득 실패", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return false; // 에러 발생 시 안전하게 스킵
+  }
+}
+
+/**
+ * Redis를 사용한 분산 락 해제
+ */
+async function releaseLock(): Promise<void> {
+  if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+    return; // Fallback: 환경변수 없으면 무시
+  }
+
+  try {
+    await redis.del(CRON_LOCK_KEY);
+    logger.log("[CronScheduledSms] 락 해제 완료");
+  } catch (err) {
+    logger.error("[CronScheduledSms] Redis 락 해제 실패", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    // 에러가 발생해도 진행 계속 (Redis 일시 장애)
+  }
+}
+
 export async function GET(req: Request) {
   // Cron 인증 — Vercel Cron Bearer token
   const secret = process.env.CRON_SECRET;
@@ -46,24 +103,17 @@ export async function GET(req: Request) {
   }
 
   try {
-    // ✅ P0-6: 간단한 인메모리 락 (프로덕션 환경에서는 Redis 권장)
-    // 동시에 여러 인스턴스에서 실행되는 경우 인메모리 락은 불충분하므로,
-    // 실제 운영에서는 prisma를 이용한 DB 기반 락 또는 Redis 권장
+    // ✅ P1-8: Redis 분산 락 획득
+    // Vercel 멀티 인스턴스 환경에서 정확히 1개만 실행
+    const lockAcquired = await acquireLock();
 
-    // 락 획득 시도 (5초 타임아웃)
-    const lockKey = 'cron:scheduled-sms:processing';
-    const lockValue = `${Date.now()}_${Math.random()}`;
+    if (!lockAcquired) {
+      logger.info("[CronScheduledSms] 다른 인스턴스가 이미 실행 중. Skip.");
+      return NextResponse.json({ ok: false, message: "Lock not acquired" }, { status: 429 });
+    }
 
     try {
-      // ✅ P0-6: DB 기반 간단한 락 (cronLock 테이블 사용 또는 인메모리)
-      // Vercel 환경에서 안전한 단일 인스턴스 Cron이므로 인메모리 락 사용
-      if (cronLockAcquired) {
-        logger.info("[CronScheduledSms] 다른 Cron이 실행 중... 스킵");
-        return NextResponse.json({ ok: true, skipped: true });
-      }
-
-      cronLockAcquired = true;
-      cronLockToken = lockValue;
+      logger.log("[CronScheduledSms] 락 획득 성공. Cron 실행 시작");
 
       const now = new Date();
       const kstHour = (now.getUTCHours() + 9) % 24; // Vercel 서버는 UTC — KST = UTC+9
@@ -109,11 +159,8 @@ export async function GET(req: Request) {
 
       return NextResponse.json({ ok: true, processed: totalProcessed, errors: totalErrors });
     } finally {
-      // ✅ P0-6: 락 해제
-      if (cronLockToken === lockValue) {
-        cronLockAcquired = false;
-        cronLockToken = null;
-      }
+      // ✅ P1-8: 항상 락 해제 (성공/실패 무관)
+      await releaseLock();
     }
   } catch (err) {
     logger.error("[CronScheduledSms] 전체 오류", {
