@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Trash2, Plus, ChevronDown } from "lucide-react";
+import { ArrowLeft, Trash2, Plus, ChevronDown, AlertTriangle } from "lucide-react";
 import { showSuccess, showError } from "@/components/ui/Toast";
 import FunnelSmsHeader from "@/components/funnel-sms/FunnelSmsHeader";
 import FunnelSmsMessageEditor from "@/components/funnel-sms/FunnelSmsMessageEditor";
@@ -133,7 +133,7 @@ export default function FunnelSmsEditPage({
             setMessages(msgs);
           } else {
             setNotFound(true);
-            showError(d.message ?? "퍼널문자를 불러올 수 없습니다.");
+            showError(d.message ?? "자동문자를 불러올 수 없습니다.");
           }
         }
       )
@@ -325,7 +325,7 @@ export default function FunnelSmsEditPage({
   };
 
   const handleDelete = async () => {
-    if (!confirm("퍼널문자를 삭제하시겠습니까? 연결된 그룹에서도 해제됩니다.")) return;
+    if (!confirm("자동문자를 삭제하시겠습니까? 연결된 그룹에서도 해제됩니다.")) return;
     try {
       const ac = new AbortController();
       const timer = setTimeout(() => ac.abort(), 10_000);
@@ -365,7 +365,7 @@ export default function FunnelSmsEditPage({
     return (
       <div className="p-4 md:p-6 max-w-6xl mx-auto">
         <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-          <p className="text-lg font-medium text-gray-600">퍼널문자를 찾을 수 없습니다.</p>
+          <p className="text-lg font-medium text-gray-600">자동문자를 찾을 수 없습니다.</p>
           <button
             onClick={() => router.push("/funnel-sms")}
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
@@ -390,7 +390,7 @@ export default function FunnelSmsEditPage({
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">퍼널문자 편집</h1>
+            <h1 className="text-xl font-bold text-gray-900">자동문자 편집</h1>
             <p className="text-sm text-gray-500 truncate max-w-xs">{header.title}</p>
           </div>
         </div>
@@ -401,6 +401,20 @@ export default function FunnelSmsEditPage({
           <Trash2 className="w-4 h-4" />
           삭제
         </button>
+      </div>
+
+      {/* 광고 심의 안내 배너 */}
+      <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="text-sm text-amber-800">
+            <p className="font-bold mb-1">📋 광고성 메시지 법규 안내</p>
+            <ul className="text-xs space-y-1">
+              <li>• <strong>야간(오후 9시 ~ 오전 8시) 광고성 문자 발송 금지</strong> — 이 시간에는 자동으로 차단됩니다</li>
+              <li>• 광고성 메시지는 제목에 <strong>"(광고)"</strong> 표기 및 메시지 끝에 <strong>"무료수신거부 080-888-1003"</strong> 포함 필수</li>
+            </ul>
+          </div>
+        </div>
       </div>
 
       {/* 발송 상태 대시보드 */}
