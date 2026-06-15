@@ -6,7 +6,6 @@ import { logger } from "@/lib/logger";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
 import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
 import { generateUniqueShortlink } from "@/lib/landing-page-utils";
-import { generateSmsSequence } from "@/lib/landing-sms-generator";
 import { IMAGE_FIELDS_BY_FORMAT, CTA_PSYCHOLOGY_MAP } from "@/lib/landing-page-constants";
 
 // GET /api/landing-pages
@@ -191,18 +190,8 @@ export async function POST(req: Request) {
       return newPage;
     });
 
-    // Phase 3: SMS 시퀀스 자동 생성 (비동기, 트랜잭션 외부)
-    // smsDayRange가 "0-3"이고 ctaType이 valid하면 SMS 생성
-    if (smsDayRange === "0-3") {
-      const ctaData = CTA_PSYCHOLOGY_MAP[validCtaType] || CTA_PSYCHOLOGY_MAP.default;
-      await generateSmsSequence(
-        page.id,
-        validFormat,
-        ctaData.text,
-        companyName || "마비즈",
-        smsDayRange
-      );
-    }
+    // Phase 3: SMS 시퀀스 자동 생성 기능 제거 (2026-06-15)
+    // SMS 자동화 기능이 삭제되었습니다. 수동 SMS 관리 시스템으로 전환합니다.
 
     logger.log("[POST /api/landing-pages] 생성", { id: page.id, shortlink: page.shortlink });
     return NextResponse.json({ ok: true, page }, { status: 201 });

@@ -225,7 +225,7 @@ export default function FunnelSmsNewPage() {
                         {m.order}
                       </span>
                       <span className="text-sm font-semibold text-gray-700">
-                        {m.daysAfter === 0 ? "즉시 발송 (Day 0)" : `D+${m.daysAfter}`}
+                        {m.daysAfter === 0 ? "입장 즉시" : `${m.daysAfter}일 후`}
                       </span>
                     </div>
                     {messages.length > 1 && (

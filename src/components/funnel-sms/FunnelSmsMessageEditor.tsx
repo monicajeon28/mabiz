@@ -153,7 +153,7 @@ export default function FunnelSmsMessageEditor({ message, onChange, sendHour, se
           {message.daysAfter === 0 ? (
             <span>입장 즉시 발송</span>
           ) : (
-            <span>고객 입장 후 Day {message.daysAfter} ({timeStr}) 발송</span>
+            <span>고객 입장 후 {message.daysAfter}일 ({timeStr}) 발송</span>
           )}
         </div>
       </div>
@@ -162,7 +162,7 @@ export default function FunnelSmsMessageEditor({ message, onChange, sendHour, se
       {message.daysAfter === 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
           <p className="text-xs text-blue-700 font-medium">
-            ✓ 이 메시지는 고객이 그룹에 입장하면 즉시 발송됩니다. (발송시간 설정 불필요)
+            ✓ 이 메시지는 고객이 그룹에 입장하면 바로 발송됩니다. (발송시간 설정 불필요)
           </p>
         </div>
       )}

@@ -66,6 +66,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     const body = (await req.json()) as {
       signerName?: string;
       signatureImage: string; // base64 PNG
+      inputFields?: Array<{ key: string; value: string | boolean }>;
     };
 
     if (!body.signatureImage) {
@@ -74,6 +75,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         { status: 400 }
       );
     }
+
+    // inputFields 기본값 설정
+    const inputFields = body.inputFields ?? [];
 
     // 크기 검증 (500KB 이하)
     const sizeInBytes = Buffer.byteLength(body.signatureImage, 'utf8');
@@ -148,6 +152,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         boundData: {
           ...(instance.boundData as any),
           signerName: body.signerName ?? '',
+          inputFields, // 입력 필드 데이터 포함
           signedAt: signedAt.toISOString(),
         },
       },

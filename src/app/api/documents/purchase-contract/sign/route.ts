@@ -16,6 +16,21 @@ type Companion = {
   phone: string;     // 연락처 (필수)
 };
 
+type InputField = {
+  id: string;
+  label: string;
+  type: 'text' | 'email' | 'phone' | 'date' | 'select' | 'number';
+  required: boolean;
+  placeholder?: string;
+  pattern?: string;
+  options?: Array<{ label: string; value: string }>;
+};
+
+type InputValue = {
+  fieldId: string;
+  value: string | number | null;
+};
+
 // P0-2: timingSafeEqual 기반 토큰 비교
 function safeTokenCompare(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -47,6 +62,75 @@ async function retryWithExponentialBackoff<T>(
 // P2-1: 동행자 관계 허용 목록
 const ALLOWED_RELATIONS = ['배우자', '자녀', '부모', '형제자매', '친구', '기타'];
 const birthDateRegex = /^\d{4}-\d{2}-\d{2}$/;
+const phoneRegex = /^01[0-9][-]?\d{3,4}[-]?\d{4}$/;
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Phase 6: Input field 값 검증 함수
+function validateInputValue(field: InputField, value: string | number | null): { valid: boolean; error?: string } {
+  if (field.required && (value === null || value === '' || value === undefined)) {
+    return { valid: false, error: `${field.label}은(는) 필수입니다` };
+  }
+
+  if (value === null || value === '' || value === undefined) {
+    return { valid: true }; // 선택사항이고 비어있으면 통과
+  }
+
+  const strValue = String(value);
+
+  if (field.type === 'email' && !emailRegex.test(strValue)) {
+    return { valid: false, error: `${field.label}이(가) 유효하지 않습니다` };
+  }
+
+  if (field.type === 'phone' && !phoneRegex.test(strValue)) {
+    return { valid: false, error: `${field.label} 형식이 유효하지 않습니다 (010-0000-0000)` };
+  }
+
+  if (field.type === 'date' && !birthDateRegex.test(strValue)) {
+    return { valid: false, error: `${field.label} 형식이 유효하지 않습니다 (YYYY-MM-DD)` };
+  }
+
+  if (field.type === 'number' && isNaN(Number(value))) {
+    return { valid: false, error: `${field.label}은(는) 숫자여야 합니다` };
+  }
+
+  return { valid: true };
+}
+
+// Phase 6: Input Fields 정의 (Contact 자동 채우기 지원)
+function getInputFields(contactData: Record<string, unknown> | null): InputField[] {
+  return [
+    {
+      id: 'signerName',
+      label: '계약자 이름',
+      type: 'text',
+      required: true,
+      placeholder: contactData?.name ? `(자동) ${contactData.name}` : '이름을 입력하세요',
+    },
+    {
+      id: 'signerPhone',
+      label: '계약자 연락처',
+      type: 'phone',
+      required: true,
+      placeholder: contactData?.phone ? `(자동) ${contactData.phone}` : '010-0000-0000',
+      pattern: '^01[0-9][-]?\\d{3,4}[-]?\\d{4}$',
+    },
+    {
+      id: 'signerEmail',
+      label: '계약자 이메일',
+      type: 'email',
+      required: false,
+      placeholder: contactData?.email ? `(자동) ${contactData.email}` : 'example@email.com',
+    },
+    {
+      id: 'signerBirthDate',
+      label: '계약자 생년월일',
+      type: 'date',
+      required: false,
+      placeholder: contactData?.birthDate ? `(자동) ${contactData.birthDate}` : 'YYYY-MM-DD',
+      pattern: '^\\d{4}-\\d{2}-\\d{2}$',
+    },
+  ];
+}
 
 // ─── GET /api/documents/purchase-contract/sign?docId=X&token=Y ───────────────
 // 공개 API — 토큰 기반, 인증 불필요
@@ -75,7 +159,7 @@ export async function GET(req: Request) {
 
     const doc = await prisma.salesDocument.findUnique({
       where: { id: docId },
-      select: { id: true, generatedData: true, status: true },
+      select: { id: true, generatedData: true, status: true, contactId: true },
     });
 
     // P1-3: IDOR 방지 — 문서 없을 때 동일 메시지
@@ -117,6 +201,25 @@ export async function GET(req: Request) {
       });
     }
 
+    // Phase 6: Contact 조회 (자동 채우기 데이터)
+    let contactData: Record<string, unknown> | null = null;
+    if (doc.contactId) {
+      const contact = await prisma.contact.findUnique({
+        where: { id: doc.contactId },
+        select: { name: true, phone: true, email: true, createdAt: true },
+      });
+      if (contact) {
+        contactData = {
+          name: contact.name,
+          phone: contact.phone,
+          email: contact.email,
+          // birthDate는 Contact 테이블에 없으므로 생략
+        };
+      }
+    }
+
+    const inputFields = getInputFields(contactData);
+
     return NextResponse.json({
       ok: true,
       doc: {
@@ -133,6 +236,13 @@ export async function GET(req: Request) {
         specialTerms:       data.specialTerms       ?? null,
         companyName:        data.companyName        ?? null,
       },
+      inputFields,
+      inputFieldDefaults: contactData ? {
+        signerName: contactData.name ?? null,
+        signerPhone: contactData.phone ?? null,
+        signerEmail: contactData.email ?? null,
+        signerBirthDate: null,
+      } : null,
       alreadySigned: false,
     });
   } catch (e) {
@@ -163,9 +273,10 @@ export async function POST(req: Request) {
       companions: Companion[];
       signatureImage: string;
       signerName: string;
+      inputValues?: InputValue[]; // Phase 6: 입력 필드 값 배열
     };
 
-    const { docId, token, companions = [], signatureImage, signerName } = body;
+    const { docId, token, companions = [], signatureImage, signerName, inputValues = [] } = body;
 
     // 필수값 검증
     if (!docId || !token || !signatureImage || !signerName) {
@@ -173,6 +284,30 @@ export async function POST(req: Request) {
         { ok: false, message: 'docId, token, signatureImage, signerName은 필수입니다' },
         { status: 400 },
       );
+    }
+
+    // Phase 6: Input field 값 검증
+    if (Array.isArray(inputValues) && inputValues.length > 0) {
+      const fields = getInputFields(null);
+      const fieldMap = new Map(fields.map(f => [f.id, f]));
+
+      for (const inputValue of inputValues) {
+        const field = fieldMap.get(inputValue.fieldId);
+        if (!field) {
+          return NextResponse.json(
+            { ok: false, message: `알 수 없는 필드: ${inputValue.fieldId}` },
+            { status: 400 },
+          );
+        }
+
+        const validation = validateInputValue(field, inputValue.value);
+        if (!validation.valid) {
+          return NextResponse.json(
+            { ok: false, message: validation.error ?? '입력값 검증 실패' },
+            { status: 400 },
+          );
+        }
+      }
     }
 
     // P1-2: signatureImage base64 형식 검증
@@ -252,6 +387,16 @@ export async function POST(req: Request) {
 
       const signedAt = new Date().toISOString();
 
+      // Phase 6: inputValues를 generatedData에 병합
+      let mergedData = { ...existingData };
+      if (Array.isArray(inputValues) && inputValues.length > 0) {
+        const inputMap = new Map(inputValues.map(iv => [iv.fieldId, iv.value]));
+        mergedData = {
+          ...mergedData,
+          inputValues: Object.fromEntries(inputMap), // { signerName, signerPhone, signerEmail, signerBirthDate }
+        };
+      }
+
       // P1-5: 서명 후 signToken 무효화
       const doc = await tx.salesDocument.update({
         where: { id: docId },
@@ -259,7 +404,7 @@ export async function POST(req: Request) {
           status:     'APPROVED',
           approvedAt: new Date(),
           generatedData: {
-            ...existingData,
+            ...mergedData,
             companions,
             signatureImage,
             signedAt,
