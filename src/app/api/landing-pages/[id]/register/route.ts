@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { triggerGroupFunnel } from "@/lib/funnel-trigger";
 import { triggerGroupFunnelSms } from "@/lib/funnel-sms-trigger";
@@ -11,10 +12,17 @@ import sanitizeHtml from "sanitize-html";
 import { replaceMessagePlaceholders } from "@/lib/message-replacements";
 import { scheduleDay0To3Sms } from "@/lib/landing-page-sms-scheduler";
 
-type FormConfig = {
-  b2bEduType?: "INQUIRER" | "BUYER";
-  additionalFields?: { id: string; name: string; required: boolean }[];
-};
+// [P1-11] FormConfig Zod 검증 스키마
+const FormConfigSchema = z.object({
+  b2bEduType: z.enum(["INQUIRER", "BUYER"]).optional(),
+  additionalFields: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    required: z.boolean(),
+  })).optional(),
+}).strict();
+
+type FormConfig = z.infer<typeof FormConfigSchema>;
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -99,6 +107,22 @@ export async function POST(req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, message: "페이지를 찾을 수 없습니다." }, { status: 404 });
     }
 
+    // [P1-11] FormConfig JSON 타입 검증 (Zod 기반)
+    let parsedFormConfig: FormConfig | null = null;
+    if (landingPage.formConfig) {
+      try {
+        const rawConfig = typeof landingPage.formConfig === 'string'
+          ? JSON.parse(landingPage.formConfig)
+          : landingPage.formConfig;
+        parsedFormConfig = FormConfigSchema.parse(rawConfig);
+      } catch (err) {
+        logger.warn("[LandingRegister] FormConfig 검증 실패 (스킵)", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+        // 검증 실패해도 신청은 계속 진행 (formConfig는 선택사항)
+      }
+    }
+
     // [P0-5] 마감일 검증: 현재 시간이 expireDate를 지났으면 마감됨
     if (landingPage.expireDate && new Date() > new Date(landingPage.expireDate)) {
       return NextResponse.json(
@@ -143,12 +167,21 @@ export async function POST(req: Request, { params }: Params) {
     if (orgId) {
       let contact: { id: string };
       let member: { addedAt: Date } | null = null;
+      let isNewContact = false; // [P1-10] 신규 Contact 여부 추적
 
       try {
         // P0-3: Serializable 레벨 트랜잭션으로 Contact + GroupMember 원자성 보장
         const txResult = await prisma.$transaction(
           async (tx) => {
             // Step 1: Contact upsert (원자적)
+            // [P1-10] 기존 Contact 존재 여부 먼저 체크
+            const existingContact = await tx.contact.findUnique({
+              where: {
+                phone_organizationId: { phone: normalizedPhone, organizationId: orgId },
+              },
+              select: { id: true, signupCount: true, signupHistory: true },
+            });
+
             const contact = await tx.contact.upsert({
               where: {
                 phone_organizationId: { phone: normalizedPhone, organizationId: orgId },
@@ -161,16 +194,75 @@ export async function POST(req: Request, { params }: Params) {
                 type:      "LEAD",
                 utmSource: utmSource ?? null,
                 adminMemo: `랜딩페이지 신청 from: "${landingPage.title}"`,
+                // [P1-10] 신규 Contact 생성 시 signupCount = 1 (기본값)
+                signupCount: 1,
+                signupHistory: JSON.stringify([{
+                  index: 1,
+                  landingPageId,
+                  landingPageTitle: landingPage.title,
+                  groupId: landingPage.groupId || null,
+                  groupName: null,
+                  createdAt: new Date().toISOString(),
+                  email: email ?? null,
+                  phone: normalizedPhone,
+                }]),
               },
               update: {
                 name,
                 email: email ?? undefined,
+                // [P1-10] 기존 Contact 갱신 시 signupCount 증가
+                signupCount: existingContact ? existingContact.signupCount + 1 : 1,
+                // [P1-10] signupHistory JSON 배열에 신청 기록 추가
+                signupHistory: existingContact?.signupHistory
+                  ? (() => {
+                      try {
+                        const history = Array.isArray(existingContact.signupHistory)
+                          ? existingContact.signupHistory
+                          : JSON.parse(existingContact.signupHistory as string);
+                        const newEntry = {
+                          index: (history?.length || 0) + 1,
+                          landingPageId,
+                          landingPageTitle: landingPage.title,
+                          groupId: landingPage.groupId || null,
+                          groupName: null,
+                          createdAt: new Date().toISOString(),
+                          email: email ?? null,
+                          phone: normalizedPhone,
+                        };
+                        return JSON.stringify([...history, newEntry]);
+                      } catch {
+                        // JSON 파싱 실패 시 새로 시작
+                        return JSON.stringify([{
+                          index: (existingContact.signupCount || 0) + 1,
+                          landingPageId,
+                          landingPageTitle: landingPage.title,
+                          groupId: landingPage.groupId || null,
+                          groupName: null,
+                          createdAt: new Date().toISOString(),
+                          email: email ?? null,
+                          phone: normalizedPhone,
+                        }]);
+                      }
+                    })()
+                  : JSON.stringify([{
+                      index: (existingContact?.signupCount || 0) + 1,
+                      landingPageId,
+                      landingPageTitle: landingPage.title,
+                      groupId: landingPage.groupId || null,
+                      groupName: null,
+                      createdAt: new Date().toISOString(),
+                      email: email ?? null,
+                      phone: normalizedPhone,
+                    }]),
               },
             });
 
+            isNewContact = !existingContact; // [P1-10] 신규 여부 기록
+
             // Step 2: 그룹 배정 (있으면) — Contact 결정 후 수행
+            // [P1-9] groupId는 UUID ID만 사용 (문자열 category/subName 혼동 방지)
             let groupMember: { addedAt: Date } | null = null;
-            if (landingPage.groupId) {
+            if (landingPage.groupId && typeof landingPage.groupId === 'string' && /^[a-f0-9\-]{36}$/.test(landingPage.groupId)) {
               const grp = await tx.contactGroup.findUnique({
                 where: { id: landingPage.groupId },
                 select: { reEntryPolicy: true },
@@ -196,27 +288,41 @@ export async function POST(req: Request, { params }: Params) {
         contact = txResult.contact;
         member = txResult.groupMember;
       } catch (txError) {
-        // 트랜잭션 실패 = 자동 롤백
+        // [P1-13] 타임아웃 에러 처리 개선
+        const isTimeout = txError instanceof Error && (
+          txError.message.includes('timeout') ||
+          txError.message.includes('P2028') ||
+          (txError as any).code === 'P2028'
+        );
+
         logger.error("[LandingRegister] 트랜잭션 실패 (Contact + GroupMember)", {
           error: txError instanceof Error ? txError.message : String(txError),
           phone: normalizedPhone.substring(0, 4) + "***",
+          isTimeout,
         });
+
         // Contact 생성 실패 시에도 등록 기록은 유지 (이미 생성됨)
         return NextResponse.json(
-          { ok: false, message: "등록 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요." },
-          { status: 500 }
+          {
+            ok: false,
+            message: isTimeout
+              ? "처리 시간이 초과되었습니다. 잠시 후 다시 시도해주세요."
+              : "등록 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+          },
+          { status: isTimeout ? 408 : 500 }
         );
       }
 
-      // 리드 스코어 +30 (랜딩 등록 = 강력한 관심 신호)
-      // 비블로킹: 트랜잭션 완료 후 독립적으로 실행
-      addLeadScore(contact.id, "LANDING_REGISTER").catch(() => {});
+      // [P1-12] 비블로킹 작업들을 Promise.allSettled로 묶기 (실패 감지)
+      const backgroundTasks = [
+        // 리드 스코어 +30 (랜딩 등록 = 강력한 관심 신호)
+        addLeadScore(contact.id, "LANDING_REGISTER").catch(() => {}),
+      ];
 
       // B2B 문의자/구매자 자동 등록 (트랜잭션 외부, 비블로킹)
-      const fc = landingPage.formConfig as FormConfig | null;
-      if (fc?.b2bEduType && (fc.b2bEduType === "INQUIRER" || fc.b2bEduType === "BUYER")) {
+      if (parsedFormConfig?.b2bEduType && (parsedFormConfig.b2bEduType === "INQUIRER" || parsedFormConfig.b2bEduType === "BUYER")) {
         const additionalFieldsMap = new Map(
-          (fc.additionalFields ?? []).map((f) => [`custom_${f.id}`, f.name])
+          (parsedFormConfig.additionalFields ?? []).map((f) => [`custom_${f.id}`, f.name])
         );
         const customFields = (metadata as Record<string, unknown>)?.customFields as Record<string, string> | undefined;
         const notesLines: string[] = [`[랜딩 신청: ${landingPage.title}]`];
@@ -227,34 +333,50 @@ export async function POST(req: Request, { params }: Params) {
           }
         }
         const notesText = notesLines.join('\n');
-        const b2bEduType = fc.b2bEduType; // 타입 좁히기
+        const b2bEduType = parsedFormConfig.b2bEduType; // 타입 좁히기
 
-        prisma.b2BProspect.findFirst({
-          where: { phone: normalizedPhone, organizationId: orgId },
-          select: { id: true },
-        }).then(async (existingProspect) => {
-          if (existingProspect) {
-            await prisma.b2BProspect.update({
-              where: { id: existingProspect.id },
-              data: { notes: notesText },
-            });
-          } else {
-            await prisma.b2BProspect.create({
-              data: {
-                organizationId: orgId,
-                name,
-                phone: normalizedPhone,
-                email: email ?? null,
-                eduType: b2bEduType,
-                notes: notesText,
-                status: '잠재고객',
-              },
-            });
-          }
-        }).catch(() => {});
+        backgroundTasks.push(
+          prisma.b2BProspect.findFirst({
+            where: { phone: normalizedPhone, organizationId: orgId },
+            select: { id: true },
+          }).then(async (existingProspect) => {
+            if (existingProspect) {
+              await prisma.b2BProspect.update({
+                where: { id: existingProspect.id },
+                data: { notes: notesText },
+              });
+            } else {
+              await prisma.b2BProspect.create({
+                data: {
+                  organizationId: orgId,
+                  name,
+                  phone: normalizedPhone,
+                  email: email ?? null,
+                  eduType: b2bEduType,
+                  notes: notesText,
+                  status: '잠재고객',
+                },
+              });
+            }
+          }).catch((err) => {
+            logger.warn("[LandingRegister] B2B 문의자 등록 실패", { err });
+            throw err; // Promise.allSettled에서 catch할 수 있게
+          })
+        );
+      }
+
+      // [P1-12] 모든 비블로킹 작업 동시 실행 + 실패 감지
+      const results = await Promise.allSettled(backgroundTasks);
+      const failedTasks = results.filter(r => r.status === 'rejected');
+      if (failedTasks.length > 0) {
+        logger.warn("[LandingRegister] 일부 비블로킹 작업 실패 (신청은 유지)", {
+          failedCount: failedTasks.length,
+          totalCount: results.length,
+        });
       }
 
       // autoFunnelId 직접 퍼널 시작 (그룹 경유 없이)
+      // [P1-9] autoFunnelId는 UUID 형식만 허용 (경로 통과 방지)
       if (!funnelStarted && landingPage.autoFunnelId && typeof landingPage.autoFunnelId === "string") {
         // P0-10: UUID 형식 검증 (path traversal 방지)
         if (!/^[a-f0-9\-]{36}$/.test(landingPage.autoFunnelId)) {
