@@ -6070,6 +6070,9 @@ model ContractInstance {
   // 관계
   organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   template     ContractTemplate @relation("TemplateInstances", fields: [templateId], references: [id], onDelete: Restrict)
+  auditLogs    ContractAuditLog[]
+  // Phase 5: 계약 수정요청
+  modificationRequests ContractModificationRequest[]
 
   @@index([organizationId])
   @@index([templateId])
@@ -6078,6 +6081,97 @@ model ContractInstance {
   @@index([expiresAt])
   @@index([organizationId, status, createdAt], map: "idx_contract_instance_reminder_lookup", where: raw("status = 'SENT' AND \"reminderCount\" < 3"))
   @@index([organizationId, lastReminderSentAt], map: "idx_contract_instance_last_reminder_sent")
+}
+
+model ContractAuditLog {
+  id          String   @id @default(cuid())
+  contractId  String
+  contract    ContractInstance @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  action      String   // "signed", "viewed", "downloaded", "emailed", "resent", "modification_requested", "modification_approved", "modification_rejected", "modification_alternative_proposed"
+  timestamp   DateTime @default(now())
+
+  userId      String?
+  ipAddress   String?
+  userAgent   String?
+  details     String?
+
+  @@index([contractId])
+  @@index([timestamp])
+  @@index([contractId, timestamp], map: "idx_audit_contract_time")
+}
+
+// Phase 5: Russell Brunson 심리학 기반 계약 수정요청 시스템
+model ContractModificationRequest {
+  id                    String   @id @default(cuid())
+  contractId            String
+  contract              ContractInstance @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  // 요청자 정보 (파트너/에이전트)
+  requestedByUserId     String?  // UserId (내부 에이전트) 또는 contactId (외부 고객)
+  requestedByType       String   @default("AGENT") // "AGENT"|"CONTACT"|"PARTNER"
+  requestedByName       String?  // 요청자명 (비회원용 또는 캐시)
+  requestedByEmail      String?  // 연락처
+
+  // 수정 내용 (JSON 배열)
+  fieldModifications    Json     // Array<{fieldName: string, oldValue: string, newValue: string, reason: string, detectedLens: string?}>
+  additionalNotes       String?  @db.Text // 추가 설명
+
+  // 상태 관리
+  status                String   @default("REQUESTED") // "REQUESTED"|"APPROVED"|"REJECTED"|"ALTERNATIVE_PROPOSED"|"COMPLETED"|"EXPIRED"
+
+  // 관리자 응답 (승인/거절/대안)
+  approvedByUserId      String?  // 응답한 관리자 ID
+  responseMessage       String?  @db.Text // 승인/거절/대안 메시지 (심리학 렌즈 기반 자동생성)
+  alternativeProposal   Json?    // Array<{fieldName: string, proposedValue: string, reason: string}>
+  respondedAt           DateTime?
+  responseIpAddress     String?
+
+  // 5단계 중재 검증 (L2 렌즈)
+  complexityScore       Int      @default(0) // 0-100 (높을수록 복잡)
+  mediation5Steps       Json?    // Array<{step: 1-5, question: string, answer: string?, validationPass: boolean}>
+
+  // 손실회피 추적 (L6 렌즈)
+  dealRiskFlag          Boolean  @default(false) // 거래손실 경고 플래그
+  dealRiskReason        String?  // 왜 손실위험인가
+  dealRiskSuggestedAction String? // 권장대응
+
+  // 심리학 렌즈 자동감지
+  lensApplied           String[] @default(["L2", "L6", "L7", "L10"]) // 적용된 렌즈
+  lensDetectionDetails  Json?    // {L2: {complexity: 45, reason: "..."},  L6: {riskScore: 8, ...}, ...}
+
+  // 가족설득 감지 (L7 렌즈)
+  familyMentionDetected Boolean  @default(false)
+  familySuggestion      String?  @db.Text // "배우자 설득" 추천메시지
+
+  // 긴박감 관리 (L10 렌즈)
+  expiresAt             DateTime // 요청 생성일 + 7일
+  alternativeExpiresAt  DateTime? // 대안제시 시 +3일 추가
+  urgencyMessageGenerated String? @db.Text // L10 긴박감 메시지 (자동)
+
+  // 타임스탬프
+  requestedAt           DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime @updatedAt @db.Timestamptz(6)
+  completedAt           DateTime? // 승인/거절/만료 시점
+
+  // 감사 및 추적
+  ipAddress             String?
+  userAgent             String?
+  auditLog              Json?    // 상태변화 타임라인
+
+  // 자동화 연계
+  smsDay0ResendTriggered Boolean @default(false) // SMS Day 0 재발송 여부
+  contactLensUpdated    Boolean @default(false)  // Contact.appliedLenses 업데이트 여부
+  riskScoreUpdated      Boolean @default(false)  // Risk Score 업데이트 여부
+
+  @@index([contractId])
+  @@index([status])
+  @@index([expiresAt])
+  @@index([requestedByUserId])
+  @@index([approvedByUserId])
+  @@index([requestedAt])
+  @@index([organizationId: raw("COALESCE((SELECT \"organizationId\" FROM \"ContractInstance\" WHERE id = \"contractId\"))"), status], map: "idx_modification_request_org_status")
+  @@index([contractId, status, expiresAt], map: "idx_modification_request_expiry_check")
 }
 
 model ContractTemplateAuditLog {
