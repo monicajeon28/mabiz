@@ -188,11 +188,17 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * GET /api/cron/send-scheduled-messages (테스트/모니터링용)
+ * GET /api/cron/send-scheduled-messages
+ * Vercel Cron은 GET 요청만 보내므로 day+type 파라미터가 있으면 배치 실행
  */
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const action = url.searchParams.get("action");
+
+  // Vercel Cron 호출 경로: day + type 있으면 배치 실행
+  if (url.searchParams.get("day") && url.searchParams.get("type")) {
+    return POST(req);
+  }
 
   // 배치 실행 로그 조회
   if (action === "status") {
