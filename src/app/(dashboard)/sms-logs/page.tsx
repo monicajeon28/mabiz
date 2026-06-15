@@ -543,7 +543,7 @@ export default function SmsLogsPage() {
         {(
           [
             { key: "logs", label: "발송 목록", icon: <MessageSquare className="w-3.5 h-3.5" /> },
-            { key: "funnel", label: "퍼널문자(회차발송)", icon: <Send className="w-3.5 h-3.5" /> },
+            { key: "funnel", label: "자동문자(예약발송)", icon: <Send className="w-3.5 h-3.5" /> },
             { key: "stats", label: "통계 분석", icon: <BarChart2 className="w-3.5 h-3.5" /> },
             { key: "abtest", label: "A/B 테스트", icon: <TrendingUp className="w-3.5 h-3.5" /> },
           ] as const
@@ -883,7 +883,7 @@ export default function SmsLogsPage() {
                 }
                 className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[200px]"
               >
-                <option value="">전체 퍼널문자</option>
+                <option value="">전체 자동문자</option>
                 {funnelOptions.map((f) => (
                   <option key={f.id} value={f.id}>
                     {f.title}
@@ -978,7 +978,7 @@ export default function SmsLogsPage() {
               <Send className="w-12 h-12 mx-auto mb-3 opacity-20" />
               <p className="text-sm">회차 발송 기록이 없습니다.</p>
               <p className="text-sm mt-1">
-                그룹에 퍼널문자를 연결하면 유입일 기준으로 자동 예약됩니다.
+                그룹에 자동문자를 연결하면 신청일 기준으로 자동 예약됩니다.
               </p>
             </div>
           ) : (
