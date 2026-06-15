@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Plus, ChevronDown, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, ChevronDown, Trash2, AlertTriangle } from "lucide-react";
 import { showError } from "@/components/ui/Toast";
 import FunnelSmsHeader from "@/components/funnel-sms/FunnelSmsHeader";
 import FunnelSmsMessageEditor from "@/components/funnel-sms/FunnelSmsMessageEditor";
@@ -49,6 +49,26 @@ export default function FunnelSmsNewPage() {
   const [messages, setMessages] = useState<MessageState[]>([
     { order: 1, daysAfter: 0, content: "", msgType: "SMS" },
   ]);
+
+  const [isAdvertisement, setIsAdvertisement] = useState(false);
+  const AD_OPTOUT_SUFFIX = "\n무료수신거부 080-888-1003";
+
+  // 광고성 메시지 전환 시 메시지 내용에 자동으로 수신거부 문구 추가/제거
+  useEffect(() => {
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (isAdvertisement) {
+          if (!m.content.includes("무료수신거부")) {
+            return { ...m, content: m.content + AD_OPTOUT_SUFFIX };
+          }
+        } else {
+          return { ...m, content: m.content.replace(AD_OPTOUT_SUFFIX, "") };
+        }
+        return m;
+      })
+    );
+   
+  }, [isAdvertisement]);
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -127,8 +147,13 @@ export default function FunnelSmsNewPage() {
       const ac = new AbortController();
       const timer = setTimeout(() => ac.abort(), 10_000);
 
+      const adPrefix = "(광고)";
+      const titleWithAd = isAdvertisement && !header.title.startsWith(adPrefix)
+        ? `${adPrefix}${header.title}`
+        : header.title;
+
       const body = {
-        title: header.title,
+        title: titleWithAd,
         senderPhone: header.senderPhone || null,
         category: header.category || null,
         description: header.description || null,
@@ -190,6 +215,38 @@ export default function FunnelSmsNewPage() {
         <div>
           <h1 className="text-xl font-bold text-gray-900">새 자동문자 만들기</h1>
           <p className="text-sm text-gray-500">신청 후 자동으로 발송될 문자 시퀀스를 설정합니다.</p>
+        </div>
+      </div>
+
+      {/* 광고 심의 준수 배너 */}
+      <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-bold text-amber-900 mb-2">📋 광고성 메시지 법규 안내</p>
+            <ul className="text-xs text-amber-800 space-y-1 mb-3">
+              <li>• <strong>야간(오후 9시 ~ 오전 8시) 광고성 문자 발송 금지</strong> — 이 시간에는 자동으로 차단됩니다</li>
+              <li>• 광고성 메시지는 제목에 <strong>"(광고)"</strong> 표기 및 <strong>무료수신거부 번호</strong> 포함 필수</li>
+              <li>• 수신 동의 고객에게만 발송하세요</li>
+            </ul>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isAdvertisement}
+                onChange={(e) => setIsAdvertisement(e.target.checked)}
+                className="w-4 h-4 rounded accent-amber-600"
+              />
+              <span className="text-sm font-semibold text-amber-900">
+                이 메시지는 광고성 메시지입니다
+              </span>
+            </label>
+            {isAdvertisement && (
+              <div className="mt-2 p-2 bg-amber-100 rounded-lg text-xs text-amber-800">
+                ✅ 제목 앞에 <strong>"(광고)"</strong> 자동 추가됨<br />
+                ✅ 각 메시지 끝에 <strong>"무료수신거부 080-888-1003"</strong> 자동 추가됨
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
