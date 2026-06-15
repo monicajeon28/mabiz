@@ -294,6 +294,7 @@ export default function GroupsPage() {
   // 그룹폼 데이터
   const [funnels, setFunnels] = useState<{ id: string; name: string }[]>([]);
   const [funnelSmsList, setFunnelSmsList] = useState<{ id: string; title: string }[]>([]);
+  const [funnelEmailList, setFunnelEmailList] = useState<{ id: string; name: string }[]>([]);
 
   // ── CSRF 토큰 ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -350,7 +351,8 @@ export default function GroupsPage() {
     Promise.allSettled([
       fetch("/api/funnels", { signal: ctrl.signal }).then((r) => r.json()),
       fetch("/api/funnel-sms", { signal: ctrl.signal }).then((r) => r.json()),
-    ]).then(([fRes, fsRes]) => {
+      fetch("/api/funnel-email", { signal: ctrl.signal }).then((r) => r.json()),
+    ]).then(([fRes, fsRes, feRes]) => {
       if (ctrl.signal.aborted) return;
       if (fRes.status === "fulfilled" && fRes.value.ok) {
         setFunnels((fRes.value as { ok: boolean; funnels?: { id: string; name: string }[] }).funnels ?? []);
@@ -358,7 +360,11 @@ export default function GroupsPage() {
       if (fsRes.status === "fulfilled" && fsRes.value.ok) {
         setFunnelSmsList((fsRes.value as { ok: boolean; funnelSmsList?: { id: string; title: string }[] }).funnelSmsList ?? []);
       }
-    }).catch(() => {/* funnels 패칭 실패는 조용히 무시 */});
+      if (feRes.status === "fulfilled" && feRes.value.ok) {
+        const feData = (feRes.value as { ok: boolean; data?: { id: string; title: string }[] }).data ?? [];
+        setFunnelEmailList(feData.map((item) => ({ id: item.id, name: item.title })));
+      }
+    }).catch(() => {/* 패칭 실패는 조용히 무시 */});
     return () => ctrl.abort();
   }, []);
 
@@ -534,7 +540,7 @@ export default function GroupsPage() {
           groups={groups.map((g) => ({ id: g.id, name: g.name }))}
           funnels={funnels}
           funnelSmsList={funnelSmsList}
-          funnelEmailList={[]}
+          funnelEmailList={funnelEmailList}
           csrfToken={csrfToken}
           onClose={() => setShowCreate(false)}
           onCreated={() => {
@@ -548,7 +554,7 @@ export default function GroupsPage() {
           groups={groups.filter(g => g.id !== editGroup.id).map(g => ({ id: g.id, name: g.name }))}
           funnels={funnels}
           funnelSmsList={funnelSmsList}
-          funnelEmailList={[]}
+          funnelEmailList={funnelEmailList}
           csrfToken={csrfToken}
           editGroupId={editGroup.id}
           initialData={{

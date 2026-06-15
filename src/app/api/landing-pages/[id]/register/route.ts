@@ -3,6 +3,7 @@ import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { triggerGroupFunnel } from "@/lib/funnel-trigger";
 import { triggerGroupFunnelSms } from "@/lib/funnel-sms-trigger";
+import { triggerFunnelEmail } from "@/lib/funnel-email-trigger";
 import { shouldResetOnReentry } from "@/lib/funnel-sms-helpers";
 import { logger } from "@/lib/logger";
 import { addLeadScore } from "@/lib/lead-score";
@@ -453,8 +454,19 @@ export async function POST(req: Request, { params }: Params) {
             return false;
           });
 
+          // ★ 자동이메일(FunnelEmail) 트리거 — 그룹에 funnelEmailId가 연결된 경우
+          const emailTriggered = await triggerFunnelEmail({
+            contactId:      contactId,
+            groupId:        groupId,
+            organizationId: orgId,
+            anchorDate:     anchorDate,
+          }).catch((err) => {
+            logger.error('[LandingRegister] 자동이메일 트리거 실패', { err });
+            return false;
+          });
+
           // [T8] OR 연산으로 true 상태 유지 (autoFunnelId + groupId 동시 사용 시 오염 방지)
-          funnelStarted = funnelStarted || triggered || smsTriggered;
+          funnelStarted = funnelStarted || triggered || smsTriggered || emailTriggered;
 
           // funnelStarted 업데이트 (fire-and-forget)
           if (triggered || smsTriggered) {

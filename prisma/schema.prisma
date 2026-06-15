@@ -86,6 +86,8 @@ model Organization {
   monthlySettlements         MonthlySettlement[]
   // FunnelSms (퍼널문자)
   funnelSmsList              FunnelSms[]
+  // FunnelEmail (자동이메일)
+  funnelEmails               FunnelEmail[]
   // 수익 계산기 저장
   profitCalculations         ProfitCalculation[]
   // Contact Audit Logs
@@ -751,6 +753,7 @@ model ContactGroup {
   // 하위 호환성
   funnelId              String?
   funnelSmsId           String?
+  funnelEmailId         String?
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
   ownerId               String?
@@ -758,6 +761,7 @@ model ContactGroup {
   memberCount           Int                    @default(0)
   organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   funnelSms             FunnelSms?             @relation("GroupFunnelSms", fields: [funnelSmsId], references: [id], onDelete: SetNull)
+  funnelEmail           FunnelEmail?           @relation("GroupFunnelEmail", fields: [funnelEmailId], references: [id], onDelete: SetNull)
   parent                ContactGroup?          @relation("GroupHierarchy", fields: [parentGroupId], references: [id])
   children              ContactGroup[]         @relation("GroupHierarchy")
   members               ContactGroupMember[]
@@ -7064,6 +7068,46 @@ model FunnelSmsMessage {
   @@unique([funnelSmsId, order])
   @@index([funnelSmsId])
   @@map("FunnelSmsMessage")
+}
+
+// FunnelEmail (자동이메일) — 그룹 가입 → N회차 자동 이메일 시퀀스
+// ============================================================
+model FunnelEmail {
+  id              String               @id @default(cuid())
+  organizationId  String
+  title           String
+  senderName      String?
+  senderEmail     String?
+  description     String?
+  sendHour        Int                  @default(10)
+  sendMinute      Int                  @default(0)
+  isActive        Boolean              @default(true)
+  createdByUserId String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  organization    Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  messages        FunnelEmailMessage[]
+  groups          ContactGroup[]       @relation("GroupFunnelEmail")
+
+  @@index([organizationId])
+  @@map("FunnelEmail")
+}
+
+model FunnelEmailMessage {
+  id            String      @id @default(cuid())
+  funnelEmailId String
+  order         Int
+  daysAfter     Int         @default(0)
+  subject       String
+  bodyHtml      String      @db.Text
+  previewText   String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  funnelEmail   FunnelEmail @relation(fields: [funnelEmailId], references: [id], onDelete: Cascade)
+
+  @@unique([funnelEmailId, order])
+  @@index([funnelEmailId])
+  @@map("FunnelEmailMessage")
 }
 
 // [DEPRECATED] Landing Page SMS 자동화 시퀀스 (2026-06-15)
