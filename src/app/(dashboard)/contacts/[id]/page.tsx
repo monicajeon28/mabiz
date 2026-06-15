@@ -1104,7 +1104,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         <GrantObjectionPanel
           contactId={id}
           contactName={contact.name}
-          lensInfo={contact.lensInfo as Record<string, number> | undefined}
+          lensInfo={(contact as any).lensInfo as Record<string, number> | undefined}
         />
 
         {/* Accordion: 그룹 관리 */}
