@@ -45,7 +45,10 @@ type Contact = {
     transferType: string;
     canRecall: boolean;
   } | null;
+  visibility?: string;
 };
+
+type ContactTab = 'SHARED' | 'ADMIN_ONLY';
 
 // P0-6: 출처별 라벨 및 색상
 const SOURCE_TYPE_LABELS: Record<string, { label: string; icon: string; color: string }> = {
@@ -132,8 +135,12 @@ export default function ContactsPage() {
   const { toast } = useToast();
   const { role } = useSession();
   const canDelete = role === 'OWNER' || role === 'GLOBAL_ADMIN';
+  const isAdmin = role === 'GLOBAL_ADMIN';
+  const [activeTab, setActiveTab] = useState<ContactTab>('SHARED');
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [total, setTotal] = useState(0);
+  const [sharedCount, setSharedCount] = useState(0);
+  const [adminOnlyCount, setAdminOnlyCount] = useState(0);
   const [q, setQ] = useState("");
   const [type, setType] = useState("");
   const [loading, setLoading] = useState(true);
@@ -423,6 +430,7 @@ export default function ContactsPage() {
     if (filterGroupId)            params.set("groupId",    filterGroupId);
     if (filterAssignedTo)         params.set("assignedTo", filterAssignedTo);
     if (selectedTags.length > 0)  params.set("tags",       selectedTags.join(","));
+    if (activeTab === 'ADMIN_ONLY') params.set("visibility", "ADMIN_ONLY");
 
     try {
       const res = await fetch(`/api/contacts?${params}`, { signal });
@@ -437,7 +445,7 @@ export default function ContactsPage() {
     } finally {
       setLoading(false);
     }
-  }, [q, type, page, filterGroupId, filterSourceType, filterAssignedTo, selectedTags]); // P0-6
+  }, [q, type, page, filterGroupId, filterSourceType, filterAssignedTo, selectedTags, activeTab]); // P0-6
 
   // P2-8: refs persist across renders — prevents debounce timer reset and premature AbortController abort
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -480,20 +488,24 @@ export default function ContactsPage() {
   // 담당자 할당 통계와 그룹 로드 (의존성: 없음 - 마운트 시 1회만)
   // 그룹/담당자 정보는 자주 변경되지 않으므로, 필요시 수동으로 갱신
 
-  // 할당 통계 + 그룹 목록 로드
+  // 할당 통계 + 그룹 목록 + 탭 카운트 로드
   useEffect(() => {
     const ctrl = new AbortController();
     Promise.all([
       fetch("/api/groups", { signal: ctrl.signal }).then(r => r.json()),
       fetch("/api/contacts/assign-stats", { signal: ctrl.signal }).then(r => r.json()),
-    ]).then(([g, a]) => {
+      fetch("/api/contacts?visibility=SHARED&limit=1", { signal: ctrl.signal }).then(r => r.json()),
+      isAdmin ? fetch("/api/contacts?visibility=ADMIN_ONLY&limit=1", { signal: ctrl.signal }).then(r => r.json()) : Promise.resolve(null),
+    ]).then(([g, a, shared, adminOnly]) => {
       if (g.ok) setGroups(g.groups ?? []);
       if (a.ok) { setAssignStats(a.stats ?? []); setUnassignedCount(a.unassigned ?? 0); }
+      if (shared.ok) setSharedCount(shared.total ?? 0);
+      if (adminOnly?.ok) setAdminOnlyCount(adminOnly.total ?? 0);
     }).catch(err => {
       if (err instanceof Error && err.name !== 'AbortError') logger.error('[assign-stats failed]', { err });
     });
     return () => ctrl.abort();
-  }, []);
+  }, [isAdmin]);
 
   // [L6] setTimeout cleanup (공유 결과 메시지 자동 숨김)
   useEffect(() => {
@@ -826,7 +838,7 @@ export default function ContactsPage() {
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-xl font-bold text-navy-900">고객 관리</h1>
+          <h1 className="text-2xl font-bold text-navy-900">연락처</h1>
           <p className="text-sm text-gray-500 mt-0.5">총 {total.toLocaleString()}명</p>
         </div>
         <div className="flex gap-2">
@@ -906,6 +918,44 @@ export default function ContactsPage() {
           >
             <Plus className="w-4 h-4" /> 고객 추가
           </Link>
+        </div>
+      </div>
+
+      {/* Contact 탭 (Team-B UI) */}
+      <div className="mb-6">
+        {/* 탭 버튼 */}
+        <div className="flex gap-2 mb-3">
+          <button
+            onClick={() => { setActiveTab('SHARED'); setPage(1); }}
+            className={`px-6 py-3 rounded-lg font-semibold text-lg transition ${
+              activeTab === 'SHARED'
+                ? 'bg-blue-600 text-white shadow-lg'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            📋 공유 카테고리 ({sharedCount})
+          </button>
+          {isAdmin && (
+            <button
+              onClick={() => { setActiveTab('ADMIN_ONLY'); setPage(1); }}
+              className={`px-6 py-3 rounded-lg font-semibold text-lg transition ${
+                activeTab === 'ADMIN_ONLY'
+                  ? 'bg-blue-600 text-white shadow-lg'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              🔒 관리자 전용 ({adminOnlyCount})
+            </button>
+          )}
+        </div>
+
+        {/* 설명문 */}
+        <div className="px-4 py-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+          <p className="text-sm text-gray-700">
+            ⓘ {activeTab === 'SHARED'
+              ? '대리점장, 판매원, 관리자 모두 조회 가능한 DB입니다'
+              : '관리자만 관리하는 DB입니다'}
+          </p>
         </div>
       </div>
 
