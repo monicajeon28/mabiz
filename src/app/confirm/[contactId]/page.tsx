@@ -68,50 +68,39 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
       ? contact.email.replace(/^(.{2}).+(@.+)$/, '$1***$2')
       : null;
 
-  // 그룹명 조회 (groupId가 있을 때만)
-  let groupName: string | null = null;
-  if (groupId) {
-    const group = await prisma.contactGroup.findUnique({
-      where: { id: groupId },
-      select: { name: true },
-    });
-    groupName = group?.name ?? null;
-  }
+  // 그룹명 + SMS + Email 일정을 병렬 조회 (Jeff: 순차 4쿼리 → Promise.all 병렬)
+  const [groupResult, rawSmsSchedules, rawEmailSchedules] = await Promise.all([
+    groupId
+      ? prisma.contactGroup.findUnique({ where: { id: groupId }, select: { name: true } })
+      : Promise.resolve(null),
+    prisma.scheduledSms.findMany({
+      where: { contactId, status: 'PENDING' },
+      orderBy: { scheduledAt: 'asc' },
+      take: 10,
+      select: {
+        id: true,
+        scheduledAt: true,
+        status: true,
+        round: true,
+        // message 필드 제거 — 공개 페이지에서 SMS 내용 노출 방지 (PII)
+      },
+    }),
+    prisma.scheduledEmailMessage.findMany({
+      where: { contactId, status: 'PENDING' },
+      orderBy: { scheduledAt: 'asc' },
+      take: 10,
+      select: {
+        id: true,
+        scheduledAt: true,
+        status: true,
+        day: true,
+        subject: true,
+      },
+    }),
+  ]);
 
-  // SMS Day 0-3 발송 일정 조회 (PENDING 상태, 최대 10개)
-  const rawSmsSchedules = await prisma.scheduledSms.findMany({
-    where: {
-      contactId,
-      status: 'PENDING',
-    },
-    orderBy: { scheduledAt: 'asc' },
-    take: 10,
-    select: {
-      id: true,
-      scheduledAt: true,
-      status: true,
-      round: true,
-      // message 필드 제거 — 공개 페이지에서 SMS 내용 노출 방지 (PII)
-    },
-  });
+  const groupName: string | null = groupResult?.name ?? null;
   const smsSchedules: SmsSchedule[] = rawSmsSchedules;
-
-  // 이메일 Day 0-3 발송 일정 조회 (PENDING 상태, 최대 10개)
-  const rawEmailSchedules = await prisma.scheduledEmailMessage.findMany({
-    where: {
-      contactId,
-      status: 'PENDING',
-    },
-    orderBy: { scheduledAt: 'asc' },
-    take: 10,
-    select: {
-      id: true,
-      scheduledAt: true,
-      status: true,
-      day: true,
-      subject: true,
-    },
-  });
   const emailSchedules: EmailSchedule[] = rawEmailSchedules;
 
   const hasEmail = !!contact.email && emailSchedules.length > 0;
@@ -268,7 +257,7 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
                       >
                         <span
                           style={{
-                            fontSize: '12px',
+                            fontSize: '14px',
                             fontWeight: '700',
                             color: '#6b7280',
                             background: '#e5e7eb',
@@ -367,7 +356,7 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
                       >
                         <span
                           style={{
-                            fontSize: '12px',
+                            fontSize: '14px',
                             fontWeight: '700',
                             color: '#6b7280',
                             background: '#e5e7eb',
@@ -408,26 +397,38 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
           </div>
         )}
 
-        {/* 섹션 4: 안내 문구 (발송 일정이 없을 때도 표시) */}
+        {/* 섹션 4: L6 긴박감 + 안내 문구 (Grant Cardone: 타이밍 손실회피) */}
         <div
           style={{
-            background: '#ffffff',
+            background: '#fff7ed',
             borderRadius: '20px',
             padding: '24px',
             boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
+            border: '1px solid #fed7aa',
             textAlign: 'center',
           }}
         >
           <p
             style={{
-              fontSize: '16px',
-              color: '#374151',
+              fontSize: '18px',
+              color: '#c2410c',
               margin: '0 0 8px',
               lineHeight: '1.6',
-              fontWeight: '600',
+              fontWeight: '700',
             }}
           >
-            담당자가 곧 연락드릴 예정입니다.
+            ⏰ 담당자가 곧 연락드립니다
+          </p>
+          <p
+            style={{
+              fontSize: '15px',
+              color: '#374151',
+              margin: '0 0 12px',
+              lineHeight: '1.6',
+            }}
+          >
+            문자와 이메일을 꼭 확인해 주세요.<br />
+            빠른 응답일수록 더 좋은 조건으로 안내받을 수 있습니다.
           </p>
           <p
             style={{
@@ -437,7 +438,7 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
               lineHeight: '1.6',
             }}
           >
-            문자 및 이메일을 확인해 주세요.
+            상담 신청은 선착순으로 처리됩니다.
           </p>
         </div>
       </div>
