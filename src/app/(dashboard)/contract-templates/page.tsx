@@ -122,7 +122,7 @@ export default function ContractTemplatesPage() {
     <div className="p-6 max-w-7xl mx-auto">
       {/* 헤더 */}
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">계약서 템플릿</h1>
+        <h1 className="text-3xl font-bold">계약 템플릿</h1>
         <Link
           href="/contract-templates/new"
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -163,9 +163,9 @@ export default function ContractTemplatesPage() {
             className="px-3 py-2 border border-gray-300 rounded-lg"
           >
             <option value="">모든 상태</option>
-            <option value="ACTIVE">활성</option>
+            <option value="ACTIVE">사용 중</option>
             <option value="ARCHIVED">보관됨</option>
-            <option value="DRAFT">임시저장</option>
+            <option value="DRAFT">작성 중</option>
           </select>
         </div>
       </div>
@@ -194,7 +194,7 @@ export default function ContractTemplatesPage() {
                 <th className="text-left px-4 py-3 font-semibold text-sm">카테고리</th>
                 <th className="text-left px-4 py-3 font-semibold text-sm">상태</th>
                 <th className="text-left px-4 py-3 font-semibold text-sm">사용횟수</th>
-                <th className="text-left px-4 py-3 font-semibold text-sm">렌즈</th>
+                <th className="text-left px-4 py-3 font-semibold text-sm">특성</th>
                 <th className="text-left px-4 py-3 font-semibold text-sm">작업</th>
               </tr>
             </thead>

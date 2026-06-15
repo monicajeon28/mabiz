@@ -41,15 +41,15 @@ const PROGRESS_STAGES = [
 
 const STATUS_LABEL: Record<string, string> = {
   draft: "작성중",
-  invited: "초대됨",
-  signed: "서명됨",
+  invited: "서명 대기",
+  signed: "서명 완료",
   completed: "완료",
   rejected: "거절",
 };
 
 const STATUS_CLASS: Record<string, string> = {
   draft: "bg-gray-100 text-gray-600",
-  invited: "bg-blue-100 text-blue-700",
+  invited: "bg-orange-100 text-orange-700",
   signed: "bg-yellow-100 text-yellow-700",
   completed: "bg-green-100 text-green-700",
   rejected: "bg-red-100 text-red-700",
@@ -60,9 +60,9 @@ function getContractStatusLabel(status: string, contractType?: string): string {
   if (status === "draft") {
     return "작성중";
   } else if (status === "invited" && contractType === "cruisedot-partners") {
-    return "크루즈닷 파트너스 사입신청";
+    return "서명 대기중";
   } else if (status === "invited" && contractType === "rental-partner") {
-    return "렌탈 파트너 승인 대기";
+    return "승인 대기중";
   }
   return STATUS_LABEL[status] ?? status;
 }
@@ -194,13 +194,13 @@ export default function ContractsPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 mb-1">계약서 관리</h1>
-      <p className="text-sm text-gray-500 mb-6">대리점장 전용 — 초대한 계약서 현황입니다.</p>
+      <h1 className="text-2xl font-bold text-gray-900 mb-1">계약 관리</h1>
+      <p className="text-sm text-gray-500 mb-6">보낸 계약서의 진행상황을 확인할 수 있습니다.</p>
 
       {/* L10 렌즈: 계약서 진행률 헤더 (4-step 시각화) */}
       {!loading && !error && contracts.length > 0 && (
         <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
-          <h2 className="text-sm font-semibold text-gray-700 mb-4">계약서 진행률 현황</h2>
+          <h2 className="text-sm font-semibold text-gray-700 mb-4">계약 진행 현황</h2>
           <div className="flex items-center gap-4">
             {PROGRESS_STAGES.map((s, idx) => {
               const count = contracts.filter((c) => getContractStage(c.status) >= s.stage).length;
@@ -245,7 +245,7 @@ export default function ContractsPage() {
 
       {!loading && !error && contracts.length === 0 && (
         <div className="text-center py-16 text-gray-600">
-          초대한 계약서가 없습니다 (대리점장 전용)
+          보낸 계약서가 없습니다
         </div>
       )}
 
@@ -254,11 +254,11 @@ export default function ContractsPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">계약자명</th>
-                <th className="text-center px-4 py-3 font-medium text-gray-600">진행 상태</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">이름</th>
+                <th className="text-center px-4 py-3 font-medium text-gray-600">상태</th>
                 <th className="text-center px-4 py-3 font-medium text-gray-600">남은 시간</th>
-                <th className="text-center px-4 py-3 font-medium text-gray-600">SMS 단계</th>
-                <th className="text-center px-4 py-3 font-medium text-gray-600">액션</th>
+                <th className="text-center px-4 py-3 font-medium text-gray-600">알림</th>
+                <th className="text-center px-4 py-3 font-medium text-gray-600">작업</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
