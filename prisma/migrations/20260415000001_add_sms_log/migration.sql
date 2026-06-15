@@ -22,7 +22,15 @@ CREATE INDEX "SmsLog_orgId_sentAt_idx" ON "SmsLog"("organizationId", "sentAt");
 CREATE INDEX "SmsLog_contactId_sentAt_idx" ON "SmsLog"("contactId", "sentAt");
 
 -- AlterTable: Funnel에 funnelType 추가 (이전 manual 마이그레이션 대체)
-ALTER TABLE "Funnel" ADD COLUMN IF NOT EXISTS "funnelType" TEXT NOT NULL DEFAULT 'GENERAL';
+DO $$ BEGIN
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'Funnel') THEN
+    ALTER TABLE "Funnel" ADD COLUMN IF NOT EXISTS "funnelType" TEXT NOT NULL DEFAULT 'GENERAL';
+  END IF;
+END $$;
 
 -- AlterTable: FunnelStage에 linkUrl 추가
-ALTER TABLE "FunnelStage" ADD COLUMN IF NOT EXISTS "linkUrl" TEXT;
+DO $$ BEGIN
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'FunnelStage') THEN
+    ALTER TABLE "FunnelStage" ADD COLUMN IF NOT EXISTS "linkUrl" TEXT;
+  END IF;
+END $$;
