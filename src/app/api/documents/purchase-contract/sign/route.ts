@@ -239,8 +239,7 @@ export async function GET(req: Request) {
     // Phase 6: 기본값 추출 (Contact 데이터로부터 자동 채우기)
     if (templateInputFields && contactData) {
       try {
-        const fieldNames = templateInputFields.map(f => f.contactFieldName).filter(Boolean) as string[];
-        inputFieldDefaults = extractAllContactFieldValues(contactData, fieldNames);
+        inputFieldDefaults = extractAllContactFieldValues(contactData);
       } catch (extractErr) {
         logger.warn('[PurchaseContractSign GET] inputFields 추출 오류', {
           docId,
