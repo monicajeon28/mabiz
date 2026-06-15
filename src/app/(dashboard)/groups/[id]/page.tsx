@@ -11,8 +11,9 @@ import { OfferSection } from "@/components/groups/OfferSection";
 import { Day0SMSPreview } from "@/components/groups/Day0SMSPreview";
 import { TrustBadge } from "@/components/groups/TrustBadge";
 import { GroupEmailSettings } from "@/components/groups/GroupEmailSettings";
+import { GroupEmailFunnelBuilder } from "@/components/groups/GroupEmailFunnelBuilder";
 
-type ActiveTab = "overview" | "email-settings";
+type ActiveTab = "overview" | "email-settings" | "email-funnel";
 
 type GroupDetail = {
   id: string;
@@ -34,6 +35,7 @@ export default function GroupDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
+  const [hasEmailConfig, setHasEmailConfig] = useState(false);
 
   // L10 렌즈: 즉시구매 클로징 상태
   const [selectedTier, setSelectedTier] = useState<MembershipTier>("premium"); // 추천값으로 기본 선택
@@ -73,6 +75,20 @@ export default function GroupDetailPage() {
 
     loadGroup();
     return () => ctrl.abort();
+  }, [groupId]);
+
+  // 이메일 설정 존재 여부 확인 (이메일 퍼널 탭 활성화 조건)
+  useEffect(() => {
+    if (!groupId) return;
+    fetch(`/api/groups/${groupId}/email-config`)
+      .then((res) => res.json())
+      .then((data: unknown) => {
+        // id 필드가 있으면 설정 존재
+        setHasEmailConfig(
+          typeof data === "object" && data !== null && "id" in data
+        );
+      })
+      .catch(() => setHasEmailConfig(false));
   }, [groupId]);
 
   const handleJoin = async () => {
@@ -249,6 +265,7 @@ export default function GroupDetailPage() {
   const tabs: { id: ActiveTab; label: string; icon: React.ReactNode }[] = [
     { id: "overview", label: "그룹 개요", icon: <Users className="w-4 h-4" /> },
     { id: "email-settings", label: "📧 이메일 설정", icon: <Mail className="w-4 h-4" /> },
+    { id: "email-funnel", label: "📬 이메일 퍼널", icon: <Mail className="w-4 h-4" /> },
   ];
 
   return (
@@ -409,6 +426,14 @@ export default function GroupDetailPage() {
       {/* 이메일 설정 탭 */}
       {activeTab === "email-settings" && (
         <GroupEmailSettings groupId={groupId} />
+      )}
+
+      {/* 이메일 퍼널 탭 */}
+      {activeTab === "email-funnel" && (
+        <GroupEmailFunnelBuilder
+          groupId={groupId}
+          hasEmailConfig={hasEmailConfig}
+        />
       )}
     </div>
   );

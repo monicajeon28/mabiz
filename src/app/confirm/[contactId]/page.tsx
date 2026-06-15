@@ -6,13 +6,12 @@ interface Props {
   searchParams: Promise<{ group?: string }>;
 }
 
-// SMS 발송 일정 타입
+// SMS 발송 일정 타입 (message 필드 제거 — PII 노출 방지)
 interface SmsSchedule {
   id: string;
   scheduledAt: Date;
   status: string;
   round: number | null;
-  message: string;
 }
 
 // 이메일 발송 일정 타입
@@ -47,6 +46,7 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
   const { group: groupId } = await searchParams;
 
   // 연락처 조회 (공개 접근 — contactId 존재 여부만 확인)
+  // PII 보호: name/email 최소 필드만 조회, 표시 시 마스킹 적용
   const contact = await prisma.contact.findUnique({
     where: { id: contactId },
     select: { id: true, name: true, email: true },
@@ -55,6 +55,18 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
   if (!contact) {
     notFound();
   }
+
+  // 이름 마스킹: "김철수" → "김○○", 1글자 이름은 그대로
+  const maskedName =
+    contact.name.length > 1
+      ? contact.name[0] + '○○'
+      : contact.name;
+
+  // 이메일 마스킹: "kim12@gmail.com" → "ki***@gmail.com"
+  const maskedEmail =
+    contact.email
+      ? contact.email.replace(/^(.{2}).+(@.+)$/, '$1***$2')
+      : null;
 
   // 그룹명 조회 (groupId가 있을 때만)
   let groupName: string | null = null;
@@ -79,7 +91,7 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
       scheduledAt: true,
       status: true,
       round: true,
-      message: true,
+      // message 필드 제거 — 공개 페이지에서 SMS 내용 노출 방지 (PII)
     },
   });
   const smsSchedules: SmsSchedule[] = rawSmsSchedules;
@@ -166,7 +178,7 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
               lineHeight: '1.6',
             }}
           >
-            <strong>{contact.name}</strong>님, 안녕하세요!
+            <strong>{maskedName}</strong>님, 안녕하세요!
           </p>
           {groupName && (
             <p
@@ -229,18 +241,13 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
                 const isSent = sms.status === 'SENT';
                 const dayLabel =
                   sms.round !== null ? `Day ${sms.round}` : `${index + 1}번째`;
-                // 메시지 미리보기 (최대 40자)
-                const preview =
-                  sms.message.length > 40
-                    ? sms.message.slice(0, 40) + '...'
-                    : sms.message;
 
                 return (
                   <div
                     key={sms.id}
                     style={{
                       display: 'flex',
-                      alignItems: 'flex-start',
+                      alignItems: 'center',
                       gap: '12px',
                       padding: '14px 16px',
                       background: isSent ? '#f0fdf4' : '#f9fafb',
@@ -248,7 +255,7 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
                       border: `1px solid ${isSent ? '#bbf7d0' : '#e5e7eb'}`,
                     }}
                   >
-                    <span style={{ fontSize: '20px', lineHeight: '1', marginTop: '2px' }}>
+                    <span style={{ fontSize: '20px', lineHeight: '1' }}>
                       {isSent ? '✅' : '⏳'}
                     </span>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -257,7 +264,6 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
                           display: 'flex',
                           alignItems: 'center',
                           gap: '8px',
-                          marginBottom: '4px',
                         }}
                       >
                         <span
@@ -282,17 +288,6 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
                           {relDay}
                         </span>
                       </div>
-                      <p
-                        style={{
-                          fontSize: '14px',
-                          color: '#6b7280',
-                          margin: '0',
-                          lineHeight: '1.5',
-                          wordBreak: 'break-all',
-                        }}
-                      >
-                        {preview}
-                      </p>
                     </div>
                   </div>
                 );
@@ -332,7 +327,7 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
                 lineHeight: '1.6',
               }}
             >
-              {contact.email}으로 같은 일정에 이메일도 발송됩니다.
+              {maskedEmail}으로 같은 일정에 이메일도 발송됩니다.
             </p>
             <div
               style={{

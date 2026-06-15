@@ -45,6 +45,13 @@ export interface EmailTriggerOptions {
   organizationId: string;
   /** 기준일 (없으면 현재시각) */
   anchorDate?: Date;
+  /**
+   * 재유입 정책 — group.reEntryPolicy 값을 그대로 전달
+   * 'RESET_TIME_KEEP_DATA' | 'RESET_TIME_RESET_DATA' 등 'RESET'이 포함되면
+   * 기존 PENDING 이메일을 CANCELLED 처리 후 재스케줄링.
+   * 미전달 또는 'KEEP_*' 계열이면 기존 PENDING이 있을 때 스킵 (기존 동작).
+   */
+  reEntryPolicy?: string;
 }
 
 /**
@@ -55,7 +62,8 @@ export interface EmailTriggerOptions {
 export async function triggerGroupEmailFunnel(
   opts: EmailTriggerOptions
 ): Promise<boolean> {
-  const { contactId, groupId, organizationId } = opts;
+  const { contactId, groupId, organizationId, reEntryPolicy } = opts;
+  const isReset = typeof reEntryPolicy === "string" && reEntryPolicy.includes("RESET");
 
   // 1. GroupEmailFunnel 조회 (isActive: true)
   const emailFunnel = await prisma.groupEmailFunnel.findFirst({
@@ -150,10 +158,10 @@ export async function triggerGroupEmailFunnel(
     select: { name: true },
   });
 
-  // 6. 멱등성 체크: 동일 contactId + groupId + PENDING 조합이 있으면 전체 스킵
-  //    (재유입 RESET 정책이면 anchorDate가 갱신되지만 ScheduledEmailMessage에 channel이 없으므로
-  //     groupId + contactId + PENDING 기준으로 단순 체크)
-  const existingPending = await prisma.scheduledEmailMessage.findFirst({
+  // 6. 멱등성 체크 / RESET 처리
+  //    - RESET 정책: 기존 PENDING 이메일을 모두 CANCELLED 처리 → 새 스케줄 생성 진행 (SMS와 동일)
+  //    - KEEP 정책(기본): 기존 PENDING이 있으면 스킵 (기존 동작 유지)
+  const existingPendingIds = await prisma.scheduledEmailMessage.findMany({
     where: {
       organizationId,
       contactId,
@@ -163,13 +171,33 @@ export async function triggerGroupEmailFunnel(
     select: { id: true },
   });
 
-  if (existingPending) {
-    logger.log("[EmailFunnelTrigger] 중복 이메일 퍼널 스킵 (멱등성)", {
-      contactId,
-      groupId,
-      existingId: existingPending.id,
-    });
-    return false;
+  if (existingPendingIds.length > 0) {
+    if (isReset) {
+      // RESET 정책: 기존 PENDING 취소 후 재스케줄링 (SMS와 동일한 동작)
+      await prisma.scheduledEmailMessage.updateMany({
+        where: {
+          id: { in: existingPendingIds.map((r) => r.id) },
+          status: "PENDING",
+        },
+        data: { status: "CANCELLED" },
+      });
+      logger.log(
+        "[EmailFunnelTrigger] RESET 정책: 기존 PENDING 이메일 CANCELLED 처리 후 재스케줄링",
+        {
+          contactId,
+          groupId,
+          cancelledCount: existingPendingIds.length,
+        }
+      );
+    } else {
+      // KEEP 정책(기본): 스킵
+      logger.log("[EmailFunnelTrigger] 중복 이메일 퍼널 스킵 (멱등성)", {
+        contactId,
+        groupId,
+        existingId: existingPendingIds[0].id,
+      });
+      return false;
+    }
   }
 
   // 7. 기준일(anchorDate) → KST 날짜 분해
