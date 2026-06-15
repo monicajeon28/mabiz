@@ -29,7 +29,8 @@ type MembershipTier = "basic" | "premium" | "vip";
 
 export default function GroupDetailPage() {
   const params = useParams();
-  const groupId = params?.id as string;
+  const rawId = params?.id;
+  const groupId = Array.isArray(rawId) ? rawId[0] : (rawId ?? '');
 
   const [group, setGroup] = useState<GroupDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,8 +64,8 @@ export default function GroupDetailPage() {
           setError(data.message || "그룹을 불러올 수 없습니다.");
           showError(data.message || "그룹을 불러올 수 없습니다.");
         }
-      } catch (err: any) {
-        if (err?.name === 'AbortError') return;
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         logger.error("[GroupDetailPage] loadGroup", { err });
         setError("데이터를 불러올 수 없습니다.");
         showError("데이터를 불러올 수 없습니다.");

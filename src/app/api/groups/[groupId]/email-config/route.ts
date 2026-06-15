@@ -28,7 +28,7 @@ import { CreateGroupEmailConfigSchema } from "@/lib/schemas/email-funnel";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { groupId: string } }
+  { params }: { params: Promise<{ groupId: string }> }
 ) {
   try {
     const session = await getSession();
@@ -36,7 +36,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { groupId } = params;
+    const { groupId } = await params;
 
     // 권한 확인: GroupAdmin 또는 조직 관리자
     const member = await prisma.organizationMember.findUnique({
@@ -112,7 +112,7 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { groupId: string } }
+  { params }: { params: Promise<{ groupId: string }> }
 ) {
   try {
     const session = await getSession();
@@ -120,7 +120,7 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { groupId } = params;
+    const { groupId } = await params;
     const body = await req.json();
 
     // 권한 확인

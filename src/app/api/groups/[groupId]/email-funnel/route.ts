@@ -37,7 +37,7 @@ interface MessageInput {
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { groupId: string } }
+  { params }: { params: Promise<{ groupId: string }> }
 ) {
   try {
     const ctx = await getAuthContext();
@@ -45,7 +45,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { groupId } = params;
+    const { groupId } = await params;
 
     // 그룹 존재 확인
     const group = await prisma.contactGroup.findFirst({
@@ -93,7 +93,7 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { groupId: string } }
+  { params }: { params: Promise<{ groupId: string }> }
 ) {
   try {
     const ctx = await getAuthContext();
@@ -101,7 +101,7 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { groupId } = params;
+    const { groupId } = await params;
     const body = await req.json() as {
       title?: string;
       isActive?: boolean;
@@ -247,7 +247,7 @@ export async function POST(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { groupId: string } }
+  { params }: { params: Promise<{ groupId: string }> }
 ) {
   try {
     const ctx = await getAuthContext();
@@ -255,7 +255,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { groupId } = params;
+    const { groupId } = await params;
 
     const funnel = await prisma.groupEmailFunnel.findFirst({
       where: { groupId, organizationId: ctx.organizationId },
