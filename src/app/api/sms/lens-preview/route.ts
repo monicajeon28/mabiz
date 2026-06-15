@@ -24,7 +24,7 @@ import {
  *   "lens": "L6",
  *   "lensLabel": "타이밍 (Loss Aversion)",
  *   "day": 1,
- *   "allDays": [
+ *   "days": [
  *     {
  *       "day": 0,
  *       "template": "안녕하세요...",
@@ -142,7 +142,7 @@ export async function GET(req: NextRequest) {
     const metadata = LENS_METADATA[lens];
 
     // Day 0-3 배열 생성
-    const allDays = [0, 1, 2, 3].map((d) => ({
+    const days = [0, 1, 2, 3].map((d) => ({
       day: d,
       template: templates[`day${d}` as keyof typeof templates] || "",
       psychology: metadata.psychologyDetails[d] || "",
@@ -155,7 +155,7 @@ export async function GET(req: NextRequest) {
       lensDescription: metadata.description,
       psychologyFramework: metadata.psychologyFramework,
       day,
-      allDays,
+      days,
     });
   } catch (err) {
     logger.error("[LensPreviewError]", err);
