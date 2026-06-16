@@ -507,7 +507,7 @@ export async function POST(req: Request, { params }: Params) {
           pageFormat: landingPage.pageFormat || "hybrid",
           pageTitle: landingPage.title,
           createdByUserId: landingPage.createdByUserId,
-          
+          lensType,
         });
 
         if (scheduleResult.success) {
