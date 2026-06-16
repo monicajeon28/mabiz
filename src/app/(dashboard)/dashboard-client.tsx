@@ -299,6 +299,8 @@ export function DashboardClient({ session }: DashboardClientProps) {
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [feedLoading, setFeedLoading] = useState(true);
   const [myOrgId, setMyOrgId] = useState<string>("");
+  const [origin, setOrigin] = useState<string>("");
+  const [todayStr, setTodayStr] = useState<string>("");
   const [linkCopied, setLinkCopied] = useState(false);
   const [regLinkCopied, setRegLinkCopied] = useState(false);
   const [suspendedPartnerCount, setSuspendedPartnerCount] = useState<number>(0);
@@ -306,6 +308,12 @@ export function DashboardClient({ session }: DashboardClientProps) {
   // Timer references for cleanup
   const linkCopiedTimerRef = useRef<NodeJS.Timeout | null>(null);
   const regLinkCopiedTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // origin/todayStr은 마운트 후에만 설정 (SSR hydration 불일치 방지)
+  useEffect(() => {
+    setOrigin(window.location.origin);
+    setTodayStr(new Date().toLocaleDateString("ko-KR"));
+  }, []);
 
   // Cleanup timers on unmount
   useEffect(() => {
@@ -370,7 +378,7 @@ export function DashboardClient({ session }: DashboardClientProps) {
     <>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-navy-900">대시보드</h1>
-        <p className="text-gray-500 text-sm mt-1">{ym} 기준 · {new Date().toLocaleDateString("ko-KR")}</p>
+        <p className="text-gray-500 text-sm mt-1">{ym} 기준 · {todayStr}</p>
       </div>
 
       {false && (role === "GLOBAL_ADMIN" || role === "OWNER") && (
@@ -399,13 +407,13 @@ export function DashboardClient({ session }: DashboardClientProps) {
             </button>
           </div>
           <div className="mt-3 bg-white/5 rounded-lg px-3 py-2 text-sm font-mono text-gray-300 truncate">
-            {typeof window !== "undefined" && (
-              role === "GLOBAL_ADMIN"
-                ? `${window.location.origin}/landing`
-                : myOrgId
-                  ? `${window.location.origin}/landing?ref=${myOrgId}`
-                  : "로딩 중..."
-            )}
+            {origin
+              ? (role === "GLOBAL_ADMIN"
+                  ? `${origin}/landing`
+                  : myOrgId
+                    ? `${origin}/landing?ref=${myOrgId}`
+                    : "로딩 중...")
+              : "로딩 중..."}
           </div>
         </div>
       )}
@@ -434,7 +442,7 @@ export function DashboardClient({ session }: DashboardClientProps) {
             </button>
           </div>
           <div className="mt-3 bg-gray-50 rounded-lg px-3 py-2 text-sm font-mono text-gray-500 truncate">
-            {typeof window !== "undefined" && `${window.location.origin}/register/free-marketer`}
+            {origin ? `${origin}/register/free-marketer` : "로딩 중..."}
           </div>
         </div>
       )}
