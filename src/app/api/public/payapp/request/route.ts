@@ -86,7 +86,7 @@ export async function POST(req: Request) {
 
       // ShortLink에서 페이지 생성자(어필리에이트) 조회
       const shortLink = await prisma.shortLink.findFirst({
-        where: { category: 'b2b-landing', targetUrl: { endsWith: `/b2b-landing/${landingPageId}` } },
+        where: { category: 'b2b-landing', targetUrl: { equals: `${process.env.NEXT_PUBLIC_APP_URL}/b2b-landing/${landingPageId}` } },
         select: { createdBy: true },
       });
 

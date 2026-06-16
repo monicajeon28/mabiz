@@ -55,8 +55,8 @@ export async function GET(req: Request, { params }: Params) {
     const orgId = resolveOrgId(ctx);
     const { id } = await params;
 
-    // [캐싱] Redis에서 5분 TTL로 캐시된 통계 조회
-    const cacheKey = `b2b:stats:${id}`;
+    // [캐싱] Redis에서 5분 TTL로 캐시된 통계 조회 (orgId 포함으로 조직 간 캐시 격리)
+    const cacheKey = `b2b:stats:${orgId}:${id}`;
     const cachedStats = await getCache<{ ok: boolean; stats: B2BStats; title: string; note: Record<string, string> }>(cacheKey);
     if (cachedStats) {
       logger.log('[B2BLandingStats] 캐시에서 조회', { id, orgId });

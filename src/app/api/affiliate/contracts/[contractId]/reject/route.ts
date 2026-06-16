@@ -44,13 +44,19 @@ export async function PUT(
       return NextResponse.json({ ok: false, message: '이미 반려된 신청입니다.' }, { status: 409 });
     }
 
-    // BRANCH_MANAGER인 경우 자신이 담당한 신청만 반려 가능
+    // BRANCH_MANAGER인 경우 자신이 담당한 신청만 반려 가능 (IDOR 방지: 실제 phone 비교)
     if (ctx.role !== 'GLOBAL_ADMIN') {
       const meta = contract.metadata as Record<string, unknown> | null;
       const supervisorPhone = meta?.supervisorPhone as string | undefined;
-      if (!supervisorPhone || !ctx) {
-        // 담당 대리점장 정보가 없으면 관리자만 처리 가능
+      if (!supervisorPhone) {
         return NextResponse.json({ ok: false, message: '관리자 권한이 필요합니다.' }, { status: 403 });
+      }
+      const selfMember = await prisma.organizationMember.findFirst({
+        where: { userId: ctx.userId },
+        select: { phone: true },
+      });
+      if (!selfMember?.phone || selfMember.phone !== supervisorPhone) {
+        return NextResponse.json({ ok: false, message: '담당 대리점장만 반려할 수 있습니다.' }, { status: 403 });
       }
     }
 
