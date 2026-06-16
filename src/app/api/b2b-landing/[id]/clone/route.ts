@@ -43,7 +43,6 @@ export async function POST(_req: Request, { params }: Params) {
 
     // P2-8: page + ShortLink 트랜잭션, 결제/폼 필드 전체 복사
     const cloned = await prisma.$transaction(async (tx) => {
-      const ctx2 = await getAuthContext();
       const newPage = await tx.b2BLandingPage.create({
         data: {
           organizationId: orgId,
@@ -81,7 +80,7 @@ export async function POST(_req: Request, { params }: Params) {
           targetUrl,
           title: newPage.title,
           organizationId: orgId,
-          createdBy: ctx2.userId,
+          createdBy: ctx.userId,
           category: 'b2b-landing',
           isActive: true,
         },
