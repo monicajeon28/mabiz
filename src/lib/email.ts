@@ -100,6 +100,51 @@ async function recordEmailLog(params: {
   }
 }
 
+// ─── 복호화된 SMTP 설정으로 직접 발송 (resolveUserEmailConfig 결과 전용) ─────────
+
+interface DirectEmailConfig {
+  senderName: string;
+  senderEmail: string;
+  smtpHost: string;
+  smtpPort: number;
+  smtpUsername: string;
+  smtpPassword: string; // 이미 복호화된 평문
+  smtpSecure: boolean;
+}
+
+export async function sendEmailWithConfig(params: {
+  config: DirectEmailConfig;
+  to: string;
+  subject: string;
+  html: string;
+}): Promise<boolean> {
+  const { config, to, subject, html } = params;
+  try {
+    const cacheKey = `${config.smtpHost}:${config.smtpPort}:${config.smtpUsername}`;
+    let transporter = _transporterCache.get(cacheKey);
+    if (!transporter) {
+      transporter = createTransport({
+        host: config.smtpHost,
+        port: config.smtpPort,
+        secure: config.smtpPort === 465 || config.smtpSecure,
+        auth: { user: config.smtpUsername, pass: config.smtpPassword },
+      });
+      _transporterCache.set(cacheKey, transporter);
+    }
+    await transporter.sendMail({
+      from: `"${config.senderName}" <${config.senderEmail}>`,
+      to,
+      subject,
+      html,
+    });
+    logger.log("[Email] 발송 성공 (sendEmailWithConfig)", { to, subject });
+    return true;
+  } catch (err) {
+    logger.error("[Email] 발송 실패 (sendEmailWithConfig)", { err, to });
+    return false;
+  }
+}
+
 // ─── 퍼널용 이메일 발송 (sendSms와 동일한 응답 인터페이스) ─────────
 
 interface FunnelEmailResponse {

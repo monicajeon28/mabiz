@@ -166,10 +166,76 @@ export async function PATCH(req: Request, { params }: Params) {
     }
 
     if (body.category !== undefined) updateData.category = body.category;
-    if (body.parentGroupId !== undefined) updateData.parentGroupId = body.parentGroupId;
+
+    // parentGroupId 순환참조 방지 (POST hasCircularAncestor와 동일 패턴)
+    if (body.parentGroupId !== undefined) {
+      if (body.parentGroupId !== null) {
+        if (body.parentGroupId === groupId) {
+          return NextResponse.json(
+            { ok: false, error: 'CIRCULAR_PARENT', message: '자기 자신을 부모 그룹으로 설정할 수 없습니다.' },
+            { status: 400 }
+          );
+        }
+        // groupId가 body.parentGroupId의 조상 체인에 있으면 → 순환
+        async function isAncestor(startId: string, targetId: string): Promise<boolean> {
+          let cur: string | null = startId;
+          const visited = new Set<string>();
+          while (cur) {
+            if (cur === targetId) return true;
+            if (visited.has(cur)) break;
+            visited.add(cur);
+            const node: { parentGroupId: string | null } | null =
+              await prisma.contactGroup.findUnique({
+                where: { id: cur },
+                select: { parentGroupId: true },
+              });
+            cur = node?.parentGroupId ?? null;
+          }
+          return false;
+        }
+        if (await isAncestor(body.parentGroupId, groupId)) {
+          return NextResponse.json(
+            { ok: false, error: 'CIRCULAR_PARENT', message: '순환 참조가 발생하는 부모 그룹은 지정할 수 없습니다.' },
+            { status: 400 }
+          );
+        }
+      }
+      updateData.parentGroupId = body.parentGroupId;
+    }
+
     if (body.funnelIds !== undefined) updateData.funnelIds = body.funnelIds;
-    if (body.funnelSmsIds !== undefined) updateData.funnelSmsIds = body.funnelSmsIds;
-    if (body.funnelEmailIds !== undefined) updateData.funnelEmailIds = body.funnelEmailIds;
+
+    // funnelSmsIds IDOR 검증
+    if (body.funnelSmsIds !== undefined) {
+      if (Array.isArray(body.funnelSmsIds) && body.funnelSmsIds.length > 0) {
+        const validCount = await prisma.funnelSms.count({
+          where: { id: { in: body.funnelSmsIds }, organizationId: orgId },
+        });
+        if (validCount !== body.funnelSmsIds.length) {
+          return NextResponse.json(
+            { ok: false, error: 'INVALID_FUNNEL_SMS', message: '유효하지 않은 퍼널 문자 ID가 포함되어 있습니다.' },
+            { status: 400 }
+          );
+        }
+      }
+      updateData.funnelSmsIds = body.funnelSmsIds;
+    }
+
+    // funnelEmailIds IDOR 검증
+    if (body.funnelEmailIds !== undefined) {
+      if (Array.isArray(body.funnelEmailIds) && body.funnelEmailIds.length > 0) {
+        const validCount = await prisma.groupEmailFunnel.count({
+          where: { id: { in: body.funnelEmailIds }, organizationId: orgId },
+        });
+        if (validCount !== body.funnelEmailIds.length) {
+          return NextResponse.json(
+            { ok: false, error: 'INVALID_FUNNEL_EMAIL', message: '유효하지 않은 퍼널 이메일 ID가 포함되어 있습니다.' },
+            { status: 400 }
+          );
+        }
+      }
+      updateData.funnelEmailIds = body.funnelEmailIds;
+    }
     if (body.reEntryPolicy !== undefined) updateData.reEntryPolicy = body.reEntryPolicy;
     if (body.autoMoveEnabled !== undefined) updateData.autoMoveEnabled = body.autoMoveEnabled;
     if (body.autoMoveDays !== undefined) updateData.autoMoveDays = body.autoMoveDays;
