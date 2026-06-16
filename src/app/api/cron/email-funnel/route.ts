@@ -3,43 +3,52 @@
  *
  * Day 0-3 이메일 퍼널 자동 발송 Cron
  * - 매일 오전 8시 실행
- * - 예약 시간이 경과한 이메일을 자동 발송
- * - 최대 100개씩 배치 처리
- * - 실패한 이메일은 자동 재시도 (최대 3회)
+ * - ScheduledEmailMessage 테이블에서 PENDING 레코드를 읽어 발송
+ * - resolveUserEmailConfig로 개인/그룹/조직 SMTP 계층적 조회
+ * - 발송 성공: status=SENT | 실패: status=FAILED
  */
 
-export const maxDuration = 60; // 배치 100건 × 0.5초 sleep = 최대 50초, Vercel 기본 10초 초과 방지
+export const maxDuration = 60;
 
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
 import prisma from "@/lib/prisma";
-import { sendFunnelEmail } from "@/lib/email";
+import { sendEmailWithConfig } from "@/lib/email";
+import { resolveUserEmailConfig } from "@/lib/email-resolver";
 import { logger } from "@/lib/logger";
 
 const BATCH_SIZE = 100;
-const MAX_RETRIES = 3;
+
+/** {{변수명}} 치환 */
+function renderVars(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? "");
+}
 
 export async function GET(req: Request) {
   try {
-    // Cron 보안: Authorization 헤더 검증 — CRON_SECRET 미설정 시 fail-closed (500)
+    // Cron 보안: Authorization 헤더 검증
     const expectedToken = process.env.CRON_SECRET;
     if (!expectedToken) {
-      logger.error("[Cron] CRON_SECRET 환경변수 미설정");
+      logger.error("[Cron/EmailFunnel] CRON_SECRET 환경변수 미설정");
       return NextResponse.json({ error: "CRON_SECRET 환경변수 미설정" }, { status: 500 });
     }
-    const authHeader = req.headers.get("authorization") ?? '';
+    const authHeader = req.headers.get("authorization") ?? "";
     const expectedBearer = `Bearer ${expectedToken}`;
-    const isValid = authHeader.length === expectedBearer.length &&
+    const isValid =
+      authHeader.length === expectedBearer.length &&
       timingSafeEqual(Buffer.from(authHeader), Buffer.from(expectedBearer));
     if (!isValid) {
-      logger.warn("[Cron] 미인증 요청", { ip: req.headers.get("x-forwarded-for") });
+      logger.warn("[Cron/EmailFunnel] 미인증 요청", {
+        ip: req.headers.get("x-forwarded-for"),
+      });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const now = new Date();
 
-    // ── 1단계: 발송 대상 이메일 조회 ────────────────────────────
-    const pendingEmails = await prisma.scheduledEmail.findMany({
+    // ── 1단계: 발송 대상 ScheduledEmailMessage 조회 ────────────────
+    // NIGHT_BLOCKED: 야간 차단 후 오전 8시 재시도를 위해 포함
+    const pendingMessages = await prisma.scheduledEmailMessage.findMany({
       where: {
         status: { in: ["PENDING", "NIGHT_BLOCKED"] },
         scheduledAt: { lte: now },
@@ -48,149 +57,119 @@ export async function GET(req: Request) {
       take: BATCH_SIZE,
     });
 
-    // Contact 이메일 일괄 조회 (ScheduledEmail에 relation 없음)
-    const contactIds = pendingEmails
-      .map(e => e.contactId)
-      .filter((id): id is string => id !== null);
-    const contacts = contactIds.length > 0
-      ? await prisma.contact.findMany({
-          where: { id: { in: contactIds } },
-          select: { id: true, email: true },
-        })
-      : [];
-    const contactEmailMap = new Map(contacts.map(c => [c.id, c.email ?? null]));
-
-    if (pendingEmails.length === 0) {
-      logger.log("[Cron] 발송할 이메일 없음", { now });
+    if (pendingMessages.length === 0) {
+      logger.log("[Cron/EmailFunnel] 발송할 이메일 없음", { now });
       return NextResponse.json({ ok: true, sentCount: 0, failedCount: 0 });
     }
+
+    // Contact 이메일 일괄 조회
+    const contactIds = Array.from(new Set(pendingMessages.map((m) => m.contactId)));
+    const contacts = await prisma.contact.findMany({
+      where: { id: { in: contactIds } },
+      select: { id: true, email: true },
+    });
+    const contactEmailMap = new Map(contacts.map((c) => [c.id, c.email ?? null]));
 
     let sentCount = 0;
     let failedCount = 0;
 
-    // ── 2단계: 배치 발송 ────────────────────────────
-    for (const email of pendingEmails) {
+    // ── 2단계: 배치 발송 ────────────────────────────────────────────
+    for (const msg of pendingMessages) {
       try {
-        const toEmail = email.contactId ? contactEmailMap.get(email.contactId) : null;
-        if (!toEmail) {
-          logger.warn("[Email] 수신자 이메일 없음", { emailId: email.id });
-          await updateEmailStatus(email.id, "FAILED", "NO_RECIPIENT");
+        // 2-1. 야간 차단 (KST 22시-08시 사이 → NIGHT_BLOCKED 상태로 다음날 08시로 연기)
+        const kstHour = new Date(msg.scheduledAt.getTime() + 9 * 60 * 60 * 1000).getUTCHours();
+        if (kstHour >= 22 || kstHour < 8) {
+          // 다음날 KST 08:00 = 다음날 UTC 23:00 → 현재 scheduledAt에서 23시간 앞으로 조정
+          const kstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+          const kstTomorrowHour8 = new Date(
+            Date.UTC(
+              kstNow.getUTCFullYear(),
+              kstNow.getUTCMonth(),
+              kstNow.getUTCDate() + 1,
+              -1, // UTC 23:00 = KST 08:00
+              0,
+              0,
+              0
+            )
+          );
+          await prisma.scheduledEmailMessage.update({
+            where: { id: msg.id },
+            data: { status: "NIGHT_BLOCKED", scheduledAt: kstTomorrowHour8 },
+          });
+          logger.log("[Cron/EmailFunnel] 야간 차단", {
+            msgId: msg.id,
+            kstHour,
+            nextTry: kstTomorrowHour8,
+          });
+          continue;
+        }
+
+        // 2-2. 수신자 이메일 확인
+        const toEmail = contactEmailMap.get(msg.contactId) ?? null;
+        if (!toEmail || !toEmail.includes("@")) {
+          logger.warn("[Cron/EmailFunnel] 수신자 이메일 없음", { msgId: msg.id, contactId: msg.contactId });
+          await updateMsgStatus(msg.id, "FAILED", "NO_RECIPIENT");
           failedCount++;
           continue;
         }
 
-        // sendFunnelEmail 호출
-        const result = await sendFunnelEmail({
-          organizationId: email.organizationId,
-          contactId: email.contactId ?? undefined,
+        // 2-3. SMTP 설정 조회 (개인 → 그룹 → 조직 → 환경변수 폴백)
+        const emailConfig = await resolveUserEmailConfig(msg.organizationId, {
+          userId: msg.senderUserId ?? undefined,
+          groupId: msg.groupId ?? undefined,
+        });
+        if (!emailConfig) {
+          logger.warn("[Cron/EmailFunnel] SMTP 설정 없음", { msgId: msg.id, organizationId: msg.organizationId });
+          await updateMsgStatus(msg.id, "FAILED", "NO_SMTP_CONFIG");
+          failedCount++;
+          continue;
+        }
+
+        // 2-4. 변수 치환
+        const vars: Record<string, string> =
+          msg.variables && typeof msg.variables === "object"
+            ? (msg.variables as Record<string, string>)
+            : {};
+        const subject = renderVars(msg.subject, vars);
+        const html = renderVars(msg.htmlContent, vars);
+
+        // 2-5. 발송
+        const ok = await sendEmailWithConfig({
+          config: emailConfig,
           to: toEmail,
-          subject: email.subject,
-          html: email.content,
-          channel: "FUNNEL",
+          subject,
+          html,
         });
 
-        if (result.result_code === 1) {
-          // 발송 성공
-          await updateEmailStatus(email.id, "SENT");
+        if (ok) {
+          await updateMsgStatus(msg.id, "SENT");
           sentCount++;
-          logger.log("[Email] 퍼널 이메일 발송 성공", {
-            emailId: email.id,
-            contactId: email.contactId,
-            to: toEmail.slice(0, 5) + "***",
+          logger.log("[Cron/EmailFunnel] 발송 성공", {
+            msgId: msg.id,
+            contactId: msg.contactId,
+            day: msg.day,
           });
         } else {
-          // 발송 실패 (failedCount 필드를 retryCount로 사용)
-          const retryCount = (email.failedCount ?? 0) + 1;
-
-          if (retryCount < MAX_RETRIES) {
-            // 5분 후 재시도
-            const nextRetryAt = new Date(now.getTime() + 5 * 60 * 1000);
-            await prisma.scheduledEmail.update({
-              where: { id: email.id },
-              data: {
-                status: "PENDING",
-                scheduledAt: nextRetryAt,
-                failedCount: retryCount,
-                failureReason: result.message,
-              },
-            });
-            logger.warn("[Email] 퍼널 이메일 재시도 등록", {
-              emailId: email.id,
-              retryCount,
-              nextRetryAt,
-            });
-          } else {
-            // 최대 재시도 초과
-            await updateEmailStatus(email.id, "FAILED", result.message);
-            failedCount++;
-            logger.error("[Email] 퍼널 이메일 발송 최종 실패", {
-              emailId: email.id,
-              retryCount,
-              reason: result.message,
-            });
-          }
+          await updateMsgStatus(msg.id, "FAILED", "SMTP_ERROR");
+          failedCount++;
+          logger.error("[Cron/EmailFunnel] 발송 실패", { msgId: msg.id });
         }
       } catch (err) {
-        logger.error("[Email] 퍼널 이메일 처리 중 오류", { emailId: email.id, err });
+        logger.error("[Cron/EmailFunnel] 메시지 처리 중 오류", { msgId: msg.id, err });
+        await updateMsgStatus(
+          msg.id,
+          "FAILED",
+          err instanceof Error ? err.message : "Unknown error"
+        ).catch(() => {});
         failedCount++;
-        const retryCount = (email.failedCount ?? 0) + 1;
-
-        if (retryCount < MAX_RETRIES) {
-          const nextRetryAt = new Date(now.getTime() + 5 * 60 * 1000);
-          await prisma.scheduledEmail.update({
-            where: { id: email.id },
-            data: {
-              status: "PENDING",
-              scheduledAt: nextRetryAt,
-              failedCount: retryCount,
-              failureReason: err instanceof Error ? err.message : "Unknown error",
-            },
-          });
-        } else {
-          await updateEmailStatus(
-            email.id,
-            "FAILED",
-            err instanceof Error ? err.message : "Unknown error"
-          );
-        }
       }
 
-      // Rate limiting: 0.5초 간격으로 발송 (API 부하 방지)
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Rate limiting: 0.3초 간격 (API 부하 방지)
+      await new Promise((resolve) => setTimeout(resolve, 300));
     }
 
-    // ── 3단계: 야간 차단 처리 (예: 밤 10시-아침 8시) ────────────────────────────
-    // 밤 10시(22:00) ~ 아침 8시(8:00) 사이에 예약된 이메일은 NIGHT_BLOCKED로 변경
-    const nightBlockedEmails = await prisma.scheduledEmail.findMany({
-      where: {
-        status: "PENDING",
-        scheduledAt: {
-          lte: now,
-          gt: new Date(now.getTime() - 24 * 60 * 60 * 1000), // 어제부터
-        },
-      },
-    });
-
-    for (const email of nightBlockedEmails) {
-      const hour = email.scheduledAt.getHours();
-      if (hour >= 22 || hour < 8) {
-        // 밤 10시 이후 또는 아침 8시 전
-        await prisma.scheduledEmail.update({
-          where: { id: email.id },
-          data: {
-            status: "NIGHT_BLOCKED",
-            scheduledAt: new Date(email.scheduledAt.getTime() + 24 * 60 * 60 * 1000), // 내일 같은 시간으로 변경
-          },
-        });
-        logger.log("[Email] 야간 차단 적용", {
-          emailId: email.id,
-          originalTime: email.scheduledAt,
-        });
-      }
-    }
-
-    logger.log("[Cron] 이메일 퍼널 발송 완료", {
-      processedCount: pendingEmails.length,
+    logger.log("[Cron/EmailFunnel] 배치 완료", {
+      processed: pendingMessages.length,
       sentCount,
       failedCount,
     });
@@ -199,24 +178,22 @@ export async function GET(req: Request) {
       ok: true,
       sentCount,
       failedCount,
-      processedCount: pendingEmails.length,
+      processedCount: pendingMessages.length,
     });
   } catch (err) {
-    logger.error("[Cron] 이메일 퍼널 발송 중 오류", { err });
+    logger.error("[Cron/EmailFunnel] 치명적 오류", { err });
     return NextResponse.json({ ok: false, error: "Internal Server Error" }, { status: 500 });
   }
 }
 
-/**
- * ScheduledEmail 상태 업데이트 헬퍼
- */
-async function updateEmailStatus(
-  emailId: string,
-  status: "SENT" | "FAILED" | "CANCELLED",
+/** ScheduledEmailMessage 상태 업데이트 헬퍼 */
+async function updateMsgStatus(
+  msgId: string,
+  status: "SENT" | "FAILED" | "NIGHT_BLOCKED",
   reason?: string
 ) {
-  return prisma.scheduledEmail.update({
-    where: { id: emailId },
+  return prisma.scheduledEmailMessage.update({
+    where: { id: msgId },
     data: {
       status,
       failureReason: reason ?? null,
