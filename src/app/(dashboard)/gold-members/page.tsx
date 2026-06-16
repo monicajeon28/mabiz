@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -33,7 +33,7 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  ACTIVE:    "활성",
+  ACTIVE:    "유지",
   SUSPENDED: "정지",
   CANCELLED: "해지",
 };
@@ -186,8 +186,8 @@ export default function GoldMembersPage() {
           email: form.email.trim() || undefined,
           courseType: form.courseType,
           joinDate: form.joinDate,
-          paymentDay: form.paymentDay ? parseInt(form.paymentDay, 10) : undefined,
-          totalPayments: form.totalPayments ? parseInt(form.totalPayments, 10) : undefined,
+          paymentDay: form.paymentDay ? parseInt(form.paymentDay) : undefined,
+          totalPayments: form.totalPayments ? parseInt(form.totalPayments) : undefined,
           memo: form.memo.trim() || undefined,
         }),
       });
@@ -231,7 +231,7 @@ export default function GoldMembersPage() {
         {/* 상태 필터 */}
         <div className="flex gap-1.5">
           {[
-            { val: "",           label: "전체 상태" },
+            { val: "",           label: "전체" },
             { val: "ACTIVE",     label: "활성" },
             { val: "SUSPENDED",  label: "정지" },
             { val: "CANCELLED",  label: "해지" },
@@ -251,7 +251,7 @@ export default function GoldMembersPage() {
         {/* 코스 필터 */}
         <div className="flex gap-1.5">
           {[
-            { val: "",  label: "전체 코스" },
+            { val: "",  label: "전체코스" },
             { val: "A", label: "A코스" },
             { val: "B", label: "B코스" },
             { val: "C", label: "C코스" },
@@ -276,7 +276,7 @@ export default function GoldMembersPage() {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="이름·전화·코드 검색"
+              placeholder="이름 / 전화번호 / 코드"
               className="pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-900/20 w-52"
             />
           </div>
@@ -431,12 +431,12 @@ export default function GoldMembersPage() {
       {drawerOpen && (
         <div className="fixed inset-0 z-50 flex">
           {/* 오버레이 */}
-          <div className="flex-1 bg-black/40" onClick={() => setDrawerOpen(false)} />
+          <div className="flex-1 bg-black/40" onClick={() => { setDrawerOpen(false); setForm(INITIAL_FORM); setFormError(""); }} />
           {/* 패널 */}
           <div className="w-full max-w-md bg-white h-full overflow-y-auto shadow-xl flex flex-col">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
               <h2 className="text-base font-bold text-navy-900">골드회원 등록</h2>
-              <button onClick={() => setDrawerOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-100">
+              <button onClick={() => { setDrawerOpen(false); setForm(INITIAL_FORM); setFormError(""); }} className="p-1.5 rounded-lg hover:bg-gray-100">
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
@@ -570,7 +570,7 @@ export default function GoldMembersPage() {
                   value={form.memo}
                   onChange={(e) => setForm(f => ({ ...f, memo: e.target.value }))}
                   rows={3}
-                  placeholder="특이한 점 등을 적어두세요"
+                  placeholder="특이사항, 메모 등"
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-900/20 resize-none"
                 />
               </div>
@@ -582,7 +582,7 @@ export default function GoldMembersPage() {
                   className="w-full py-2.5 bg-navy-900 text-white text-sm font-medium rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {submitting ? "등록 중..." : "새 골드 회원 등록"}
+                  {submitting ? "등록 중..." : "골드회원 등록"}
                 </button>
               </div>
             </form>
@@ -592,4 +592,3 @@ export default function GoldMembersPage() {
     </div>
   );
 }
-

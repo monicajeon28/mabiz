@@ -6,8 +6,12 @@ import { logger } from '@/lib/logger';
 
 function maskPhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');
-  if (digits.length >= 10) return digits.slice(0, 3) + '-****-' + digits.slice(-4);
-  return phone.slice(0, 3) + '****' + phone.slice(-4);
+  if (digits.length < 7) return '***-****';
+  // 국제번호(+82) → 0으로 정규화
+  const normalized = digits.startsWith('82') && digits.length >= 11
+    ? '0' + digits.slice(2)
+    : digits;
+  return normalized.slice(0, 3) + '-****-' + normalized.slice(-4);
 }
 
 function generateMemberCode(): string {
@@ -46,9 +50,8 @@ export async function GET(req: NextRequest) {
       { memberCode: { contains: q.toUpperCase() } },
     ];
 
-    // Prisma 쿼리 타임아웃 (5초) — clearTimeout으로 타이머 누수 방지
+    // P1: Prisma 쿼리 타임아웃 (5초) 추가
     let members, total;
-    let timerId: ReturnType<typeof setTimeout> | undefined;
     try {
       const [m, t] = await Promise.race([
         Promise.all([
@@ -60,15 +63,14 @@ export async function GET(req: NextRequest) {
             include: { _count: { select: { consultations: true } } },
           }),
           prisma.goldMember.count({ where }),
-        ]).then((result) => { clearTimeout(timerId); return result; }),
-        new Promise<never>((_, reject) => {
-          timerId = setTimeout(() => reject(new Error('Database query timeout (5s)')), 5000);
-        }),
+        ]),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Database query timeout (5s)')), 5000)
+        ),
       ]);
       members = m;
       total = t;
     } catch (err) {
-      clearTimeout(timerId);
       if (err instanceof Error && err.message.includes('timeout')) {
         logger.warn('[GET /api/gold-members] Query timeout', { page, limit, query: q });
         return NextResponse.json({
@@ -144,6 +146,10 @@ export async function POST(req: NextRequest) {
     if (totalPayments !== undefined && (totalPayments < 0 || !Number.isInteger(totalPayments))) {
       return NextResponse.json({ ok: false, error: '의무납입 횟수는 0 이상 정수여야 합니다.' }, { status: 400 });
     }
+    const joinDateObj = new Date(joinDate);
+    if (isNaN(joinDateObj.getTime())) {
+      return NextResponse.json({ ok: false, error: '올바른 날짜 형식이 아닙니다.' }, { status: 400 });
+    }
 
     const organizationId = ctx.organizationId ?? (await prisma.organization.findFirst({ select: { id: true } }))?.id;
     if (!organizationId) return NextResponse.json({ ok: false, error: '조직이 없습니다.' }, { status: 500 });
@@ -168,7 +174,7 @@ export async function POST(req: NextRequest) {
         email: email || null,
         memberCode,
         courseType,
-        joinDate: new Date(joinDate),
+        joinDate: joinDateObj,
         paymentDay: paymentDay ?? null,
         totalPayments: courseType === 'HEALTH' ? 0 : (totalPayments ?? defaultTotal),
         paidCount: 0,
