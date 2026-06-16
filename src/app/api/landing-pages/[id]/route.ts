@@ -58,12 +58,14 @@ export async function GET(_req: Request, { params }: Params) {
     const ctx   = await getAuthContext();
     const orgId = resolveOrgIdOrNull(ctx);
     const { id } = await params;
+    // GLOBAL_ADMIN은 조직 필터 없이 조회 가능하지만 신청자 PII(registrations) 제외 (P0-5)
+    const isGlobalAdmin = ctx.role === 'GLOBAL_ADMIN';
 
     const page = await prisma.crmLandingPage.findFirst({
       where: { id, ...(orgId ? { organizationId: orgId } : {}) },
       include: {
         _count: { select: { registrations: true } },
-        registrations: { orderBy: { createdAt: "desc" }, take: 50 },
+        ...(!isGlobalAdmin ? { registrations: { orderBy: { createdAt: "desc" }, take: 50 } } : {}),
         group: { select: { id: true, name: true, category: true } },
       },
     });
