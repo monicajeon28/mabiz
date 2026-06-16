@@ -105,6 +105,31 @@ export async function POST(req: Request) {
 
     logger.log('[call-upload-drive] MD 업로드 완료', { agent: agentName, org: orgName, fileName });
 
+    // AiCallLog에 driveFileId 연결 (가장 최근 같은 판매원의 driveFileId 없는 로그)
+    try {
+      const recentLog = await prisma.aiCallLog.findFirst({
+        where: {
+          organizationId: ctx.organizationId,
+          agentUserId: ctx.userId,
+          driveFileId: null,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      });
+      if (recentLog) {
+        const agentLastName = agentName.trim().charAt(0);
+        await prisma.aiCallLog.update({
+          where: { id: recentLog.id },
+          data: {
+            driveFileId: created.data.id ?? null,
+            agentLastName,
+          },
+        });
+      }
+    } catch {
+      // driveFileId 저장 실패해도 업로드 자체는 성공으로 처리
+    }
+
     return NextResponse.json({ ok: true, viewUrl });
   } catch (err) {
     logger.error('[call-upload-drive] 오류', { err });

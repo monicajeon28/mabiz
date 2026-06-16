@@ -18,7 +18,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
         consultations: { orderBy: { createdAt: 'desc' } },
       },
     });
-    if (!member) return NextResponse.json({ ok: false, error: '없음' }, { status: 404 });
+    if (!member || member.deletedAt !== null) return NextResponse.json({ ok: false, error: '없음' }, { status: 404 });
 
     // 조직 격리: GLOBAL_ADMIN이 아니면 자기 조직 회원만 조회 가능
     if (ctx.role !== 'GLOBAL_ADMIN') {

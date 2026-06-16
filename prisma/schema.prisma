@@ -1788,11 +1788,14 @@ model AiCallLog {
   durationSec    Int?
   analysisStatus String          @default("PENDING")
   productCode    String          @default("ALL")
+  driveFileId    String?         // Drive 업로드 파일 ID (RAG 연결용)
+  agentLastName  String?         // 판매원 성 (성만 표시: "김", "박")
   uploadedAt     DateTime        @default(now())
   createdAt      DateTime        @default(now()) // 콜로그 생성 시간
   analysis       AiCallAnalysis?
   organization   Organization    @relation(fields: [organizationId], references: [id])
 
+  @@index([organizationId, converted, personaType])
   @@map("AiCallLog")
 }
 

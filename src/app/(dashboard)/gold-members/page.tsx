@@ -186,8 +186,8 @@ export default function GoldMembersPage() {
           email: form.email.trim() || undefined,
           courseType: form.courseType,
           joinDate: form.joinDate,
-          paymentDay: form.paymentDay ? parseInt(form.paymentDay) : undefined,
-          totalPayments: form.totalPayments ? parseInt(form.totalPayments) : undefined,
+          paymentDay: form.paymentDay ? parseInt(form.paymentDay, 10) : undefined,
+          totalPayments: form.totalPayments ? parseInt(form.totalPayments, 10) : undefined,
           memo: form.memo.trim() || undefined,
         }),
       });
