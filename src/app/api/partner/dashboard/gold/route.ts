@@ -32,6 +32,17 @@ export async function GET(req: Request) {
     const orgFilter = isAdmin ? {} : { organizationId: ctx.organizationId ?? "" };
     const consultOrgFilter = isAdmin ? {} : { organizationId: ctx.organizationId ?? "" };
 
+    // GoldMember 테이블 존재 여부 확인 (마이그레이션 미적용 환경 대비)
+    try {
+      await prisma.goldMember.count({ where: { id: 'probe' } });
+    } catch {
+      logger.warn('[gold dashboard] GoldMember 테이블 없음 - 빈 데이터 반환');
+      return NextResponse.json({
+        ok: true, memberCount: 0, memberGrowth: 0, newInquiryCount: 0, inquiryGrowth: 0,
+        paymentRate: 0, paymentRateChange: 0, recentMembers: [], recentConsultations: [],
+      });
+    }
+
     // ── 1) 골드회원 수 + 상담 수 + 납부율 (현재 + 전월 병렬) ──
     const [
       memberCount, prevMemberCount,
