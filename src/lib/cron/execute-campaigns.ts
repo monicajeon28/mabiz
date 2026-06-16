@@ -844,8 +844,9 @@ async function acquireDistributedLock(lockKey: string, ttlSeconds: number): Prom
 
     return acquired;
   } catch (err) {
-    logger.warn("[Cron] 분산 락 획득 실패", { lockKey, error: (err as Error).message });
-    return false;
+    // Redis 연결 불가 시 락 없이 진행 (캠페인 발송은 계속되어야 함)
+    logger.warn("[Cron] Redis 락 획득 실패 — 락 없이 진행", { lockKey, error: (err as Error).message });
+    return true;
   }
 }
 
