@@ -1,21 +1,14 @@
-import { Redis } from '@upstash/redis';
+/**
+ * sms-queue.ts
+ *
+ * Redis 큐 → DB 직접 저장으로 교체
+ * addSmsLog() 호출 즉시 SmsLog 테이블에 저장 (fire-and-forget)
+ */
+
 import { logger } from '@/lib/logger';
+import prisma from '@/lib/prisma';
 
-const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
-const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-
-if (!redisUrl || !redisToken) {
-  logger.warn('[SMS Queue] Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN — SMS queue disabled');
-}
-
-let _redis: Redis | null = null;
-function getRedis(): Redis | null {
-  if (!redisUrl || !redisToken) return null;
-  if (!_redis) _redis = new Redis({ url: redisUrl, token: redisToken });
-  return _redis;
-}
-
-interface SmsLogData {
+interface SmsLogInput {
   organizationId: string;
   contactId?: string | null;
   phone: string;
@@ -25,153 +18,39 @@ interface SmsLogData {
   resultCode?: string | null;
   msgId?: string | null;
   channel: string;
-  timestamp: number;
 }
 
-const SMS_QUEUE_KEY = 'sms:log:queue';
-const SMS_QUEUE_PROCESSING = 'sms:log:processing';
-const SMS_QUEUE_BATCH_SIZE = 50;
-const SMS_QUEUE_BATCH_TIMEOUT_MS = 5000; // 5초마다 배치 처리
-
 /**
- * SMS 로그를 Redis 큐에 추가
- * - 큐에 실패해도 발송에 영향 없음 (fire-and-forget)
- * - DB 오버로드 시 메모리 큐에서 안전하게 대기
+ * SMS 발송 후 로그 저장 (DB 직접 저장)
+ * 실패해도 발송 자체에는 영향 없음
  */
-export async function addSmsLog(logData: Omit<SmsLogData, 'timestamp'>) {
-  const redis = getRedis();
-  if (!redis) return;
+export async function addSmsLog(logData: SmsLogInput): Promise<void> {
   try {
-    const data: SmsLogData = {
-      ...logData,
-      timestamp: Date.now(),
-    };
-
-    // Redis 리스트에 추가 (오른쪽에 push)
-    await redis.rpush(SMS_QUEUE_KEY, JSON.stringify(data));
-    logger.log('[SMS Queue] 로그 추가됨', { phone: logData.phone });
+    await prisma.smsLog.create({
+      data: {
+        organizationId: logData.organizationId,
+        contactId: logData.contactId ?? null,
+        phone: logData.phone,
+        contentPreview: logData.msg.slice(0, 30),
+        status: logData.status,
+        blockReason: logData.blockReason ?? null,
+        resultCode: logData.resultCode ?? null,
+        msgId: logData.msgId ?? null,
+        channel: logData.channel,
+      },
+    });
   } catch (err) {
-    logger.error('[SMS Queue] 큐 추가 실패', { err });
-    // 큐 실패 시 로깅만 하고 계속 진행
+    logger.warn('[SmsLog] DB 저장 실패 (발송에는 영향 없음)', { err });
   }
 }
 
-/**
- * Redis 큐에서 SMS 로그를 읽어 DB에 일괄 저장
- * - 배치 처리로 DB 성능 최적화
- * - 실패 시 자동 재시도 로직 포함
- */
-export async function processSmsQueue() {
-  const redis = getRedis();
-  if (!redis) {
-    logger.warn('[SMS Queue] Redis 미설정 — processSmsQueue 건너뜀');
-    return;
-  }
-  const { default: prisma } = await import('@/lib/prisma');
+/** 하위 호환: 큐 처리 함수 — DB 직접 저장으로 교체되어 no-op */
+export async function processSmsQueue(): Promise<void> {}
 
-  try {
-    // 이미 처리 중인지 확인
-    const isProcessing = await redis.get(SMS_QUEUE_PROCESSING);
-    if (isProcessing) {
-      logger.log('[SMS Queue] 이미 처리 중입니다');
-      return;
-    }
-
-    // 처리 중 플래그 설정
-    await redis.setex(SMS_QUEUE_PROCESSING, 30, '1'); // 30초 타임아웃
-
-    // 큐에서 배치 크기만큼 추출
-    const items = await redis.lrange(SMS_QUEUE_KEY, 0, SMS_QUEUE_BATCH_SIZE - 1);
-
-    if (items.length === 0) {
-      logger.log('[SMS Queue] 처리할 로그가 없습니다');
-      await redis.del(SMS_QUEUE_PROCESSING);
-      return;
-    }
-
-    // 배치 DB 저장
-    const logs = items.map((item) => {
-      const parsed = JSON.parse(typeof item === 'string' ? item : String(item)) as SmsLogData;
-      return {
-        organizationId: parsed.organizationId,
-        contactId: parsed.contactId ?? null,
-        phone: parsed.phone,
-        contentPreview: parsed.msg.slice(0, 30),
-        status: parsed.status,
-        blockReason: parsed.blockReason ?? null,
-        resultCode: parsed.resultCode ?? null,
-        msgId: parsed.msgId ?? null,
-        channel: parsed.channel,
-        sentAt: new Date(parsed.timestamp),
-      };
-    });
-
-    // Prisma createMany로 일괄 저장
-    const result = await prisma.smsLog.createMany({
-      data: logs,
-      skipDuplicates: false,
-    });
-
-    logger.log('[SMS Queue] 배치 저장 완료', {
-      saved: result.count,
-      total: items.length,
-    });
-
-    // 처리된 항목 큐에서 제거 (배치 크기만큼 왼쪽에서 pop)
-    await redis.ltrim(SMS_QUEUE_KEY, items.length, -1);
-
-    // 처리 중 플래그 제거
-    await redis.del(SMS_QUEUE_PROCESSING);
-
-  } catch (err) {
-    logger.error('[SMS Queue] 처리 실패', { err });
-
-    // 에러 발생 시에도 플래그 제거하여 다음 시도 가능하게
-    try {
-      await getRedis()?.del(SMS_QUEUE_PROCESSING);
-    } catch {
-      // 플래그 제거 실패는 무시 (30초 후 자동 해제)
-    }
-  }
-}
-
-/**
- * SMS 큐 상태 조회 (모니터링용)
- */
+/** 하위 호환: 큐 상태 조회 — DB 직접 저장 모드임을 반환 */
 export async function getSmsQueueStatus() {
-  const redis = getRedis();
-  if (!redis) return { queueLength: -1, isProcessing: false, disabled: true };
-  try {
-    const queueLength = await redis.llen(SMS_QUEUE_KEY);
-    const isProcessing = await redis.get(SMS_QUEUE_PROCESSING);
-
-    return {
-      queueLength,
-      isProcessing: !!isProcessing,
-      batchSize: SMS_QUEUE_BATCH_SIZE,
-      batchTimeoutMs: SMS_QUEUE_BATCH_TIMEOUT_MS,
-    };
-  } catch (err) {
-    logger.warn('[SMS Queue] 상태 조회 실패 (Redis 연결 불가)', { err });
-    return {
-      queueLength: -1,
-      isProcessing: false,
-      error: true,
-    };
-  }
+  return { mode: 'direct-db', queueLength: 0, isProcessing: false };
 }
 
-/**
- * SMS 큐 비우기 (테스트/유지보수용)
- */
-export async function clearSmsQueue() {
-  const redis = getRedis();
-  if (!redis) return;
-  try {
-    await redis.del(SMS_QUEUE_KEY);
-    await redis.del(SMS_QUEUE_PROCESSING);
-    logger.log('[SMS Queue] 큐 초기화 완료');
-  } catch (err) {
-    logger.error('[SMS Queue] 큐 초기화 실패', { err });
-  }
-}
+/** 하위 호환: 큐 비우기 — no-op */
+export async function clearSmsQueue(): Promise<void> {}

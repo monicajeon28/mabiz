@@ -1,21 +1,14 @@
-import { Redis } from '@upstash/redis';
+/**
+ * email-queue.ts
+ *
+ * Redis 큐 → DB 직접 저장으로 교체
+ * addEmailLog() 호출 즉시 EmailLog 테이블에 저장 (fire-and-forget)
+ */
+
 import { logger } from '@/lib/logger';
+import prisma from '@/lib/prisma';
 
-const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
-const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-
-if (!redisUrl || !redisToken) {
-  logger.warn('[Email Queue] Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN — Email queue disabled');
-}
-
-let _redis: Redis | null = null;
-function getRedis(): Redis | null {
-  if (!redisUrl || !redisToken) return null;
-  if (!_redis) _redis = new Redis({ url: redisUrl, token: redisToken });
-  return _redis;
-}
-
-interface EmailLogData {
+interface EmailLogInput {
   organizationId: string;
   contactId?: string | null;
   email: string;
@@ -23,151 +16,37 @@ interface EmailLogData {
   status: 'SENT' | 'FAILED' | 'BLOCKED';
   blockReason?: string | null;
   channel: string;
-  timestamp: number;
 }
 
-const EMAIL_QUEUE_KEY = 'email:log:queue';
-const EMAIL_QUEUE_PROCESSING = 'email:log:processing';
-const EMAIL_QUEUE_BATCH_SIZE = 50;
-const EMAIL_QUEUE_BATCH_TIMEOUT_MS = 5000; // 5초마다 배치 처리
-
 /**
- * Email 로그를 Redis 큐에 추가
- * - 큐에 실패해도 발송에 영향 없음 (fire-and-forget)
- * - DB 오버로드 시 메모리 큐에서 안전하게 대기
+ * 이메일 발송 후 로그 저장 (DB 직접 저장)
+ * 실패해도 발송 자체에는 영향 없음
  */
-export async function addEmailLog(logData: Omit<EmailLogData, 'timestamp'>) {
-  const redis = getRedis();
-  if (!redis) return;
+export async function addEmailLog(logData: EmailLogInput): Promise<void> {
   try {
-    const data: EmailLogData = {
-      ...logData,
-      timestamp: Date.now(),
-    };
-
-    // Redis 리스트에 추가 (오른쪽에 push)
-    await redis.rpush(EMAIL_QUEUE_KEY, JSON.stringify(data));
-    logger.log('[Email Queue] 로그 추가됨', { email: logData.email });
+    await prisma.emailLog.create({
+      data: {
+        organizationId: logData.organizationId,
+        contactId: logData.contactId ?? null,
+        email: (logData.email.slice(0, 5) + '***').slice(0, 100),
+        subjectPreview: logData.subject.slice(0, 50),
+        status: logData.status,
+        blockReason: logData.blockReason ?? null,
+        channel: logData.channel,
+      },
+    });
   } catch (err) {
-    logger.error('[Email Queue] 큐 추가 실패', { err });
-    // 큐 실패 시 로깅만 하고 계속 진행
+    logger.warn('[EmailLog] DB 저장 실패 (발송에는 영향 없음)', { err });
   }
 }
 
-/**
- * Redis 큐에서 Email 로그를 읽어 DB에 일괄 저장
- * - 배치 처리로 DB 성능 최적화
- * - 실패 시 자동 재시도 로직 포함
- */
-export async function processEmailQueue() {
-  const redis = getRedis();
-  if (!redis) {
-    logger.warn('[Email Queue] Redis 미설정 — processEmailQueue 건너뜀');
-    return;
-  }
-  const { default: prisma } = await import('@/lib/prisma');
+/** 하위 호환: 큐 처리 함수 — DB 직접 저장으로 교체되어 no-op */
+export async function processEmailQueue(): Promise<void> {}
 
-  try {
-    // 이미 처리 중인지 확인
-    const isProcessing = await redis.get(EMAIL_QUEUE_PROCESSING);
-    if (isProcessing) {
-      logger.log('[Email Queue] 이미 처리 중입니다');
-      return;
-    }
-
-    // 처리 중 플래그 설정
-    await redis.setex(EMAIL_QUEUE_PROCESSING, 30, '1'); // 30초 타임아웃
-
-    // 큐에서 배치 크기만큼 추출
-    const items = await redis.lrange(EMAIL_QUEUE_KEY, 0, EMAIL_QUEUE_BATCH_SIZE - 1);
-
-    if (items.length === 0) {
-      logger.log('[Email Queue] 처리할 로그가 없습니다');
-      await redis.del(EMAIL_QUEUE_PROCESSING);
-      return;
-    }
-
-    // 배치 DB 저장
-    const logs = items.map((item) => {
-      const parsed = JSON.parse(typeof item === 'string' ? item : String(item)) as EmailLogData;
-      return {
-        organizationId: parsed.organizationId,
-        contactId: parsed.contactId ?? null,
-        email: parsed.email.slice(0, 5) + '***',
-        subjectPreview: parsed.subject.slice(0, 50),
-        status: parsed.status,
-        blockReason: parsed.blockReason ?? null,
-        channel: parsed.channel,
-        sentAt: new Date(parsed.timestamp),
-      };
-    });
-
-    // Prisma createMany로 일괄 저장
-    const result = await prisma.emailLog.createMany({
-      data: logs,
-      skipDuplicates: false,
-    });
-
-    logger.log('[Email Queue] 배치 저장 완료', {
-      saved: result.count,
-      total: items.length,
-    });
-
-    // 처리된 항목 큐에서 제거 (배치 크기만큼 왼쪽에서 pop)
-    await redis.ltrim(EMAIL_QUEUE_KEY, items.length, -1);
-
-    // 처리 중 플래그 제거
-    await redis.del(EMAIL_QUEUE_PROCESSING);
-
-  } catch (err) {
-    logger.error('[Email Queue] 처리 실패', { err });
-
-    // 에러 발생 시에도 플래그 제거하여 다음 시도 가능하게
-    try {
-      await getRedis()?.del(EMAIL_QUEUE_PROCESSING);
-    } catch {
-      // 플래그 제거 실패는 무시 (30초 후 자동 해제)
-    }
-  }
-}
-
-/**
- * Email 큐 상태 조회 (모니터링용)
- */
+/** 하위 호환: 큐 상태 조회 — DB 직접 저장 모드임을 반환 */
 export async function getEmailQueueStatus() {
-  const redis = getRedis();
-  if (!redis) return { queueLength: -1, isProcessing: false, disabled: true };
-  try {
-    const queueLength = await redis.llen(EMAIL_QUEUE_KEY);
-    const isProcessing = await redis.get(EMAIL_QUEUE_PROCESSING);
-
-    return {
-      queueLength,
-      isProcessing: !!isProcessing,
-      batchSize: EMAIL_QUEUE_BATCH_SIZE,
-      batchTimeoutMs: EMAIL_QUEUE_BATCH_TIMEOUT_MS,
-    };
-  } catch (err) {
-    logger.warn('[Email Queue] 상태 조회 실패 (Redis 연결 불가)', { err });
-    return {
-      queueLength: -1,
-      isProcessing: false,
-      error: true,
-    };
-  }
+  return { mode: 'direct-db', queueLength: 0, isProcessing: false };
 }
 
-/**
- * Email 큐 비우기 (테스트/유지보수용)
- */
-export async function clearEmailQueue() {
-  const redis = getRedis();
-  if (!redis) return;
-  try {
-    await redis.del(EMAIL_QUEUE_KEY);
-    await redis.del(EMAIL_QUEUE_PROCESSING);
-    logger.log('[Email Queue] 큐 초기화 완료');
-  } catch (err) {
-    logger.error('[Email Queue] 큐 초기화 실패', { err });
-  }
-}
+/** 하위 호환: 큐 비우기 — no-op */
+export async function clearEmailQueue(): Promise<void> {}
