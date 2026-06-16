@@ -34,8 +34,17 @@ function formatHour(h: number): string {
 }
 
 function daysLabel(daysAfter: number): string {
-  if (daysAfter === 0) return "신청 당일";
-  return `${daysAfter}일 후`;
+  if (daysAfter === 0) return "신청 당일 (즉시)";
+  if (daysAfter < 30) return `${daysAfter}일 후`;
+  if (daysAfter < 365) return `${daysAfter}일 후 (약 ${Math.round(daysAfter / 30)}개월)`;
+  return `${daysAfter}일 후 (약 ${(daysAfter / 365).toFixed(1)}년)`;
+}
+
+function getPreviewDate(daysAfter: number, sendHour: number, sendMinute: number): string {
+  const d = new Date(Date.now() + daysAfter * 86_400_000);
+  const h = String(sendHour).padStart(2, "0");
+  const m = String(sendMinute).padStart(2, "0");
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${h}:${m} 발송`;
 }
 
 export default function FunnelEmailNewPage() {
@@ -354,17 +363,21 @@ export default function FunnelEmailNewPage() {
                         <input
                           type="number"
                           min={0}
-                          max={499}
+                          max={36500}
                           value={m.daysAfter}
                           onChange={(e) =>
-                            handleMessageChange(i, "daysAfter", Math.max(0, Number(e.target.value)))
+                            handleMessageChange(i, "daysAfter", Math.max(0, Math.min(36500, Number(e.target.value))))
                           }
                           className="w-24 border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
                         />
                         <span className="text-base text-gray-600">일 후</span>
-                        <span className="text-sm text-gray-400">
-                          ({daysLabel(m.daysAfter)})
-                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center gap-1 text-sm text-gray-500 bg-gray-50 rounded-lg px-3 py-1.5 border border-gray-200">
+                        {m.daysAfter === 0 ? (
+                          <span>신청 즉시 발송</span>
+                        ) : (
+                          <span>{daysLabel(m.daysAfter)} — {getPreviewDate(m.daysAfter, header.sendHour, header.sendMinute)}</span>
+                        )}
                       </div>
                     </div>
 
