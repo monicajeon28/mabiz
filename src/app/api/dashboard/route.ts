@@ -7,11 +7,11 @@ import prisma from '@/lib/prisma';
 export async function GET() {
   try {
     const ctx = await getMabizSession();
-    if (!ctx || !ctx.organizationId) {
+    if (!ctx) {
       return NextResponse.json({ ok: false, error: '인증 필요' }, { status: 401 });
     }
 
-    const orgId = ctx.organizationId;
+    const orgId = ctx.organizationId; // GLOBAL_ADMIN: null
     const userId = ctx.userId;
     const role = ctx.role ?? 'AGENT';
 
@@ -22,9 +22,12 @@ export async function GET() {
     todayEnd.setHours(23, 59, 59, 999);
     const yearMonth  = now.toISOString().slice(0, 7);
 
-    // 역할별 Contact 필터
-    let contactWhere: Record<string, unknown> = { organizationId: orgId, deletedAt: null };
-    if (role === 'OWNER') {
+    // 역할별 Contact 필터 (GLOBAL_ADMIN은 org 필터 없음)
+    let contactWhere: Record<string, unknown> = {
+      ...(orgId ? { organizationId: orgId } : {}),
+      deletedAt: null,
+    };
+    if (role === 'OWNER' && orgId) {
       const teamAgentIds = await prisma.organizationMember.findMany({
         where: { organizationId: orgId, role: 'AGENT' },
         select: { userId: true },
@@ -59,12 +62,12 @@ export async function GET() {
         monthSaleResult,
         monthRefundResult,
       ] = await Promise.all([
-        prisma.organizationMember.count({ where: { organizationId: orgId, role: 'AGENT', isActive: true } }),
-        prisma.goldMember.count({ where: { organizationId: orgId } }),
+        // GLOBAL_ADMIN: org 필터 없이 전체 집계
+        prisma.organizationMember.count({ where: { role: 'AGENT', isActive: true } }),
+        prisma.goldMember.count({}),
         prisma.organization.count({ where: { status: 'PENDING' } }),
         prisma.payAppPayment.aggregate({
           where: {
-            organizationId: orgId,
             createdAt: { gte: monthStart, lte: monthEnd },
             status: 'PAID',
           },
@@ -72,7 +75,6 @@ export async function GET() {
         }),
         prisma.payAppPayment.aggregate({
           where: {
-            organizationId: orgId,
             createdAt: { gte: monthStart, lte: monthEnd },
             refundAmount: { gt: 0 },
           },
@@ -103,13 +105,13 @@ export async function GET() {
         monthRefundResult,
         pendingApprovalCount,
       ] = await Promise.all([
-        prisma.organizationMember.count({ where: { organizationId: orgId, role: 'AGENT', isActive: true } }),
+        prisma.organizationMember.count({ where: { ...(orgId ? { organizationId: orgId } : {}), role: 'AGENT', isActive: true } }),
         prisma.payAppPayment.aggregate({
-          where: { organizationId: orgId, createdAt: { gte: monthStart, lte: monthEnd }, status: 'PAID' },
+          where: { ...(orgId ? { organizationId: orgId } : {}), createdAt: { gte: monthStart, lte: monthEnd }, status: 'PAID' },
           _sum: { amount: true },
         }),
         prisma.payAppPayment.aggregate({
-          where: { organizationId: orgId, createdAt: { gte: monthStart, lte: monthEnd }, refundAmount: { gt: 0 } },
+          where: { ...(orgId ? { organizationId: orgId } : {}), createdAt: { gte: monthStart, lte: monthEnd }, refundAmount: { gt: 0 } },
           _sum: { refundAmount: true },
         }),
         prisma.organization.count({ where: { status: 'PENDING' } }),

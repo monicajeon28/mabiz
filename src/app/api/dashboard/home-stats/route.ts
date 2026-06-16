@@ -25,16 +25,16 @@ import { getHomeDashboardMetrics } from '@/lib/dashboard-home-metrics';
 export async function GET() {
   try {
     const ctx = await getMabizSession();
-    if (!ctx || !ctx.organizationId) {
+    if (!ctx) {
       return NextResponse.json(
         { ok: false, error: '인증 필요' },
         { status: 401 }
       );
     }
 
-    // 메트릭 계산
+    // 메트릭 계산 (GLOBAL_ADMIN은 organizationId: null → '' 전달, 함수 내부에서 전체 조회)
     const stats = await getHomeDashboardMetrics({
-      organizationId: ctx.organizationId,
+      organizationId: ctx.organizationId ?? '',
       userId: ctx.userId,
       role: (ctx.role || 'GLOBAL_ADMIN') as 'GLOBAL_ADMIN' | 'OWNER' | 'AGENT',
     });

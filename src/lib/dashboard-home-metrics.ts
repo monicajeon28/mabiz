@@ -15,19 +15,21 @@
 import prisma from '@/lib/prisma';
 
 interface MetricsParams {
-  organizationId: string;
+  organizationId: string | null; // GLOBAL_ADMIN: null (전체 조회)
   userId?: string; // AGENT 역할 필터
   role?: 'GLOBAL_ADMIN' | 'OWNER' | 'AGENT';
 }
 
 export async function getHomeDashboardMetrics(params: MetricsParams) {
   const { organizationId, userId, role } = params;
+  // GLOBAL_ADMIN은 organizationId null → org 필터 없이 전체 조회
+  const hasOrgFilter = !!organizationId;
 
   // ─────────────────────────────────────────────────────────────
   // 1️⃣ Contact 필터 (역할별)
   // ─────────────────────────────────────────────────────────────
   let contactFilter: any = {
-    organizationId,
+    ...(hasOrgFilter ? { organizationId } : {}),
     deletedAt: null,
   };
 
@@ -65,7 +67,7 @@ export async function getHomeDashboardMetrics(params: MetricsParams) {
   const todayRegistrations = await prisma.crmLandingRegistration.count({
     where: {
       createdAt: { gte: todayStart, lte: todayEnd },
-      landingPage: { organizationId },
+      ...(hasOrgFilter ? { landingPage: { organizationId: organizationId! } } : {}),
     },
   });
 
@@ -74,9 +76,8 @@ export async function getHomeDashboardMetrics(params: MetricsParams) {
   // ─────────────────────────────────────────────────────────────
   const todayCompletedContracts = await prisma.contractInstance.count({
     where: {
-      organizationId,
+      ...(hasOrgFilter ? { organizationId: organizationId! } : {}),
       createdAt: { gte: todayStart, lte: todayEnd },
-      // 계약 완료 상태: SIGNED, COMPLETED, APPROVED_THEN_SIGNED
       status: { in: ['SIGNED', 'COMPLETED', 'APPROVED_THEN_SIGNED'] },
     },
   });
@@ -86,7 +87,7 @@ export async function getHomeDashboardMetrics(params: MetricsParams) {
   // ─────────────────────────────────────────────────────────────
   const pendingContracts = await prisma.contractInstance.count({
     where: {
-      organizationId,
+      ...(hasOrgFilter ? { organizationId: organizationId! } : {}),
       status: { in: ['PENDING', 'APPROVED'] },
     },
   });
@@ -134,7 +135,7 @@ export async function getHomeDashboardMetrics(params: MetricsParams) {
   // 1단계: 신청 (CrmLandingRegistration)
   const funnelStep1Count = await prisma.crmLandingRegistration.count({
     where: {
-      landingPage: { organizationId },
+      ...(hasOrgFilter ? { landingPage: { organizationId: organizationId! } } : {}),
     },
   });
 
@@ -150,7 +151,7 @@ export async function getHomeDashboardMetrics(params: MetricsParams) {
   // 3단계: 계약 (ContractInstance의 모든 레코드)
   const funnelStep3Count = await prisma.contractInstance.count({
     where: {
-      organizationId,
+      ...(hasOrgFilter ? { organizationId: organizationId! } : {}),
     },
   });
 
