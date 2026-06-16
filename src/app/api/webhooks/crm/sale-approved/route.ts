@@ -2,7 +2,10 @@
  * POST /api/webhooks/crm/sale-approved
  * 크루즈닷 관리자 승인/거부 결과 수신
  *
- * 인증: Authorization: Bearer MABIZ_SALE_APPROVED_WEBHOOK_SECRET
+ * 인증 2단계:
+ *   1) Authorization: Bearer MABIZ_SALE_APPROVED_WEBHOOK_SECRET
+ *   2) X-Signature: HMAC-SHA256(rawBody, secret) — hex 인코딩
+ *
  * 페이로드: { eventId, saleId, reservationId, status: "APPROVED"|"REJECTED",
  *             rejectionReason?, timestamp }
  *
@@ -14,7 +17,7 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { timingSafeEqual } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
@@ -34,7 +37,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 
-  // Bearer 인증
+  // 1. 원시 바디 읽기 (HMAC 검증을 위해 JSON 파싱 전에 읽어야 함)
+  const rawBody = await req.text();
+
+  // 2. Bearer 인증
   const rawAuth = req.headers.get('authorization') ?? '';
   const token = rawAuth.startsWith('Bearer ') ? rawAuth.slice(7) : '';
   if (
@@ -42,13 +48,29 @@ export async function POST(req: NextRequest) {
     token.length !== secret.length ||
     !timingSafeEqual(Buffer.from(token), Buffer.from(secret))
   ) {
-    logger.warn('[sale-approved] 인증 실패');
+    logger.warn('[sale-approved] Bearer 인증 실패');
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
+  // 3. HMAC-SHA256 서명 검증
+  const receivedSig = req.headers.get('x-signature') ?? '';
+  if (receivedSig) {
+    const expectedSig = createHmac('sha256', secret).update(rawBody).digest('hex');
+    const sigBufExpected = Buffer.from(expectedSig, 'utf8');
+    const sigBufReceived = Buffer.from(receivedSig, 'utf8');
+    const sigMatch =
+      sigBufExpected.length === sigBufReceived.length &&
+      timingSafeEqual(sigBufExpected, sigBufReceived);
+    if (!sigMatch) {
+      logger.warn('[sale-approved] HMAC 서명 불일치');
+      return NextResponse.json({ ok: false }, { status: 401 });
+    }
+  }
+  // X-Signature 헤더가 없는 경우: Bearer만으로 통과 (하위 호환)
+
   let payload: SaleApprovedPayload;
   try {
-    payload = await req.json();
+    payload = JSON.parse(rawBody);
   } catch {
     return NextResponse.json({ ok: false, message: 'JSON 파싱 실패' }, { status: 400 });
   }
@@ -91,7 +113,6 @@ export async function POST(req: NextRequest) {
       }
 
       // 2. CrmAffiliateSale 업데이트 (orderId = String(reservationId) 로 연결)
-      //    orderId는 bookingRef(=reservationId 문자열) 기준
       if (status === 'APPROVED') {
         await tx.affiliateSale.updateMany({
           where: {
