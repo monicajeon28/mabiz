@@ -36,6 +36,30 @@ type FeedbackResult = {
   relatedSuccessCases?: string[];
 };
 
+type CallLogItem = {
+  id: string;
+  agentUserId: string;
+  agentLastName: string | null;
+  productType: string;
+  personaType: string | null;
+  converted: boolean;
+  driveFileId: string | null;
+  createdAt: string;
+  analysis: { customerSegmentDetected: string | null; scores: Record<string, unknown> } | null;
+};
+
+type PatternItem = {
+  id: string;
+  personaType: string;
+  category: string;
+  patternText: string;
+  conversionRate: number;
+  status: string;
+  objectionType: string | null;
+  createdAt?: string;
+  extractedAt?: string;
+};
+
 const PRODUCT_CATEGORIES = [
   { key: "ALL",            label: "전체", icon: "🎯" },
   { key: "BUSAN",          label: "부산출도착", icon: "⚓" },
@@ -74,7 +98,7 @@ const PLAYBOOK_TABS = [
 export default function ToolsPage() {
   const searchParams = useSearchParams();
   const [showCompressor, setShowCompressor] = useState(false);
-  const [mainTab,  setMainTab]   = useState<"dashboard" | "training" | "scripts" | "playbook" | "feedback" | "qa" | "call-feedback" | "call-playbook" | "sms-templates" | "call-stats">("dashboard");
+  const [mainTab,  setMainTab]   = useState<"dashboard" | "training" | "scripts" | "playbook" | "feedback" | "qa" | "call-feedback" | "call-playbook" | "sms-templates" | "call-stats" | "call-logs" | "script-patterns">("dashboard");
 
   const [productCategory, setProductCategory] = useState("ALL");
   const [scriptPersona,   setScriptPersona]   = useState("PRICE_SENSITIVE");
@@ -107,11 +131,30 @@ export default function ToolsPage() {
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsTimeRange, setStatsTimeRange] = useState<'week' | 'month' | 'all'>('week');
 
+  // 콜 로그 성약 표시
+  const [callLogs, setCallLogs] = useState<CallLogItem[]>([]);
+  const [callLogsLoading, setCallLogsLoading] = useState(false);
+  const [callLogsFilter, setCallLogsFilter] = useState<'all' | 'drive' | 'unconverted'>('all');
+
+  // 스크립트 패턴
+  const [patterns, setPatterns] = useState<PatternItem[]>([]);
+  const [patternsLoading, setPatternsLoading] = useState(false);
+  const [patternForm, setPatternForm] = useState({
+    personaType: 'FILIAL_DUTY',
+    category: '거절대응',
+    patternText: '',
+    conversionRate: 0,
+    objectionType: '',
+  });
+  const [patternSubmitting, setPatternSubmitting] = useState(false);
+  const [patternMsg, setPatternMsg] = useState('');
+
   useEffect(() => {
     const tabParam = searchParams.get("tab");
     const validTabs: Array<typeof mainTab> = [
       "dashboard", "training", "scripts", "playbook", "feedback",
       "qa", "call-feedback", "call-playbook", "sms-templates", "call-stats",
+      "call-logs", "script-patterns",
     ];
     if (tabParam && (validTabs as string[]).includes(tabParam)) {
       setMainTab(tabParam as typeof mainTab);
@@ -226,6 +269,78 @@ export default function ToolsPage() {
     }
   };
 
+  const fetchCallLogs = useCallback(async () => {
+    setCallLogsLoading(true);
+    try {
+      const params = new URLSearchParams({ limit: '30' });
+      if (callLogsFilter === 'drive') params.set('driveOnly', 'true');
+      const res = await fetch(`/api/tools/call-logs?${params}`);
+      const data = await res.json() as { ok: boolean; logs?: CallLogItem[] };
+      if (data.ok && data.logs) setCallLogs(data.logs);
+    } catch { /* noop */ } finally { setCallLogsLoading(false); }
+  }, [callLogsFilter]);
+
+  const fetchPatterns = useCallback(async () => {
+    setPatternsLoading(true);
+    try {
+      const res = await fetch('/api/tools/patterns');
+      const data = await res.json() as { ok: boolean; patterns?: PatternItem[] };
+      if (data.ok && data.patterns) setPatterns(data.patterns);
+    } catch { /* noop */ } finally { setPatternsLoading(false); }
+  }, []);
+
+  const toggleConverted = useCallback(async (id: string, current: boolean) => {
+    const res = await fetch(`/api/tools/call-logs/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ converted: !current }),
+    });
+    const data = await res.json() as { ok: boolean };
+    if (data.ok) {
+      setCallLogs(prev => prev.map(l => l.id === id ? { ...l, converted: !current } : l));
+    }
+  }, []);
+
+  const approvePattern = useCallback(async (id: string, status: 'APPROVED' | 'REJECTED') => {
+    const res = await fetch(`/api/tools/patterns/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    const data = await res.json() as { ok: boolean };
+    if (data.ok) void fetchPatterns();
+  }, [fetchPatterns]);
+
+  const submitPattern = useCallback(async () => {
+    if (!patternForm.patternText.trim()) { setPatternMsg('패턴 내용을 입력하세요.'); return; }
+    setPatternSubmitting(true);
+    setPatternMsg('');
+    try {
+      const res = await fetch('/api/tools/patterns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patternForm),
+      });
+      const data = await res.json() as { ok: boolean; message?: string };
+      if (data.ok) {
+        setPatternMsg('✅ 등록 완료! (관리자 승인 후 RAG에 반영됩니다)');
+        setPatternForm(f => ({ ...f, patternText: '', objectionType: '' }));
+        void fetchPatterns();
+      } else {
+        setPatternMsg(data.message ?? '등록 실패');
+      }
+    } catch { setPatternMsg('네트워크 오류'); }
+    finally { setPatternSubmitting(false); }
+  }, [patternForm, fetchPatterns]);
+
+  useEffect(() => {
+    if (mainTab === 'call-logs') void fetchCallLogs();
+  }, [mainTab, callLogsFilter, fetchCallLogs]);
+
+  useEffect(() => {
+    if (mainTab === 'script-patterns') void fetchPatterns();
+  }, [mainTab, fetchPatterns]);
+
   const filteredTemplates = useMemo(() => templates.filter((t) => t.category === smsTab), [templates, smsTab]);
 
   const filteredPlaybooks = useMemo(() => playbooks.filter((p) => p.type === pbTab), [playbooks, pbTab]);
@@ -310,6 +425,30 @@ export default function ToolsPage() {
             <p className={`text-xs ${mainTab === t.key ? "text-navy-200" : "text-gray-500"}`}>{t.desc}</p>
           </button>
         ))}
+      </div>
+
+      {/* 추가 탭 */}
+      <div className="flex gap-2 flex-wrap mb-4">
+        <button
+          onClick={() => setMainTab("call-logs")}
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors whitespace-nowrap ${
+            mainTab === "call-logs"
+              ? "bg-blue-600 text-white border-blue-600"
+              : "bg-white text-gray-600 border-gray-200 hover:border-blue-300"
+          }`}
+        >
+          ✅ 성약 표시
+        </button>
+        <button
+          onClick={() => setMainTab("script-patterns")}
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors whitespace-nowrap ${
+            mainTab === "script-patterns"
+              ? "bg-purple-600 text-white border-purple-600"
+              : "bg-white text-gray-600 border-gray-200 hover:border-purple-300"
+          }`}
+        >
+          📝 스크립트 패턴
+        </button>
       </div>
 
       {/* 추천 도구 (대시보드 + 다른 탭) */}
@@ -1125,6 +1264,227 @@ export default function ToolsPage() {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── 콜 로그 성약 표시 탭 ── */}
+      {mainTab === "call-logs" && (
+        <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <h3 className="font-bold text-blue-900 mb-1">✅ 성약 표시 — RAG 자동 학습</h3>
+            <p className="text-sm text-blue-700">성약(계약 완료) 표시를 켜면 다음 분석부터 이 케이스가 자동으로 Claude에게 성공사례로 주입됩니다.</p>
+          </div>
+
+          {/* 필터 */}
+          <div className="flex gap-2">
+            {([
+              { key: 'all', label: '전체' },
+              { key: 'drive', label: '📁 Drive 동기화' },
+              { key: 'unconverted', label: '미성약만' },
+            ] as const).map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setCallLogsFilter(f.key)}
+                className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+                  callLogsFilter === f.key
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {callLogsLoading ? (
+            <div className="flex items-center justify-center py-10 text-gray-400">
+              <Loader2 className="w-5 h-5 animate-spin mr-2" /> 불러오는 중...
+            </div>
+          ) : callLogs.length === 0 ? (
+            <p className="text-center text-gray-400 py-10">기록이 없습니다.</p>
+          ) : (
+            <div className="space-y-2">
+              {callLogs
+                .filter(l => callLogsFilter === 'unconverted' ? !l.converted : true)
+                .map((log) => (
+                  <div key={log.id} className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-semibold text-gray-800">
+                          {log.agentLastName ? `${log.agentLastName} 판매원` : log.agentUserId.slice(0, 8)}
+                        </span>
+                        {log.driveFileId && (
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">📁 Drive</span>
+                        )}
+                        <span className="text-xs text-gray-400">
+                          {log.personaType ?? '페르소나 미지정'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-gray-500">
+                        <span>{log.productType}</span>
+                        {log.analysis?.customerSegmentDetected && (
+                          <span className="bg-gray-100 px-1.5 py-0.5 rounded">{log.analysis.customerSegmentDetected}</span>
+                        )}
+                        <span>{new Date(log.createdAt).toLocaleDateString('ko-KR')}</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => void toggleConverted(log.id, log.converted)}
+                      className={`shrink-0 px-4 py-2 rounded-xl text-sm font-bold transition-all border ${
+                        log.converted
+                          ? 'bg-green-500 text-white border-green-500 hover:bg-green-600'
+                          : 'bg-white text-gray-500 border-gray-300 hover:border-green-400 hover:text-green-600'
+                      }`}
+                    >
+                      {log.converted ? '✅ 성약' : '○ 미성약'}
+                    </button>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── 스크립트 패턴 등록 탭 ── */}
+      {mainTab === "script-patterns" && (
+        <div className="space-y-6">
+          {/* 등록 폼 */}
+          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+            <h3 className="font-bold text-gray-900 mb-4">📝 검증된 스크립트 패턴 등록</h3>
+            <p className="text-sm text-gray-500 mb-4">승인된 패턴은 Claude 분석 시 자동으로 주입되어 더 정확한 코칭을 제공합니다.</p>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">고객 유형</label>
+                  <select
+                    value={patternForm.personaType}
+                    onChange={(e) => setPatternForm(f => ({ ...f, personaType: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                  >
+                    {CALL_SCRIPT_PERSONAS.map(p => (
+                      <option key={p.key} value={p.key}>{p.icon} {p.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">카테고리</label>
+                  <select
+                    value={patternForm.category}
+                    onChange={(e) => setPatternForm(f => ({ ...f, category: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                  >
+                    {['거절대응', '오프닝', '니즈발굴', '클로징', '가격이의', '재접촉', '후속문자'].map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  패턴 내용 <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={patternForm.patternText}
+                  onChange={(e) => setPatternForm(f => ({ ...f, patternText: e.target.value }))}
+                  placeholder="실제로 효과적이었던 멘트나 접근 방식을 입력하세요..."
+                  rows={4}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">전환율 (0~100%)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={Math.round(patternForm.conversionRate * 100)}
+                    onChange={(e) => setPatternForm(f => ({ ...f, conversionRate: Number(e.target.value) / 100 }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">이의 유형 (선택)</label>
+                  <input
+                    type="text"
+                    value={patternForm.objectionType}
+                    onChange={(e) => setPatternForm(f => ({ ...f, objectionType: e.target.value }))}
+                    placeholder="예: PRICE, TIMING, FAMILY"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              {patternMsg && (
+                <p className={`text-sm ${patternMsg.startsWith('✅') ? 'text-green-600' : 'text-red-500'}`}>
+                  {patternMsg}
+                </p>
+              )}
+
+              <button
+                onClick={() => void submitPattern()}
+                disabled={patternSubmitting || !patternForm.patternText.trim()}
+                className="w-full py-3 bg-purple-600 text-white rounded-xl font-bold text-sm hover:bg-purple-700 disabled:opacity-50 transition-colors"
+              >
+                {patternSubmitting ? '등록 중...' : '📝 패턴 등록 (관리자 승인 대기)'}
+              </button>
+            </div>
+          </div>
+
+          {/* 패턴 목록 */}
+          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+            <h3 className="font-bold text-gray-900 mb-4">📋 등록된 패턴 목록</h3>
+            {patternsLoading ? (
+              <div className="flex items-center justify-center py-8 text-gray-400">
+                <Loader2 className="w-5 h-5 animate-spin mr-2" /> 로딩 중...
+              </div>
+            ) : patterns.length === 0 ? (
+              <p className="text-center text-gray-400 py-8">등록된 패턴이 없습니다. 위에서 첫 패턴을 등록하세요.</p>
+            ) : (
+              <div className="space-y-3">
+                {patterns.map((p) => (
+                  <div key={p.id} className="border border-gray-200 rounded-xl p-4">
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                          p.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
+                          p.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                          'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {p.status === 'APPROVED' ? '✅ 승인됨' : p.status === 'REJECTED' ? '❌ 반려' : '⏳ 검토 중'}
+                        </span>
+                        <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">{p.personaType}</span>
+                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{p.category}</span>
+                        {p.conversionRate > 0 && (
+                          <span className="text-xs font-bold text-blue-700">전환율 {Math.round(p.conversionRate * 100)}%</span>
+                        )}
+                      </div>
+                      {p.status === 'DRAFT' && (
+                        <div className="flex gap-1.5 shrink-0">
+                          <button
+                            onClick={() => void approvePattern(p.id, 'APPROVED')}
+                            className="text-xs px-2 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                          >
+                            승인
+                          </button>
+                          <button
+                            onClick={() => void approvePattern(p.id, 'REJECTED')}
+                            className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                          >
+                            반려
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-800 leading-relaxed">{p.patternText}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
