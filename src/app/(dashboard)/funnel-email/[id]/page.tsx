@@ -543,13 +543,13 @@ export default function FunnelEmailEditPage({
                           <input
                             type="number"
                             min={0}
-                            max={36500}
+                            max={3650}
                             value={m.daysAfter}
                             onChange={(e) =>
                               handleMessageChange(
                                 i,
                                 "daysAfter",
-                                Math.max(0, Math.min(36500, Number(e.target.value)))
+                                Math.max(0, Math.min(3650, Number(e.target.value)))
                               )
                             }
                             className="w-24 border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
