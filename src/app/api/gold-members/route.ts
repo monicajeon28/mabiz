@@ -46,8 +46,9 @@ export async function GET(req: NextRequest) {
       { memberCode: { contains: q.toUpperCase() } },
     ];
 
-    // P1: Prisma 쿼리 타임아웃 (5초) 추가
+    // Prisma 쿼리 타임아웃 (5초) — clearTimeout으로 타이머 누수 방지
     let members, total;
+    let timerId: ReturnType<typeof setTimeout> | undefined;
     try {
       const [m, t] = await Promise.race([
         Promise.all([
@@ -59,14 +60,15 @@ export async function GET(req: NextRequest) {
             include: { _count: { select: { consultations: true } } },
           }),
           prisma.goldMember.count({ where }),
-        ]),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Database query timeout (5s)')), 5000)
-        ),
+        ]).then((result) => { clearTimeout(timerId); return result; }),
+        new Promise<never>((_, reject) => {
+          timerId = setTimeout(() => reject(new Error('Database query timeout (5s)')), 5000);
+        }),
       ]);
       members = m;
       total = t;
     } catch (err) {
+      clearTimeout(timerId);
       if (err instanceof Error && err.message.includes('timeout')) {
         logger.warn('[GET /api/gold-members] Query timeout', { page, limit, query: q });
         return NextResponse.json({
