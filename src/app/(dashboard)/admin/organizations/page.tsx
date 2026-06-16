@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -91,6 +91,11 @@ type PendingContract = {
   status: string;
   createdAt: string;
   metadata?: Record<string, unknown> | null;
+  contractType?: string | null;
+  tierLabel?: string | null;
+  rejectedAt?: string | null;
+  rejectReason?: string | null;
+  rejectedByName?: string | null;
 };
 
 // ─── Constants ────────────────────────────────────────────────
@@ -125,11 +130,13 @@ const CONTRACT_STATUS_BADGE: Record<string, string> = {
   submitted: 'bg-amber-100 text-amber-700',
   PROCESSING: 'bg-blue-100 text-blue-700',
   APPROVED: 'bg-green-100 text-green-700',
+  rejected: 'bg-red-100 text-red-700',
 };
 const CONTRACT_STATUS_LABEL: Record<string, string> = {
-  submitted: '접수',
+  submitted: '검토 대기',
   PROCESSING: '처리중',
   APPROVED: '승인완료',
+  rejected: '반려',
 };
 
 // ─── CopyBtn ──────────────────────────────────────────────────
@@ -855,6 +862,9 @@ export default function OrganizationsPage() {
 
   const [pendingContracts, setPendingContracts] = useState<PendingContract[]>([]);
   const [contractsLoading, setContractsLoading] = useState(true);
+  const [contractStatus, setContractStatus] = useState<string>('submitted');
+  const [contractTypeFilter, setContractTypeFilter] = useState<string>('');
+  const [contractsTotal, setContractsTotal] = useState<number>(0);
 
   // 승인 모달: contractId
   const [approveContractId, setApproveContractId] = useState<number | null>(null);
@@ -895,16 +905,22 @@ export default function OrganizationsPage() {
   const fetchPendingContracts = useCallback(async () => {
     setContractsLoading(true);
     try {
-      const res = await fetch('/api/affiliate/contracts?status=submitted');
+      const params = new URLSearchParams({ status: contractStatus });
+      if (contractTypeFilter) params.set('type', contractTypeFilter);
+      const res = await fetch(`/api/affiliate/contracts?${params}`);
       const data = await res.json();
-      if (data.ok) setPendingContracts(data.data.contracts ?? []);
-      else showError('계약 목록을 불러오지 못했습니다.');
+      if (data.ok) {
+        setPendingContracts(data.data.contracts ?? []);
+        setContractsTotal(data.data.pagination?.total ?? 0);
+      } else {
+        showError('계약 목록을 불러오지 못했습니다.');
+      }
     } catch {
       showError('계약 목록 네트워크 오류');
     } finally {
       setContractsLoading(false);
     }
-  }, []);
+  }, [contractStatus, contractTypeFilter]);
 
   // searchRef: 검색어 최신값을 ref로 추적 → handleMemberChanged deps에서 search 제거
   // (search가 deps에 있으면 타이핑마다 DetailPanel 리렌더 발생)
@@ -988,65 +1004,162 @@ export default function OrganizationsPage() {
         </a>
       </section>
 
-      {/* 계약 승인 대기 — 타입별 구분 */}
+      {/* 파트너 신청 관리 */}
       <section>
-        <div className="flex items-center gap-2 mb-2.5">
-          <FileCheck className="w-4 h-4 text-amber-600" />
-          <h2 className="text-sm font-semibold text-gray-700">
-            {pendingContracts.length > 0 && (pendingContracts[0].metadata as Record<string, unknown>)?.type === 'CRUISE_PARTNER'
-              ? '크루즈닷 파트너스 사입신청'
-              : '계약 승인 대기'}
-          </h2>
-          {!contractsLoading && pendingContracts.length > 0 && (
-            <span className="ml-1 px-2 py-0.5 bg-amber-500 text-white text-sm font-bold rounded-full">
-              {pendingContracts.length}
-            </span>
-          )}
+        {/* 헤더 */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <FileCheck className="w-4 h-4 text-amber-600" />
+            <h2 className="text-sm font-semibold text-gray-700">파트너 신청 관리</h2>
+            {!contractsLoading && contractsTotal > 0 && (
+              <span className="px-2 py-0.5 bg-amber-500 text-white text-xs font-bold rounded-full">
+                {contractsTotal}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={fetchPendingContracts}
+            disabled={contractsLoading}
+            className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors"
+            title="새로고침"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${contractsLoading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
+
+        {/* 상태 필터 탭 */}
+        <div className="flex gap-1.5 mb-2 flex-wrap">
+          {[
+            { val: 'submitted', label: '검토 대기', color: 'bg-amber-500' },
+            { val: 'rejected',  label: '반려',      color: 'bg-red-500' },
+            { val: 'APPROVED',  label: '승인완료',  color: 'bg-green-500' },
+            { val: 'all',       label: '전체',      color: 'bg-gray-500' },
+          ].map(({ val, label, color }) => (
+            <button
+              key={val}
+              onClick={() => setContractStatus(val)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                contractStatus === val
+                  ? `${color} text-white`
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* 유형 필터 */}
+        <div className="flex gap-1.5 mb-3 flex-wrap">
+          {[
+            { val: '',               label: '전체 유형' },
+            { val: 'SALES_AGENT',    label: '대리점·판매원' },
+            { val: 'CRUISE_PARTNER', label: '파트너스' },
+          ].map(({ val, label }) => (
+            <button
+              key={val}
+              onClick={() => setContractTypeFilter(val)}
+              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors border ${
+                contractTypeFilter === val
+                  ? 'border-blue-400 bg-blue-50 text-blue-700'
+                  : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* 목록 */}
         {contractsLoading ? (
           <div className="h-12 bg-gray-100 animate-pulse rounded-xl" />
         ) : pendingContracts.length === 0 ? (
           <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm text-gray-600">
             <Clock className="w-3.5 h-3.5" />
-            대기 중인 계약 신청이 없습니다.
+            {contractStatus === 'submitted' ? '검토 대기 중인 신청이 없습니다.' :
+             contractStatus === 'rejected'  ? '반려된 신청이 없습니다.' :
+             contractStatus === 'APPROVED'  ? '승인된 신청이 없습니다.' :
+             '신청 내역이 없습니다.'}
           </div>
         ) : (
           <div className="space-y-2">
-            {pendingContracts.map((c) => (
-              <div key={c.id} className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl overflow-hidden">
-                {/* 클릭하면 상세/승인 모달 (접근성: button 태그) */}
-                <button
-                  type="button"
-                  onClick={() => setApproveContractId(c.id)}
-                  className="flex-1 min-w-0 text-left px-4 py-3 hover:bg-amber-100 transition-colors"
+            {pendingContracts.map((c) => {
+              const isRejected = c.status === 'rejected';
+              const isApproved = c.status === 'APPROVED';
+              const typeLabel = c.contractType === 'CRUISE_PARTNER' ? '파트너스' :
+                                c.tierLabel ?? '대리점·판매원';
+              return (
+                <div
+                  key={c.id}
+                  className={`border rounded-xl overflow-hidden ${
+                    isRejected ? 'border-red-200 bg-red-50' :
+                    isApproved ? 'border-green-200 bg-green-50' :
+                    'border-amber-200 bg-amber-50'
+                  }`}
                 >
-                  <p className="text-sm font-semibold text-gray-900">{c.name ?? '이름 없음'}</p>
-                  <p className="text-sm text-gray-500 mt-0.5">
-                    {c.phone ?? '-'} · {c.email ?? '-'}
-                    <span className="ml-2 text-gray-600">{new Date(c.createdAt).toLocaleDateString('ko-KR')} 접수</span>
-                  </p>
-                </button>
-                {/* 반려 + 승인 버튼 (부모 클릭과 독립) */}
-                <div className="flex items-center gap-2 px-3 py-3 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setRejectContract(c)}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-white border border-red-300 text-red-600 hover:bg-red-50 text-sm font-semibold rounded-lg transition-colors"
-                  >
-                    <XCircle className="w-3.5 h-3.5" />
-                    반려
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setApproveContractId(c.id)}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-lg transition-colors"
-                  >
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    승인
-                  </button>
+                  <div className="flex items-center justify-between">
+                    {/* 정보 영역 */}
+                    <button
+                      type="button"
+                      onClick={() => !isRejected && !isApproved && setApproveContractId(c.id)}
+                      className={`flex-1 min-w-0 text-left px-4 py-3 transition-colors ${
+                        !isRejected && !isApproved ? 'hover:bg-amber-100 cursor-pointer' : 'cursor-default'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                        <p className="text-sm font-semibold text-gray-900">{c.name ?? '이름 없음'}</p>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${CONTRACT_STATUS_BADGE[c.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                          {CONTRACT_STATUS_LABEL[c.status] ?? c.status}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                          {typeLabel}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-500">
+                        {c.phone ?? '-'} · {c.email ?? '-'}
+                        <span className="ml-2 text-gray-400 text-xs">{new Date(c.createdAt).toLocaleDateString('ko-KR')} 접수</span>
+                      </p>
+                      {/* 반려 정보 */}
+                      {isRejected && (
+                        <div className="mt-1.5 space-y-0.5">
+                          {c.rejectedAt && (
+                            <p className="text-xs text-red-600">
+                              반려일시: {new Date(c.rejectedAt).toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                              {c.rejectedByName && ` · 반려자: ${c.rejectedByName}`}
+                            </p>
+                          )}
+                          {c.rejectReason && (
+                            <p className="text-xs text-red-700 font-medium">반려 사유: {c.rejectReason}</p>
+                          )}
+                        </div>
+                      )}
+                    </button>
+
+                    {/* 액션 버튼 — 검토대기만 표시 */}
+                    {!isRejected && !isApproved && (
+                      <div className="flex items-center gap-2 px-3 py-3 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setRejectContract(c)}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-white border border-red-300 text-red-600 hover:bg-red-50 text-sm font-semibold rounded-lg transition-colors"
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                          반려
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setApproveContractId(c.id)}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          승인
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>

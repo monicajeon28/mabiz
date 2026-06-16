@@ -29,7 +29,17 @@ export async function GET(req: NextRequest) {
     const limit = 20;
     const skip = (page - 1) * limit;
 
-    const where = status === 'all' ? {} : { status };
+    const typeFilter = searchParams.get('type') ?? '';
+    const typeWhere = typeFilter === 'CRUISE_PARTNER'
+      ? { metadata: { path: ['type'], equals: 'CRUISE_PARTNER' } }
+      : typeFilter === 'SALES_AGENT'
+        ? { NOT: { metadata: { path: ['type'], equals: 'CRUISE_PARTNER' } } }
+        : {};
+
+    const where = {
+      ...(status === 'all' ? {} : { status }),
+      ...typeWhere,
+    };
 
     const [contracts, total] = await Promise.all([
       prisma.gmAffiliateContract.findMany({
@@ -58,10 +68,14 @@ export async function GET(req: NextRequest) {
           const meta = c.metadata as Record<string, any> | null;
           return {
             ...c,
+            contractType: meta?.type ?? 'SALES_AGENT',
             tierLabel: meta?.tierKey
-              ? CONTRACT_PRICE_TIERS[meta.tierKey as keyof typeof CONTRACT_PRICE_TIERS]?.label
+              ? CONTRACT_PRICE_TIERS[meta?.tierKey as keyof typeof CONTRACT_PRICE_TIERS]?.label
               : null,
             approvedAt: meta?.approvedAt || null,
+            rejectedAt: meta?.rejectedAt || null,
+            rejectReason: meta?.rejectReason || null,
+            rejectedByName: meta?.rejectedByName || null,
           };
         }),
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
