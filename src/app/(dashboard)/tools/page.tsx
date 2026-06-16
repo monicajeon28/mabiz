@@ -100,7 +100,6 @@ export default function ToolsPage() {
   const [feedbackErr, setFeedbackErr] = useState("");
   const [converted,   setConverted]  = useState<boolean | null>(null);
   const [productType, setProductType] = useState<'GOLD' | 'GENERAL'>('GOLD');
-  const [uploading,   setUploading]   = useState(false);
   const [uploadResult, setUploadResult] = useState<{ ok: boolean; viewUrl?: string; message?: string } | null>(null);
 
   // 통계 상태
@@ -178,41 +177,36 @@ export default function ToolsPage() {
     setAnalyzing(true);
     setFeedback(null);
     setFeedbackErr("");
+    setUploadResult(null);
     try {
-      const res  = await fetch("/api/tools/call-feedback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: callText, converted: converted ?? false, productType }),
-      });
-      const data = await res.json();
+      // 분석 + Drive 저장 동시 실행
+      const [analysisRes, driveRes] = await Promise.all([
+        fetch("/api/tools/call-feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: callText, converted: converted ?? false, productType }),
+        }),
+        fetch("/api/tools/call-upload-drive", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ callText, converted: converted ?? false, productType }),
+        }),
+      ]);
+      const data = await analysisRes.json();
+      const driveData = await driveRes.json();
       if (data.ok) {
         setFeedback(data.result);
       } else {
         setFeedbackErr(data.message ?? "분석 실패");
       }
+      // Drive 저장 결과는 조용히 처리 (실패해도 분석 결과는 표시)
+      if (driveData.ok) {
+        setUploadResult({ ok: true, message: "저장 완료" });
+      }
     } catch {
       setFeedbackErr("네트워크 오류가 발생했습니다.");
     } finally {
       setAnalyzing(false);
-    }
-  };
-
-  const uploadToDrive = async () => {
-    if (!callText.trim() || uploading) return;
-    setUploading(true);
-    setUploadResult(null);
-    try {
-      const res = await fetch("/api/tools/call-upload-drive", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ callText, converted: converted ?? false, productType }),
-      });
-      const data = await res.json();
-      setUploadResult(data);
-    } catch {
-      setUploadResult({ ok: false, message: "네트워크 오류가 발생했습니다." });
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -788,31 +782,10 @@ export default function ToolsPage() {
                   )}
                 </button>
               </div>
-              <button
-                onClick={uploadToDrive}
-                disabled={uploading || !callText.trim()}
-                className="w-full flex items-center justify-center gap-2 border-2 border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium hover:border-navy-900 hover:text-navy-900 disabled:opacity-50 transition-colors"
-              >
-                {uploading ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> 저장 중...</>
-                ) : (
-                  <><Upload className="w-4 h-4" /> 통화기록 저장하기</>
-                )}
-              </button>
-              {uploadResult && (
-                <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${
-                  uploadResult.ok
-                    ? "bg-green-50 text-green-800 border border-green-200"
-                    : "bg-red-50 text-red-800 border border-red-200"
-                }`}>
-                  {uploadResult.ok ? (
-                    <>
-                      <Check className="w-4 h-4 flex-shrink-0" />
-                      <span>통화기록이 저장되었습니다</span>
-                    </>
-                  ) : (
-                    <><AlertCircle className="w-4 h-4 flex-shrink-0" />{uploadResult.message ?? "업로드 실패"}</>
-                  )}
+              {uploadResult?.ok && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-green-50 text-green-800 border border-green-200">
+                  <Check className="w-4 h-4 flex-shrink-0" />
+                  <span>통화기록이 자동 저장되었습니다</span>
                 </div>
               )}
             </div>
