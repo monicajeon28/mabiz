@@ -7,14 +7,15 @@ import { sendDay0Sms, type Segment, type ABVariant } from '@/lib/loop5-sms-servi
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// 크루즈닷몰 아키텍처: 링크 기반 구매 100% → affiliateCode 항상 존재
+// 크루즈닷몰 아키텍처: 링크 기반 구매(affiliateCode 있음) + HQ 직접구매(affiliateCode null) 모두 지원
 // CRM은 affiliateCode → Partner 조회 → tier → 수당 계산 (commissionRate는 CRM이 결정)
+// affiliateCode가 null인 경우 → HQ 직접구매로 처리 (담당자 미배정)
 interface CruisedotPaymentPayload {
   eventId: string;
   eventType: 'payment.created' | 'payment.updated' | 'payment.refunded';
   timestamp: string;
   bookingRef: string;
-  affiliateCode: string;   // 항상 존재 (링크 기반 구매)
+  affiliateCode?: string | null;   // 어필리에이트(있음) 또는 HQ 직접구매(null)
   saleAmount?: number;     // 판매금액 (수당 계산용)
   status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'REFUNDED';
   refundAmount?: number;
@@ -79,11 +80,14 @@ export async function POST(req: NextRequest) {
   eventId = payload.eventId;
   const { eventType, timestamp, bookingRef, affiliateCode, saleAmount, status, refundAmount, reason } = payload;
 
-  // 필수 필드 검증 (affiliateCode 항상 필수 — 링크 기반 구매)
-  if (!eventId || !eventType || !bookingRef || !status || !affiliateCode) {
+  // 필수 필드 검증 (affiliateCode는 선택 — null이면 HQ 직접구매)
+  if (!eventId || !eventType || !bookingRef || !status) {
     logger.warn('[CruisedotWebhook] 필수 필드 누락', { eventId, bookingRef, affiliateCode });
-    return NextResponse.json({ ok: false, message: '필수 필드 누락 (affiliateCode 포함)' }, { status: 400 });
+    return NextResponse.json({ ok: false, message: '필수 필드 누락 (eventId, eventType, bookingRef, status)' }, { status: 400 });
   }
+
+  // affiliateCode 검증: 어필리에이트는 필수, 직접구매(null)도 허용
+  const isDirectPurchase = !affiliateCode;
 
   logger.log('[CruisedotWebhook] 수신', {
     eventId,
@@ -111,15 +115,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, duplicate: true });
     }
 
-    // AffiliateSale 찾기 (bookingRef = orderId) - 먼저 조회하여 organizationId 결정
-    const affiliateSale = await prisma.affiliateSale.findUnique({
-      where: { orderId: bookingRef },
-      select: { id: true, saleAmount: true, commissionAmount: true, organizationId: true },
-    });
+    // organizationId 결정: affiliateSale 또는 기본값
+    let affiliateSale: { id: string; saleAmount: number; commissionAmount: number; organizationId: string } | null = null;
+    let organizationId: string | undefined;
+
+    if (isDirectPurchase) {
+      // HQ 직접구매: affiliateSale 없음, DEFAULT_ORGANIZATION_ID 사용
+      organizationId = process.env.DEFAULT_ORGANIZATION_ID;
+      logger.log('[CruisedotWebhook] HQ 직접구매 감지', { bookingRef, organizationId });
+    } else {
+      // 어필리에이트: AffiliateSale 조회 (bookingRef = orderId)
+      affiliateSale = await prisma.affiliateSale.findUnique({
+        where: { orderId: bookingRef },
+        select: { id: true, saleAmount: true, commissionAmount: true, organizationId: true },
+      });
+      organizationId = affiliateSale?.organizationId;
+      logger.log('[CruisedotWebhook] 어플리에이트 구매 감지', { bookingRef, affiliateCode, organizationId });
+    }
 
     // organizationId 미확인 시 조기종료 (테넌트 격리)
-    if (!affiliateSale?.organizationId) {
-      logger.warn('[CruisedotWebhook] 조직 미확인', { bookingRef });
+    if (!organizationId) {
+      logger.warn('[CruisedotWebhook] 조직 미확인', { bookingRef, isDirectPurchase, organizationId });
       return NextResponse.json({ ok: false, message: '조직 미확인' }, { status: 422 });
     }
 
@@ -149,21 +165,22 @@ export async function POST(req: NextRequest) {
         where: {
           bookingRef_organizationId: {
             bookingRef,
-            organizationId: affiliateSale.organizationId,
+            organizationId,
           },
         },
         create: {
           bookingRef,
-          organizationId: affiliateSale.organizationId,
+          organizationId,
           phone: '', // 필수값 (cruisedot에서 제공되면 나중에 업데이트)
           name: `예약 ${bookingRef}`, // 임시 이름
           type: 'PURCHASED',
-          affiliateCode,
+          affiliateCode: affiliateCode || null,
           lastPaymentStatus: status === 'CONFIRMED' ? 'paid' : 'pending',
           lastPaymentAt: status === 'CONFIRMED' ? new Date(timestamp) : undefined,
+          // HQ 직접구매인 경우 담당자 미배정 (userId = null) — 기본값이므로 명시 불필요
         },
         update: {
-          affiliateCode: affiliateCode || undefined,
+          affiliateCode: affiliateCode === undefined ? undefined : affiliateCode,
         },
         select: {
           id: true,
@@ -187,13 +204,13 @@ export async function POST(req: NextRequest) {
         if (isNewContact && contact.id) {
           await tx.formSubmission.create({
             data: {
-              variant: 'cruisedot_payment', // 결제 완료 채널 표시
+              variant: isDirectPurchase ? 'cruisedot_direct' : 'cruisedot_payment', // 채널 구분
               segment: 'A', // 기본값 (나중에 Contact 정보로 개선)
               completionTimeMs: 0, // 웹훅 처리이므로 시간값 없음
               ageRange: 'unknown', // 크루즈닷몰에서 제공 받을 때까지
               preferenceType: 'cruise_booking', // 크루즈 예약
               affiliateCode: contact.affiliateCode || undefined,
-              userAgent: `cruisedot-webhook-${bookingRef}`,
+              userAgent: `cruisedot-webhook-${isDirectPurchase ? 'direct' : 'affiliate'}-${bookingRef}`,
             },
           });
         }
@@ -298,6 +315,7 @@ export async function POST(req: NextRequest) {
     logger.log('[CruisedotWebhook] 처리 완료', {
       contactFound: !!contact,
       affiliateSaleFound: !!affiliateSale,
+      isDirectPurchase,
       bookingRef,
       status,
       day0SmsSent: shouldSendSms,
@@ -342,6 +360,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       contactId: contact?.id,
       orderId: bookingRef,
+      affiliateType: isDirectPurchase ? 'DIRECT' : 'AFFILIATE',
       day0SmsSent: shouldSendSms,
     });
   } catch (err) {
@@ -374,6 +393,7 @@ export async function POST(req: NextRequest) {
       ok: false,
       error: 'Payment webhook processing failed',
       eventId,
+      affiliateType: isDirectPurchase ? 'DIRECT' : 'AFFILIATE',
     }, { status: 500 });
   }
 }
