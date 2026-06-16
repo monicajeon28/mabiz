@@ -58,17 +58,44 @@ export async function POST(req: Request) {
 
     const { type, goodname, price, customerName, customerPhone, customerEmail, landingPageId, cycleDay, expireDate } = parsed.data;
 
-    // 랜딩페이지로 조직 특정 (인증 대신)
-    const landingPage = await prisma.crmLandingPage.findFirst({
+    // 랜딩페이지로 조직 특정 (인증 대신) — CRM 랜딩 먼저, B2B 랜딩 폴백
+    let orgId: string;
+    let landingSlug: string | null = null;
+    let b2bMeta: { b2bLandingPageId: string; b2bLandingTitle: string; b2bCreatedBy: string | null } | null = null;
+
+    const crmPage = await prisma.crmLandingPage.findFirst({
       where: { id: landingPageId, isActive: true },
       select: { organizationId: true, slug: true },
     });
 
-    if (!landingPage) {
-      return NextResponse.json({ ok: false, message: '랜딩페이지를 찾을 수 없습니다.' }, { status: 404 });
-    }
+    if (crmPage) {
+      orgId = crmPage.organizationId;
+      landingSlug = crmPage.slug;
+    } else {
+      // B2B 랜딩 페이지 폴백
+      const b2bPage = await prisma.b2BLandingPage.findFirst({
+        where: { id: landingPageId, isActive: true },
+        select: { organizationId: true, title: true },
+      });
 
-    const orgId = landingPage.organizationId;
+      if (!b2bPage) {
+        return NextResponse.json({ ok: false, message: '랜딩페이지를 찾을 수 없습니다.' }, { status: 404 });
+      }
+
+      orgId = b2bPage.organizationId;
+
+      // ShortLink에서 페이지 생성자(어필리에이트) 조회
+      const shortLink = await prisma.shortLink.findFirst({
+        where: { category: 'b2b-landing', targetUrl: { endsWith: `/b2b-landing/${landingPageId}` } },
+        select: { createdBy: true },
+      });
+
+      b2bMeta = {
+        b2bLandingPageId: landingPageId,
+        b2bLandingTitle: b2bPage.title,
+        b2bCreatedBy: shortLink?.createdBy ?? null,
+      };
+    }
     const normalizedPhone = normalizePhone(customerPhone);
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://mabizcruisedot.com';
     const feedbackurl = `${baseUrl}/api/webhooks/payapp`;
@@ -138,8 +165,10 @@ export async function POST(req: Request) {
     // 일반결제
     const orderId = `pay_${orgId.slice(0, 8)}_${Date.now()}`;
 
-    // 완료 URL 구성 및 검증
-    let completionUrl = `${baseUrl}/p/${landingPage.slug}/payment/complete?orderId=${orderId}`;
+    // 완료 URL 구성 및 검증 (CRM 랜딩: /p/{slug}/..., B2B 랜딩: 기본 완료 페이지)
+    const completionUrl = landingSlug
+      ? `${baseUrl}/p/${landingSlug}/payment/complete?orderId=${orderId}`
+      : `${baseUrl}/payment/complete?orderId=${orderId}`;
     if (!isSafeCompletionUrl(completionUrl)) {
       logger.warn('[Public/PayApp] 완료 URL이 유효하지 않음', { completionUrl });
       return NextResponse.json(
@@ -160,6 +189,7 @@ export async function POST(req: Request) {
         mulNo: null,
         status: 'pending',
         landingPageId: landingPageId ?? null,
+        ...(b2bMeta ? { metadata: b2bMeta } : {}),
       },
     });
 
@@ -169,7 +199,7 @@ export async function POST(req: Request) {
       recvphone: normalizedPhone,
       feedbackurl,
       var1: orderId,
-      var2: landingPage.slug ?? '',
+      var2: landingSlug ?? '',
       recvemail: customerEmail,
       smsuse: 'n',
       returnurl: completionUrl,

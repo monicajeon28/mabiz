@@ -18,6 +18,8 @@ interface B2BStats {
   emailSent: number;
   funnelEntered: number;
   purchased: number;
+  payappPayments: number;
+  payappRevenue: number;
   rates: {
     visitToRegister: number;
     registerToEmail: number;
@@ -87,9 +89,20 @@ export async function GET(req: Request, { params }: Params) {
     const funnelEntered = regStats.find(r => r.funnelStarted === true)?._count.id ?? 0;
     const phoneList     = regs.map(r => r.phone).filter(Boolean);
 
-    // 이메일 발송 수 + 구매 전환 수 — 병렬 처리
+    // 이메일 발송 수 + 구매 전환 수 + PayApp 결제 — 병렬 처리
     let emailSent = 0;
     let purchased = 0;
+    let payappPayments = 0;
+    let payappRevenue = 0;
+
+    // PayApp 결제 (landingPageId = B2B 페이지 ID, status = paid)
+    const payappAgg = await prisma.payAppPayment.aggregate({
+      where: { landingPageId: id, status: 'paid' },
+      _count: { id: true },
+      _sum:   { amount: true },
+    });
+    payappPayments = payappAgg._count.id;
+    payappRevenue  = payappAgg._sum.amount ?? 0;
 
     if (phoneList.length > 0) {
       // phone → contactId 조인 (같은 조직)
@@ -123,6 +136,8 @@ export async function GET(req: Request, { params }: Params) {
       emailSent,
       funnelEntered,
       purchased,
+      payappPayments,
+      payappRevenue,
       rates: {
         visitToRegister:   toRate(registered,    page.viewCount),
         registerToEmail:   toRate(emailSent,     registered),
@@ -140,6 +155,8 @@ export async function GET(req: Request, { params }: Params) {
       emailSent,
       funnelEntered,
       purchased,
+      payappPayments,
+      payappRevenue,
       phoneListLength: phoneList.length,
       durationMs: Date.now() - startTime,
     });
@@ -148,7 +165,7 @@ export async function GET(req: Request, { params }: Params) {
       ok: true,
       stats,
       title: page.title,
-      note: { purchased: 'phone 기반 근사치', emailSent: 'contactId 기반 — 해당 신청자에게 발송된 전체 이메일' },
+      note: { purchased: 'phone 기반 근사치', emailSent: 'contactId 기반 — 해당 신청자에게 발송된 전체 이메일', payappPayments: 'PayApp 실결제 건수 (status=paid)', payappRevenue: 'PayApp 결제 누적 금액 (원)' },
     };
 
     // [캐싱] 응답을 5분 TTL로 Redis에 캐시
