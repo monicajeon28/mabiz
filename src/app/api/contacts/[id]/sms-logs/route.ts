@@ -8,7 +8,8 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(req: Request, { params }: Params) {
   try {
     const ctx = await getAuthContext();
-    const orgId = resolveOrgId(ctx);
+    // GLOBAL_ADMIN은 null → org 필터 없이 전체 조회
+    const orgId = ctx.role === 'GLOBAL_ADMIN' ? null : resolveOrgId(ctx);
     const { id: contactId } = await params;
 
     const { searchParams } = new URL(req.url);
@@ -18,7 +19,11 @@ export async function GET(req: Request, { params }: Params) {
 
     // Contact 소유권 검증
     const contact = await prisma.contact.findFirst({
-      where: { id: contactId, organizationId: orgId },
+      where: {
+        id: contactId,
+        ...(orgId ? { organizationId: orgId } : {}),
+        deletedAt: null,
+      },
       select: { id: true },
     });
     if (!contact) {
@@ -30,7 +35,7 @@ export async function GET(req: Request, { params }: Params) {
       prisma.smsLog.findMany({
         where: {
           contactId,
-          organizationId: orgId,
+          ...(orgId ? { organizationId: orgId } : {}),
         },
         orderBy: { sentAt: "desc" },
         skip,
@@ -49,7 +54,7 @@ export async function GET(req: Request, { params }: Params) {
       prisma.smsLog.count({
         where: {
           contactId,
-          organizationId: orgId,
+          ...(orgId ? { organizationId: orgId } : {}),
         },
       }),
     ]);

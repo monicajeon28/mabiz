@@ -78,8 +78,8 @@ export async function getHomeDashboardMetrics(params: MetricsParams) {
   const todayCompletedContracts = await prisma.contractInstance.count({
     where: {
       ...(hasOrgFilter ? { organizationId: organizationId! } : {}),
-      createdAt: { gte: todayStart, lte: todayEnd },
-      status: { in: ['SIGNED', 'COMPLETED', 'APPROVED_THEN_SIGNED'] },
+      updatedAt: { gte: todayStart, lte: todayEnd },
+      status: { in: ['SIGNED', 'COMPLETED'] },
     },
   });
 
@@ -89,7 +89,7 @@ export async function getHomeDashboardMetrics(params: MetricsParams) {
   const pendingContracts = await prisma.contractInstance.count({
     where: {
       ...(hasOrgFilter ? { organizationId: organizationId! } : {}),
-      status: { in: ['PENDING', 'APPROVED'] },
+      status: { in: ['DRAFT', 'SENT'] },
     },
   });
 
@@ -140,12 +140,16 @@ export async function getHomeDashboardMetrics(params: MetricsParams) {
     },
   });
 
-  // 2단계: 문자 발송 기록이 있는 고객
+  // 2단계: 실제 SMS Day 0-3 중 하나라도 발송된 고객
   const funnelStep2Count = await prisma.contact.count({
     where: {
       ...contactFilter,
-      // SMS 발송 기록이 있는 고객
-      // 임시: 최소 1회 이상 문자 발송 흔적이 있으면 "문자" 단계로 분류
+      OR: [
+        { smsDay0Sent: true },
+        { smsDay1Sent: true },
+        { smsDay2Sent: true },
+        { smsDay3Sent: true },
+      ],
     },
   });
 
@@ -194,7 +198,7 @@ export async function getHomeDashboardMetrics(params: MetricsParams) {
       anxietyScore: true,
     },
     orderBy: [
-      { lastContactedAt: 'asc' },
+      { lastContactedAt: { sort: 'asc', nulls: 'first' } },
       { anxietyScore: 'desc' },
       { departureDate: 'asc' },
     ],
