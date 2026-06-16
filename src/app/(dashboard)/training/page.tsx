@@ -43,12 +43,19 @@ function highlight(text: string, q: string): React.ReactNode {
 }
 
 // ── 타입 배지 색상 ────────────────────────────────────────────────────────────
-const TYPE_BADGE: Record<SearchItem["type"], { label: string; cls: string }> = {
-  price:     { label: "💰 가격",        cls: "bg-green-100 text-green-800" },
-  feature:   { label: "✅ 특징",        cls: "bg-blue-100 text-blue-800" },
-  pasona:    { label: "📋 모니카 멘트",  cls: "bg-purple-100 text-purple-800" },
-  objection: { label: "❌ 거절",        cls: "bg-red-100 text-red-800" },
-  response:  { label: "✅ 대응 스크립트", cls: "bg-emerald-100 text-emerald-800" },
+const TYPE_BADGE: Record<string, { label: string; cls: string }> = {
+  price:       { label: "💰 가격",          cls: "bg-green-100 text-green-800" },
+  feature:     { label: "✅ 특징",          cls: "bg-blue-100 text-blue-800" },
+  pasona:      { label: "📋 모니카 멘트",    cls: "bg-purple-100 text-purple-800" },
+  objection:   { label: "❌ 거절",          cls: "bg-red-100 text-red-800" },
+  response:    { label: "✅ 대응 스크립트",  cls: "bg-emerald-100 text-emerald-800" },
+  hook:        { label: "📢 통화 시작",      cls: "bg-yellow-100 text-yellow-800" },
+  spin:        { label: "❓ SPIN 질문",      cls: "bg-indigo-100 text-indigo-800" },
+  closing:     { label: "🎯 클로징",         cls: "bg-orange-100 text-orange-800" },
+  urgency:     { label: "⏰ 긴박감",         cls: "bg-red-100 text-red-700" },
+  socialProof: { label: "👥 성공 사례",      cls: "bg-teal-100 text-teal-800" },
+  valueStack:  { label: "💎 가치 계산",      cls: "bg-pink-100 text-pink-800" },
+  followUp:    { label: "📱 후속 문자",      cls: "bg-slate-100 text-slate-800" },
 };
 
 // ── 검색 결과 카드 ────────────────────────────────────────────────────────────
@@ -136,6 +143,70 @@ function ObjectionItem({ objection, response }: { objection: string; response: s
           <p className="text-sm text-gray-900 leading-relaxed">{response}</p>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── SPIN 질문 아코디언 ─────────────────────────────────────────────────────────
+function SpinAccordion({ spinQuestions }: { spinQuestions: { situation: readonly string[]; problem: readonly string[]; implication: readonly string[]; needPayoff: readonly string[] } }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const tabs = [
+    { key: "situation", label: "S 상황 파악", emoji: "📊", color: "bg-blue-50 border-blue-200", textColor: "text-blue-700", items: spinQuestions.situation },
+    { key: "problem", label: "P 문제 발굴", emoji: "⚠️", color: "bg-orange-50 border-orange-200", textColor: "text-orange-700", items: spinQuestions.problem },
+    { key: "implication", label: "I 함의 강화", emoji: "💡", color: "bg-purple-50 border-purple-200", textColor: "text-purple-700", items: spinQuestions.implication },
+    { key: "needPayoff", label: "N 필요 확인", emoji: "✅", color: "bg-green-50 border-green-200", textColor: "text-green-700", items: spinQuestions.needPayoff },
+  ];
+  return (
+    <div className="space-y-2">
+      {tabs.map((tab) => (
+        <div key={tab.key} className={`border rounded-lg overflow-hidden ${tab.color}`}>
+          <button
+            onClick={() => setOpen(open === tab.key ? null : tab.key)}
+            className="w-full p-3 text-left flex items-center justify-between gap-2 hover:opacity-80 transition-opacity"
+          >
+            <span className={`font-semibold text-sm ${tab.textColor} flex items-center gap-1.5`}>
+              {tab.emoji} {tab.label}
+            </span>
+            {open === tab.key ? <ChevronUp className="w-4 h-4 text-gray-500 shrink-0" /> : <ChevronDown className="w-4 h-4 text-gray-500 shrink-0" />}
+          </button>
+          {open === tab.key && (
+            <div className="px-3 pb-3 space-y-1.5">
+              {tab.items.map((q, i) => (
+                <div key={i} className="flex items-start gap-2 bg-white rounded-lg p-2.5 border border-white/80">
+                  <span className="text-gray-400 text-xs font-mono mt-0.5 shrink-0">{i + 1}.</span>
+                  <p className="text-sm text-gray-900 leading-relaxed">{q}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── 후속 문자 타임라인 ─────────────────────────────────────────────────────────
+function FollowUpTimeline({ seq }: { seq: { day0: string; day1: string; day3: string; day7: string; day14: string } }) {
+  const days = [
+    { label: "Day 0", sub: "당일", text: seq.day0, color: "bg-blue-500" },
+    { label: "Day 1", sub: "다음날", text: seq.day1, color: "bg-indigo-500" },
+    { label: "Day 3", sub: "3일 후", text: seq.day3, color: "bg-purple-500" },
+    { label: "Day 7", sub: "1주 후", text: seq.day7, color: "bg-orange-500" },
+    { label: "Day 14", sub: "2주 후", text: seq.day14, color: "bg-red-500" },
+  ];
+  return (
+    <div className="space-y-2">
+      {days.map((d) => (
+        <div key={d.label} className="flex items-start gap-3">
+          <div className="shrink-0 flex flex-col items-center">
+            <span className={`${d.color} text-white text-xs font-bold px-2 py-1 rounded-lg`}>{d.label}</span>
+            <span className="text-xs text-gray-400 mt-0.5">{d.sub}</span>
+          </div>
+          <div className="flex-1 bg-gray-50 rounded-lg p-3 text-sm text-gray-800 leading-relaxed border border-gray-100">
+            {d.text}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -397,6 +468,16 @@ export default function TrainingPage() {
                 </div>
               </section>
 
+              {/* 2.5. 통화 시작 멘트 (Hook) */}
+              {"hook" in product && (
+                <section className="bg-yellow-50 border border-yellow-200 rounded-xl p-5 shadow-sm">
+                  <h3 className="text-base font-bold text-yellow-800 mb-2">📢 통화 시작 멘트 (첫 30초)</h3>
+                  <p className="text-sm text-yellow-900 leading-relaxed font-medium">
+                    &quot;{(product as { hook: string }).hook}&quot;
+                  </p>
+                </section>
+              )}
+
               {/* 2. PASONA */}
               <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
                 <h3 className="text-base font-bold text-gray-900 mb-4">📋 모니카 멘트 판매 스크립트</h3>
@@ -424,6 +505,78 @@ export default function TrainingPage() {
                   ))}
                 </div>
               </section>
+
+              {/* 3.5. SPIN 질문 */}
+              {"spinQuestions" in product && (
+                <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                  <h3 className="text-base font-bold text-gray-900 mb-4">❓ SPIN 질문 스크립트</h3>
+                  <p className="text-xs text-gray-500 mb-3">고객이 스스로 필요를 말하게 만드는 4단계 질문 — 각 단계를 눌러 확인하세요</p>
+                  <SpinAccordion spinQuestions={(product as { spinQuestions: { situation: readonly string[]; problem: readonly string[]; implication: readonly string[]; needPayoff: readonly string[] } }).spinQuestions} />
+                </section>
+              )}
+
+              {/* 3.6. 클로징 + 긴박감 */}
+              {"closingScript" in product && (
+                <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm space-y-4">
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900 mb-2">🎯 클로징 스크립트</h3>
+                    <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                      <p className="text-sm text-orange-900 font-medium leading-relaxed">
+                        &quot;{(product as { closingScript: string }).closingScript}&quot;
+                      </p>
+                    </div>
+                  </div>
+                  {"urgencyScript" in product && (
+                    <div>
+                      <h3 className="text-base font-bold text-gray-900 mb-2">⏰ 긴박감 멘트</h3>
+                      <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                        <p className="text-sm text-red-900 font-medium leading-relaxed">
+                          &quot;{(product as { urgencyScript: string }).urgencyScript}&quot;
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              )}
+
+              {/* 3.7. 가치 계산 + 성공 사례 */}
+              {"valueStack" in product && (
+                <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm space-y-5">
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900 mb-3">💎 가치 계산 (ROI)</h3>
+                    <div className="space-y-2">
+                      {(product as { valueStack: readonly { item: string; value: string }[] }).valueStack.map((v, i) => (
+                        <div key={i} className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2.5 border border-gray-100">
+                          <span className="text-sm text-gray-700">{v.item}</span>
+                          <span className="text-sm font-bold text-blue-700">{v.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {"socialProof" in product && (
+                    <div>
+                      <h3 className="text-base font-bold text-gray-900 mb-3">👥 실제 성공 사례</h3>
+                      <div className="space-y-2">
+                        {(product as { socialProof: readonly { story: string; result: string }[] }).socialProof.map((s, i) => (
+                          <div key={i} className="bg-teal-50 border border-teal-100 rounded-xl p-3">
+                            <p className="text-xs font-semibold text-teal-700 mb-1">📍 {s.story}</p>
+                            <p className="text-sm text-gray-800 leading-relaxed">{s.result}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </section>
+              )}
+
+              {/* 3.8. 후속 문자 시퀀스 */}
+              {"followUpSequence" in product && (
+                <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                  <h3 className="text-base font-bold text-gray-900 mb-4">📱 후속 문자 시퀀스</h3>
+                  <p className="text-xs text-gray-500 mb-3">통화 후 Grant Cardone 방식 — Day 0→14 자동 follow-up</p>
+                  <FollowUpTimeline seq={(product as { followUpSequence: { day0: string; day1: string; day3: string; day7: string; day14: string } }).followUpSequence} />
+                </section>
+              )}
 
               {/* 4. 추천 세그먼트 */}
               <section className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
