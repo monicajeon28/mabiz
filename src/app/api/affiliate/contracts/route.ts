@@ -36,9 +36,15 @@ export async function GET(req: NextRequest) {
         ? { NOT: { metadata: { path: ['type'], equals: 'CRUISE_PARTNER' } } }
         : {};
 
+    // OWNER는 본인 조직 계약만 조회 (IDOR 방지: organizationId 격리)
+    const orgFilter = ctx.role === 'OWNER' && ctx.organizationId
+      ? { organizationId: ctx.organizationId }
+      : {};
+
     const where = {
       ...(status === 'all' ? {} : { status }),
       ...typeWhere,
+      ...orgFilter,
     };
 
     const [contracts, total] = await Promise.all([

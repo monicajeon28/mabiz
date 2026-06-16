@@ -331,6 +331,7 @@ export async function provisionAffiliateAccounts(
       const supabaseClient = new PgClient({ connectionString: supabaseUrl });
       await supabaseClient.connect();
 
+      try {
       // Manager 동기화 시도
       try {
         await supabaseClient.query(`
@@ -363,7 +364,7 @@ export async function provisionAffiliateAccounts(
             operationType: 'INSERT',
             tableName: 'User',
             recordId: String(result.manager.gmUserId),
-            data: { gmUserId: result.manager.gmUserId, partnerId: result.managerPartnerId, name: `${contractorName} 대리점장`, passwordHash },
+            data: { gmUserId: result.manager.gmUserId, partnerId: result.managerPartnerId, name: `${contractorName} 대리점장` },
             error: errMsg,
             nextRetryAt: new Date(Date.now() + 5 * 60 * 1000),
             status: 'PENDING',
@@ -472,7 +473,9 @@ export async function provisionAffiliateAccounts(
         });
       }
 
-      await supabaseClient.end();
+      } finally {
+        await supabaseClient.end();
+      }
     } catch (err) {
       logger.error('[AFFILIATE-PROVISION] ❌ Supabase 네트워크 오류 — 동기화 전체 실패', {
         error: err instanceof Error ? err.message : String(err),
@@ -494,18 +497,21 @@ export async function provisionAffiliateAccounts(
 // ── 내부 유틸 ────────────────────────────────────────────────────
 
 // Phase 4: partnerId 자동 생성 (boss1, boss2... / sales1, sales2... / pre1, pre2...)
+// 단일 SELECT로 최대 번호 조회 후 +1 (기존 N+1 루프 제거)
 async function generateUniquePartnerId(
   prefix: 'boss' | 'sales' | 'pre',
   tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
 ): Promise<string> {
-  for (let i = 1; i <= 9999; i++) {
-    const partnerId = `${prefix}${i}`;
-    const exists = await tx.gmUser.findFirst({
-      where: { phone: partnerId },
-    });
-    if (!exists) return partnerId;
-  }
-  throw new Error(`${prefix} partnerId 생성 실패: 9999개 초과`);
+  const existing = await tx.gmUser.findMany({
+    where: { phone: { startsWith: prefix } },
+    select: { phone: true },
+  });
+  const nums = existing
+    .map((u) => parseInt((u.phone ?? '').slice(prefix.length), 10))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  const nextNum = nums.length > 0 ? Math.max(...nums) + 1 : 1;
+  if (nextNum > 9999) throw new Error(`${prefix} partnerId 생성 실패: 9999개 초과`);
+  return `${prefix}${nextNum}`;
 }
 
 async function generateUniqueAffiliateCode(
