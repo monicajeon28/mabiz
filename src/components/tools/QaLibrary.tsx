@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Loader2, AlertCircle } from "lucide-react";
 import { QaSearchBar } from "./QaSearchBar";
 import { QaCard } from "./QaCard";
@@ -62,6 +62,9 @@ export function QaLibrary() {
   const [totalPages, setTotalPages] = useState(0);
   const [total, setTotal] = useState(0);
 
+  // 이전 검색 요청 취소용 ref
+  const searchAbortRef = useRef<AbortController | null>(null);
+
   // 검색 수행
   const performSearch = useCallback(
     async (q: string = query, cat: string = category, t: string = tone, p: number = 1, signal?: AbortSignal) => {
@@ -109,7 +112,11 @@ export function QaLibrary() {
     setCategory(cat);
     setTone(t);
     setPage(1);
-    performSearch(q, cat, t, 1);
+    // 이전 검색 취소
+    searchAbortRef.current?.abort();
+    const ctrl = new AbortController();
+    searchAbortRef.current = ctrl;
+    performSearch(q, cat, t, 1, ctrl.signal);
   };
 
   const handleSelectItem = (item: QaItem) => {

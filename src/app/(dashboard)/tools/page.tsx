@@ -157,9 +157,12 @@ export default function ToolsPage() {
   };
 
   const copy = useCallback((id: string, text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(id);
-    setTimeout(() => setCopied(null), 2000);
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(id);
+      setTimeout(() => setCopied(null), 2000);
+    }).catch(() => {
+      // 복사 실패 시 조용히 무시 (HTTPS 아닌 환경 등)
+    });
   }, []);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -852,7 +855,7 @@ export default function ToolsPage() {
                          feedback.personaType}
                       </span>
                       {feedback.personaConfidence !== undefined && (
-                        <span className="text-gray-600 text-sm">신뢰도 {feedback.personaConfidence}%</span>
+                        <span className="text-gray-600 text-sm">신뢰도 {Math.round((feedback.personaConfidence ?? 0) * 100)}%</span>
                       )}
                     </div>
                   )}

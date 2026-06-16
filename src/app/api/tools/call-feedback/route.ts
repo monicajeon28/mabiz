@@ -82,6 +82,11 @@ JSON만 반환. 설명 없이.`;
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
+
+    if (ctx.role === 'FREE_SALES') {
+      return NextResponse.json({ ok: false, message: '권한이 없습니다.' }, { status: 403 });
+    }
+
     const body = await req.json();
     const { text, converted, productType, durationSec } = body as {
       text: string;
@@ -116,48 +121,61 @@ export async function POST(req: Request) {
       );
     }
 
-    const message = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 2048,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: `통화 내용:\n${text}` }],
-    });
+    const message = await anthropic.messages.create(
+      {
+        model: "claude-sonnet-4-6",
+        max_tokens: 2048,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: "user", content: `<call_transcript>\n${text}\n</call_transcript>` }],
+      },
+      { signal: AbortSignal.timeout(25000) }
+    );
 
     const raw = message.content[0].type === "text" ? message.content[0].text : "{}";
 
     // JSON 파싱 (코드블록 제거)
     const cleaned = raw.replace(/```json?\n?|\n?```/g, "").trim();
-    const result  = JSON.parse(cleaned);
+    let result: any;
+    try {
+      result = JSON.parse(cleaned);
+    } catch {
+      logger.warn("[CallFeedback] JSON 파싱 실패", { raw: raw.slice(0, 200) });
+      return NextResponse.json({ ok: false, message: "AI 응답 형식 오류. 다시 시도해주세요." }, { status: 500 });
+    }
 
     // DB 저장
     const rawTextMasked = text.replace(/01[0-9]-?\d{3,4}-?\d{4}/g, "010-****-****");
-    const callLog = await prisma.aiCallLog.create({
-      data: {
-        organizationId: resolveOrgId(ctx),
-        agentUserId: ctx.userId,
-        productType: productType ?? "GENERAL",
-        rawTextMasked,
-        converted: converted ?? false,
-        durationSec: durationSec ?? null,
-        analysisStatus: "DONE",
-        personaType: result.personaType,
-      },
-    });
-    await prisma.aiCallAnalysis.create({
-      data: {
-        callLogId: callLog.id,
-        personaDetected: result.personaType ?? "UNKNOWN",
-        personaConfidence: result.personaConfidence ?? 0,
-        scores: result.details ?? {},
-        keyPhrases: result.strengths ?? [],
-        strengths: result.strengths ?? [],
-        weaknesses: result.improvements ?? [],
-        objectionTypes: result.objectionTypes ?? [],
-        goldValueScore: productType === "GOLD" ? result.convictionScore : null,
-      },
+    let savedCallLogId: string;
+    await prisma.$transaction(async (tx) => {
+      const callLog = await tx.aiCallLog.create({
+        data: {
+          organizationId: resolveOrgId(ctx),
+          agentUserId: ctx.userId,
+          productType: productType ?? "GENERAL",
+          rawTextMasked,
+          converted: converted ?? false,
+          durationSec: durationSec ?? null,
+          analysisStatus: "DONE",
+          personaType: result.personaType,
+        },
+      });
+      savedCallLogId = callLog.id;
+      await tx.aiCallAnalysis.create({
+        data: {
+          callLogId: callLog.id,
+          personaDetected: result.personaType ?? "UNKNOWN",
+          personaConfidence: result.personaConfidence ?? 0,
+          scores: result.details ?? {},
+          keyPhrases: result.strengths ?? [],
+          strengths: result.strengths ?? [],
+          weaknesses: result.improvements ?? [],
+          objectionTypes: result.objectionTypes ?? [],
+          goldValueScore: productType === "GOLD" ? result.convictionScore : null,
+        },
+      });
     });
 
-    logger.log("[CallFeedback] 분석 완료", { score: result.score, callLogId: callLog.id });
+    logger.log("[CallFeedback] 분석 완료", { score: result.score, callLogId: savedCallLogId! });
     return NextResponse.json({ ok: true, result });
   } catch (err) {
     logger.error("[POST /api/tools/call-feedback]", { err });
