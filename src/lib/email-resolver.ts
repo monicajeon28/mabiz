@@ -173,9 +173,11 @@ export async function resolveUserEmailConfig(
     process.env.SYSTEM_SMTP_NAME ??
     process.env.NODEMAILER_FROM_NAME ??
     "마비즈";
-  const senderEmail =
-    process.env.NODEMAILER_FROM_EMAIL ??
-    smtpUser;
+  // SYSTEM_SMTP_* 체인이 활성화된 경우 해당 계정을 발신자로 사용
+  // NODEMAILER_FROM_EMAIL은 NODEMAILER_* 체인 전용이므로 SYSTEM_SMTP_* 우선순위 보장
+  const senderEmail = process.env.SYSTEM_SMTP_HOST
+    ? (process.env.SYSTEM_SMTP_USER ?? smtpUser)
+    : (process.env.NODEMAILER_FROM_EMAIL ?? smtpUser);
 
   if (smtpHost && smtpUser && smtpPass) {
     logger.log("[EmailResolver] 환경변수 SMTP 사용", { organizationId });
