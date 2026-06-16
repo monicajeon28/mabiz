@@ -379,7 +379,7 @@ export default function TrainingPage() {
                         {(product as { price: string }).price}
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        {product.type === "subscription" ? "구독형 (원하는 달만)" : "1회 구매"}
+                        {product.type === "commitment" ? "정기 멤버십 (60개월 약정)" : product.type === "subscription" ? "구독형 (언제든 해지 가능)" : "1회 구매"}
                       </p>
                     </div>
                   )}
