@@ -149,22 +149,44 @@ export async function resolveUserEmailConfig(
   }
 
   // ─────────────────────────────────────────────────────────────────────
-  // 4단계: 환경변수 폴백
+  // 4단계: 환경변수 폴백 (SYSTEM_SMTP_* → NODEMAILER_* → EMAIL_SMTP_* 순)
   // ─────────────────────────────────────────────────────────────────────
-  const smtpHost = process.env.SMTP_HOST;
-  const smtpUser = process.env.SMTP_USER;
-  const smtpPass = process.env.SMTP_PASS;
+  const smtpHost =
+    process.env.SYSTEM_SMTP_HOST ??
+    process.env.NODEMAILER_HOST ??
+    process.env.EMAIL_SMTP_HOST;
+  const smtpUser =
+    process.env.SYSTEM_SMTP_USER ??
+    process.env.NODEMAILER_USER ??
+    process.env.EMAIL_SMTP_USER;
+  const smtpPass =
+    process.env.SYSTEM_SMTP_PASS ??
+    process.env.NODEMAILER_PASS ??
+    process.env.EMAIL_SMTP_PASSWORD;
+  const smtpPort = Number(
+    process.env.SYSTEM_SMTP_PORT ??
+    process.env.NODEMAILER_PORT ??
+    process.env.EMAIL_SMTP_PORT ??
+    "587"
+  );
+  const senderName =
+    process.env.SYSTEM_SMTP_NAME ??
+    process.env.NODEMAILER_FROM_NAME ??
+    "마비즈";
+  const senderEmail =
+    process.env.NODEMAILER_FROM_EMAIL ??
+    smtpUser;
 
   if (smtpHost && smtpUser && smtpPass) {
     logger.log("[EmailResolver] 환경변수 SMTP 사용", { organizationId });
     return {
-      senderName: process.env.SMTP_SENDER_NAME ?? "마비즈",
-      senderEmail: process.env.SMTP_SENDER_EMAIL ?? smtpUser,
+      senderName,
+      senderEmail: senderEmail ?? smtpUser,
       smtpHost,
-      smtpPort: Number(process.env.SMTP_PORT ?? "587"),
+      smtpPort,
       smtpUsername: smtpUser,
       smtpPassword: smtpPass,
-      smtpSecure: process.env.SMTP_SECURE === "true",
+      smtpSecure: process.env.SYSTEM_SMTP_SECURE === "true",
       source: "env",
     };
   }

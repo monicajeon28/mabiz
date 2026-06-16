@@ -564,6 +564,7 @@ export default function GroupsPage() {
             description: editGroup.data.description as string | undefined,
             funnelIds: editGroup.data.funnelIds as string[] | undefined,
             funnelSmsIds: editGroup.data.funnelSmsIds as string[] | undefined,
+            funnelEmailId: editGroup.data.funnelEmailId as string | undefined,
             reEntryPolicy: editGroup.data.reEntryPolicy as string | undefined,
             autoMoveEnabled: editGroup.data.autoMoveEnabled as boolean | undefined,
             autoMoveDays: editGroup.data.autoMoveDays as number | null | undefined,

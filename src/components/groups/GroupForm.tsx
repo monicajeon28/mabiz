@@ -20,7 +20,7 @@ interface GroupFormProps {
     description?: string;
     funnelIds?: string[];
     funnelSmsIds?: string[];
-    funnelEmailIds?: string[];
+    funnelEmailId?: string;
     reEntryPolicy?: string;
     autoMoveEnabled?: boolean;
     autoMoveDays?: number | null;
@@ -61,12 +61,8 @@ export function GroupForm({
     initialData?.funnelSmsIds?.[1] ?? '',
     initialData?.funnelSmsIds?.[2] ?? '',
   ]);
-  // 퍼널메일 3개
-  const [funnelEmailIds, setFunnelEmailIds] = useState<[string, string, string]>([
-    initialData?.funnelEmailIds?.[0] ?? '',
-    initialData?.funnelEmailIds?.[1] ?? '',
-    initialData?.funnelEmailIds?.[2] ?? '',
-  ]);
+  // 퍼널이메일 (단수, FunnelEmail Day 0-3 시퀀스)
+  const [funnelEmailId, setFunnelEmailId] = useState(initialData?.funnelEmailId ?? '');
 
   const [reEntryPolicy, setReEntryPolicy] = useState<ReEntryPolicy>(
     (initialData?.reEntryPolicy as ReEntryPolicy) ?? 'KEEP_TIME_KEEP_DATA'
@@ -99,14 +95,6 @@ export function GroupForm({
     });
   };
 
-  const handleEmailChange = (idx: number, val: string) => {
-    setFunnelEmailIds((prev) => {
-      const next = [...prev] as [string, string, string];
-      next[idx] = val;
-      return next;
-    });
-  };
-
   const handleSubmit = async () => {
     if (!name.trim()) {
       setFormError('그룹 이름은 필수입니다.');
@@ -122,7 +110,7 @@ export function GroupForm({
         description: description.trim() || null,
         funnelIds: funnelIds.filter(Boolean),
         funnelSmsIds: funnelSmsIds.filter(Boolean),
-        funnelEmailIds: funnelEmailIds.filter(Boolean),
+        funnelEmailId: funnelEmailId || null,
         reEntryPolicy,
         autoMoveEnabled,
       };
@@ -283,25 +271,22 @@ export function GroupForm({
                 </td>
               </tr>
 
-              {/* 자동 이메일 */}
+              {/* 자동 이메일 (Day 0-3 시퀀스) */}
               <tr className="border-b border-gray-100">
                 <td className="py-3 pr-4 text-gray-700 font-medium whitespace-nowrap align-top pt-3.5">
                   자동 이메일
                 </td>
-                <td className="py-3 space-y-2">
-                  {([0, 1, 2] as const).map((i) => (
-                    <select
-                      key={i}
-                      value={funnelEmailIds[i]}
-                      onChange={(e) => handleEmailChange(i, e.target.value)}
-                      className="w-full border border-gray-200 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400"
-                    >
-                      <option value="">연결할 자동 이메일 선택</option>
-                      {funnelEmailList.map((f) => (
-                        <option key={f.id} value={f.id}>{f.name}</option>
-                      ))}
-                    </select>
-                  ))}
+                <td className="py-3">
+                  <select
+                    value={funnelEmailId}
+                    onChange={(e) => setFunnelEmailId(e.target.value)}
+                    className="w-full border border-gray-200 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400"
+                  >
+                    <option value="">연결할 자동 이메일 선택 (Day 0-3 시퀀스)</option>
+                    {funnelEmailList.map((f) => (
+                      <option key={f.id} value={f.id}>{f.name}</option>
+                    ))}
+                  </select>
                 </td>
               </tr>
 
