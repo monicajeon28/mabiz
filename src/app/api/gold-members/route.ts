@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     const courseType = searchParams.get('courseType') ?? '';
     const q          = searchParams.get('q')?.trim() ?? '';
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { deletedAt: null };
     if (ctx.role === 'GLOBAL_ADMIN') {
       // GLOBAL_ADMIN은 전체 조회 (organizationId 필터 없음)
     } else {
@@ -137,6 +137,12 @@ export async function POST(req: NextRequest) {
     }
     if (!['A', 'B', 'C', 'HEALTH'].includes(courseType)) {
       return NextResponse.json({ ok: false, error: '코스는 A, B, C, 건강 중 하나여야 합니다.' }, { status: 400 });
+    }
+    if (paymentDay !== undefined && (paymentDay < 1 || paymentDay > 31 || !Number.isInteger(paymentDay))) {
+      return NextResponse.json({ ok: false, error: '납부일은 1-31 사이 정수여야 합니다.' }, { status: 400 });
+    }
+    if (totalPayments !== undefined && (totalPayments < 0 || !Number.isInteger(totalPayments))) {
+      return NextResponse.json({ ok: false, error: '의무납입 횟수는 0 이상 정수여야 합니다.' }, { status: 400 });
     }
 
     const organizationId = ctx.organizationId ?? (await prisma.organization.findFirst({ select: { id: true } }))?.id;

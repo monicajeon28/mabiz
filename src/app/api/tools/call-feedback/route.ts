@@ -4,6 +4,7 @@ import { getAuthContext, resolveOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import prisma from "@/lib/prisma";
 import { checkRateLimitAsync } from "@/lib/rate-limit";
+import { buildRagContext, formatRagContextForPrompt } from "@/lib/rag-context";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -121,11 +122,17 @@ export async function POST(req: Request) {
       );
     }
 
+    // RAG: 실제 저장된 성공사례 조회 (데이터 없으면 빈 문자열)
+    const ragCtx = await buildRagContext(resolveOrgId(ctx), "UNKNOWN").catch(() => ({
+      successCases: [], scriptPatterns: [], relatedQAs: [], totalCasesInDB: 0,
+    }));
+    const ragPrompt = formatRagContextForPrompt(ragCtx);
+
     const message = await anthropic.messages.create(
       {
         model: "claude-sonnet-4-6",
         max_tokens: 2048,
-        system: SYSTEM_PROMPT,
+        system: SYSTEM_PROMPT + ragPrompt,
         messages: [{ role: "user", content: `<call_transcript>\n${text}\n</call_transcript>` }],
       },
       { signal: AbortSignal.timeout(25000) }
