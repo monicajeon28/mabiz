@@ -41,6 +41,7 @@ export async function GET(req: Request, { params }: Params) {
         color: true,
         parentGroupId: true,
         funnelId: true,
+        funnelEmailId: true,
         funnelIds: true,
         funnelSmsIds: true,
         funnelEmailIds: true,
@@ -219,6 +220,30 @@ export async function PATCH(req: Request, { params }: Params) {
         }
       }
       updateData.funnelSmsIds = body.funnelSmsIds;
+    }
+
+    // funnelEmailId (단수) IDOR 검증 — FunnelEmail Day 0-3 시퀀스
+    if (body.funnelEmailId !== undefined) {
+      if (body.funnelEmailId === null) {
+        updateData.funnelEmailId = null;
+      } else if (typeof body.funnelEmailId === 'string') {
+        const fe = await prisma.funnelEmail.findFirst({
+          where: { id: body.funnelEmailId, organizationId: orgId },
+          select: { id: true },
+        });
+        if (!fe) {
+          return NextResponse.json(
+            { ok: false, error: 'INVALID_FUNNEL_EMAIL', message: '유효하지 않은 퍼널 이메일 ID입니다.' },
+            { status: 400 }
+          );
+        }
+        updateData.funnelEmailId = body.funnelEmailId;
+      } else {
+        return NextResponse.json(
+          { ok: false, error: 'INVALID_INPUT', message: '퍼널 이메일 ID는 문자열 또는 null이어야 합니다.' },
+          { status: 400 }
+        );
+      }
     }
 
     // funnelEmailIds IDOR 검증

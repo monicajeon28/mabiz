@@ -33,6 +33,7 @@ const GroupCreateSchema = z.object({
   autoMoveTargetGroupId: z.string().optional().nullable(),
   funnelIds: z.array(z.string()).optional().default([]),
   funnelSmsIds: z.array(z.string()).optional().default([]),
+  funnelEmailId: z.string().optional().nullable(),
   funnelEmailIds: z.array(z.string()).optional().default([]),
 });
 
@@ -72,6 +73,7 @@ type RawGroup = {
   autoMoveTargetGroupId?: string | null;
   funnelId?: string | null;
   funnelSmsId?: string | null;
+  funnelEmailId?: string | null;
   funnelIds?: string[];
   funnelSmsIds?: string[];
   funnelEmailIds?: string[];
@@ -97,6 +99,7 @@ type SerializedGroup = {
   autoMoveTargetGroupId: string | null;
   funnelId: string | null;
   funnelSmsId: string | null;
+  funnelEmailId: string | null;
   funnelIds: string[];
   funnelSmsIds: string[];
   funnelEmailIds: string[];
@@ -136,6 +139,7 @@ function serializeGroup(
     autoMoveTargetGroupId: g.autoMoveTargetGroupId ?? null,
     funnelId: g.funnelId ?? null,
     funnelSmsId: g.funnelSmsId ?? null,
+    funnelEmailId: g.funnelEmailId ?? null,
     funnelIds: g.funnelIds ?? [],
     funnelSmsIds: smsIds,
     funnelEmailIds: g.funnelEmailIds ?? [],
@@ -229,6 +233,7 @@ export async function GET(req: NextRequest) {
         autoMoveTargetGroupId: true,
         funnelId: true,
         funnelSmsId: true,
+        funnelEmailId: true,
         funnelIds: true,
         funnelSmsIds: true,
         funnelEmailIds: true,
@@ -253,6 +258,7 @@ export async function GET(req: NextRequest) {
                   autoMoveTargetGroupId: true,
                   funnelId: true,
                   funnelSmsId: true,
+                  funnelEmailId: true,
                   funnelIds: true,
                   funnelSmsIds: true,
                   funnelEmailIds: true,
@@ -437,6 +443,7 @@ export async function POST(req: Request) {
         // 하위 호환성 유지
         funnelId: data.funnelId ?? null,
         funnelSmsId: data.funnelSmsId ?? null,
+        funnelEmailId: data.funnelEmailId ?? null,
         // 신규 필드
         parentGroupId: data.parentGroupId ?? null,
         category: data.category ?? null,
@@ -463,6 +470,7 @@ export async function POST(req: Request) {
         autoMoveTargetGroupId: true,
         funnelId: true,
         funnelSmsId: true,
+        funnelEmailId: true,
         funnelIds: true,
         funnelSmsIds: true,
         funnelEmailIds: true,
