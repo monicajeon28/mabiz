@@ -154,3 +154,20 @@
  ✓ Compiled in 1083ms (245 modules)
  ✓ Compiled in 729ms (241 modules)
  ✓ Compiled in 1200ms (241 modules)
+ ✓ Compiled in 836ms (241 modules)
+ ✓ Compiled in 804ms (241 modules)
+ ✓ Compiled in 1304ms (241 modules)
+[2026-06-16T07:01:53.063Z] [LOG] [Middleware] {"pathname":"/api/tools/call-logs","method":"GET","hasSession":false,"isProtected":false}
+ ✓ Compiled /api/tools/call-logs in 274ms (1198 modules)
+[2026-06-16T07:01:53.471Z] [ERROR] [call-logs GET] {"e":{}}
+ GET /api/tools/call-logs 500 in 409ms
+[2026-06-16T07:01:54.735Z] [LOG] [Middleware] {"pathname":"/api/tools/patterns","method":"GET","hasSession":false,"isProtected":false}
+ ✓ Compiled /api/tools/patterns in 194ms (1200 modules)
+[2026-06-16T07:01:55.197Z] [LOG] [Patterns] 오류 {"error":"UNAUTHORIZED"}
+ GET /api/tools/patterns 500 in 463ms
+[2026-06-16T07:02:03.522Z] [LOG] [Middleware] {"pathname":"/api/tools/call-logs","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T07:02:03.607Z] [ERROR] [call-logs GET] {"e":{}}
+ GET /api/tools/call-logs 500 in 85ms
+[2026-06-16T07:02:08.451Z] [LOG] [Middleware] {"pathname":"/api/tools/call-logs","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T07:02:08.522Z] [ERROR] [call-logs GET] {"e":{}}
+ GET /api/tools/call-logs 500 in 71ms

@@ -39,6 +39,9 @@ export async function PATCH(
     logger.log('[call-logs PATCH] 성약 업데이트', { id, converted: body.converted });
     return NextResponse.json({ ok: true });
   } catch (e) {
+    if (e instanceof Error && e.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ ok: false }, { status: 401 });
+    }
     logger.error('[call-logs PATCH]', { e });
     return NextResponse.json({ ok: false }, { status: 500 });
   }

@@ -46,6 +46,9 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ ok: true, logs });
   } catch (e) {
+    if (e instanceof Error && e.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ ok: false }, { status: 401 });
+    }
     logger.error('[call-logs GET]', { e });
     return NextResponse.json({ ok: false }, { status: 500 });
   }
