@@ -791,9 +791,9 @@ export default function ToolsPage() {
                 className="w-full flex items-center justify-center gap-2 border-2 border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium hover:border-navy-900 hover:text-navy-900 disabled:opacity-50 transition-colors"
               >
                 {uploading ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Drive 업로드 중...</>
+                  <><Loader2 className="w-4 h-4 animate-spin" /> 저장 중...</>
                 ) : (
-                  <><Upload className="w-4 h-4" /> 통화기록 Drive에 업로드하기</>
+                  <><Upload className="w-4 h-4" /> 통화기록 저장하기</>
                 )}
               </button>
               {uploadResult && (
@@ -805,11 +805,7 @@ export default function ToolsPage() {
                   {uploadResult.ok ? (
                     <>
                       <Check className="w-4 h-4 flex-shrink-0" />
-                      <span>Drive 업로드 완료</span>
-                      {uploadResult.viewUrl && (
-                        <a href={uploadResult.viewUrl} target="_blank" rel="noopener noreferrer"
-                          className="ml-auto underline font-medium">파일 열기</a>
-                      )}
+                      <span>통화기록이 저장되었습니다</span>
                     </>
                   ) : (
                     <><AlertCircle className="w-4 h-4 flex-shrink-0" />{uploadResult.message ?? "업로드 실패"}</>
