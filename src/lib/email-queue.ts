@@ -148,7 +148,7 @@ export async function getEmailQueueStatus() {
       batchTimeoutMs: EMAIL_QUEUE_BATCH_TIMEOUT_MS,
     };
   } catch (err) {
-    logger.error('[Email Queue] 상태 조회 실패', { err });
+    logger.warn('[Email Queue] 상태 조회 실패 (Redis 연결 불가)', { err });
     return {
       queueLength: -1,
       isProcessing: false,
