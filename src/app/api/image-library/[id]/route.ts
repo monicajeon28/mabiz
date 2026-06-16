@@ -13,23 +13,18 @@ export async function DELETE(
     const ctx = await getAuthContext();
     const { id } = await params;
 
-    // GLOBAL_ADMIN org 패턴
-    let orgId: string;
-    if (ctx.role === "GLOBAL_ADMIN" && !ctx.organizationId) {
-      const firstOrg = await prisma.organization.findFirst({ select: { id: true } });
-      if (!firstOrg) return NextResponse.json({ ok: false, error: "조직 없음" }, { status: 500 });
-      orgId = firstOrg.id;
-    } else {
-      orgId = resolveOrgId(ctx);
-    }
+    // GLOBAL_ADMIN: orgId null이면 전체 조직 접근 허용
+    const isGlobalAdmin = ctx.role === "GLOBAL_ADMIN" && !ctx.organizationId;
+    const orgId: string | null = isGlobalAdmin ? null : resolveOrgId(ctx);
 
-    // ImageAsset 조회 + 조직 소유권 확인
+    // ImageAsset 조회
     const asset = await prisma.imageAsset.findUnique({ where: { id } });
 
     if (!asset) {
       return NextResponse.json({ ok: false, error: "이미지를 찾을 수 없습니다" }, { status: 404 });
     }
-    if (asset.organizationId !== orgId) {
+    // GLOBAL_ADMIN이 아닌 경우에만 조직 소유권 확인
+    if (!isGlobalAdmin && asset.organizationId !== orgId) {
       return NextResponse.json({ ok: false, error: "접근 권한이 없습니다" }, { status: 403 });
     }
 
@@ -40,7 +35,10 @@ export async function DELETE(
     });
 
     // DB에서 삭제 (ImageCache는 건드리지 않음)
-    await prisma.imageAsset.deleteMany({ where: { id, organizationId: orgId } });
+    // GLOBAL_ADMIN이면 organizationId 조건 생략 → 모든 조직 자산 삭제 가능
+    await prisma.imageAsset.deleteMany({
+      where: { id, ...(isGlobalAdmin ? {} : { organizationId: orgId! }) },
+    });
 
     return NextResponse.json({ ok: true });
   } catch (err) {
@@ -58,15 +56,9 @@ export async function PATCH(
     const ctx = await getAuthContext();
     const { id } = await params;
 
-    // GLOBAL_ADMIN org 패턴
-    let orgId: string;
-    if (ctx.role === "GLOBAL_ADMIN" && !ctx.organizationId) {
-      const firstOrg = await prisma.organization.findFirst({ select: { id: true } });
-      if (!firstOrg) return NextResponse.json({ ok: false, error: "조직 없음" }, { status: 500 });
-      orgId = firstOrg.id;
-    } else {
-      orgId = resolveOrgId(ctx);
-    }
+    // GLOBAL_ADMIN: orgId null이면 전체 조직 접근 허용
+    const isGlobalAdmin = ctx.role === "GLOBAL_ADMIN" && !ctx.organizationId;
+    const orgId: string | null = isGlobalAdmin ? null : resolveOrgId(ctx);
 
     const body = await req.json() as { title?: string; folder?: string };
 
@@ -89,13 +81,14 @@ export async function PATCH(
       );
     }
 
-    // ImageAsset 조회 + 조직 소유권 확인
+    // ImageAsset 조회
     const asset = await prisma.imageAsset.findUnique({ where: { id } });
 
     if (!asset) {
       return NextResponse.json({ ok: false, error: "이미지를 찾을 수 없습니다" }, { status: 404 });
     }
-    if (asset.organizationId !== orgId) {
+    // GLOBAL_ADMIN이 아닌 경우에만 조직 소유권 확인
+    if (!isGlobalAdmin && asset.organizationId !== orgId) {
       return NextResponse.json({ ok: false, error: "접근 권한이 없습니다" }, { status: 403 });
     }
 

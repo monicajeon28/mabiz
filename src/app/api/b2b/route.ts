@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { requirePartnerContext } from '@/lib/passport-auth';
 import { logger } from '@/lib/logger';
+import prisma from '@/lib/prisma';
 import {
   getB2BProspects,
   createB2BProspect,
@@ -77,9 +78,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: '인증이 필요합니다' }, { status: 403 });
     }
 
-    if (!ctx.organizationId) {
-      logger.error('[b2b] POST: organizationId 없음', { userId: ctx.sessionUser?.id });
-      return NextResponse.json({ ok: false, error: '조직 정보 없음' }, { status: 403 });
+    // GLOBAL_ADMIN(role='admin')은 organizationId=null → 첫 번째 org를 effectiveOrgId로 사용
+    let effectiveOrgId = ctx.organizationId;
+    if (!effectiveOrgId) {
+      if (ctx.sessionUser?.role !== 'admin') {
+        logger.error('[b2b] POST: organizationId 없음', { userId: ctx.sessionUser?.id });
+        return NextResponse.json({ ok: false, error: '조직 정보 없음' }, { status: 403 });
+      }
+      const firstOrg = await prisma.organization.findFirst({ select: { id: true } });
+      if (!firstOrg) {
+        logger.error('[b2b] POST: 조직이 존재하지 않음');
+        return NextResponse.json({ ok: false, message: '조직이 없습니다' }, { status: 500 });
+      }
+      effectiveOrgId = firstOrg.id;
     }
 
     let body;
@@ -104,8 +115,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // P1: 보안 - organizationId로 생성 (클라이언트 전달값 무시, IDOR 방지)
-    const result = await createB2BProspect(ctx.organizationId, parseResult.data);
+    // P1: 보안 - effectiveOrgId로 생성 (클라이언트 전달값 무시, IDOR 방지)
+    const result = await createB2BProspect(effectiveOrgId, parseResult.data);
     return NextResponse.json(result, { status: 201 });
   } catch (err: any) {
     if (err.code === 'DUPLICATE_PROSPECT') {

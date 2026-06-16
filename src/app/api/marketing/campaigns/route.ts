@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { handleApiError } from '@/lib/response';
 import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
+import { resolveOrgId, resolveOrgIdOrNull } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 // ── GET /api/marketing/campaigns — 캠페인 목록 조회 ────────────────
@@ -13,24 +14,23 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, message: '접근 권한이 없습니다.' }, { status: 403 });
     }
 
-    if (!ctx.organizationId) {
-      return NextResponse.json({ ok: false, message: '조직 정보가 없습니다. 조직을 선택해주세요.' }, { status: 403 });
-    }
     const url = new URL(req.url);
-    const organizationId = ctx.organizationId;
+    // GLOBAL_ADMIN: null → 전체 캠페인 조회 (org 필터 없음)
+    const orgId = resolveOrgIdOrNull(ctx);
+    const orgFilter = orgId ? { organizationId: orgId } : {};
     const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'));
     const limit = Math.min(50, parseInt(url.searchParams.get('limit') || '20') || 20);
     const offset = (page - 1) * limit;
 
     const [campaigns, total] = await Promise.all([
       prisma.crmMarketingCampaign.findMany({
-        where: { organizationId },
+        where: orgFilter,
         include: { group: { select: { id: true, name: true } } },
         orderBy: { createdAt: 'desc' },
         skip: offset,
         take: limit,
       }),
-      prisma.crmMarketingCampaign.count({ where: { organizationId } }),
+      prisma.crmMarketingCampaign.count({ where: orgFilter }),
     ]);
 
     return NextResponse.json({
@@ -124,11 +124,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // GLOBAL_ADMIN: resolveOrgId → BONSA_ORG_ID, 나머지: 자기 조직
+    const writeOrgId = resolveOrgId(ctx);
+
     // 그룹 멤버 수를 포함해 조회 (단일 원자 연산)
     const group = await prisma.contactGroup.findFirst({
       where: {
         id: groupId ?? undefined,
-        organizationId: ctx.organizationId ?? undefined,
+        organizationId: writeOrgId,
       },
       select: {
         id: true,
@@ -156,7 +159,7 @@ export async function POST(req: NextRequest) {
 
     const campaign = await prisma.crmMarketingCampaign.create({
       data: {
-        organizationId: ctx.organizationId ?? '',
+        organizationId: writeOrgId,
         groupId: groupId ?? '',
         title,
         sendEmail: sendEmail === true,
