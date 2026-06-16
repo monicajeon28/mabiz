@@ -20,7 +20,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: false, error: '인증이 필요합니다' }, { status: 403 });
     }
 
-    if (!ctx.organizationId) {
+    // GLOBAL_ADMIN(role='admin')은 organizationId 없이도 접근 가능
+    if (!ctx.organizationId && ctx.sessionUser?.role !== 'admin') {
       logger.error('[b2b] GET: organizationId 없음', { userId: ctx.sessionUser?.id });
       return NextResponse.json({ ok: false, error: '조직 정보 없음. 관리자에게 문의하세요.' }, { status: 403 });
     }
@@ -45,8 +46,11 @@ export async function GET(req: Request) {
       );
     }
 
+    // GLOBAL_ADMIN(admin role)은 빈 string 전달 → service에서 전체 조회
+    const effectiveOrgId = ctx.organizationId ?? '';
+
     // P1: 성능 - 병렬 쿼리 실행 (getB2BProspects 내부에서 처리)
-    const result = await getB2BProspects(ctx.organizationId, {
+    const result = await getB2BProspects(effectiveOrgId, {
       page,
       limit,
       eduType: eduType || undefined,
