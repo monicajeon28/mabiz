@@ -14,9 +14,9 @@ export async function GET(req: Request) {
     if (ctx.role === 'FREE_SALES') {
       return NextResponse.json({ ok: false, message: '권한이 없습니다.' }, { status: 403 });
     }
-    if (!ctx.organizationId) {
-      return NextResponse.json({ ok: false, message: '소속 조직 정보가 없습니다.' }, { status: 403 });
-    }
+
+    // GLOBAL_ADMIN은 organizationId가 null일 수 있으며, 전체 조직 통계를 조회
+    const orgId = ctx.organizationId ?? null;
 
     const url = new URL(req.url);
     const timeRange = url.searchParams.get('timeRange') ?? 'week';
@@ -34,10 +34,10 @@ export async function GET(req: Request) {
       startDate.setDate(now.getDate() - 365);
     }
 
-    // AiCallLog 통계 조회 (organizationId + uploadedAt 필터)
+    // AiCallLog 통계 조회 (organizationId가 null이면 전체 조직 조회)
     const callLogs = await prisma.aiCallLog.findMany({
       where: {
-        organizationId: ctx.organizationId,
+        ...(orgId ? { organizationId: orgId } : {}),
         uploadedAt: {
           gte: startDate,
           lte: now,

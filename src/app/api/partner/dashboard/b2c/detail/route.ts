@@ -14,7 +14,9 @@ export async function GET(req: Request) {
     const ctx = await requirePartnerContext();
     if (!ctx) return NextResponse.json({ ok: false }, { status: 403 });
 
-    if (!ctx.organizationId) {
+    // GLOBAL_ADMIN은 organizationId가 null일 수 있음 — 부모 b2c/route.ts와 동일한 패턴 적용
+    const isAdmin = ctx.sessionUser?.role === 'admin' || ctx.sessionUser?.role === 'owner';
+    if (!ctx.organizationId && !isAdmin) {
       return NextResponse.json({ ok: false, error: '조직 정보 없음' }, { status: 403 });
     }
 
@@ -42,9 +44,8 @@ export async function GET(req: Request) {
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 1);
 
-    const isAdmin = ctx.sessionUser?.role === 'admin';
-    // 보안: ADMIN도 자신의 조직 범위 내에서만 조회 가능. 조직 ID 제한은 필수
-    const orgFilter = { organizationId: ctx.organizationId };
+    // orgFilter: GLOBAL_ADMIN(organizationId=null)이면 필터 생략 → 전체 조회
+    const orgFilter = ctx.organizationId ? { organizationId: ctx.organizationId } : {};
 
     if (type === 'sales') {
       const [rows, total] = await Promise.all([

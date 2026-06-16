@@ -70,22 +70,17 @@ export async function GET(req: Request) {
       };
     });
 
-    // ── GLOBAL_ADMIN org 패턴 ─────────────────────────────
-    let orgId: string;
-    if (ctx.role === "GLOBAL_ADMIN" && !ctx.organizationId) {
-      const firstOrg = await prisma.organization.findFirst({ select: { id: true } });
-      if (!firstOrg) {
-        return NextResponse.json({ ok: true, images: cacheResult });
-      }
-      orgId = firstOrg.id;
-    } else {
-      orgId = resolveOrgId(ctx);
-    }
+    // ── GLOBAL_ADMIN: orgId null이면 전체 조직 조회 ────────
+    const orgId: string | null =
+      ctx.role === "GLOBAL_ADMIN" && !ctx.organizationId
+        ? null
+        : resolveOrgId(ctx);
 
     // ── ImageAsset (CRM 자체 이미지) ──────────────────────
     const assetImages = await prisma.imageAsset.findMany({
       where: {
-        organizationId: orgId,
+        // GLOBAL_ADMIN(orgId=null)이면 organizationId 필터 생략 → 전체 조직
+        ...(orgId ? { organizationId: orgId } : {}),
         ...(q
           ? {
               OR: [

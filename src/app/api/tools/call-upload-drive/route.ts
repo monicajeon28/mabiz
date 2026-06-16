@@ -20,9 +20,6 @@ export async function POST(req: Request) {
     if (ctx.role === 'FREE_SALES') {
       return NextResponse.json({ ok: false, message: '권한이 없습니다.' }, { status: 403 });
     }
-    if (!ctx.organizationId) {
-      return NextResponse.json({ ok: false, message: '소속 조직 정보가 없습니다.' }, { status: 403 });
-    }
 
     const body = await req.json() as { callText?: string; converted?: boolean; productType?: string };
     const callText = body.callText?.trim() ?? '';
@@ -43,11 +40,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, message: '판매원 이름을 찾을 수 없습니다.' }, { status: 400 });
     }
 
-    const org = await prisma.organization.findUnique({
-      where: { id: ctx.organizationId },
-      select: { name: true },
-    });
-    const orgName = org?.name ?? ctx.organizationId;
+    // GLOBAL_ADMIN은 organizationId가 null일 수 있으므로 '본사'로 고정
+    let orgName: string;
+    if (!ctx.organizationId) {
+      orgName = '본사';
+    } else {
+      const org = await prisma.organization.findUnique({
+        where: { id: ctx.organizationId },
+        select: { name: true },
+      });
+      orgName = org?.name ?? ctx.organizationId;
+    }
 
     // KST 타임스탬프
     const nowKst = new Date(new Date().getTime() + 9 * 60 * 60 * 1000);
@@ -109,7 +112,7 @@ export async function POST(req: Request) {
     try {
       const recentLog = await prisma.aiCallLog.findFirst({
         where: {
-          organizationId: ctx.organizationId,
+          ...(ctx.organizationId ? { organizationId: ctx.organizationId } : {}),
           agentUserId: ctx.userId,
           driveFileId: null,
         },
