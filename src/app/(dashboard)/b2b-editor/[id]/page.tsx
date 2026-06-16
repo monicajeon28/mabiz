@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { ArrowLeft, Eye, Users, MessageSquare, ImageIcon, Code, Upload, X, GripVertical, BarChart2, Mail } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -8,6 +8,26 @@ import { RegistrationsTab } from "../../landing-pages/[id]/components/Registrati
 import { CommentsTab } from "../../landing-pages/[id]/components/CommentsTab";
 import FormBuilder, { FormField } from "@/components/forms/FormBuilder";
 import { MAX_IMAGE_UPLOAD_BYTES, prepareImageForUpload } from "@/lib/client-image-compress";
+import { ImageLibraryModal } from "@/components/image-library/ImageLibraryModal";
+
+function extractDriveInfo(html: string): { url: string; driveFileId: string } | null {
+  const srcset = html.match(/srcset="([^"]+)"/)?.[1];
+  const src    = html.match(/src="([^"]+)"/)?.[1];
+  const rawUrl = srcset ?? src;
+  if (!rawUrl) return null;
+  try {
+    const u = new URL(rawUrl);
+    if (u.hostname === "drive.google.com" && u.searchParams.get("id")) {
+      const fileId = u.searchParams.get("id")!;
+      return { url: `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`, driveFileId: fileId };
+    }
+    if (u.hostname === "lh3.googleusercontent.com") {
+      const fileId = u.pathname.split("/d/")[1]?.split("=")[0] ?? "";
+      if (fileId) return { url: `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`, driveFileId: fileId };
+    }
+    return null;
+  } catch { return null; }
+}
 
 type Registration = {
   id: string;
@@ -45,6 +65,7 @@ export default function EditB2BPage() {
   const id = params.id as string;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [_success, setSuccess]   = useState("");
+  const [showLibrary, setShowLibrary] = useState(false);
 
   const [tab, setTab]           = useState<"editor" | "registrations" | "comments" | "stats">(
     searchParams.get("tab") === "registrations" ? "registrations" :
@@ -97,6 +118,7 @@ export default function EditB2BPage() {
   type LandingStats = {
     viewCount: number; registered: number; emailSent: number;
     funnelEntered: number; purchased: number;
+    payappPayments: number; payappRevenue: number;
     rates: { visitToRegister: number; registerToEmail: number; registerToFunnel: number; funnelToPurchase: number; visitToPurchase: number };
   };
   const [stats,        setStats]        = useState<LandingStats | null>(null);
@@ -558,6 +580,25 @@ export default function EditB2BPage() {
     return `<div style="margin:0;padding:0;line-height:0;background:#fff;">\n${imgTags}\n</div>\n<form style="max-width:480px;margin:0 auto;padding:32px 20px 48px;background:#fff;font-family:'Pretendard',sans-serif;"><h3 style="text-align:center;font-size:22px;font-weight:700;color:#1a1a1a;margin:0 0 8px;">지금 바로 신청하세요</h3><p style="text-align:center;font-size:14px;color:#888;margin:0 0 24px;">상담 신청 후 담당자가 연락드립니다</p>${formFieldsHtml}<button type="submit" style="width:100%;padding:16px;background:#FF6B35;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;">${encodedButtonTitle}</button>${encodedFooterText ? `<p style="text-align:center;font-size:12px;color:#999;margin-top:12px;">${encodedFooterText}</p>` : ""}</form>`;
   };
 
+  // P2-1: 이미지 라이브러리에서 선택 시 삽입
+  const handleLibraryInsert = useCallback((rawHtml: string) => {
+    const info = extractDriveInfo(rawHtml);
+    if (editorMode === "html") {
+      const cleanTag = info
+        ? `<img src="${info.url}" alt="" style="width:100%;display:block;" loading="lazy">`
+        : rawHtml;
+      setHtml((prev) => prev + "\n" + cleanTag);
+      return;
+    }
+    if (!info) return;
+    setImages((prev) => [...prev, {
+      id: crypto.randomUUID(), assetId: info.driveFileId,
+      url: info.url, driveFileId: info.driveFileId,
+      width: 0, height: 0, mimeType: "image/webp",
+      fileName: "라이브러리 이미지", sortOrder: prev.length,
+    }]);
+  }, [editorMode]);
+
   // save 함수 헬퍼: 페이지 페이로드 구성
   const buildPagePayload = () => {
     const content = editorMode === "image" ? buildHtmlFromImages() : html;
@@ -1009,6 +1050,15 @@ export default function EditB2BPage() {
                     <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
                       onChange={(e) => { if (e.target.files) uploadFiles(e.target.files); e.target.value = ""; }} />
                   </div>
+                  {/* P2-1: 이미지 라이브러리 버튼 */}
+                  <button
+                    type="button"
+                    onClick={() => setShowLibrary(true)}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 mb-4 rounded-xl border border-dashed border-blue-300 text-sm text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors"
+                  >
+                    <ImageIcon className="w-4 h-4" />
+                    Google Drive 라이브러리에서 선택
+                  </button>
                   {images.length > 0 && (
                     <div className="space-y-3">
                       <p className="text-sm font-medium text-gray-700">이미지 {images.length}장 — 드래그로 순서 변경</p>
@@ -1111,6 +1161,19 @@ export default function EditB2BPage() {
                 <div className="mt-4 p-3 bg-gray-100 rounded-xl text-xs text-gray-500">
                   최종 전환율 (방문→구매): <span className="font-bold text-gray-700">{stats.rates.visitToPurchase}%</span>
                 </div>
+                {(stats.payappPayments > 0 || stats.payappRevenue > 0) && (
+                  <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-xl text-xs space-y-1">
+                    <div className="font-semibold text-green-700">💳 PayApp 결제</div>
+                    <div className="flex justify-between text-green-800">
+                      <span>결제 건수</span>
+                      <span className="font-bold">{stats.payappPayments.toLocaleString()}건</span>
+                    </div>
+                    <div className="flex justify-between text-green-800">
+                      <span>누적 매출</span>
+                      <span className="font-bold">{stats.payappRevenue.toLocaleString()}원</span>
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <p className="text-sm text-gray-500">통계를 불러오지 못했습니다.</p>
@@ -1118,6 +1181,13 @@ export default function EditB2BPage() {
           </div>
         </div>
       )}
+
+      {/* P2-1: 이미지 라이브러리 모달 */}
+      <ImageLibraryModal
+        open={showLibrary}
+        onClose={() => setShowLibrary(false)}
+        onInsert={(html) => { handleLibraryInsert(html); setShowLibrary(false); }}
+      />
     </div>
   );
 }
