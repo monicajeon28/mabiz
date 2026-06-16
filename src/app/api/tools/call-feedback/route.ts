@@ -178,6 +178,9 @@ export async function POST(req: Request) {
           weaknesses: result.improvements ?? [],
           objectionTypes: result.objectionTypes ?? [],
           goldValueScore: productType === "GOLD" ? result.convictionScore : null,
+          customerSegmentDetected: result.customerSegmentDetected ?? null,
+          spinActionsPerSegment: result.spinActionsPerSegment ?? null,
+          relatedSuccessCases: result.relatedSuccessCases ?? null,
         },
       });
     });
