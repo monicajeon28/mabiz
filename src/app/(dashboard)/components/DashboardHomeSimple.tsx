@@ -1,15 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { DashboardHomeStats } from '@/types/dashboard';
 import { useCallListRefresh } from '../hooks/useCallListRefresh';
-import { AuthSession } from '@/types/auth';
-import { useToast } from '@/lib/api/use-toast';
 import { AlertCircle, Phone, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 
 interface DashboardHomeSimpleProps {
-  session: AuthSession | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  session?: any;
 }
 
 /**
@@ -28,17 +25,9 @@ interface DashboardHomeSimpleProps {
  * - 5분 폴링 (WebSocket은 Phase 9 추연기)
  * - 네트워크 오류 시 자동 재시도 3회
  */
-export function DashboardHomeSimple({ session }: DashboardHomeSimpleProps) {
+ 
+export function DashboardHomeSimple({ session: _session }: DashboardHomeSimpleProps) {
   const { stats, loading, error } = useCallListRefresh(300); // 5분 = 300초
-  const { toast } = useToast();
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   const getRiskColor = (riskScore: number): { bg: string; text: string; icon: string } => {
     if (riskScore >= 61) return { bg: 'bg-red-600', text: 'text-red-600', icon: '🔴' };
@@ -92,7 +81,7 @@ export function DashboardHomeSimple({ session }: DashboardHomeSimpleProps) {
       </div>
 
       {/* 상단 KPI 카드: 4개 (모바일: 2×2, PC: 1×4) */}
-      <div className={`grid gap-4 ${isMobile ? 'grid-cols-2' : 'grid-cols-4'}`}>
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
         {/* 오늘의 신청자 */}
         <div className="bg-white border border-gray-200 rounded-lg p-4">
           <p className="text-sm text-gray-600 font-medium mb-1">오늘의 신청자</p>
