@@ -28,7 +28,43 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json({ ok: true, pages });
+    // ShortLink에서 createdBy(어필리에이트) + PayApp 결제 수 조회
+    const pageIds = pages.map((p) => p.id);
+    const [shortLinks, paymentCounts] = await Promise.all([
+      pageIds.length > 0
+        ? prisma.shortLink.findMany({
+            where: { category: 'b2b-landing', targetUrl: { in: pageIds.map((id) => `${process.env.NEXT_PUBLIC_APP_URL}/b2b-landing/${id}`) } },
+            select: { targetUrl: true, createdBy: true, code: true },
+          })
+        : Promise.resolve([]),
+      pageIds.length > 0
+        ? prisma.payAppPayment.groupBy({
+            by: ['landingPageId'],
+            where: { landingPageId: { in: pageIds }, status: 'paid' },
+            _count: { id: true },
+            _sum:   { amount: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    // pageId → ShortLink 맵
+    const shortLinkMap = new Map(
+      shortLinks.map((sl) => {
+        const pageId = sl.targetUrl.split('/').pop() ?? '';
+        return [pageId, { createdBy: sl.createdBy, shortlinkCode: sl.code }];
+      })
+    );
+    const paymentMap = new Map(
+      paymentCounts.map((p) => [p.landingPageId, { count: p._count.id, revenue: p._sum.amount ?? 0 }])
+    );
+
+    const enrichedPages = pages.map((p) => ({
+      ...p,
+      shortlinkInfo: shortLinkMap.get(p.id) ?? null,
+      payappStats: paymentMap.get(p.id) ?? { count: 0, revenue: 0 },
+    }));
+
+    return NextResponse.json({ ok: true, pages: enrichedPages });
   } catch (err) {
     return handleB2BError(err, "GET /api/b2b-landing");
   }

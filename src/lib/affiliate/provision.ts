@@ -237,6 +237,13 @@ export async function provisionAffiliateAccounts(
     });
 
     // ── 5. AffiliateContract 상태 업데이트 ────────────────────────
+    // 기존 metadata(type, tierKey, agentCode 등)를 먼저 읽어 보존
+    const existingContract = await tx.gmAffiliateContract.findUnique({
+      where: { id: contractId },
+      select: { metadata: true },
+    });
+    const existingMeta = (existingContract?.metadata as Record<string, unknown> | null) ?? {};
+
     await tx.gmAffiliateContract.update({
       where: { id: contractId },
       data: {
@@ -244,6 +251,7 @@ export async function provisionAffiliateAccounts(
         status: 'APPROVED',
         contractSignedAt: new Date(),
         metadata: {
+          ...existingMeta,
           managerProfileId: managerProfile.id,
           agentProfileId: agentProfile.id,
           presalesProfileId: presalesProfile.id,
