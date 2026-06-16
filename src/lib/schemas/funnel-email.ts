@@ -5,7 +5,7 @@ import { z } from 'zod';
 // ─────────────────────────────────────────────
 
 export const FUNNEL_EMAIL_MAX_ORDER = 1000;
-export const FUNNEL_EMAIL_MAX_DAYS_AFTER = 36500;
+export const FUNNEL_EMAIL_MAX_DAYS_AFTER = 3650;
 export const FUNNEL_EMAIL_MAX_MESSAGES = 500;
 
 export const FunnelEmailMessageSchema = z.object({
