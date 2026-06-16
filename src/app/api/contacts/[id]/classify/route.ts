@@ -31,16 +31,12 @@ export async function POST(
     const { id } = await params;
     const ctx = await getAuthContext();
 
-    if (!ctx.organizationId) {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden: Organization required' },
-        { status: 403 }
-      );
-    }
+    // GLOBAL_ADMIN은 organizationId가 null이어도 접근 가능
+    const orgId = ctx.organizationId ?? null;
 
     // 1. Contact 조회
     const contact = await prisma.contact.findFirst({
-      where: { id, organizationId: ctx.organizationId },
+      where: { id, ...(orgId ? { organizationId: orgId } : {}) },
     });
 
     if (!contact) {
@@ -49,6 +45,9 @@ export async function POST(
         { status: 404 }
       );
     }
+
+    // GLOBAL_ADMIN의 경우 contact.organizationId 사용
+    const effectiveOrgId = orgId ?? contact.organizationId;
 
     // 2. 렌즈 감지
     const lenses = detectContactLens(contact, contact.adminMemo || undefined);
@@ -74,7 +73,7 @@ export async function POST(
           },
           create: {
             id: `${contact.id}-${lens.lensType}`,
-            organizationId: ctx.organizationId!,
+            organizationId: effectiveOrgId,
             contactId: contact.id,
             lensType: lens.lensType,
             lensLabel: lens.lensLabel,

@@ -43,19 +43,12 @@ export async function GET(
       );
     }
 
-    // 2. organizationId 확인
-    if (!ctx.organizationId) {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden: Organization required' },
-        { status: 403 }
-      );
-    }
-
-    const organizationId = ctx.organizationId;
+    // 2. organizationId 확인 (GLOBAL_ADMIN은 null이어도 접근 가능)
+    const organizationId = ctx.organizationId ?? null;
 
     // 3. ContactLensClassification 조회 (contactId + organizationId 필터 - IDOR 방지)
     const lensClassification = await prisma.contactLensClassification.findFirst({
-      where: { contactId: id, organizationId },
+      where: { contactId: id, ...(organizationId ? { organizationId } : {}) },
       select: {
         id: true,
         contactId: true,

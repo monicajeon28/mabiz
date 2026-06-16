@@ -41,22 +41,22 @@ export async function GET(
 ) {
   try {
     const ctx = await getAuthContext();
-    if (!ctx.organizationId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const orgId = ctx.organizationId ?? null;
 
     const { id: groupId } = await params;
 
-    // 그룹 존재 확인
+    // 그룹 존재 확인 (GLOBAL_ADMIN은 org 필터 없이 조회)
     const group = await prisma.contactGroup.findFirst({
-      where: { id: groupId, organizationId: ctx.organizationId },
+      where: { id: groupId, ...(orgId ? { organizationId: orgId } : {}) },
     });
     if (!group) {
       return NextResponse.json({ error: "그룹을 찾을 수 없습니다." }, { status: 404 });
     }
 
+    const effectiveOrgId = orgId ?? group.organizationId;
+
     const funnel = await prisma.groupEmailFunnel.findFirst({
-      where: { groupId, organizationId: ctx.organizationId },
+      where: { groupId, organizationId: effectiveOrgId },
       include: {
         messages: {
           orderBy: [{ day: "asc" }, { order: "asc" }],
@@ -97,9 +97,7 @@ export async function POST(
 ) {
   try {
     const ctx = await getAuthContext();
-    if (!ctx.organizationId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const orgId = ctx.organizationId ?? null;
 
     const { id: groupId } = await params;
     const body = await req.json() as {
@@ -139,17 +137,19 @@ export async function POST(
       }
     }
 
-    // 그룹 존재 확인
+    // 그룹 존재 확인 (GLOBAL_ADMIN은 org 필터 없이 조회)
     const group = await prisma.contactGroup.findFirst({
-      where: { id: groupId, organizationId: ctx.organizationId },
+      where: { id: groupId, ...(orgId ? { organizationId: orgId } : {}) },
     });
     if (!group) {
       return NextResponse.json({ error: "그룹을 찾을 수 없습니다." }, { status: 404 });
     }
 
+    const effectiveOrgId = orgId ?? group.organizationId;
+
     // 기존 퍼널 확인
     const existing = await prisma.groupEmailFunnel.findFirst({
-      where: { groupId, organizationId: ctx.organizationId },
+      where: { groupId, organizationId: effectiveOrgId },
     });
 
     let funnel;
@@ -174,7 +174,7 @@ export async function POST(
             updatedAt: new Date(),
             messages: {
               create: messages.map((m, idx) => ({
-                organizationId: ctx.organizationId!,
+                organizationId: effectiveOrgId,
                 day: m.day,
                 order: idx,
                 pasonaStage: DAY_TO_PASONA[m.day] ?? "PROBLEM",
@@ -204,7 +204,7 @@ export async function POST(
 
       funnel = await prisma.groupEmailFunnel.create({
         data: {
-          organizationId: ctx.organizationId,
+          organizationId: effectiveOrgId,
           groupId,
           emailConfigId: emailConfig.id,
           title,
@@ -252,14 +252,12 @@ export async function DELETE(
 ) {
   try {
     const ctx = await getAuthContext();
-    if (!ctx.organizationId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const orgId = ctx.organizationId ?? null;
 
     const { id: groupId } = await params;
 
     const funnel = await prisma.groupEmailFunnel.findFirst({
-      where: { groupId, organizationId: ctx.organizationId },
+      where: { groupId, ...(orgId ? { organizationId: orgId } : {}) },
     });
 
     if (!funnel) {

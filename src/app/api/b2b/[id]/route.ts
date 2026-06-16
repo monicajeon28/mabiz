@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
 import { requirePartnerContext } from '@/lib/passport-auth';
 import { logger } from '@/lib/logger';
 import {
@@ -23,7 +24,8 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: '인증이 필요합니다' }, { status: 403 });
     }
 
-    if (!ctx.organizationId) {
+    // GLOBAL_ADMIN(role='admin')은 organizationId가 null이어도 접근 가능
+    if (!ctx.organizationId && ctx.sessionUser?.role !== 'admin') {
       logger.error('[b2b] [id] PATCH: organizationId 없음', { userId: ctx.sessionUser?.id });
       return NextResponse.json({ ok: false, error: '조직 정보 없음' }, { status: 403 });
     }
@@ -68,8 +70,18 @@ export async function PATCH(
       );
     }
 
+    // GLOBAL_ADMIN: prospect의 실제 organizationId 조회
+    let effectiveOrgId = ctx.organizationId;
+    if (!effectiveOrgId) {
+      const probe = await prisma.b2BProspect.findUnique({ where: { id }, select: { organizationId: true, deletedAt: true } });
+      if (!probe || probe.deletedAt !== null) {
+        return NextResponse.json({ ok: false, error: '찾을 수 없는 prospect입니다' }, { status: 404 });
+      }
+      effectiveOrgId = probe.organizationId;
+    }
+
     // P1: 보안 - organizationId로 소유권 확인 (IDOR 방지)
-    const result = await updateB2BProspect(ctx.organizationId, id, parseResult.data);
+    const result = await updateB2BProspect(effectiveOrgId, id, parseResult.data);
     return NextResponse.json(result, { status: 200 });
   } catch (err: any) {
     if (err.code === 'PROSPECT_NOT_FOUND') {
@@ -100,7 +112,8 @@ export async function DELETE(
       return NextResponse.json({ ok: false, error: '인증이 필요합니다' }, { status: 403 });
     }
 
-    if (!ctx.organizationId) {
+    // GLOBAL_ADMIN(role='admin')은 organizationId가 null이어도 접근 가능
+    if (!ctx.organizationId && ctx.sessionUser?.role !== 'admin') {
       logger.error('[b2b] [id] DELETE: organizationId 없음', { userId: ctx.sessionUser?.id });
       return NextResponse.json({ ok: false, error: '조직 정보 없음' }, { status: 403 });
     }
@@ -123,8 +136,18 @@ export async function DELETE(
       );
     }
 
+    // GLOBAL_ADMIN: prospect의 실제 organizationId 조회
+    let effectiveOrgId = ctx.organizationId;
+    if (!effectiveOrgId) {
+      const probe = await prisma.b2BProspect.findUnique({ where: { id }, select: { organizationId: true, deletedAt: true } });
+      if (!probe || probe.deletedAt !== null) {
+        return NextResponse.json({ ok: false, error: '찾을 수 없는 prospect입니다' }, { status: 404 });
+      }
+      effectiveOrgId = probe.organizationId;
+    }
+
     // P1: 보안 - organizationId로 소유권 확인 (IDOR 방지)
-    const result = await deleteB2BProspect(ctx.organizationId, id);
+    const result = await deleteB2BProspect(effectiveOrgId, id);
     return NextResponse.json(result, { status: 200 });
   } catch (err: any) {
     if (err.code === 'PROSPECT_NOT_FOUND') {
