@@ -488,7 +488,7 @@ ${footerBlock}
                     <p className="text-sm font-medium text-gray-500">이미지 {images.length}장 · 드래그로 순서 변경</p>
                     {images.map((img, idx) => (
                       <div key={img.id} draggable
-                        onDragStart={() => {}}
+                        onDragStart={() => setDragIdx(idx)}
                         onDragOver={(e) => handleDragOver(e, idx)}
                         onDragEnd={handleDragEnd}
                         className={`flex items-center gap-3 bg-white rounded-xl border p-3 transition-all cursor-grab ${dragIdx === idx ? "border-yellow-400 shadow-md opacity-80" : "border-gray-200 hover:border-gray-300"}`}>

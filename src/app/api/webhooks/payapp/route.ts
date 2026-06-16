@@ -280,6 +280,18 @@ export async function POST(req: Request) {
         groupId = lp?.groupId ?? null;
       }
 
+      // P1-3: B2B 결제의 경우 landingSlug가 없어 orgId가 null → orderId로 폴백 조회
+      if (!orgId && orderId) {
+        const paymentMeta = await prisma.payAppPayment.findFirst({
+          where: { orderId },
+          select: { organizationId: true, landingPageId: true },
+        });
+        if (paymentMeta) {
+          orgId = paymentMeta.organizationId;
+          landingPageId = paymentMeta.landingPageId;
+        }
+      }
+
       // GmUser 조회 (phone 기반)
       const gmUser = normalizedPhone ? await prisma.gmUser.findFirst({
         where: { phone: normalizedPhone },

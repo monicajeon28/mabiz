@@ -105,6 +105,8 @@ export async function GET(req: Request, { params }: Params) {
         paymentType: landingPage.paymentType,
         productName: landingPage.productName,
         productPrice: landingPage.productPrice,
+        cycleDay: landingPage.cycleDay,
+        expireDate: landingPage.expireDate?.toISOString().split('T')[0] ?? null,
         commentEnabled: landingPage.commentEnabled,
         comments: landingPage.comments,
         images,
