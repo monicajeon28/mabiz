@@ -6,6 +6,7 @@ import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, BONSA_ORG_ID } from "
 import { logger } from "@/lib/logger";
 import { ForbiddenError, ValidationError, B2BError } from "@/lib/b2b/errors";
 import { handleB2BError } from "@/lib/b2b/response-handler";
+import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
 
 const nanoid = customAlphabet('0-9a-z', 8);
 
@@ -99,60 +100,64 @@ export async function POST(req: Request) {
       throw new ValidationError('제목은 필수입니다.');
     }
 
-    // 무작위 8자 shortlink 생성 (충돌 시 자동 재시도)
-    let shortlinkCode = nanoid();
-    let attempts = 0;
-    while (attempts < 10) {
+    // P1-7: 무작위 8자 shortlink 생성 (off-by-one 수정 — 10회 모두 검증)
+    let shortlinkCode = '';
+    let shortlinkFound = false;
+    for (let i = 0; i < 10; i++) {
+      const candidate = nanoid();
       const existing = await prisma.shortLink.findFirst({
-        where: { code: shortlinkCode },
+        where: { code: candidate },
         select: { id: true },
       });
-      if (!existing) break;
-      shortlinkCode = nanoid();
-      attempts++;
+      if (!existing) { shortlinkCode = candidate; shortlinkFound = true; break; }
     }
-    if (attempts >= 10) {
+    if (!shortlinkFound) {
       throw new ValidationError('숏링크 코드 생성에 실패했습니다. 잠시 후 다시 시도해주세요.');
     }
 
-    // partnerId는 선택사항 (null 가능)
-    const page = await prisma.b2BLandingPage.create({
-      data: {
-        organizationId: orgId,
-        title,
-        htmlContent: htmlContent ?? "",
-        partnerId: partnerId ?? null,
-        groupId: groupId ?? null,
-        commentEnabled: commentEnabled === true,
-        ...(rest.description       ? { description: rest.description }              : {}),
-        ...(rest.headerScript      ? { headerScript: rest.headerScript }            : {}),
-        ...(rest.exposureTitle     ? { exposureTitle: rest.exposureTitle }          : {}),
-        ...(rest.exposureImage     ? { exposureImage: rest.exposureImage }          : {}),
-        ...(rest.formConfig        ? { formConfig: rest.formConfig }                : {}),
-        ...(rest.editorMode        ? { editorMode: rest.editorMode }                : {}),
-        ...(rest.buttonTitle       ? { buttonTitle: rest.buttonTitle }              : {}),
-        ...(rest.completionPageUrl ? { completionPageUrl: rest.completionPageUrl }  : {}),
-        ...(rest.paymentEnabled !== undefined ? { paymentEnabled: rest.paymentEnabled } : {}),
-        ...(rest.paymentType       ? { paymentType: rest.paymentType }              : {}),
-        ...(rest.productName       ? { productName: rest.productName }              : {}),
-        ...(rest.productPrice !== undefined ? { productPrice: rest.productPrice }   : {}),
-        ...(rest.cycleDay !== undefined     ? { cycleDay: rest.cycleDay }           : {}),
-        ...(rest.expireDate        ? { expireDate: new Date(rest.expireDate) }      : {}),
-      },
-    });
+    // P1-1: page + ShortLink를 $transaction으로 묶어 orphan 방지
+    // P1-6: headerScript sanitize 적용
+    const page = await prisma.$transaction(async (tx) => {
+      const newPage = await tx.b2BLandingPage.create({
+        data: {
+          organizationId: orgId,
+          title,
+          htmlContent: htmlContent ?? "",
+          partnerId: partnerId ?? null,
+          groupId: groupId ?? null,
+          commentEnabled: commentEnabled === true,
+          ...(rest.description       ? { description: rest.description }                                        : {}),
+          ...(rest.headerScript      ? { headerScript: sanitizeHeaderScript(String(rest.headerScript)) }        : {}),
+          ...(rest.exposureTitle     ? { exposureTitle: rest.exposureTitle }                                    : {}),
+          ...(rest.exposureImage     ? { exposureImage: rest.exposureImage }                                    : {}),
+          ...(rest.formConfig        ? { formConfig: rest.formConfig }                                          : {}),
+          ...(rest.editorMode        ? { editorMode: rest.editorMode }                                          : {}),
+          ...(rest.buttonTitle       ? { buttonTitle: rest.buttonTitle }                                        : {}),
+          ...(rest.completionPageUrl ? { completionPageUrl: rest.completionPageUrl }                            : {}),
+          ...(rest.paymentEnabled !== undefined ? { paymentEnabled: rest.paymentEnabled }                       : {}),
+          ...(rest.paymentType       ? { paymentType: rest.paymentType }                                        : {}),
+          ...(rest.productName       ? { productName: rest.productName }                                        : {}),
+          ...(rest.productPrice !== undefined ? { productPrice: rest.productPrice }                             : {}),
+          ...(rest.cycleDay !== undefined     ? { cycleDay: rest.cycleDay }                                     : {}),
+          ...(rest.expireDate        ? { expireDate: new Date(rest.expireDate) }                                : {}),
+        },
+      });
 
-    // ShortLink 레코드 자동 생성
-    const targetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/b2b-landing/${page.id}`;
-    await prisma.shortLink.create({
-      data: {
-        code: shortlinkCode,
-        targetUrl,
-        title: page.title,
-        organizationId: orgId,
-        createdBy: ctx.userId,
-        category: 'b2b-landing',
-        isActive: true,
-      },
+      // ShortLink 레코드 자동 생성 (같은 트랜잭션)
+      const targetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/b2b-landing/${newPage.id}`;
+      await tx.shortLink.create({
+        data: {
+          code: shortlinkCode,
+          targetUrl,
+          title: newPage.title,
+          organizationId: orgId,
+          createdBy: ctx.userId,
+          category: 'b2b-landing',
+          isActive: true,
+        },
+      });
+
+      return newPage;
     });
 
     logger.log("[POST /api/b2b-landing] 생성", { id: page.id, orgId, shortlinkCode });

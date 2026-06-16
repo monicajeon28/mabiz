@@ -178,6 +178,19 @@ export default function EditB2BPage() {
             setFooterText(footerText);
           }
         }
+        // P1-4: L6 렌즈 설정 복원
+        if (fc && typeof fc === 'object' && 'l6Config' in fc) {
+          const l6 = (fc as Record<string, unknown>).l6Config;
+          if (l6 && typeof l6 === 'object') {
+            const l6obj = l6 as Record<string, unknown>;
+            if (typeof l6obj.enabled === 'boolean') setL6Enabled(l6obj.enabled);
+            if (typeof l6obj.hoursRemaining === 'string') setL6HoursRemaining(l6obj.hoursRemaining);
+            if (typeof l6obj.seatsAvailable === 'string') setL6SeatsAvailable(l6obj.seatsAvailable);
+            if (typeof l6obj.currentPrice === 'string') setL6CurrentPrice(l6obj.currentPrice);
+            if (typeof l6obj.tomorrowPrice === 'string') setL6TomorrowPrice(l6obj.tomorrowPrice);
+            if (typeof l6obj.discount === 'string') setL6Discount(l6obj.discount);
+          }
+        }
         // 추가 편집 필드
         setExposureTitle(pageData.page.exposureTitle ?? "");
         setExposureImage(pageData.page.exposureImage ?? "");
@@ -555,6 +568,7 @@ export default function EditB2BPage() {
       formConfig: {
         fields: formFields,
         ...(footerText ? { footerText } : {}),
+        ...(l6Enabled ? { l6Config: { enabled: l6Enabled, hoursRemaining: l6HoursRemaining, seatsAvailable: l6SeatsAvailable, currentPrice: l6CurrentPrice, tomorrowPrice: l6TomorrowPrice, discount: l6Discount } } : {}),
       },
       ...(exposureTitle     ? { exposureTitle }                     : { exposureTitle: null }),
       ...(exposureImage     ? { exposureImage }                     : { exposureImage: null }),

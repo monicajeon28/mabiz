@@ -980,7 +980,7 @@ ${footerBlock}
                 onClick={() => {
                   setPageFormat('webinar');
                   setTitle('설명회 참가 신청');
-                  setCtaType('scarcity');
+                  setCtaType('urgency');
                 }}
                 className="p-3 bg-white rounded-xl border-2 border-green-200 hover:border-green-400 hover:shadow-md transition text-left"
               >
