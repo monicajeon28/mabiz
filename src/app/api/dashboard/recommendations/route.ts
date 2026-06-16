@@ -7,17 +7,19 @@ import prisma from '@/lib/prisma';
 export async function GET() {
   try {
     const ctx = await getMabizSession();
-    if (!ctx || !ctx.organizationId) {
+    if (!ctx) {
       return NextResponse.json({ ok: false, error: '인증 필요' }, { status: 401 });
     }
 
+    // GLOBAL_ADMIN은 organizationId null → org 필터 없이 전체 조회
     const orgId = ctx.organizationId;
+    const orgFilter = orgId ? { organizationId: orgId } : {};
 
     // 세그먼트별 고객 수 집계
     const contactsBySegment = await prisma.contact.groupBy({
       by: ['segment'],
       where: {
-        organizationId: orgId,
+        ...orgFilter,
         deletedAt: null,
         segment: { in: ['A', 'B', 'C', 'D', 'E'] },
       },
@@ -28,7 +30,7 @@ export async function GET() {
     const purchasedBySegment = await prisma.contact.groupBy({
       by: ['segment'],
       where: {
-        organizationId: orgId,
+        ...orgFilter,
         deletedAt: null,
         segment: { in: ['A', 'B', 'C', 'D', 'E'] },
         lastPaymentStatus: 'PAID',
@@ -56,7 +58,7 @@ export async function GET() {
     const topProductsRaw = await prisma.contact.groupBy({
       by: ['recommendedProduct'],
       where: {
-        organizationId: orgId,
+        ...orgFilter,
         deletedAt: null,
         recommendedProduct: { not: null },
       },

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { getMabizSession } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
@@ -11,18 +10,20 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    const ctx = await getMabizSession();
+    if (!ctx) {
       return NextResponse.json({ ok: false, message: '인증이 필요합니다.' }, { status: 401 });
     }
 
     const { id: contactId } = await params;
 
-    // 연락처 소유권 확인 (조직 내 접근만 허용)
+    // GLOBAL_ADMIN은 organizationId null → org 필터 없이 전체 조회
+    const orgId = ctx.organizationId;
+
     const contact = await prisma.contact.findFirst({
       where: {
         id: contactId,
-        organizationId: (session.user as { organizationId?: string }).organizationId ?? '',
+        ...(orgId ? { organizationId: orgId } : {}),
         deletedAt: null,
       },
       select: { id: true, name: true, email: true },
@@ -85,7 +86,6 @@ export async function GET(
         funnelSmsId: s.funnelSmsId,
         sentAt: s.sentAt?.toISOString() ?? null,
         failureReason: s.failureReason,
-        // 메시지 미리보기 (최대 50자)
         preview: s.message.length > 50 ? s.message.slice(0, 50) + '...' : s.message,
       })),
       emailSchedules: emailSchedules.map((e) => ({
