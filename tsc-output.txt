@@ -1,2 +1,3 @@
-src/app/api/affiliate/contracts/[contractId]/approve/route.ts(230,9): error TS2345: Argument of type 'Uint8Array<ArrayBufferLike>' is not assignable to parameter of type 'Buffer<ArrayBufferLike>'.
-  Type 'Uint8Array<ArrayBufferLike>' is missing the following properties from type 'Buffer<ArrayBufferLike>': write, toJSON, equals, compare, and 66 more.
+src/app/api/groups/[id]/email-config/route.ts(262,7): error TS2322: Type 'Record<string, unknown>' is not assignable to type '(Without<GroupEmailConfigCreateInput, GroupEmailConfigUncheckedCreateInput> & GroupEmailConfigUncheckedCreateInput) | (Without<...> & GroupEmailConfigCreateInput)'.
+  Type 'Record<string, unknown>' is not assignable to type 'Without<GroupEmailConfigUncheckedCreateInput, GroupEmailConfigCreateInput> & GroupEmailConfigCreateInput'.
+    Type 'Record<string, unknown>' is missing the following properties from type 'GroupEmailConfigCreateInput': groupId, emailProvider, senderEmail, organization

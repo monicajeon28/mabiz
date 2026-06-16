@@ -1,0 +1,156 @@
+
+> mabiz@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.5.18
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.0.10:3000
+   - Environments: .env.local, .env
+   - Experiments (use with caution):
+     · middlewareClientMaxBodySize: 104857600
+
+ ✓ Starting...
+ ○ Compiling /instrumentation ...
+ ✓ Compiled /instrumentation in 18.9s (688 modules)
+ ✓ Ready in 62.1s
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 642ms (824 modules)
+[2026-06-16T06:56:22.724Z] [LOG] [Middleware] {"pathname":"/api/l8-ltv-tracking","method":"POST","hasSession":false,"isProtected":false}
+[2026-06-16T06:56:22.725Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/stats","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:56:22.726Z] [LOG] [Middleware] {"pathname":"/api/l8-ltv-tracking","method":"POST","hasSession":false,"isProtected":false}
+[2026-06-16T06:56:22.726Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/stats","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:56:22.726Z] [LOG] [Middleware] {"pathname":"/api/l8-ltv-tracking","method":"POST","hasSession":false,"isProtected":false}
+[2026-06-16T06:56:22.726Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/stats","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:56:22.727Z] [LOG] [Middleware] {"pathname":"/api/l8-ltv-tracking","method":"POST","hasSession":false,"isProtected":false}
+[2026-06-16T06:56:22.727Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/stats","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:56:22.727Z] [LOG] [Middleware] {"pathname":"/api/l8-ltv-tracking/stats","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:56:22.728Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/segment-breakdown","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:56:22.728Z] [LOG] [Middleware] {"pathname":"/api/l8-cruise-recommendations","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:56:22.728Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/segment-breakdown","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:56:22.728Z] [LOG] [Middleware] {"pathname":"/api/l8-cruise-recommendations","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:56:22.728Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/segment-breakdown","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:56:22.729Z] [LOG] [Middleware] {"pathname":"/api/l8-cruise-recommendations/bulk","method":"POST","hasSession":false,"isProtected":false}
+[2026-06-16T06:56:22.729Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/segment-breakdown","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:56:23.086Z] [LOG] [Middleware] {"pathname":"/api/l8-cruise-recommendations","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:56:23.086Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/ab-test-results","method":"GET","hasSession":false,"isProtected":false}
+ ○ Compiling /api/l8-cruise-recommendations ...
+[2026-06-16T06:56:26.653Z] [LOG] [Middleware] {"pathname":"/api/l8-sms-return-sequence/send","method":"POST","hasSession":false,"isProtected":false}
+ ✓ Compiled /api/loop5/dashboard/ab-test-results in 66.4s (1571 modules)
+[2026-06-16T06:57:29.680Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/ab-test-results","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:29.681Z] [LOG] [Middleware] {"pathname":"/api/l8-sms-return-sequence/send","method":"POST","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:29.681Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/ab-test-results","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:29.681Z] [LOG] [Middleware] {"pathname":"/api/l8-sms-return-sequence/send","method":"POST","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:29.682Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/ab-test-results","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:29.682Z] [LOG] [Middleware] {"pathname":"/api/l8-sms-return-sequence/send","method":"POST","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:29.682Z] [LOG] [Middleware] {"pathname":"/api/l8-sms-return-sequence/send","method":"POST","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:29.682Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/ab-test-results","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:29.682Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/ab-test-results","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:29.683Z] [LOG] [Middleware] {"pathname":"/api/l8-sms-return-sequence/send","method":"POST","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:29.683Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/day-progression","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:29.683Z] [LOG] [Middleware] {"pathname":"/api/l8-sms-return-sequence/stats","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:29.683Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/day-progression","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:29.683Z] [LOG] [Middleware] {"pathname":"/api/l8-ltv-tracking/stats","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:29.683Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/day-progression","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:29.683Z] [LOG] [Middleware] {"pathname":"/api/l8-ltv-tracking/stats","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:29.684Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/day-progression","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:29.684Z] [LOG] [Middleware] {"pathname":"/api/l8-ltv-tracking/stats","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:29.684Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/day-progression","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:29.684Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/day-progression","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:29.684Z] [LOG] [Middleware] {"pathname":"/api/webhooks/cruisedot-settlement","method":"POST","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:29.684Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/day-progression","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:29.684Z] [LOG] [Middleware] {"pathname":"/api/webhooks/cruisedot-settlement","method":"POST","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:29.685Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/day-progression","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:29.879Z] [ERROR] [POST /api/l8-ltv-tracking] {"error":"UNAUTHORIZED"}
+ POST /api/l8-ltv-tracking 500 in 67141ms
+[2026-06-16T06:57:29.881Z] [ERROR] [POST /api/l8-ltv-tracking] {"error":"UNAUTHORIZED"}
+ POST /api/l8-ltv-tracking 500 in 67142ms
+[2026-06-16T06:57:29.882Z] [ERROR] [POST /api/l8-ltv-tracking] {"error":"UNAUTHORIZED"}
+ POST /api/l8-ltv-tracking 500 in 67142ms
+[2026-06-16T06:57:29.882Z] [ERROR] [POST /api/l8-ltv-tracking] {"error":"UNAUTHORIZED"}
+ POST /api/l8-ltv-tracking 500 in 67144ms
+ GET /api/loop5/dashboard/stats?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 67185ms
+ GET /api/loop5/dashboard/stats 401 in 67186ms
+ GET /api/loop5/dashboard/stats?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 67186ms
+ GET /api/loop5/dashboard/stats?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 67186ms
+ GET /api/loop5/dashboard/segment-breakdown?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 67186ms
+ GET /api/loop5/dashboard/segment-breakdown?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 67186ms
+ GET /api/loop5/dashboard/segment-breakdown?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 67187ms
+ GET /api/loop5/dashboard/segment-breakdown?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 67186ms
+[2026-06-16T06:57:29.928Z] [ERROR] [GET /api/l8-cruise-recommendations] {"error":"UNAUTHORIZED"}
+ GET /api/l8-cruise-recommendations?contactId=test-contact-l8-001 500 in 67188ms
+[2026-06-16T06:57:29.929Z] [ERROR] [GET /api/l8-cruise-recommendations] {"error":"UNAUTHORIZED"}
+ GET /api/l8-cruise-recommendations?contactId=test-contact-l8-001 500 in 67188ms
+[2026-06-16T06:57:29.930Z] [ERROR] [GET /api/l8-cruise-recommendations] {"error":"UNAUTHORIZED"}
+ GET /api/l8-cruise-recommendations?contactId=test-contact-l8-001 500 in 66840ms
+ GET /api/loop5/dashboard/ab-test-results?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 66840ms
+ GET /api/l8-ltv-tracking/stats?organizationId=test-org-001 404 in 67492ms
+ POST /api/l8-cruise-recommendations/bulk 404 in 67476ms
+ POST /api/l8-sms-return-sequence/send 404 in 63631ms
+ GET /api/loop5/dashboard/ab-test-results?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 403ms
+ POST /api/l8-sms-return-sequence/send 404 in 491ms
+ POST /api/l8-sms-return-sequence/send 404 in 487ms
+ GET /api/l8-ltv-tracking/stats?organizationId=test-org-001 404 in 484ms
+ POST /api/l8-sms-return-sequence/send 404 in 490ms
+ GET /api/l8-ltv-tracking/stats?organizationId=test-org-001 404 in 486ms
+ POST /api/l8-sms-return-sequence/send 404 in 477ms
+ GET /api/l8-sms-return-sequence/stats?organizationId=test-org-001 404 in 488ms
+ POST /api/l8-sms-return-sequence/send 404 in 495ms
+ GET /api/l8-ltv-tracking/stats?organizationId=test-org-001 404 in 479ms
+ ○ Compiling /api/webhooks/cruisedot-settlement ...
+ ✓ Compiled /api/webhooks/cruisedot-settlement in 2.1s (1557 modules)
+ GET /api/loop5/dashboard/ab-test-results?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 2568ms
+ GET /api/loop5/dashboard/ab-test-results?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 2568ms
+ GET /api/loop5/dashboard/ab-test-results?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 2567ms
+ GET /api/loop5/dashboard/ab-test-results?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 2571ms
+[2026-06-16T06:57:32.542Z] [LOG] [Middleware] {"pathname":"/api/webhooks/cruisedot-settlement","method":"POST","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:32.542Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/stats","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:32.578Z] [WARN] [SettlementWebhook] 인증 실패
+[2026-06-16T06:57:32.578Z] [WARN] [SettlementWebhook] 인증 실패
+ POST /api/webhooks/cruisedot-settlement 401 in 2656ms
+ POST /api/webhooks/cruisedot-settlement 401 in 2656ms
+ GET /api/loop5/dashboard/day-progression?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 2660ms
+ GET /api/loop5/dashboard/day-progression?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 2660ms
+ GET /api/loop5/dashboard/day-progression?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 2660ms
+ GET /api/loop5/dashboard/day-progression?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 2660ms
+ GET /api/loop5/dashboard/day-progression?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 2661ms
+ GET /api/loop5/dashboard/day-progression?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 2661ms
+ GET /api/loop5/dashboard/day-progression?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 2661ms
+ GET /api/loop5/dashboard/day-progression 401 in 2661ms
+[2026-06-16T06:57:32.697Z] [WARN] [SettlementWebhook] 인증 실패
+ POST /api/webhooks/cruisedot-settlement 401 in 153ms
+ GET /api/loop5/dashboard/stats?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 188ms
+[2026-06-16T06:57:32.740Z] [LOG] [Middleware] {"pathname":"/api/webhooks/cruisedot-settlement","method":"POST","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:32.746Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/segment-breakdown","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:32.885Z] [WARN] [SettlementWebhook] 인증 실패
+ POST /api/webhooks/cruisedot-settlement 401 in 145ms
+ GET /api/loop5/dashboard/segment-breakdown?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 145ms
+[2026-06-16T06:57:32.911Z] [LOG] [Middleware] {"pathname":"/api/webhooks/cruisedot-settlement","method":"POST","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:32.918Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/ab-test-results","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:33.033Z] [WARN] [SettlementWebhook] 인증 실패
+ POST /api/webhooks/cruisedot-settlement 401 in 122ms
+ GET /api/loop5/dashboard/ab-test-results?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 142ms
+[2026-06-16T06:57:33.078Z] [LOG] [Middleware] {"pathname":"/api/webhooks/cruisedot-settlement","method":"POST","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:33.085Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/day-progression","method":"GET","hasSession":false,"isProtected":false}
+[2026-06-16T06:57:33.194Z] [WARN] [SettlementWebhook] 인증 실패
+ POST /api/webhooks/cruisedot-settlement 401 in 115ms
+ GET /api/loop5/dashboard/day-progression?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 141ms
+[2026-06-16T06:57:33.245Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/stats","method":"GET","hasSession":false,"isProtected":false}
+ GET /api/loop5/dashboard/stats?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 85ms
+[2026-06-16T06:57:33.338Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/segment-breakdown","method":"GET","hasSession":false,"isProtected":false}
+ GET /api/loop5/dashboard/segment-breakdown?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 84ms
+[2026-06-16T06:57:33.430Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/stats","method":"GET","hasSession":false,"isProtected":false}
+ GET /api/loop5/dashboard/stats?fromDate=invalid-date&toDate=invalid-date 401 in 94ms
+[2026-06-16T06:57:33.537Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/segment-breakdown","method":"GET","hasSession":false,"isProtected":false}
+ GET /api/loop5/dashboard/segment-breakdown?fromDate=invalid-date&toDate=invalid-date 401 in 99ms
+[2026-06-16T06:57:33.643Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/ab-test-results","method":"GET","hasSession":false,"isProtected":false}
+ GET /api/loop5/dashboard/ab-test-results?fromDate=invalid-date&toDate=invalid-date 401 in 115ms
+[2026-06-16T06:57:33.765Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/day-progression","method":"GET","hasSession":false,"isProtected":false}
+ GET /api/loop5/dashboard/day-progression?fromDate=invalid-date&toDate=invalid-date 401 in 114ms
+[2026-06-16T06:57:33.888Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/stats","method":"GET","hasSession":false,"isProtected":false}
+ GET /api/loop5/dashboard/stats?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 83ms
+[2026-06-16T06:57:33.978Z] [LOG] [Middleware] {"pathname":"/api/loop5/dashboard/day-progression","method":"GET","hasSession":false,"isProtected":false}
+ GET /api/loop5/dashboard/day-progression?fromDate=2026-05-20T00%3A00%3A00Z&toDate=2026-05-27T23%3A59%3A59Z 401 in 85ms
+ ✓ Compiled in 1381ms (245 modules)
+ ✓ Compiled in 1083ms (245 modules)
+ ✓ Compiled in 729ms (241 modules)
+ ✓ Compiled in 1200ms (241 modules)

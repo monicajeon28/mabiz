@@ -28,7 +28,7 @@ import { CreateGroupEmailConfigSchema } from "@/lib/schemas/email-funnel";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ groupId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getSession();
@@ -36,7 +36,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { groupId } = await params;
+    const { id: groupId } = await params;
 
     // 권한 확인: GroupAdmin 또는 조직 관리자
     const member = await prisma.organizationMember.findUnique({
@@ -112,7 +112,7 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: Promise<{ groupId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getSession();
@@ -120,7 +120,7 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { groupId } = await params;
+    const { id: groupId } = await params;
     const body = await req.json();
 
     // 권한 확인
@@ -213,6 +213,7 @@ export async function PUT(
     }
 
     // 암호화할 필드들 준비
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const encryptedData: any = {
       organizationId: session.organizationId,
       groupId,
@@ -220,7 +221,7 @@ export async function PUT(
       senderName: data.senderName,
       senderEmail: data.senderEmail,
       replyToEmail: data.replyToEmail,
-      isActive: false, // 테스트 후 활성화
+      isActive: false,
       isVerified: false,
     };
 

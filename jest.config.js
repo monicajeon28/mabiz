@@ -20,6 +20,7 @@ const customJestConfig = {
     '<rootDir>/.next/',
     '<rootDir>/node_modules/',
     '<rootDir>/cypress/',
+    '<rootDir>/.claude/',
   ],
   collectCoverageFrom: [
     'src/**/*.{js,jsx,ts,tsx}',
