@@ -131,13 +131,6 @@ export async function GET() {
 
     // FREE_SALES 전용
     if (role === 'FREE_SALES') {
-      const member = userId
-        ? await prisma.organizationMember.findUnique({
-            where: { organizationId_userId: { organizationId: orgId, userId } },
-            select: { id: true },
-          })
-        : null;
-
       return NextResponse.json({
         ok: true,
         role,
