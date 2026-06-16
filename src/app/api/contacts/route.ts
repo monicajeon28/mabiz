@@ -61,12 +61,9 @@ export async function GET(req: Request) {
     } else if (visibility === 'SHARED') {
       // 공유 탭: visibility='SHARED' + 역할별 필터 + sharedWith 조인
       if (ctx.role === 'GLOBAL_ADMIN') {
-        // GLOBAL_ADMIN: 자신의 판매원 + 공유받음 Contact
+        // GLOBAL_ADMIN: 공유된 Contact 전체 조회
         baseWhere = {
           visibility: 'SHARED' as const,
-          OR: [
-            { sharedWith: { some: { sharedTo: ctx.userId } } }, // 공유받은 Contact
-          ],
           deletedAt: null,
         };
       } else if (ctx.role === 'OWNER') {
