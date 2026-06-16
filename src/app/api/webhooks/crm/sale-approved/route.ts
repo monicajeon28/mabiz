@@ -2,7 +2,7 @@
  * POST /api/webhooks/crm/sale-approved
  * 크루즈닷 관리자 승인/거부 결과 수신
  *
- * 인증: Authorization: Bearer CRUISEDOT_WEBHOOK_SECRET
+ * 인증: Authorization: Bearer MABIZ_SALE_APPROVED_WEBHOOK_SECRET
  * 페이로드: { eventId, saleId, reservationId, status: "APPROVED"|"REJECTED",
  *             rejectionReason?, timestamp }
  *
