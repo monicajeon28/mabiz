@@ -28,8 +28,9 @@ export async function getHomeDashboardMetrics(params: MetricsParams) {
   // ─────────────────────────────────────────────────────────────
   // 1️⃣ Contact 필터 (역할별)
   // ─────────────────────────────────────────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let contactFilter: any = {
-    ...(hasOrgFilter ? { organizationId } : {}),
+    ...(hasOrgFilter ? { organizationId: organizationId! } : {}),
     deletedAt: null,
   };
 
