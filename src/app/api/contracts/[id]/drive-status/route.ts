@@ -5,7 +5,7 @@ import { getMabizSession } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { docId: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const ctx = await getMabizSession();
@@ -13,11 +13,11 @@ export async function GET(
       return NextResponse.json({ ok: false }, { status: 401 });
     }
 
-    const { docId } = params;
+    const { id } = await params;
 
     // SalesDocument 조회 (generatedData.driveUrl 확인)
     const doc = await prisma.salesDocument.findUnique({
-      where: { id: docId },
+      where: { id },
       select: {
         generatedData: true,
         organizationId: true
