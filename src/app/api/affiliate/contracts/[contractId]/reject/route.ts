@@ -54,6 +54,18 @@ export async function PUT(
       }
     }
 
+    // 반려자 이름 조회 (표시용)
+    let rejectedByName: string | null = null;
+    try {
+      const member = await prisma.organizationMember.findFirst({
+        where: { userId: ctx.userId },
+        select: { displayName: true },
+      });
+      rejectedByName = member?.displayName ?? null;
+    } catch {
+      // 이름 조회 실패해도 반려 처리는 계속
+    }
+
     const existingMeta = (contract.metadata as Record<string, unknown> | null) ?? {};
     await prisma.gmAffiliateContract.update({
       where: { id: contractId },
@@ -63,6 +75,7 @@ export async function PUT(
           ...existingMeta,
           rejectedAt: new Date().toISOString(),
           rejectedBy: ctx.userId,
+          rejectedByName: rejectedByName,
           rejectReason: rejectReason || null,
         },
       },
