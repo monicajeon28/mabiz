@@ -74,7 +74,24 @@ fi
 echo "✅ TypeScript 통과"
 
 # ============================================================
-# 3단계: ESLint (변경 파일만)
+# 3단계: ESLint (staged ts/tsx 파일만 직접 실행)
+# lint-staged v17은 Windows에서 :(glob) pathspec 오류와
+# index.lock 충돌이 발생하므로, staged 파일에 eslint를 직접 실행.
 # ============================================================
-npx lint-staged
-exit $?
+STAGED_TS=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null | grep -E '\.(ts|tsx)$' || true)
+if [ -n "$STAGED_TS" ]; then
+  echo "🔍 ESLint 실행 중..."
+  # shellcheck disable=SC2086
+  npx eslint --fix $STAGED_TS
+  ESLINT_EXIT=$?
+  if [ $ESLINT_EXIT -ne 0 ]; then
+    echo "❌ ESLint 에러 — 커밋 차단"
+    exit $ESLINT_EXIT
+  fi
+  # fix로 수정된 파일 다시 스테이징
+  # shellcheck disable=SC2086
+  git add $STAGED_TS
+  echo "✅ ESLint 통과"
+fi
+
+exit 0

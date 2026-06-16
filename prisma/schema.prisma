@@ -1797,18 +1797,21 @@ model AiCallLog {
 }
 
 model AiCallAnalysis {
-  id                String    @id @default(cuid())
-  callLogId         String    @unique
-  personaDetected   String
-  personaConfidence Float     @default(0)
-  scores            Json
-  keyPhrases        Json
-  strengths         Json
-  weaknesses        Json
-  objectionTypes    Json
-  goldValueScore    Float?
-  analyzedAt        DateTime  @default(now())
-  callLog           AiCallLog @relation(fields: [callLogId], references: [id], onDelete: Cascade)
+  id                     String    @id @default(cuid())
+  callLogId              String    @unique
+  personaDetected        String
+  personaConfidence      Float     @default(0)
+  scores                 Json
+  keyPhrases             Json
+  strengths              Json
+  weaknesses             Json
+  objectionTypes         Json
+  goldValueScore         Float?
+  customerSegmentDetected String?
+  spinActionsPerSegment  Json?
+  relatedSuccessCases    Json?
+  analyzedAt             DateTime  @default(now())
+  callLog                AiCallLog @relation(fields: [callLogId], references: [id], onDelete: Cascade)
 
   @@map("AiCallAnalysis")
 }

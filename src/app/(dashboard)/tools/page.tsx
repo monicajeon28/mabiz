@@ -26,6 +26,14 @@ type FeedbackResult = {
   personaType?: string;
   personaConfidence?: number;
   objectionTypes?: string[];
+  customerSegmentDetected?: string;
+  spinActionsPerSegment?: {
+    situation: string;
+    problem: string;
+    implication: string;
+    needPayoff: string;
+  };
+  relatedSuccessCases?: string[];
 };
 
 const PRODUCT_CATEGORIES = [
@@ -66,7 +74,7 @@ const PLAYBOOK_TABS = [
 export default function ToolsPage() {
   const searchParams = useSearchParams();
   const [showCompressor, setShowCompressor] = useState(false);
-  const [mainTab,  setMainTab]   = useState<"dashboard" | "training" | "scripts" | "playbook" | "feedback" | "qa" | "call-feedback" | "call-playbook" | "sms-templates">("dashboard");
+  const [mainTab,  setMainTab]   = useState<"dashboard" | "training" | "scripts" | "playbook" | "feedback" | "qa" | "call-feedback" | "call-playbook" | "sms-templates" | "call-stats">("dashboard");
 
   const [productCategory, setProductCategory] = useState("ALL");
   const [scriptPersona,   setScriptPersona]   = useState("PRICE_SENSITIVE");
@@ -95,11 +103,16 @@ export default function ToolsPage() {
   const [uploading,   setUploading]   = useState(false);
   const [uploadResult, setUploadResult] = useState<{ ok: boolean; viewUrl?: string; message?: string } | null>(null);
 
+  // 통계 상태
+  const [callStats, setCallStats] = useState<any>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsTimeRange, setStatsTimeRange] = useState<'week' | 'month' | 'all'>('week');
+
   useEffect(() => {
     const tabParam = searchParams.get("tab");
     const validTabs: Array<typeof mainTab> = [
       "dashboard", "training", "scripts", "playbook", "feedback",
-      "qa", "call-feedback", "call-playbook", "sms-templates",
+      "qa", "call-feedback", "call-playbook", "sms-templates", "call-stats",
     ];
     if (tabParam && (validTabs as string[]).includes(tabParam)) {
       setMainTab(tabParam as typeof mainTab);
@@ -200,6 +213,22 @@ export default function ToolsPage() {
     }
   };
 
+  const loadCallStats = async (range: 'week' | 'month' | 'all') => {
+    setStatsLoading(true);
+    setStatsTimeRange(range);
+    try {
+      const res = await fetch(`/api/tools/call-upload-stats?timeRange=${range}`);
+      const data = await res.json();
+      if (data.ok) {
+        setCallStats(data.stats);
+      }
+    } catch (err) {
+      console.error('통계 조회 오류', err);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
   const filteredTemplates = useMemo(() => templates.filter((t) => t.category === smsTab), [templates, smsTab]);
 
   const filteredPlaybooks = useMemo(() => playbooks.filter((p) => p.type === pbTab), [playbooks, pbTab]);
@@ -268,7 +297,7 @@ export default function ToolsPage() {
           { key: "scripts",        label: "콜스크립트", icon: "🎤", desc: "페르소나별" },
           { key: "playbook",       label: "플레이북", icon: "📖", desc: "8가지 상황" },
           { key: "call-feedback",  label: "콜분석", icon: "🔊", desc: "AI 피드백" },
-          { key: "sms-templates",  label: "SMS템플릿", icon: "📱", desc: "문자 템플릿" },
+          { key: "call-stats",     label: "통계", icon: "📈", desc: "성과추적" },
         ].map((t) => (
           <button
             key={t.key}
@@ -886,6 +915,51 @@ export default function ToolsPage() {
                 </div>
               </div>
 
+              {/* SPIN 액션 포인트 */}
+              {feedback.spinActionsPerSegment && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Zap className="w-5 h-5 text-blue-600" />
+                    <h4 className="font-semibold text-blue-900">🎯 고객별 SPIN 액션 포인트</h4>
+                    <span className="text-xs bg-blue-200 px-2 py-1 rounded-full text-blue-800 font-medium">
+                      {feedback.customerSegmentDetected}
+                    </span>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div className="pl-4 border-l-2 border-blue-400">
+                      <p className="text-blue-800 font-medium">상황(S): {feedback.spinActionsPerSegment.situation}</p>
+                    </div>
+                    <div className="pl-4 border-l-2 border-blue-400">
+                      <p className="text-blue-800 font-medium">문제(P): {feedback.spinActionsPerSegment.problem}</p>
+                    </div>
+                    <div className="pl-4 border-l-2 border-blue-400">
+                      <p className="text-blue-800 font-medium">함의(I): {feedback.spinActionsPerSegment.implication}</p>
+                    </div>
+                    <div className="pl-4 border-l-2 border-blue-400">
+                      <p className="text-blue-800 font-medium">필요/보상(N): {feedback.spinActionsPerSegment.needPayoff}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 판매원 성공사례 */}
+              {feedback.relatedSuccessCases && feedback.relatedSuccessCases.length > 0 && (
+                <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Star className="w-5 h-5 text-purple-600" />
+                    <h4 className="font-semibold text-purple-900">📊 판매원별 성공사례</h4>
+                  </div>
+                  <ul className="space-y-2">
+                    {feedback.relatedSuccessCases.map((case_, idx) => (
+                      <li key={idx} className="text-sm text-purple-800 flex gap-2">
+                        <span className="font-bold text-purple-600 flex-shrink-0">•</span>
+                        <span>{case_}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               {/* 다음 액션 + 추천 문자 */}
               <div className="bg-white border border-gray-200 rounded-xl p-4">
                 <h4 className="font-semibold text-gray-900 mb-2">다음 액션</h4>
@@ -949,6 +1023,137 @@ export default function ToolsPage() {
             <QaLibrary />
           </div>
         </Suspense>
+      )}
+
+      {/* 통화 기록 통계 */}
+      {mainTab === "call-stats" && (
+        <div className="space-y-4">
+          {/* 시간 범위 필터 */}
+          <div className="flex gap-2 flex-wrap mb-4">
+            {[
+              { key: 'week' as const, label: '이번 주' },
+              { key: 'month' as const, label: '이번 달' },
+              { key: 'all' as const, label: '전체' },
+            ].map((t) => (
+              <button
+                key={t.key}
+                onClick={() => loadCallStats(t.key)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                  statsTimeRange === t.key
+                    ? 'bg-navy-900 text-white border-navy-900'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-navy-900'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* 통계 로딩 및 표시 */}
+          {!callStats && !statsLoading && (
+            <button
+              onClick={() => loadCallStats('week')}
+              className="w-full py-3 bg-navy-900 text-white rounded-lg font-medium hover:bg-navy-800 transition-colors"
+            >
+              통계 조회하기
+            </button>
+          )}
+
+          {statsLoading && (
+            <div className="text-center py-8">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-navy-900 mb-2" />
+              <p className="text-gray-600">통계 조회 중...</p>
+            </div>
+          )}
+
+          {callStats && (
+            <div className="space-y-6">
+              {/* 전체 통계 카드 */}
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">전체 성과</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">총 통화</p>
+                    <p className="text-3xl font-bold text-navy-900">{callStats.total}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">성약건수</p>
+                    <p className="text-3xl font-bold text-green-600">{callStats.converted}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">성약율</p>
+                    <p className="text-3xl font-bold text-orange-500">{callStats.conversionRate}%</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">기간</p>
+                    <p className="text-sm font-medium text-gray-700 mt-1">
+                      {new Date(callStats.periodStart).toLocaleDateString('ko-KR')} ~
+                      <br />
+                      {new Date(callStats.periodEnd).toLocaleDateString('ko-KR')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 판매원별 통계 */}
+              {callStats.byAgent && callStats.byAgent.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-4">판매원별 성과</h3>
+                  <div className="space-y-3">
+                    {callStats.byAgent.map((agent: any, idx: number) => (
+                      <div key={idx} className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-semibold text-gray-900">{agent.agentName}</h4>
+                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                            agent.conversionRate >= 50
+                              ? 'bg-green-100 text-green-700'
+                              : agent.conversionRate >= 30
+                              ? 'bg-yellow-100 text-yellow-700'
+                              : 'bg-red-100 text-red-700'
+                          }`}>
+                            성약율 {agent.conversionRate}%
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 mb-3">
+                          <div className="bg-blue-50 rounded-lg p-3 text-center">
+                            <p className="text-xs text-gray-600">총 통화</p>
+                            <p className="text-2xl font-bold text-navy-900">{agent.total}</p>
+                          </div>
+                          <div className="bg-green-50 rounded-lg p-3 text-center">
+                            <p className="text-xs text-gray-600">성약</p>
+                            <p className="text-2xl font-bold text-green-600">{agent.converted}</p>
+                          </div>
+                          <div className="bg-orange-50 rounded-lg p-3 text-center">
+                            <p className="text-xs text-gray-600">거절</p>
+                            <p className="text-2xl font-bold text-orange-600">{agent.total - agent.converted}</p>
+                          </div>
+                        </div>
+                        {agent.objections && Object.keys(agent.objections).length > 0 && (
+                          <div className="bg-gray-50 rounded-lg p-3">
+                            <p className="text-xs font-semibold text-gray-700 mb-2">이의대응 빈도</p>
+                            <div className="flex flex-wrap gap-1">
+                              {Object.entries(agent.objections).map(([objType, count]: [string, any]) => (
+                                <span key={objType} className="px-2 py-1 bg-white border border-gray-200 rounded text-xs text-gray-700">
+                                  {objType} <span className="font-bold">{count}</span>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {callStats.byAgent && callStats.byAgent.length === 0 && (
+                <div className="text-center py-8 bg-gray-50 rounded-lg">
+                  <p className="text-gray-600">이 기간에 통화 기록이 없습니다.</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
