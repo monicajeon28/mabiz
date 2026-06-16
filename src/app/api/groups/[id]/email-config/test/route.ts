@@ -1,7 +1,7 @@
 /**
  * SMTP 연결 테스트 엔드포인트
  *
- * POST /api/groups/[groupId]/email-config/test
+ * POST /api/groups/[id]/email-config/test
  * - SMTP 연결 테스트
  * - 테스트 이메일 발송
  * - 설정 자동 활성화
@@ -22,7 +22,7 @@ import { TestSmtpConnectionSchema } from "@/lib/schemas/email-funnel";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { groupId: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getSession();
@@ -30,7 +30,7 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { groupId } = params;
+    const { id: groupId } = await params;
     const body = await req.json();
 
     // 권한 확인
@@ -103,9 +103,7 @@ export async function POST(
       });
     } else {
       return NextResponse.json(
-        {
-          error: "Only SMTP testing is implemented. Gmail/SendGrid/Mailgun coming soon.",
-        },
+        { error: "Only SMTP testing is implemented. Gmail/SendGrid/Mailgun coming soon." },
         { status: 501 }
       );
     }
@@ -125,14 +123,10 @@ export async function POST(
           <li><strong>호스트:</strong> ${emailConfig.smtpHost || "N/A"}</li>
           <li><strong>포트:</strong> ${emailConfig.smtpPort || "N/A"}</li>
           <li><strong>보안:</strong> ${emailConfig.smtpSecure ? "TLS (587)" : "SSL (465)"}</li>
-          <li><strong>테스트 시간:</strong> ${new Date().toLocaleString("ko-KR")}</li>
         </ul>
         <hr/>
         <p><strong>이 이메일을 받으셨다면, 설정이 완료된 것입니다!</strong></p>
         <p>이제 고객들이 Day 0-3 자동 이메일을 받기 시작할 것입니다.</p>
-        <p style="color: #7f8c8d; font-size: 12px;">
-          문제가 있으면 <a href="mailto:support@mabiz.co.kr">support@mabiz.co.kr</a>로 연락주세요.
-        </p>
         <footer style="margin-top: 30px; border-top: 1px solid #ecf0f1; padding-top: 20px; color: #95a5a6;">
           <p>마비즈 CRM © 2026</p>
         </footer>
@@ -149,11 +143,11 @@ export async function POST(
           senderName: emailConfig.senderName,
           senderEmail: emailConfig.senderEmail,
           replyToEmail: emailConfig.replyToEmail || undefined,
-          provider: emailConfig.emailProvider as any,
+          provider: emailConfig.emailProvider as Parameters<typeof sendEmailFunnel>[0]["provider"],
           config: {
             organizationId: emailConfig.organizationId,
             groupId: emailConfig.groupId,
-            emailProvider: emailConfig.emailProvider as any,
+            emailProvider: emailConfig.emailProvider as Parameters<typeof sendEmailFunnel>[0]["config"]["emailProvider"],
             senderName: emailConfig.senderName,
             senderEmail: emailConfig.senderEmail,
             replyToEmail: emailConfig.replyToEmail || undefined,
@@ -175,7 +169,7 @@ export async function POST(
           testedAt: new Date(),
           testResult: "SUCCESS",
           testErrorMessage: null,
-          isActive: true, // 자동 활성화
+          isActive: true,
         },
       });
     } else {
@@ -204,11 +198,7 @@ export async function POST(
       },
     });
 
-    logger.log("[EmailTest] 테스트 완료", {
-      groupId,
-      success: emailResult.success,
-      testEmail,
-    });
+    logger.log("[EmailTest] 테스트 완료", { groupId, success: emailResult.success, testEmail });
 
     return NextResponse.json({
       success: emailResult.success,

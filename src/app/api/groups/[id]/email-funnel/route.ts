@@ -37,7 +37,7 @@ interface MessageInput {
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: Promise<{ groupId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const ctx = await getAuthContext();
@@ -45,7 +45,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { groupId } = await params;
+    const { id: groupId } = await params;
 
     // 그룹 존재 확인
     const group = await prisma.contactGroup.findFirst({
@@ -93,7 +93,7 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ groupId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const ctx = await getAuthContext();
@@ -101,7 +101,7 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { groupId } = await params;
+    const { id: groupId } = await params;
     const body = await req.json() as {
       title?: string;
       isActive?: boolean;
@@ -155,13 +155,11 @@ export async function POST(
     let funnel;
 
     if (existing) {
-      // 최신 이메일 설정 조회 (이메일 설정 변경 시 emailConfigId 갱신)
       const latestEmailConfig = await prisma.groupEmailConfig.findUnique({
         where: { groupId },
         select: { id: true },
       });
 
-      // 기존 메시지 삭제 후 재생성
       funnel = await prisma.$transaction(async (tx) => {
         await tx.groupEmailFunnelMessage.deleteMany({
           where: { emailFunnelId: existing.id },
@@ -194,16 +192,12 @@ export async function POST(
         });
       });
     } else {
-      // 이메일 설정 확인 (신규 생성 시 필수)
       const emailConfig = await prisma.groupEmailConfig.findUnique({
         where: { groupId },
       });
       if (!emailConfig) {
         return NextResponse.json(
-          {
-            error:
-              "이메일 설정이 없습니다. 먼저 이메일 계정을 연결하세요.",
-          },
+          { error: "이메일 설정이 없습니다. 먼저 이메일 계정을 연결하세요." },
           { status: 400 }
         );
       }
@@ -254,7 +248,7 @@ export async function POST(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: Promise<{ groupId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const ctx = await getAuthContext();
@@ -262,7 +256,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { groupId } = await params;
+    const { id: groupId } = await params;
 
     const funnel = await prisma.groupEmailFunnel.findFirst({
       where: { groupId, organizationId: ctx.organizationId },
