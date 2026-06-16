@@ -171,3 +171,43 @@
 [2026-06-16T07:02:08.451Z] [LOG] [Middleware] {"pathname":"/api/tools/call-logs","method":"GET","hasSession":false,"isProtected":false}
 [2026-06-16T07:02:08.522Z] [ERROR] [call-logs GET] {"e":{}}
  GET /api/tools/call-logs 500 in 71ms
+ ✓ Compiled in 2.7s (1214 modules)
+ ✓ Compiled in 2.3s (241 modules)
+[2026-06-16T07:03:17.778Z] [LOG] [Middleware] {"pathname":"/api/tools/call-logs","method":"GET","hasSession":false,"isProtected":false}
+ GET /api/tools/call-logs 401 in 127ms
+[2026-06-16T07:03:17.956Z] [LOG] [Middleware] {"pathname":"/api/tools/call-logs","method":"GET","hasSession":false,"isProtected":false}
+ GET /api/tools/call-logs 401 in 131ms
+ ✓ Compiled in 28.7s (241 modules)
+ ✓ Compiled in 902ms (241 modules)
+ ✓ Compiled in 61s (241 modules)
+ ✓ Compiled in 740ms (241 modules)
+ ✓ Compiled in 822ms (241 modules)
+ ✓ Compiled in 721ms (241 modules)
+ ✓ Compiled in 777ms (241 modules)
+ ✓ Compiled in 774ms (241 modules)
+ ✓ Compiled in 678ms (241 modules)
+ ✓ Compiled in 733ms (241 modules)
+ ✓ Compiled in 655ms (241 modules)
+ ✓ Compiled in 720ms (241 modules)
+ ✓ Compiled in 694ms (241 modules)
+ ✓ Compiled in 657ms (241 modules)
+ ✓ Compiled in 1764ms (241 modules)
+ ✓ Compiled in 973ms (241 modules)
+ ✓ Compiled in 1308ms (241 modules)
+ ✓ Compiled in 1078ms (241 modules)
+ ✓ Compiled in 1296ms (241 modules)
+ ✓ Compiled in 1137ms (241 modules)
+ ✓ Compiled in 842ms (241 modules)
+ ✓ Compiled in 925ms (241 modules)
+ ✓ Compiled in 655ms (241 modules)
+ ✓ Compiled in 719ms (241 modules)
+ ✓ Compiled in 718ms (241 modules)
+ ✓ Compiled in 726ms (241 modules)
+ ✓ Compiled in 732ms (241 modules)
+ ✓ Compiled in 808ms (241 modules)
+ ✓ Compiled in 723ms (241 modules)
+ ✓ Compiled in 867ms (241 modules)
+ ✓ Compiled in 737ms (241 modules)
+ ✓ Compiled in 8.7s (241 modules)
+ ✓ Compiled in 655ms (241 modules)
+ ✓ Compiled in 890ms (241 modules)
