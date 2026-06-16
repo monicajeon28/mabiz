@@ -1,7 +1,9 @@
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+export const runtime = "nodejs"; // P0-1: timingSafeEqual은 Edge에서 사용 불가
 
 import { NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto"; // P0-1: 타이밍 공격 방지
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 
@@ -60,13 +62,18 @@ export async function GET(req: Request) {
   if (!cronSecret) {
     return NextResponse.json({ ok: false, error: "CRON_SECRET 환경변수 미설정" }, { status: 500 });
   }
-  if (req.headers.get("authorization") !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ ok: false }, { status: 401 });
-  }
+
+  // P0-1: 타이밍 공격 방지 — timingSafeEqual 사용
+  const incoming = req.headers.get("authorization") ?? "";
+  const expected = `Bearer ${cronSecret}`;
+  const isValid =
+    incoming.length === expected.length &&
+    timingSafeEqual(Buffer.from(incoming, "utf8"), Buffer.from(expected, "utf8"));
+  if (!isValid) return NextResponse.json({ ok: false }, { status: 401 });
 
   const startTime = Date.now();
   const today = new Date();
-  logger.log("[Cron/gold-member-auto-count] 시작", { time: today.toISOString() });
+  logger.info("[Cron/gold-member-auto-count] 시작", { time: today.toISOString() }); // P2-3
 
   try {
     const members = await prisma.goldMember.findMany({
@@ -84,7 +91,7 @@ export async function GET(req: Request) {
 
     // 타임아웃 조기 체크
     if (Date.now() - startTime > MAX_DURATION_MS) {
-      logger.log("[Cron/gold-member-auto-count] 조기 종료 (쿼리 시간 초과)", { total: members.length });
+      logger.info("[Cron/gold-member-auto-count] 조기 종료 (쿼리 시간 초과)", { total: members.length }); // P2-3
       return NextResponse.json({ ok: false, error: "시간 초과" }, { status: 504 });
     }
 
@@ -94,15 +101,35 @@ export async function GET(req: Request) {
     let errorCount = 0;
 
     for (const m of members) {
+      // P0-3: 루프 내 타임아웃 체크
+      if (Date.now() - startTime > MAX_DURATION_MS) {
+        logger.warn("[Cron/gold-member-auto-count] 루프 중 조기 종료", { processed: updatedCount + skippedCount + errorCount });
+        break;
+      }
+
       try {
+        // P0-2: baseDate null 가드
         const baseDate = m.startDate ?? m.joinDate;
-        const expected = calcExpectedPayments(baseDate, m.paymentDay!, today);
+        if (!baseDate) {
+          logger.warn("[Cron/gold-member-auto-count] baseDate 없음, 스킵", { id: m.id });
+          skippedCount++;
+          continue;
+        }
+
+        // P2-2: paymentDay 범위 검증
+        if (m.paymentDay! < 1 || m.paymentDay! > 31) {
+          logger.warn("[Cron/gold-member-auto-count] paymentDay 범위 오류, 스킵", { id: m.id, paymentDay: m.paymentDay });
+          skippedCount++;
+          continue;
+        }
+
+        const expectedPayments = calcExpectedPayments(baseDate, m.paymentDay!, today);
 
         // 상한: maxPaymentCount > 0 → 그 값 우선, 아니면 totalPayments > 0 → 그 값, 없으면 상한 없음
         const limit = (m.maxPaymentCount != null && m.maxPaymentCount > 0)
           ? m.maxPaymentCount
           : m.totalPayments > 0 ? m.totalPayments : null;
-        const capped = limit != null ? Math.min(expected, limit) : expected;
+        const capped = limit != null ? Math.min(expectedPayments, limit) : expectedPayments;
 
         if (capped > m.paidCount) {
           await prisma.goldMember.update({
@@ -110,8 +137,13 @@ export async function GET(req: Request) {
             data: { paidCount: capped },
           });
           updatedCount++;
-          logger.log("[Cron/gold-member-auto-count] 업데이트", { id: m.id, from: m.paidCount, to: capped });
+          logger.info("[Cron/gold-member-auto-count] 업데이트", { id: m.id, from: m.paidCount, to: capped }); // P2-3
+        } else if (capped < m.paidCount) {
+          // P1-2: 역방향 감지 — warn 로그 후 skip
+          logger.warn("[Cron/gold-member-auto-count] paidCount 역방향 감지, 스킵", { id: m.id, paidCount: m.paidCount, capped });
+          skippedCount++;
         } else {
+          // capped === m.paidCount: 변경 없음, 조용히 skip
           skippedCount++;
         }
       } catch (memberErr) {
@@ -122,7 +154,7 @@ export async function GET(req: Request) {
     }
 
     const elapsed = Date.now() - startTime;
-    logger.log("[Cron/gold-member-auto-count] 완료", {
+    logger.info("[Cron/gold-member-auto-count] 완료", { // P2-3
       updatedCount, skippedCount, errorCount, total: members.length, elapsedMs: elapsed,
     });
     return NextResponse.json({ ok: true, updatedCount, skippedCount, errorCount, total: members.length, elapsedMs: elapsed });

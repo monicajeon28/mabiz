@@ -23,8 +23,19 @@ export async function POST(req: NextRequest) {
       totalPayments: number;
     };
 
+    // 필수 필드 존재 확인 (undefined/null 방지)
+    if (!body.name || typeof body.name !== 'string' ||
+        !body.phone || typeof body.phone !== 'string' ||
+        !body.email || typeof body.email !== 'string' ||
+        !body.courseType || !body.joinDate) {
+      return NextResponse.json(
+        { ok: false, error: '이름, 전화번호, 이메일, 코스, 가입날짜는 필수입니다.' },
+        { status: 400 }
+      );
+    }
+
     // 입력값 검증
-    if (!body.name || !body.name.trim()) {
+    if (!body.name.trim()) {
       return NextResponse.json(
         { ok: false, error: '이름은 필수입니다.' },
         { status: 400 }
@@ -60,9 +71,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!Number.isInteger(body.paymentDay) || body.paymentDay < 1 || body.paymentDay > 31) {
+    if (body.paymentDay < 1 || body.paymentDay > 28) {
       return NextResponse.json(
-        { ok: false, error: '결제일은 1-31 사이 정수여야 합니다.' },
+        { ok: false, error: '결제일은 1-28 사이여야 합니다.' },
         { status: 400 }
       );
     }
@@ -74,9 +85,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 기존 가입 확인 (이메일 기반)
+    const joinDateObj = new Date(body.joinDate);
+    if (isNaN(joinDateObj.getTime())) {
+      return NextResponse.json({ ok: false, error: '올바른 날짜 형식이 아닙니다.' }, { status: 400 });
+    }
+
+    // 기존 가입 확인 (이메일 기반 — 소프트삭제 제외)
     const existing = await prisma.goldMember.findFirst({
-      where: { email: body.email.toLowerCase() },
+      where: { email: body.email.toLowerCase(), deletedAt: null },
     });
 
     if (existing) {
@@ -89,7 +105,7 @@ export async function POST(req: NextRequest) {
     // 조직 구분 (공개 신청 → 환경변수, 로그인 시 세션 우선)
     let organizationId = process.env.DEFAULT_ORGANIZATION_ID ?? '';
     if (!organizationId) {
-      return NextResponse.json({ ok: false, message: '서비스 설정 오류입니다.' }, { status: 500 });
+      return NextResponse.json({ ok: false, error: '서비스 설정 오류입니다.' }, { status: 500 });
     }
     try {
       const ctx = await getMabizSession();
@@ -98,31 +114,28 @@ export async function POST(req: NextRequest) {
       // 로그인하지 않은 공개 신청 → 환경변수 값 사용
     }
 
-    // 고유 memberCode 생성 (최대 10회 재시도 — 충돌 방지)
-    let memberCode = '';
-    for (let i = 0; i < 10; i++) {
-      const code = generateMemberCode();
-      const exists = await prisma.goldMember.findUnique({ where: { memberCode: code } });
-      if (!exists) { memberCode = code; break; }
-    }
-    if (!memberCode) {
-      return NextResponse.json({ ok: false, error: '코드 생성 실패. 다시 시도해주세요.' }, { status: 500 });
-    }
-
-    // 골드회원 생성 — memo에 paymentMethod 포함하여 단일 create로 처리
+    // 골드회원 생성
+    // NOTE: paymentMethod는 별도 테이블이나 메타데이터로 저장 필요 (현재: 후속 개발)
     const goldMember = await prisma.goldMember.create({
       data: {
         name: body.name.trim(),
         phone: phoneDigits,
         email: body.email.toLowerCase(),
-        memberCode,
+        memberCode: generateMemberCode(),
         courseType: body.courseType,
-        joinDate: new Date(body.joinDate),
+        joinDate: joinDateObj,
         paymentDay: body.paymentDay,
         totalPayments: body.totalPayments,
         paidCount: 0,
-        status: 'PENDING',
+        status: 'PENDING', // 결제 대기 상태
         organizationId,
+      },
+    });
+
+    // paymentMethod를 memo에 기록 (임시)
+    await prisma.goldMember.update({
+      where: { id: goldMember.id },
+      data: {
         memo: `결제방법: ${body.paymentMethod === 'card' ? '신용카드' : '계좌이체'}`,
       },
     });
