@@ -2,32 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { getMabizSession } from "@/lib/auth";
+import { checkRateLimitAsync } from "@/lib/rate-limit";
 
 const PAGE_SIZE = 20;
-
-// [SEC-005] Rate Limiting: 공개 API 보호
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1분
-const RATE_LIMIT_MAX_REQUESTS = 10; // 1분당 10회
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-
-function checkRateLimitPublic(clientIp: string): { allowed: boolean; resetAt?: number } {
-  const now = Date.now();
-  const key = `api:bot-guide:${clientIp}`;
-  const entry = rateLimitMap.get(key);
-
-  if (!entry || now >= entry.resetAt) {
-    // 새로운 윈도우 시작
-    rateLimitMap.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return { allowed: true };
-  }
-
-  if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
-    return { allowed: false, resetAt: entry.resetAt };
-  }
-
-  entry.count++;
-  return { allowed: true };
-}
 
 /**
  * GET /api/tools/bot-guide-answers
@@ -41,13 +18,22 @@ function checkRateLimitPublic(clientIp: string): { allowed: boolean; resetAt?: n
  * - limit?: number (기본값 20)
  */
 export async function GET(req: NextRequest) {
+  // [수정 1] GET 인증 추가
+  const session = await getMabizSession();
+  if (!session) return NextResponse.json({ ok: false }, { status: 401 });
+
   try {
+    // [수정 2] Rate Limit: checkRateLimitAsync로 교체
+    const rl = await checkRateLimitAsync(`bot-guide:${session.userId}`, 30, 60_000);
+    if (!rl.allowed) return NextResponse.json({ ok: false, message: "잠시 후 다시 시도하세요." }, { status: 429 });
+
     const searchParams = req.nextUrl.searchParams;
     const query = searchParams.get("q")?.toLowerCase().trim() || "";
     const category = searchParams.get("category") || "";
     const tone = searchParams.get("tone") || "";
     const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || PAGE_SIZE.toString());
+    // [수정 4] limit 파라미터 상한 클램핑
+    const limit = Math.min(Math.max(1, parseInt(searchParams.get("limit") || PAGE_SIZE.toString())), 100);
 
     // where 조건 구성
     const where: any = { isActive: true };
@@ -141,26 +127,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // [SEC-005] Rate Limiting: 공개 API 스팸 방지
-    const clientIp = req.headers.get("x-forwarded-for") ||
-                     req.headers.get("x-real-ip") ||
-                     "unknown";
-    const rateLimit = checkRateLimitPublic(clientIp);
-
-    if (!rateLimit.allowed) {
-      logger.warn("[BotGuideAnswers] Rate limit exceeded", {
-        clientIp,
-        resetAt: new Date(rateLimit.resetAt!).toISOString(),
-      });
-      return NextResponse.json(
-        {
-          ok: false,
-          message: `요청이 너무 많습니다. ${Math.ceil((rateLimit.resetAt! - Date.now()) / 1000)}초 후 다시 시도하세요.`,
-          resetAt: rateLimit.resetAt,
-        },
-        { status: 429 }
-      );
-    }
+    // [수정 2] Rate Limit: checkRateLimitAsync로 교체
+    const postRl = await checkRateLimitAsync(`bot-guide:${session.userId}`, 10, 60_000);
+    if (!postRl.allowed) return NextResponse.json({ ok: false, message: "잠시 후 다시 시도하세요." }, { status: 429 });
 
     let body: any = {};
     try {
@@ -309,7 +278,7 @@ export async function POST(req: NextRequest) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     logger.error("[bot-guide-answers POST] Error", { error: errorMsg, stack: error instanceof Error ? error.stack : undefined });
     return NextResponse.json(
-      { ok: false, message: "업로드 중 오류가 발생했습니다.", error: errorMsg },
+      { ok: false, message: "처리 중 오류가 발생했습니다." },
       { status: 500 }
     );
   }
