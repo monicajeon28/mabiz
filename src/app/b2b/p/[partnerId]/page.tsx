@@ -15,6 +15,15 @@ interface TemplateData {
   htmlContent: string | null;
 }
 
+interface L6Config {
+  enabled: boolean;
+  hoursRemaining?: string;
+  seatsAvailable?: string;
+  currentPrice?: string;
+  tomorrowPrice?: string;
+  discount?: string;
+}
+
 // ─── 패키지 옵션 ────────────────────────────────────────────
 const PACKAGE_OPTIONS = [
   { value: '330', label: '스탠다드 패키지 -- 330만원' },
@@ -208,6 +217,7 @@ export default function PartnerB2BLandingPage() {
   const [template, setTemplate] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [l6Config, setL6Config] = useState<L6Config | null>(null);
 
   // 파트너 정보 + 템플릿 조회
   useEffect(() => {
@@ -230,6 +240,15 @@ export default function PartnerB2BLandingPage() {
           // affiliateCode 쿠키 저장 (파트너 추적)
           if (infoData.partner?.affiliateCode) {
             document.cookie = `affiliate_code=${infoData.partner.affiliateCode};path=/;max-age=${60 * 60 * 24 * 30};SameSite=Lax`;
+          }
+
+          // L6 렌즈 설정 추출 (formConfig.l6Config)
+          const fc = infoData.landingPage?.formConfig;
+          if (fc && typeof fc === 'object') {
+            const l6 = (fc as Record<string, unknown>).l6Config;
+            if (l6 && typeof l6 === 'object' && (l6 as Record<string, unknown>).enabled === true) {
+              setL6Config(l6 as L6Config);
+            }
           }
         }
 
@@ -292,14 +311,16 @@ export default function PartnerB2BLandingPage() {
               <TemplateHtml html={part} />
               {i < parts.length - 1 && (
                 <div className="max-w-md mx-auto px-4 py-8">
-                  {/* L6 렌즈: 타이밍/손실회피 배너 */}
-                  <L6TimingBanner
-                    hoursRemaining={24}
-                    seatsAvailable={5}
-                    currentPrice={3300000}
-                    tomorrowPrice={3450000}
-                    earlyBookingDiscount={15}
-                  />
+                  {/* L6 렌즈: 타이밍/손실회피 배너 (formConfig.l6Config 기반) */}
+                  {l6Config?.enabled && (
+                    <L6TimingBanner
+                      hoursRemaining={parseInt(l6Config.hoursRemaining ?? "24")}
+                      seatsAvailable={parseInt(l6Config.seatsAvailable ?? "5")}
+                      currentPrice={parseInt(l6Config.currentPrice ?? "3300000")}
+                      tomorrowPrice={parseInt(l6Config.tomorrowPrice ?? "3450000")}
+                      earlyBookingDiscount={parseInt(l6Config.discount ?? "15")}
+                    />
+                  )}
                   <LeadForm partnerId={partnerId} />
                 </div>
               )}
@@ -334,14 +355,16 @@ export default function PartnerB2BLandingPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4 py-10">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-md p-8">
-        {/* L6 렌즈: 타이밍/손실회피 배너 */}
-        <L6TimingBanner
-          hoursRemaining={24}
-          seatsAvailable={5}
-          currentPrice={3300000}
-          tomorrowPrice={3450000}
-          earlyBookingDiscount={15}
-        />
+        {/* L6 렌즈: 타이밍/손실회피 배너 (formConfig.l6Config 기반) */}
+        {l6Config?.enabled && (
+          <L6TimingBanner
+            hoursRemaining={parseInt(l6Config.hoursRemaining ?? "24")}
+            seatsAvailable={parseInt(l6Config.seatsAvailable ?? "5")}
+            currentPrice={parseInt(l6Config.currentPrice ?? "3300000")}
+            tomorrowPrice={parseInt(l6Config.tomorrowPrice ?? "3450000")}
+            earlyBookingDiscount={parseInt(l6Config.discount ?? "15")}
+          />
+        )}
 
         {/* 헤더 */}
         <div className="mb-8 text-center">
