@@ -281,12 +281,13 @@ export async function POST(req: Request) {
       }
 
       // P1-3: B2B 결제의 경우 landingSlug가 없어 orgId가 null → orderId로 폴백 조회
+      // organizationId가 null인 레코드면 덮어쓰지 않도록 null 체크 필수
       if (!orgId && orderId) {
         const paymentMeta = await prisma.payAppPayment.findFirst({
           where: { orderId },
           select: { organizationId: true, landingPageId: true },
         });
-        if (paymentMeta) {
+        if (paymentMeta?.organizationId) {
           orgId = paymentMeta.organizationId;
           landingPageId = paymentMeta.landingPageId;
         }
