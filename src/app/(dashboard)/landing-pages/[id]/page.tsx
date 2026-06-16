@@ -113,12 +113,12 @@ export default function EditLandingPage() {
   const [stats,        setStats]        = useState<LandingStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
-  // 공유 (OWNER + GLOBAL_ADMIN)
-  type ShareEntry = { id: string; userId: string; sharedByUserId: string; createdAt: string };
-  type OrgMember  = { userId: string; displayName: string | null; role: string };
-  const [shares,      setShares]      = useState<ShareEntry[]>([]);
-  const [orgMembers,  setOrgMembers]  = useState<OrgMember[]>([]);
-  const [shareUserId, setShareUserId] = useState("");
+  // 공유 (OWNER + GLOBAL_ADMIN) — 조직 단위 공유
+  type ShareEntry   = { id: string; sharedToOrgId: string; sharedToOrgName: string; isGlobal: boolean; sharedByName: string | null; createdAt: string };
+  type ShareableOrg = { orgId: string; label: string };
+  const [shares,        setShares]        = useState<ShareEntry[]>([]);
+  const [shareableOrgs, setShareableOrgs] = useState<ShareableOrg[]>([]);
+  const [shareOrgId,    setShareOrgId]    = useState("");
   const [shareMsg,    setShareMsg]    = useState("");
   const [b2bEduType, setB2bEduType] = useState<"" | "INQUIRER" | "BUYER">("");
 
@@ -152,11 +152,11 @@ export default function EditLandingPage() {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       }).catch((e) => { if (e?.name === 'AbortError') throw e; return { ok: false }; }),
-      fetch("/api/org/members", { signal }).then((r) => {
+      fetch("/api/landing-pages/shareable-orgs", { signal }).then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       }).catch((e) => { if (e?.name === 'AbortError') throw e; return { ok: false }; }),
-    ]).then(([pageData, groupData, membersData]) => {
+    ]).then(([pageData, groupData, shareableOrgsData]) => {
       if (pageData.ok && pageData.page) {
         setTitle(pageData.page.title ?? "");
         setSlug(pageData.page.slug ?? "");
@@ -212,8 +212,8 @@ export default function EditLandingPage() {
         if (cc?.dateTo)   setCommentDateTo(cc.dateTo);
       }
       if (groupData.ok) setGroupCategories(groupData.categories ?? []);
-      if (membersData.ok && membersData.members) {
-        setOrgMembers(membersData.members.filter((m: OrgMember) => m.role === "OWNER"));
+      if (shareableOrgsData.ok && shareableOrgsData.orgs) {
+        setShareableOrgs(shareableOrgsData.orgs.map((o: { orgId: string; label: string }) => ({ orgId: o.orgId, label: o.label })));
       }
       if (!signal.aborted) setLoading(false);
     }).catch((e) => { if (e?.name !== 'AbortError') setLoading(false); });
@@ -263,19 +263,19 @@ export default function EditLandingPage() {
   };
 
   const addShare = async () => {
-    if (!shareUserId) return;
+    if (!shareOrgId) return;
     setShareMsg("");
     try {
       const res = await fetch(`/api/landing-pages/${id}/share`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: shareUserId }),
+        body: JSON.stringify({ sharedToOrgId: shareOrgId }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.ok) {
         setShareMsg("공유 완료!");
-        setShareUserId("");
+        setShareOrgId("");
         loadShares();
       } else {
         setShareMsg(data.message ?? "공유 실패");
@@ -286,11 +286,11 @@ export default function EditLandingPage() {
   };
 
   // Task 1-5: removeShare — HTTP 에러 처리 추가
-  const removeShare = async (userId: string) => {
+  const removeShare = async (sharedToOrgId: string) => {
     try {
-      const res = await fetch(`/api/landing-pages/${id}/share?userId=${encodeURIComponent(userId)}`, { method: "DELETE" });
+      const res = await fetch(`/api/landing-pages/${id}/share?sharedToOrgId=${encodeURIComponent(sharedToOrgId)}`, { method: "DELETE" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setShares((prev) => prev.filter((s) => s.userId !== userId));
+      setShares((prev) => prev.filter((s) => s.sharedToOrgId !== sharedToOrgId));
     } catch {
       setError("공유 취소 실패");
     }
@@ -1327,18 +1327,18 @@ export default function EditLandingPage() {
             {/* 공유 추가 */}
             <div className="flex gap-2 mb-4">
               <select
-                value={shareUserId}
-                onChange={(e) => setShareUserId(e.target.value)}
+                value={shareOrgId}
+                onChange={(e) => setShareOrgId(e.target.value)}
                 className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-navy-500"
               >
-                <option value="">파트너 선택 (대리점장)</option>
-                {orgMembers.map((m) => (
-                  <option key={m.userId} value={m.userId}>{m.displayName ?? m.userId}</option>
+                <option value="">대리점 선택</option>
+                {shareableOrgs.map((o) => (
+                  <option key={o.orgId} value={o.orgId}>{o.label}</option>
                 ))}
               </select>
               <button
                 onClick={addShare}
-                disabled={!shareUserId}
+                disabled={!shareOrgId}
                 className="bg-navy-900 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-40 hover:bg-navy-800"
               >공유</button>
             </div>
@@ -1346,25 +1346,21 @@ export default function EditLandingPage() {
 
             {/* 공유 목록 */}
             {shares.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-8">공유된 파트너가 없습니다.</p>
+              <p className="text-sm text-gray-400 text-center py-8">공유된 대리점이 없습니다.</p>
             ) : (
               <div className="space-y-2">
-                {shares.map((s) => {
-                  const member = orgMembers.find((m) => m.userId === s.userId);
-                  if (!member) return null;
-                  return (
-                    <div key={s.id} className="flex items-center justify-between bg-white rounded-xl border border-gray-100 px-4 py-3">
-                      <div>
-                        <p className="text-sm font-medium text-gray-800">{member.displayName ?? s.userId}</p>
-                        <p className="text-xs text-gray-400">{new Date(s.createdAt).toLocaleDateString("ko-KR")} 공유</p>
-                      </div>
-                      <button
-                        onClick={() => removeShare(s.userId)}
-                        className="text-xs text-red-400 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded"
-                      >취소</button>
+                {shares.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between bg-white rounded-xl border border-gray-100 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">{s.sharedToOrgName}</p>
+                      <p className="text-xs text-gray-400">{new Date(s.createdAt).toLocaleDateString("ko-KR")} 공유</p>
                     </div>
-                  );
-                })}
+                    <button
+                      onClick={() => removeShare(s.sharedToOrgId)}
+                      className="text-xs text-red-400 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded"
+                    >취소</button>
+                  </div>
+                ))}
               </div>
             )}
           </div>

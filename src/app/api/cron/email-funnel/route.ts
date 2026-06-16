@@ -76,10 +76,9 @@ export async function GET(req: Request) {
     // ── 2단계: 배치 발송 ────────────────────────────────────────────
     for (const msg of pendingMessages) {
       try {
-        // 2-1. 야간 차단 (KST 22시-08시 사이 → NIGHT_BLOCKED 상태로 다음날 08시로 연기)
-        const kstHour = new Date(msg.scheduledAt.getTime() + 9 * 60 * 60 * 1000).getUTCHours();
-        if (kstHour >= 22 || kstHour < 8) {
-          // 다음날 KST 08:00 = 다음날 UTC 23:00 → 현재 scheduledAt에서 23시간 앞으로 조정
+        // 2-1. 야간 차단 (현재 KST 22시-08시 사이 → NIGHT_BLOCKED 상태로 다음날 08시로 연기)
+        const kstNowHour = new Date(now.getTime() + 9 * 60 * 60 * 1000).getUTCHours();
+        if (kstNowHour >= 22 || kstNowHour < 8) {
           const kstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
           const kstTomorrowHour8 = new Date(
             Date.UTC(
@@ -98,7 +97,7 @@ export async function GET(req: Request) {
           });
           logger.log("[Cron/EmailFunnel] 야간 차단", {
             msgId: msg.id,
-            kstHour,
+            kstNowHour,
             nextTry: kstTomorrowHour8,
           });
           continue;

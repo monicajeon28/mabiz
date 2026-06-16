@@ -469,7 +469,7 @@ export async function POST(req: Request, { params }: Params) {
           funnelStarted = funnelStarted || triggered || smsTriggered || emailTriggered;
 
           // funnelStarted 업데이트 (fire-and-forget)
-          if (triggered || smsTriggered) {
+          if (triggered || smsTriggered || emailTriggered) {
             // id로 특정 행만 업데이트 (updateMany 다중 행 방지)
             prisma.crmLandingRegistration.update({
               where: { id: regId },

@@ -358,7 +358,7 @@ export default function GroupsPage() {
         setFunnels((fRes.value as { ok: boolean; funnels?: { id: string; name: string }[] }).funnels ?? []);
       }
       if (fsRes.status === "fulfilled" && fsRes.value.ok) {
-        setFunnelSmsList((fsRes.value as { ok: boolean; funnelSmsList?: { id: string; title: string }[] }).funnelSmsList ?? []);
+        setFunnelSmsList((fsRes.value as { ok: boolean; data?: { id: string; title: string }[] }).data ?? []);
       }
       if (feRes.status === "fulfilled" && feRes.value.ok) {
         const feData = (feRes.value as { ok: boolean; data?: { id: string; title: string }[] }).data ?? [];

@@ -41,6 +41,7 @@ export async function GET(req: Request, { params }: Params) {
         color: true,
         parentGroupId: true,
         funnelId: true,
+        funnelSmsId: true,
         funnelEmailId: true,
         funnelIds: true,
         funnelSmsIds: true,
@@ -204,7 +205,21 @@ export async function PATCH(req: Request, { params }: Params) {
       updateData.parentGroupId = body.parentGroupId;
     }
 
-    if (body.funnelIds !== undefined) updateData.funnelIds = body.funnelIds;
+    // funnelIds IDOR 검증
+    if (body.funnelIds !== undefined) {
+      if (Array.isArray(body.funnelIds) && body.funnelIds.length > 0) {
+        const validCount = await prisma.funnel.count({
+          where: { id: { in: body.funnelIds }, organizationId: orgId },
+        });
+        if (validCount !== body.funnelIds.length) {
+          return NextResponse.json(
+            { ok: false, error: 'INVALID_FUNNEL', message: '유효하지 않은 퍼널 ID가 포함되어 있습니다.' },
+            { status: 400 }
+          );
+        }
+      }
+      updateData.funnelIds = body.funnelIds;
+    }
 
     // funnelSmsIds IDOR 검증
     if (body.funnelSmsIds !== undefined) {
@@ -264,7 +279,24 @@ export async function PATCH(req: Request, { params }: Params) {
     if (body.reEntryPolicy !== undefined) updateData.reEntryPolicy = body.reEntryPolicy;
     if (body.autoMoveEnabled !== undefined) updateData.autoMoveEnabled = body.autoMoveEnabled;
     if (body.autoMoveDays !== undefined) updateData.autoMoveDays = body.autoMoveDays;
-    if (body.autoMoveTargetGroupId !== undefined) updateData.autoMoveTargetGroupId = body.autoMoveTargetGroupId;
+    // autoMoveTargetGroupId IDOR 검증
+    if (body.autoMoveTargetGroupId !== undefined) {
+      if (body.autoMoveTargetGroupId === null) {
+        updateData.autoMoveTargetGroupId = null;
+      } else if (typeof body.autoMoveTargetGroupId === 'string') {
+        const targetGroup = await prisma.contactGroup.findFirst({
+          where: { id: body.autoMoveTargetGroupId, organizationId: orgId },
+          select: { id: true },
+        });
+        if (!targetGroup) {
+          return NextResponse.json(
+            { ok: false, error: 'INVALID_GROUP', message: '자동이동 대상 그룹을 찾을 수 없습니다.' },
+            { status: 400 }
+          );
+        }
+        updateData.autoMoveTargetGroupId = body.autoMoveTargetGroupId;
+      }
+    }
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
