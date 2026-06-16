@@ -96,6 +96,7 @@ type PendingContract = {
   rejectedAt?: string | null;
   rejectReason?: string | null;
   rejectedByName?: string | null;
+  hasAccount?: boolean | null;
 };
 
 // ─── Constants ────────────────────────────────────────────────
@@ -1114,6 +1115,11 @@ export default function OrganizationsPage() {
                         <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
                           {typeLabel}
                         </span>
+                        {isApproved && c.hasAccount !== null && (
+                          c.hasAccount
+                            ? <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">아이디 있음 ✅</span>
+                            : <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">아이디 미생성 ⚠️</span>
+                        )}
                       </div>
                       <p className="text-sm text-gray-500">
                         {c.phone ?? '-'} · {c.email ?? '-'}

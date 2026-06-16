@@ -61,6 +61,19 @@ export async function GET(req: NextRequest) {
       prisma.gmAffiliateContract.count({ where }),
     ]);
 
+    // APPROVED 계약에 대해 계정(OrganizationMember) 존재 여부 배치 조회
+    const approvedPhones = contracts
+      .filter((c) => c.status === 'APPROVED' && c.phone)
+      .map((c) => c.phone as string);
+
+    const existingMembers = approvedPhones.length > 0
+      ? await prisma.organizationMember.findMany({
+          where: { phone: { in: approvedPhones } },
+          select: { phone: true },
+        })
+      : [];
+    const memberPhoneSet = new Set(existingMembers.map((m) => m.phone).filter(Boolean) as string[]);
+
     return NextResponse.json({
       ok: true,
       data: {
@@ -76,6 +89,9 @@ export async function GET(req: NextRequest) {
             rejectedAt: meta?.rejectedAt || null,
             rejectReason: meta?.rejectReason || null,
             rejectedByName: meta?.rejectedByName || null,
+            hasAccount: c.status === 'APPROVED'
+              ? memberPhoneSet.has(c.phone ?? '')
+              : null,
           };
         }),
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
