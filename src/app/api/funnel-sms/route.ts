@@ -139,7 +139,15 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = resolveOrgId(ctx);
+    // GLOBAL_ADMIN은 BONSA_ORG_ID 대신 DB 첫 번째 조직 사용 (FK 위반 방지)
+    let orgId: string;
+    if (ctx.role === 'GLOBAL_ADMIN' && !ctx.organizationId) {
+      const firstOrg = await prisma.organization.findFirst({ select: { id: true } });
+      if (!firstOrg) return NextResponse.json({ ok: false, message: '조직이 없습니다' }, { status: 500 });
+      orgId = firstOrg.id;
+    } else {
+      orgId = resolveOrgId(ctx);
+    }
 
     const body = await req.json();
     const validation = CreateFunnelSmsSchema.safeParse(body);
@@ -159,7 +167,8 @@ export async function POST(req: Request) {
       validation.data;
 
     // [P0 보안] 발신번호 검증 — 조직이 등록·검증한 번호만 허용(발신번호 변작 방지)
-    if (senderPhone) {
+    // GLOBAL_ADMIN은 검증 없이 저장 허용 (관리자 신뢰)
+    if (senderPhone && ctx.role !== 'GLOBAL_ADMIN') {
       const phoneValidation = await validateSenderPhone(orgId, senderPhone);
       if (!phoneValidation.valid) {
         return NextResponse.json(

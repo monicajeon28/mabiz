@@ -100,12 +100,12 @@ const IMAGE_FIELDS_BY_FORMAT: Record<PageFormat, Array<{ name: string; required:
   ],
 };
 
-// CTA 심리학 맵
+// CTA 심리학 맵 (API 스키마와 일치: default/urgent/explore/reserve)
 const CTA_PSYCHOLOGY_MAP: Record<string, { emoji: string; text: string; psychology: string }> = {
   default: { emoji: '✓', text: '신청하기', psychology: '기본 액션' },
-  urgency: { emoji: '⚡', text: '지금 신청하기', psychology: '긴박감' },
-  exclusive: { emoji: '👑', text: '제한된 자리 예약', psychology: '희소성' },
-  fomo: { emoji: '🔥', text: '마감 전 신청', psychology: '손실회피' },
+  urgent:  { emoji: '⚡', text: '지금 신청하기', psychology: '긴박감' },
+  explore: { emoji: '👑', text: '제한된 자리 예약', psychology: '희소성' },
+  reserve: { emoji: '🔥', text: '마감 전 신청', psychology: '손실회피' },
 };
 
 // Day 0-3 SMS 템플릿
@@ -956,7 +956,7 @@ ${footerBlock}
                 onClick={() => {
                   setPageFormat('squeeze');
                   setTitle('크루즈 멤버십 신청');
-                  setCtaType('urgency');
+                  setCtaType('urgent');
                 }}
                 className="p-3 bg-white rounded-xl border-2 border-yellow-300 hover:border-yellow-500 hover:shadow-md transition text-left"
               >
@@ -980,7 +980,7 @@ ${footerBlock}
                 onClick={() => {
                   setPageFormat('webinar');
                   setTitle('설명회 참가 신청');
-                  setCtaType('urgency');
+                  setCtaType('urgent');
                 }}
                 className="p-3 bg-white rounded-xl border-2 border-green-200 hover:border-green-400 hover:shadow-md transition text-left"
               >
