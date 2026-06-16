@@ -52,10 +52,11 @@ async function acquireLock(): Promise<boolean> {
     });
     return result === "OK";
   } catch (err) {
-    logger.error("[CronScheduledSms] Redis 락 획득 실패", {
+    // Redis 연결 불가 시 락 없이 진행 (SMS 발송은 계속되어야 함)
+    logger.warn("[CronScheduledSms] Redis 락 획득 실패 — 락 없이 진행", {
       error: err instanceof Error ? err.message : String(err),
     });
-    return false; // 에러 발생 시 안전하게 스킵
+    return true;
   }
 }
 
