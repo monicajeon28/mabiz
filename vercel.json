@@ -159,6 +159,10 @@
     {
       "path": "/api/cron/sync-drive-calls",
       "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/cron/backup-affiliate-contracts",
+      "schedule": "0 21 * * *"
     }
   ]
 }
