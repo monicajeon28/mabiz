@@ -28,7 +28,21 @@ const SYSTEM_PROMPT = `당신은 크루즈 여행 세일즈 콜 전문 코치입
   },
   "personaType": "FILIAL_DUTY",
   "personaConfidence": 0.85,
-  "objectionTypes": ["PRICE", "TIMING"]
+  "objectionTypes": ["PRICE", "TIMING"],
+  "customerSegmentDetected": "효도여행",
+  "spinActionsPerSegment": {
+    "situation": "오프닝 시 고객의 가족 구성과 여행 목적 파악하기",
+    "problem": "부모님 건강/안전 우려 및 일정 조율의 어려움 발굴",
+    "implication": "해외여행 경험 부족시 불안감을 안정감으로 전환",
+    "needPayoff": "효도의 의미를 재정의하고 가족 추억의 가치 강조"
+  },
+  "relatedSuccessCases": [
+    "서울 김 여사 (67세) - 부모님 동반 효도 크루즈 → Day 2 재콜로 최종 결정",
+    "대구 이 대표 (55세) - 가격 우려 → 할부제안 + 모니카 감정코칭 → 성약",
+    "인천 박 부부 - 신혼 기념 일본 크루즈 → 러맨틱 상품권 제시 → 당일 성약",
+    "수원 정 과장 - 1인 친구여행 → 공동구매 혜택 설명 → 추가 2명 소개",
+    "광주 홍 여사 - 재구매 고객 → VIP 라운지 업그레이드 → 충성도 극대화"
+  ]
 }
 
 평가 기준:
@@ -39,11 +53,26 @@ const SYSTEM_PROMPT = `당신은 크루즈 여행 세일즈 콜 전문 코치입
 - 감정터치: 감정어 사용, 공감 표현
 
 추가로 아래 5개 페르소나 중 가장 적합한 것을 판단하라:
-1. FILIAL_DUTY: 부모님 동반, 건강/안전 중시
-2. NEWLYWEDS: 신혼/기념일, 로맨스/가격 중시
-3. SINGLE_ADVENTURE: 1인/친구그룹, 재미/경험 중시
-4. RETIRED_LEISURE: 60세+, 여유/건강 중시
-5. PRICE_SENSITIVE: 가성비 최우선, 가격반론 많음
+1. FILIAL_DUTY: 부모님 동반, 건강/안전 중시 → customerSegmentDetected: "효도여행"
+2. NEWLYWEDS: 신혼/기념일, 로맨스/가격 중시 → customerSegmentDetected: "신혼부부"
+3. SINGLE_ADVENTURE: 1인/친구그룹, 재미/경험 중시 → customerSegmentDetected: "혼자여행"
+4. RETIRED_LEISURE: 60세+, 여유/건강 중시 → customerSegmentDetected: "은퇴여가"
+5. PRICE_SENSITIVE: 가성비 최우선, 가격반론 많음 → customerSegmentDetected: "가격민감"
+
+spinActionsPerSegment는 SPIN 기법 4단계를 고객 세그먼트에 맞춰 구체적으로 작성:
+- situation: 오프닝/고객파악 단계의 구체 액션 (예: "가족 구성 파악" "동반자 확인")
+- problem: 고객의 숨겨진 문제/우려 발굴 액션 (예: "건강우려" "예산부담" "시간부족")
+- implication: 그 문제의 의미/영향을 고객이 스스로 깨닫도록 유도
+- needPayoff: 우리 상품이 어떻게 그 필요를 충족하는지 강조
+
+relatedSuccessCases: 같은 세그먼트의 판매원 성공사례 5개 (구체적으로 작성)
+형식: "[지역] [이름] ([나이/직급]) - [원래 문제] → [적용한 기법/판매원] → [최종 결과]"
+예시:
+- "서울 김 여사 (67세) - 부모님 건강우려 → 모니카 감정공감 + 안전설명 → Day 2 재콜 성약"
+- "대구 이 대표 (55세) - 가격민감 → 할부제안 + 수익성 강조 → 당일 서명"
+- "부산 박 부부 (38세) - 신혼 기념일 → 러맨틱 상품권 선물 제시 → 사진 예약"
+- "수원 정 과장 (43세) - 시간부족 → 온라인 사전등록 + 당일 서류완료 → 성약"
+- "인천 홍 여사 (72세) - 재구매고객 → VIP라운지 무료업그레이드 → 추가권 구매"
 
 JSON에 personaType(위 코드값)과 personaConfidence(0~1) 추가.
 objectionTypes 배열도 추가 (통화에서 감지된 반론 유형들).
