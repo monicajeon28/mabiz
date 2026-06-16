@@ -57,7 +57,8 @@ export default function GoldMemberDetailPage() {
 
   const [member, setMember]         = useState<GoldMemberDetail | null>(null);
   const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState("");
+  const [loadError, setLoadError]   = useState("");   // 페이지 로드 오류 (초기 화면 교체)
+  const [actionError, setActionError] = useState(""); // 액션 오류 (인라인 표시)
 
   // 상태 관리
   const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
@@ -81,11 +82,11 @@ export default function GoldMemberDetailPage() {
       .then((r) => r.json())
       .then((d) => {
         if (d.ok) setMember(d.member);
-        else setError(d.error ?? "불러오기 실패");
+        else setLoadError(d.error ?? "불러오기 실패");
       })
       .catch((err) => {
         if (err.name !== 'AbortError') {
-          setError("서버 오류");
+          setLoadError("서버 오류");
         }
       })
       .finally(() => setLoading(false));
@@ -104,7 +105,7 @@ export default function GoldMemberDetailPage() {
 
   const handleStatusChange = async (newStatus: string) => {
     setStatusUpdating(newStatus);
-    setError("");
+    setActionError("");
     try {
       const res = await fetch(`/api/gold-members/${id}`, {
         method: "PATCH",
@@ -115,10 +116,10 @@ export default function GoldMemberDetailPage() {
       if (data.ok) {
         setMember((prev) => prev ? { ...prev, status: newStatus } : prev);
       } else {
-        setError(data.error ?? "상태 업데이트 실패");
+        setActionError(data.error ?? "상태 업데이트 실패");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "서버 오류");
+      setActionError(err instanceof Error ? err.message : "서버 오류");
     } finally {
       setStatusUpdating(null);
     }
@@ -160,10 +161,10 @@ export default function GoldMemberDetailPage() {
     );
   }
 
-  if (error || !member) {
+  if (loadError || !member) {
     return (
       <div className="p-6 text-center text-gray-500">
-        <p>{error || "회원을 찾을 수 없습니다."}</p>
+        <p>{loadError || "회원을 찾을 수 없습니다."}</p>
         <button onClick={() => router.push("/gold-members")} className="mt-4 text-sm text-blue-600 hover:underline">
           목록으로 돌아가기
         </button>
@@ -298,6 +299,11 @@ export default function GoldMemberDetailPage() {
       <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
         <h2 className="text-sm font-semibold text-gray-700 mb-2">상태 관리</h2>
         <p className="text-xs text-gray-400 mb-4">납부 회차는 매월 납부일마다 자동으로 증가합니다.</p>
+        {actionError && (
+          <div className="mb-3 px-3 py-2 bg-red-50 text-red-600 text-xs rounded-lg border border-red-100">
+            {actionError}
+          </div>
+        )}
         <div className="flex flex-wrap gap-3">
           <button
             onClick={() => handleStatusChange("ACTIVE")}

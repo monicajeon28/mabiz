@@ -98,28 +98,31 @@ export async function POST(req: NextRequest) {
       // 로그인하지 않은 공개 신청 → 환경변수 값 사용
     }
 
-    // 골드회원 생성
-    // NOTE: paymentMethod는 별도 테이블이나 메타데이터로 저장 필요 (현재: 후속 개발)
+    // 고유 memberCode 생성 (최대 10회 재시도 — 충돌 방지)
+    let memberCode = '';
+    for (let i = 0; i < 10; i++) {
+      const code = generateMemberCode();
+      const exists = await prisma.goldMember.findUnique({ where: { memberCode: code } });
+      if (!exists) { memberCode = code; break; }
+    }
+    if (!memberCode) {
+      return NextResponse.json({ ok: false, error: '코드 생성 실패. 다시 시도해주세요.' }, { status: 500 });
+    }
+
+    // 골드회원 생성 — memo에 paymentMethod 포함하여 단일 create로 처리
     const goldMember = await prisma.goldMember.create({
       data: {
         name: body.name.trim(),
         phone: phoneDigits,
         email: body.email.toLowerCase(),
-        memberCode: generateMemberCode(),
+        memberCode,
         courseType: body.courseType,
         joinDate: new Date(body.joinDate),
         paymentDay: body.paymentDay,
         totalPayments: body.totalPayments,
         paidCount: 0,
-        status: 'PENDING', // 결제 대기 상태
+        status: 'PENDING',
         organizationId,
-      },
-    });
-
-    // paymentMethod를 memo에 기록 (임시)
-    await prisma.goldMember.update({
-      where: { id: goldMember.id },
-      data: {
         memo: `결제방법: ${body.paymentMethod === 'card' ? '신용카드' : '계좌이체'}`,
       },
     });
