@@ -151,7 +151,8 @@ async function uploadToPartnerFolder(
       fields: 'id, webViewLink',
       supportsAllDrives: true,
     });
-    fileId = updated.data.id!;
+    if (!updated.data.id) throw new Error(`Drive 파일 업데이트 실패: ${fileName}`);
+    fileId = updated.data.id;
     viewUrl = updated.data.webViewLink ?? '';
   } else {
     const created = await drive.files.create({
@@ -160,7 +161,8 @@ async function uploadToPartnerFolder(
       fields: 'id, webViewLink',
       supportsAllDrives: true,
     });
-    fileId = created.data.id!;
+    if (!created.data.id) throw new Error(`Drive 파일 생성 실패: ${fileName}`);
+    fileId = created.data.id;
     viewUrl = created.data.webViewLink ?? '';
   }
 

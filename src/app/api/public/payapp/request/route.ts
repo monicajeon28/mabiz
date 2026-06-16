@@ -33,7 +33,9 @@ const RequestSchema = z.object({
   customerEmail: z.string().email().optional(),
   landingPageId: z.string().min(1),
   cycleDay:      z.number().int().min(1).max(90).optional(),
-  expireDate:    z.string().optional(),
+  expireDate:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '만료일은 YYYY-MM-DD 형식이어야 합니다.')
+    .refine((d) => !d || new Date(d) > new Date(), { message: '만료일은 미래 날짜여야 합니다.' })
+    .optional(),
 });
 
 /**

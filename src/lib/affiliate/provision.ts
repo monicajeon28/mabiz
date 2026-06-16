@@ -334,24 +334,14 @@ export async function provisionAffiliateAccounts(
       try {
       // Manager 동기화 시도
       try {
-        await supabaseClient.query(`
-          INSERT INTO "User" (
-            id, phone, password, name, role, email, "mallUserId", "isLocked",
-            "createdAt", "updatedAt"
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
-          ON CONFLICT (id) DO UPDATE SET
-            phone = $2, password = $3, name = $4, role = $5, email = $6,
-            "isLocked" = $8, "updatedAt" = NOW()
-        `, [
-          result.manager.gmUserId,
-          result.managerPartnerId,
+        await syncUserToSupabase(supabaseClient, {
+          userId: result.manager.gmUserId,
+          partnerId: result.managerPartnerId,
           passwordHash,
-          `${contractorName} 대리점장`,
-          'affiliate_manager',
-          contractorEmail || null,
-          null,
-          false,
-        ]);
+          name: `${contractorName} 대리점장`,
+          role: 'affiliate_manager',
+          email: contractorEmail,
+        });
         logger.log('[AFFILIATE-PROVISION] ✅ Manager Supabase 동기화 성공', {
           gmUserId: result.manager.gmUserId,
           partnerId: result.managerPartnerId,
@@ -379,43 +369,26 @@ export async function provisionAffiliateAccounts(
 
       // Agent 동기화 시도
       try {
-        await supabaseClient.query(`
-          INSERT INTO "User" (
-            id, phone, password, name, role, email, "mallUserId", "isLocked",
-            "createdAt", "updatedAt"
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
-          ON CONFLICT (id) DO UPDATE SET
-            phone = $2, password = $3, name = $4, role = $5, email = $6,
-            "isLocked" = $8, "updatedAt" = NOW()
-        `, [
-          result.agent.gmUserId,
-          result.agentPartnerId,
+        await syncUserToSupabase(supabaseClient, {
+          userId: result.agent.gmUserId,
+          partnerId: result.agentPartnerId,
           passwordHash,
-          `${contractorName} 판매원`,
-          'affiliate_agent',
-          null,
-          null,
-          false,
-        ]);
+          name: `${contractorName} 판매원`,
+          role: 'affiliate_agent',
+        });
         logger.log('[AFFILIATE-PROVISION] ✅ Agent Supabase 동기화 성공', {
           gmUserId: result.agent.gmUserId,
           partnerId: result.agentPartnerId,
         });
       } catch (agentErr) {
         const errMsg = agentErr instanceof Error ? agentErr.message : String(agentErr);
-        const dlqData = {
-          agentGmUserId: result.agent.gmUserId,
-          partnerId: result.agentPartnerId,
-          name: `${contractorName} 판매원`,
-          error: errMsg,
-        };
         const dlq = await prisma.syncDeadLetterQueue.create({
           data: {
             syncType: 'NEON_TO_SUPABASE',
             operationType: 'INSERT',
             tableName: 'User',
             recordId: String(result.agent.gmUserId),
-            data: dlqData,
+            data: { gmUserId: result.agent.gmUserId, partnerId: result.agentPartnerId, name: `${contractorName} 판매원` },
             error: errMsg,
             nextRetryAt: new Date(Date.now() + 5 * 60 * 1000),
             status: 'PENDING',
@@ -430,24 +403,13 @@ export async function provisionAffiliateAccounts(
 
       // Presales 동기화 시도
       try {
-        await supabaseClient.query(`
-          INSERT INTO "User" (
-            id, phone, password, name, role, email, "mallUserId", "isLocked",
-            "createdAt", "updatedAt"
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
-          ON CONFLICT (id) DO UPDATE SET
-            phone = $2, password = $3, name = $4, role = $5, email = $6,
-            "isLocked" = $8, "updatedAt" = NOW()
-        `, [
-          result.presales.gmUserId,
-          result.presalesPartnerId,
+        await syncUserToSupabase(supabaseClient, {
+          userId: result.presales.gmUserId,
+          partnerId: result.presalesPartnerId,
           passwordHash,
-          `${contractorName} 프리세일즈`,
-          'affiliate_presales',
-          null,
-          null,
-          false,
-        ]);
+          name: `${contractorName} 프리세일즈`,
+          role: 'affiliate_presales',
+        });
         logger.log('[AFFILIATE-PROVISION] ✅ Presales Supabase 동기화 성공', {
           gmUserId: result.presales.gmUserId,
           partnerId: result.presalesPartnerId,
@@ -495,6 +457,23 @@ export async function provisionAffiliateAccounts(
 }
 
 // ── 내부 유틸 ────────────────────────────────────────────────────
+
+// Supabase User INSERT/UPDATE 헬퍼 — 3개 역할(Manager/Agent/Presales)에서 공통 사용
+async function syncUserToSupabase(
+  client: InstanceType<typeof PgClient>,
+  params: { userId: number; partnerId: string; passwordHash: string; name: string; role: string; email?: string | null },
+): Promise<void> {
+  await client.query(
+    `INSERT INTO "User" (
+       id, phone, password, name, role, email, "mallUserId", "isLocked",
+       "createdAt", "updatedAt"
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+     ON CONFLICT (id) DO UPDATE SET
+       phone = $2, password = $3, name = $4, role = $5, email = $6,
+       "isLocked" = $8, "updatedAt" = NOW()`,
+    [params.userId, params.partnerId, params.passwordHash, params.name, params.role, params.email ?? null, null, false],
+  );
+}
 
 // Phase 4: partnerId 자동 생성 (boss1, boss2... / sales1, sales2... / pre1, pre2...)
 // 단일 SELECT로 최대 번호 조회 후 +1 (기존 N+1 루프 제거)

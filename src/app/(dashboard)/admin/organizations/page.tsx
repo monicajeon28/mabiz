@@ -874,6 +874,7 @@ export default function OrganizationsPage() {
   // 기존 계정 연결 모달
   const [showLinkModal, setShowLinkModal] = useState(false);
   const fetchAbortRef = useRef<AbortController | null>(null);
+  const contractsFetchAbortRef = useRef<AbortController | null>(null);
 
   const fetchManagers = useCallback(async (q?: string) => {
     // 이전 요청 취소 (검색 빠른 클릭 레이스컨디션 방지)
@@ -904,11 +905,14 @@ export default function OrganizationsPage() {
   }, []);
 
   const fetchPendingContracts = useCallback(async () => {
+    contractsFetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    contractsFetchAbortRef.current = controller;
     setContractsLoading(true);
     try {
       const params = new URLSearchParams({ status: contractStatus });
       if (contractTypeFilter) params.set('type', contractTypeFilter);
-      const res = await fetch(`/api/affiliate/contracts?${params}`);
+      const res = await fetch(`/api/affiliate/contracts?${params}`, { signal: controller.signal });
       const data = await res.json();
       if (data.ok) {
         setPendingContracts(data.data.contracts ?? []);
@@ -916,8 +920,8 @@ export default function OrganizationsPage() {
       } else {
         showError('계약 목록을 불러오지 못했습니다.');
       }
-    } catch {
-      showError('계약 목록 네트워크 오류');
+    } catch (e) {
+      if ((e as Error)?.name !== 'AbortError') showError('계약 목록 네트워크 오류');
     } finally {
       setContractsLoading(false);
     }
@@ -936,7 +940,7 @@ export default function OrganizationsPage() {
   useEffect(() => {
     fetchManagers();
     fetchPendingContracts();
-    return () => { fetchAbortRef.current?.abort(); };
+    return () => { fetchAbortRef.current?.abort(); contractsFetchAbortRef.current?.abort(); };
   }, [fetchManagers, fetchPendingContracts]);
 
   if (forbidden) {

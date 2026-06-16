@@ -72,8 +72,8 @@ export async function GET(req: Request, { params }: Params) {
       throw new NotFoundError('랜딩페이지');
     }
 
-    // 등록 수 + 퍼널 진입 수 + 전화번호 목록 — 단일 쿼리
-    const [regStats, regs] = await Promise.all([
+    // 등록/퍼널/전화번호 + PayApp 결제 — 전부 병렬 처리
+    const [regStats, regs, payappAgg] = await Promise.all([
       prisma.b2BLandingRegistration.groupBy({
         by:     ['funnelStarted'],
         where:  { landingPageId: id },
@@ -83,26 +83,21 @@ export async function GET(req: Request, { params }: Params) {
         where:  { landingPageId: id },
         select: { phone: true },
       }),
+      prisma.payAppPayment.aggregate({
+        where: { landingPageId: id, status: 'paid' },
+        _count: { id: true },
+        _sum:   { amount: true },
+      }),
     ]);
 
     const registered    = regStats.reduce((s, r) => s + r._count.id, 0);
     const funnelEntered = regStats.find(r => r.funnelStarted === true)?._count.id ?? 0;
     const phoneList     = regs.map(r => r.phone).filter(Boolean);
 
-    // 이메일 발송 수 + 구매 전환 수 + PayApp 결제 — 병렬 처리
     let emailSent = 0;
     let purchased = 0;
-    let payappPayments = 0;
-    let payappRevenue = 0;
-
-    // PayApp 결제 (landingPageId = B2B 페이지 ID, status = paid)
-    const payappAgg = await prisma.payAppPayment.aggregate({
-      where: { landingPageId: id, status: 'paid' },
-      _count: { id: true },
-      _sum:   { amount: true },
-    });
-    payappPayments = payappAgg._count.id;
-    payappRevenue  = payappAgg._sum.amount ?? 0;
+    const payappPayments = payappAgg._count.id;
+    const payappRevenue  = payappAgg._sum.amount ?? 0;
 
     if (phoneList.length > 0) {
       // phone → contactId 조인 (같은 조직)

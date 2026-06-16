@@ -33,6 +33,30 @@ import { notifyCruisedotAffiliateCreated } from '@/lib/affiliate/notify-cruisedo
 import { generatePartnerContractPDF } from '@/lib/contract-pdf-generator';
 import { backupPartnerContractToGoogleDrive } from '@/lib/google-drive';
 
+// 외부 API 호출 타임아웃 래퍼
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`[타임아웃] ${label} (${ms}ms 초과)`)), ms)
+  );
+  return Promise.race([promise, timeout]);
+}
+
+// 계약 metadata 타입 (Record<string,any> 제거)
+interface ContractMeta {
+  type?: string;
+  tierKey?: string;
+  agentCode?: string;
+  contractRef?: string;
+  amount?: number;
+  approvedAt?: string;
+  rejectedAt?: string;
+  rejectReason?: string;
+  rejectedByName?: string;
+  managerLinkCode?: string;
+  agentLinkCode?: string;
+  [key: string]: unknown;
+}
+
 // ── PUT: 계약 승인 ────────────────────────────────────────────────
 export async function PUT(
   req: NextRequest,
@@ -150,7 +174,7 @@ export async function PUT(
 
     // 7. 담당자 자동 할당 (agentCode 파라미터가 있으면 매니저ID 자동 조회)
     let managerId: number | undefined;
-    const contractMeta = contract.metadata as Record<string, any> | null;
+    const contractMeta = contract.metadata as ContractMeta | null;
     if (contractMeta?.agentCode) {
       try {
         const referrer = await prisma.gmAffiliateProfile.findUnique({
@@ -191,15 +215,19 @@ export async function PUT(
     // 8. 계정 생성 (단일 트랜잭션 — 실패 시 전체 롤백)
     let provisionResult;
     try {
-      provisionResult = await provisionAffiliateAccounts({
-        contractId,
-        contractorName: contract.name || '계약자',
-        contractorEmail: contract.email,
-        contractorPhone: contract.phone || '',
-        organizationId,
-        approvedByMemberId: ctx.userId,
-        managerId,
-      });
+      provisionResult = await withTimeout(
+        provisionAffiliateAccounts({
+          contractId,
+          contractorName: contract.name || '계약자',
+          contractorEmail: contract.email,
+          contractorPhone: contract.phone || '',
+          organizationId,
+          approvedByMemberId: ctx.userId,
+          managerId,
+        }),
+        30_000,
+        'provisionAffiliateAccounts',
+      );
     } catch (provisionErr) {
       // 프로비저닝 실패 시 계약 상태 원복
       await prisma.gmAffiliateContract.updateMany({
@@ -211,7 +239,7 @@ export async function PUT(
 
     // 8.5. 계약서 PDF 생성 + Google Drive 저장 + 이메일 발송
     try {
-      const contractMeta = contract.metadata as Record<string, any> | null;
+      const contractMeta = contract.metadata as ContractMeta | null;
       const profileType = (contractMeta?.type as 'BRANCH_MANAGER' | 'SALES_AGENT' | 'PRE_SALES' | 'HQ') || 'SALES_AGENT';
 
       // PDF 생성
@@ -375,7 +403,7 @@ export async function PUT(
     });
 
     // 11. 크루즈닷몰 웹훅 발송 (비차단 — 실패 시 계약 승인 유지)
-    const contractMeta2 = contract.metadata as Record<string, any> | null;
+    const contractMeta2 = contract.metadata as ContractMeta | null;
     notifyCruisedotAffiliateCreated({
       event: 'contract.approved',
       contractId,
@@ -488,8 +516,8 @@ export async function GET(
       );
     }
 
-    const metadata = contract.metadata as Record<string, any> | null;
-    const tierKey = metadata?.tierKey
+    const metadata = contract.metadata as ContractMeta | null;
+    const tierKey = metadata?.tierKey && metadata?.amount != null
       ? getPriceTierByAmount(metadata.amount)
       : null;
     const tierInfo = tierKey ? getPriceTierInfo(tierKey) : null;
