@@ -40,28 +40,31 @@ export async function GET(req: NextRequest) {
   try {
     logger.info('[CRON backup-affiliate-contracts] 시작');
 
-    // 전체 계약 조회 (소프트삭제 없음 — gmAffiliateContract는 물리 삭제 없음)
-    const rawContracts = await prisma.gmAffiliateContract.findMany({
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        email: true,
-        status: true,
-        metadata: true,
-        createdAt: true,
-        submittedAt: true,
-        contractSignedAt: true,
-        bankName: true,
-        bankAccount: true,
-        bankAccountHolder: true,
-        address: true,
-      },
-    });
+    // 커서 기반 배치 조회 — 전체 테이블 단순 findMany OOM 방지 (BATCH_SIZE=500)
+    const BATCH_SIZE = 500;
+    const SELECT_FIELDS = {
+      id: true, name: true, phone: true, email: true, status: true,
+      metadata: true, createdAt: true, submittedAt: true, contractSignedAt: true,
+      bankName: true, bankAccount: true, bankAccountHolder: true, address: true,
+    } as const;
 
-    if (Date.now() - startTime > MAX_DURATION_MS) {
-      return NextResponse.json({ ok: false, error: '조회 타임아웃' }, { status: 504 });
+    const rawContracts: Awaited<ReturnType<typeof prisma.gmAffiliateContract.findMany<{ select: typeof SELECT_FIELDS }>>> = [];
+    let cursor: number | undefined;
+
+    while (true) {
+      const batch = await prisma.gmAffiliateContract.findMany({
+        orderBy: { id: 'asc' },
+        take: BATCH_SIZE,
+        ...(cursor !== undefined ? { cursor: { id: cursor }, skip: 1 } : {}),
+        select: SELECT_FIELDS,
+      });
+      if (batch.length === 0) break;
+      rawContracts.push(...batch);
+      cursor = batch[batch.length - 1].id;
+      if (Date.now() - startTime > MAX_DURATION_MS) {
+        logger.warn('[CRON backup-affiliate-contracts] 배치 중 타임아웃 — 부분 백업');
+        break;
+      }
     }
 
     // metadata에서 필드 추출

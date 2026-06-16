@@ -111,6 +111,9 @@ export async function POST(req: Request) {
       shortlinkCode = nanoid();
       attempts++;
     }
+    if (attempts >= 10) {
+      throw new ValidationError('숏링크 코드 생성에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    }
 
     // partnerId는 선택사항 (null 가능)
     const page = await prisma.b2BLandingPage.create({
