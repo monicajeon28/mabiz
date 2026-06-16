@@ -60,9 +60,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (body.paymentDay < 1 || body.paymentDay > 28) {
+    if (!Number.isInteger(body.paymentDay) || body.paymentDay < 1 || body.paymentDay > 31) {
       return NextResponse.json(
-        { ok: false, error: '결제일은 1-28 사이여야 합니다.' },
+        { ok: false, error: '결제일은 1-31 사이 정수여야 합니다.' },
         { status: 400 }
       );
     }
