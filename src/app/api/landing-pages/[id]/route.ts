@@ -47,6 +47,8 @@ const PatchSchema = z.object({
   ctaType:        z.enum(['default', 'urgent', 'explore', 'reserve']).optional(),
   imageFieldConfig: z.record(z.string(), z.any()).optional(),
   companyName:    z.string().nullable().optional(),
+  // 블록 에디터 설정 (JSON 문자열로 저장)
+  blocksConfig:   z.string().nullable().optional(),
   // 프론트엔드 전용 (DB 저장 안 함, strict 우회용)
   commentConfig:  z.any().optional(),
 }).strict();
@@ -86,7 +88,8 @@ export async function GET(_req: Request, { params }: Params) {
 export async function PATCH(req: Request, { params }: Params) {
   try {
     const ctx   = await getAuthContext();
-    const orgId = resolveOrgId(ctx);
+    // GLOBAL_ADMIN은 null → org 필터 없이 전체 접근 가능
+    const orgId = resolveOrgIdOrNull(ctx);
     const { id } = await params;
     const body   = await req.json();
 
@@ -95,7 +98,9 @@ export async function PATCH(req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, message: "잘못된 요청 데이터", errors: parsed.error.flatten().fieldErrors }, { status: 400 });
     }
 
-    const existing = await prisma.crmLandingPage.findFirst({ where: { id, organizationId: orgId } });
+    const existing = await prisma.crmLandingPage.findFirst({
+      where: { id, ...(orgId ? { organizationId: orgId } : {}) },
+    });
     if (!existing) return NextResponse.json({ ok: false }, { status: 404 });
 
     const {
@@ -106,6 +111,7 @@ export async function PATCH(req: Request, { params }: Params) {
       paymentEnabled, paymentType, productName, productPrice, cycleDay, expireDate,
       regEmailEnabled, regEmailSubject, regEmailContent,
       pageFormat, ctaType, imageFieldConfig, companyName,
+      blocksConfig,
     } = parsed.data;
     const sanitizedContent = htmlContent !== undefined ? sanitizeHtml(htmlContent) : undefined;
 
@@ -143,7 +149,7 @@ export async function PATCH(req: Request, { params }: Params) {
       }
     }
     const page = await prisma.crmLandingPage.update({
-      where: { id, organizationId: orgId },
+      where: { id },
       data: {
         ...(title             !== undefined ? { title }                                : {}),
         ...(slug              !== undefined ? { slug }                                  : {}),
@@ -177,6 +183,9 @@ export async function PATCH(req: Request, { params }: Params) {
         ...(validFormat       !== undefined ? { pageFormat: validFormat }                : {}),
         ...(ctaType           !== undefined ? { ctaType }                               : {}),
         ...(imageFieldConfig  !== undefined ? { imageFieldConfig: imageFieldConfig ?? null } : {}),
+        ...(blocksConfig !== undefined ? {
+          blocksConfig: blocksConfig ? JSON.parse(blocksConfig) : null,
+        } : {}),
       },
     });
 

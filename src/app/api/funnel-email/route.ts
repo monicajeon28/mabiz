@@ -32,7 +32,15 @@ async function getSentCountByGroups(
 export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = resolveOrgId(ctx);
+    // GLOBAL_ADMIN은 null → org 필터 없이 전체 조회 가능
+    let orgId: string;
+    if (ctx.role === 'GLOBAL_ADMIN' && !ctx.organizationId) {
+      const firstOrg = await prisma.organization.findFirst({ select: { id: true } });
+      if (!firstOrg) return NextResponse.json({ ok: true, data: [], total: 0, page: 0, pageSize: 100 });
+      orgId = firstOrg.id;
+    } else {
+      orgId = resolveOrgId(ctx);
+    }
 
     const { searchParams } = new URL(req.url);
     const queryValidation = ListFunnelEmailQuerySchema.safeParse({
@@ -54,6 +62,14 @@ export async function GET(req: Request) {
     }
 
     const { groupId, q, page, pageSize } = queryValidation.data;
+
+    // FunnelEmail 테이블 존재 여부 확인 (마이그레이션 미적용 환경 대비)
+    try {
+      await prisma.funnelEmail.count({ where: { id: 'probe' } });
+    } catch {
+      logger.warn('[GET /api/funnel-email] FunnelEmail 테이블 없음 - 빈 데이터 반환');
+      return NextResponse.json({ ok: true, data: [], total: 0, page, pageSize });
+    }
 
     // groupId 필터: ContactGroup.funnelEmailId로 연결된 퍼널만 조회
     const where: Record<string, unknown> = { organizationId: orgId };
@@ -145,7 +161,26 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = resolveOrgId(ctx);
+    // GLOBAL_ADMIN은 BONSA_ORG_ID 대신 DB 첫 번째 조직 사용 (FK 위반 방지)
+    let orgId: string;
+    if (ctx.role === 'GLOBAL_ADMIN' && !ctx.organizationId) {
+      const firstOrg = await prisma.organization.findFirst({ select: { id: true } });
+      if (!firstOrg) return NextResponse.json({ ok: false, message: '조직이 없습니다' }, { status: 500 });
+      orgId = firstOrg.id;
+    } else {
+      orgId = resolveOrgId(ctx);
+    }
+
+    // FunnelEmail 테이블 존재 여부 확인 (마이그레이션 미적용 환경 대비)
+    try {
+      await prisma.funnelEmail.count({ where: { id: 'probe' } });
+    } catch {
+      logger.warn('[POST /api/funnel-email] FunnelEmail 테이블 없음');
+      return NextResponse.json(
+        { ok: false, error: 'TABLE_NOT_FOUND', message: '이메일 퍼널 테이블이 DB에 없습니다. 관리자에게 DB 마이그레이션을 요청하세요.' },
+        { status: 503 }
+      );
+    }
 
     const body = await req.json();
     const validation = CreateFunnelEmailSchema.safeParse(body);
