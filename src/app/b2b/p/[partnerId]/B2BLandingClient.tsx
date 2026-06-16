@@ -353,6 +353,7 @@ export function B2BLandingClient({
           phone: phoneVal,
           email: emailVal || undefined,
           company: companyVal || undefined,
+          landingPageId: pageId,
           loadedAt: loadTimeRef.current,
           ...(hasMetadata ? { metadata } : {}),
         });

@@ -92,6 +92,15 @@ export async function POST(req: Request) {
     // 파일 읽기
     const arrayBuffer = await file.arrayBuffer();
     const originalBuffer = Buffer.from(arrayBuffer);
+
+    // P0-2: Magic Bytes 검증 (Content-Type 위조 공격 방지)
+    const magicCheck = validateBufferMagic(originalBuffer);
+    if (!magicCheck.valid) {
+      return NextResponse.json(
+        { ok: false, error: 'INVALID_INPUT', message: `유효하지 않은 이미지 형식입니다 (${magicCheck.detected || '감지 불가'})` },
+        { status: 400 },
+      );
+    }
     const isGif = resolvedType === 'image/gif';
 
     const processed = await processUploadedImage(originalBuffer, resolvedType, file.name);
@@ -317,11 +326,11 @@ export async function PATCH(req: Request) {
         return NextResponse.json({ ok: false, error: 'NOT_FOUND', message: 'B2B 랜딩페이지를 찾을 수 없습니다' }, { status: 404 });
       }
 
-      // 트랜잭션으로 전체 순서 업데이트
+      // 트랜잭션으로 전체 순서 업데이트 (P0-3: landingPageId 필터로 IDOR 방지)
       await prisma.$transaction(
         imageIds.map((imgId, index) =>
-          prisma.b2BLandingPageImage.update({
-            where: { id: imgId },
+          prisma.b2BLandingPageImage.updateMany({
+            where: { id: imgId, landingPageId: page.id },
             data: { sortOrder: index },
           }),
         ),
@@ -369,6 +378,28 @@ export async function PATCH(req: Request) {
     logger.error('[b2b-landing-images] 수정 실패', { err });
     return NextResponse.json({ ok: false, error: 'INTERNAL_ERROR', message: '수정 중 오류 발생' }, { status: 500 });
   }
+}
+
+/** Magic Bytes 기반 파일 타입 검증 (P0-2) */
+function validateBufferMagic(buffer: Buffer): { valid: boolean; detected?: string } {
+  const MAGIC_BYTES: Array<{ bytes: number[]; name: string; extraCheck?: (buf: Buffer) => boolean }> = [
+    { bytes: [0xff, 0xd8, 0xff], name: 'jpeg' },
+    { bytes: [0x89, 0x50, 0x4e, 0x47], name: 'png' },
+    { bytes: [0x47, 0x49, 0x46], name: 'gif' },
+    {
+      bytes: [0x52, 0x49, 0x46, 0x46], name: 'webp',
+      extraCheck: (buf) => buf.length >= 12 && buf.toString('ascii', 8, 12) === 'WEBP',
+    },
+  ];
+
+  for (const { bytes, name, extraCheck } of MAGIC_BYTES) {
+    if (buffer.length >= bytes.length && bytes.every((b, i) => buffer[i] === b)) {
+      if (extraCheck && !extraCheck(buffer)) continue;
+      return { valid: true, detected: name };
+    }
+  }
+
+  return { valid: false, detected: 'unknown' };
 }
 
 /**
