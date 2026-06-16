@@ -28,9 +28,9 @@ interface SaleApprovedPayload {
 }
 
 export async function POST(req: NextRequest) {
-  const secret = process.env.CRUISEDOT_WEBHOOK_SECRET;
+  const secret = process.env.MABIZ_SALE_APPROVED_WEBHOOK_SECRET;
   if (!secret) {
-    logger.error('[sale-approved] CRUISEDOT_WEBHOOK_SECRET 미설정');
+    logger.error('[sale-approved] MABIZ_SALE_APPROVED_WEBHOOK_SECRET 미설정');
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 
