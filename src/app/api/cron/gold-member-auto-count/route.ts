@@ -70,7 +70,7 @@ export async function GET(req: Request) {
 
   try {
     const members = await prisma.goldMember.findMany({
-      where: { status: "ACTIVE", paymentDay: { not: null } },
+      where: { status: "ACTIVE", paymentDay: { not: null }, deletedAt: null },
       select: {
         id: true,
         paymentDay: true,
