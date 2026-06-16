@@ -166,3 +166,64 @@ export async function uploadXlsxIdempotent(
     viewUrl: viewUrl || `https://drive.google.com/file/d/${fileId}/view`,
   };
 }
+
+/**
+ * 폴더 내 MD 파일 목록 조회 (최신순)
+ * - 마지막 동기화 이후 새 파일만 가져오기 지원
+ */
+export async function listMdFilesInFolder(
+  folderId: string,
+  afterDate?: Date
+): Promise<Array<{ id: string; name: string; createdTime: string; modifiedTime: string }>> {
+  const drive = getDriveClient();
+
+  let q = `'${folderId}' in parents and mimeType='text/markdown' and trashed=false`;
+  if (afterDate) {
+    q += ` and modifiedTime > '${afterDate.toISOString()}'`;
+  }
+
+  const res = await drive.files.list({
+    q,
+    fields: 'files(id, name, createdTime, modifiedTime)',
+    orderBy: 'modifiedTime desc',
+    pageSize: 100,
+    corpora: 'allDrives',
+    includeItemsFromAllDrives: true,
+    supportsAllDrives: true,
+  });
+
+  return (res.data.files ?? []) as Array<{ id: string; name: string; createdTime: string; modifiedTime: string }>;
+}
+
+/**
+ * Drive 파일 내용 읽기 (텍스트 파일용)
+ */
+export async function readDriveFileContent(fileId: string): Promise<string> {
+  const drive = getDriveClient();
+
+  const res = await drive.files.get(
+    { fileId, alt: 'media', supportsAllDrives: true },
+    { responseType: 'text' }
+  );
+
+  return (res.data as unknown as string) ?? '';
+}
+
+/**
+ * 폴더 내 하위 폴더 목록 조회
+ */
+export async function listSubFolders(
+  parentId: string
+): Promise<Array<{ id: string; name: string }>> {
+  const drive = getDriveClient();
+
+  const res = await drive.files.list({
+    q: `'${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+    fields: 'files(id, name)',
+    corpora: 'allDrives',
+    includeItemsFromAllDrives: true,
+    supportsAllDrives: true,
+  });
+
+  return (res.data.files ?? []) as Array<{ id: string; name: string }>;
+}
