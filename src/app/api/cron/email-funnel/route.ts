@@ -124,7 +124,7 @@ export async function GET(req: Request) {
           continue;
         }
 
-        // 2-4. 변수 치환
+        // 2-4. 변수 치환 + 발신자 오버라이드 추출
         const vars: Record<string, string> =
           msg.variables && typeof msg.variables === "object"
             ? (msg.variables as Record<string, string>)
@@ -132,9 +132,16 @@ export async function GET(req: Request) {
         const subject = renderVars(msg.subject, vars);
         const html = renderVars(msg.htmlContent, vars);
 
+        // FunnelEmail에 발신자명/이메일이 설정돼 있으면 SMTP 기본값보다 우선 적용
+        const resolvedConfig = {
+          ...emailConfig,
+          ...(vars._senderName  ? { senderName:  vars._senderName  } : {}),
+          ...(vars._senderEmail ? { senderEmail: vars._senderEmail } : {}),
+        };
+
         // 2-5. 발송
         const ok = await sendEmailWithConfig({
-          config: emailConfig,
+          config: resolvedConfig,
           to: toEmail,
           subject,
           html,

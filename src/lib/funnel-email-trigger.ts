@@ -307,6 +307,8 @@ export async function triggerFunnelEmail(
     select: {
       id: true,
       title: true,
+      senderName: true,
+      senderEmail: true,
       sendHour: true,
       sendMinute: true,
       createdByUserId: true,
@@ -359,12 +361,15 @@ export async function triggerFunnelEmail(
   const anchor = opts.anchorDate ?? nowUtc;
   const kstAnchorDayjs = dayjs(anchor).tz(KST_TZ);
 
-  const variables = {
+  const variables: Record<string, string> = {
     name: contact.name ?? "",
     email: contact.email,
     phone: contact.phone ?? "",
     groupName: group.name ?? "",
   };
+  // FunnelEmail에 발신자 설정이 있으면 예약키로 저장 → cron에서 SMTP 기본값보다 우선 적용
+  if (funnelEmail.senderName) variables._senderName = funnelEmail.senderName;
+  if (funnelEmail.senderEmail) variables._senderEmail = funnelEmail.senderEmail;
 
   // 6. daysAfter → scheduledAt 변환
   const recordsToCreate = funnelEmail.messages.map((msg) => {
