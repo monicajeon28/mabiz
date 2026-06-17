@@ -9,6 +9,15 @@ import { RecommendBanner } from "./recommend-banner";
 import { maskPhone } from "@/lib/masking";
 import { Contact } from "@/types/contact";
 
+const SOURCE_TYPE_LABELS: Record<string, { label: string; color: string }> = {
+  landing_page: { label: '랜딩페이지', color: 'bg-blue-100 text-blue-800' },
+  user: { label: '직접입력', color: 'bg-gray-100 text-gray-700' },
+  inquiry: { label: '문의신청', color: 'bg-yellow-100 text-yellow-800' },
+  affiliate: { label: '제휴/파트너', color: 'bg-purple-100 text-purple-800' },
+  gold_member: { label: '골드회원', color: 'bg-amber-100 text-amber-800' },
+  education: { label: '교육', color: 'bg-green-100 text-green-800' },
+};
+
 interface TransferLog {
   id: string;
   createdAt: string;
@@ -156,6 +165,15 @@ function ContactInfoPanelComponent({
           <AlarmClock className="w-5 h-5" />
         </button>
       </div>
+
+      {/* 유입 출처 배지 */}
+      {contact.sourceType && SOURCE_TYPE_LABELS[contact.sourceType] && (
+        <div className="mb-3">
+          <span className={`text-xs px-2 py-1 rounded-full ${SOURCE_TYPE_LABELS[contact.sourceType].color}`}>
+            유입: {SOURCE_TYPE_LABELS[contact.sourceType].label}
+          </span>
+        </div>
+      )}
 
       {/* 공유 배지 — Steve Jobs 신뢰도 강화 */}
       {transferLogs.length > 0 && (() => {

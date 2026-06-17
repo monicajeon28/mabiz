@@ -50,6 +50,15 @@ const panelMobileVariants = {
   exit: { y: "100%", transition: { type: "tween", duration: 0.22, ease: "easeIn" } },
 };
 
+const SOURCE_TYPE_LABELS: Record<string, { label: string; color: string }> = {
+  landing_page: { label: '랜딩페이지', color: 'bg-blue-100 text-blue-800' },
+  user: { label: '직접입력', color: 'bg-gray-100 text-gray-700' },
+  inquiry: { label: '문의신청', color: 'bg-yellow-100 text-yellow-800' },
+  affiliate: { label: '제휴/파트너', color: 'bg-purple-100 text-purple-800' },
+  gold_member: { label: '골드회원', color: 'bg-amber-100 text-amber-800' },
+  education: { label: '교육', color: 'bg-green-100 text-green-800' },
+};
+
 const TAB_LIST: { key: TabKey; icon: React.ReactNode; label: string }[] = [
   { key: "call",      icon: <Phone className="w-4 h-4" />,         label: "📞 전화기록" },
   { key: "memo",      icon: <FileText className="w-4 h-4" />,      label: "📝 메모" },
@@ -633,20 +642,27 @@ export default function ContactSlidePanel({
             initial="hidden" animate="visible" exit="exit">
 
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center text-sm font-bold shrink-0">
-                  {contact.name.slice(0, 1)}
+            <div className="flex flex-col px-5 pt-4 pb-3 border-b border-gray-100 shrink-0 gap-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                    {contact.name.slice(0, 1)}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-900 truncate">{contact.name}</p>
+                    <p className="text-xs text-gray-400 truncate">{contact.phone}</p>
+                  </div>
+                  <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium">{contact.type}</span>
                 </div>
-                <div className="min-w-0">
-                  <p className="font-semibold text-gray-900 truncate">{contact.name}</p>
-                  <p className="text-xs text-gray-400 truncate">{contact.phone}</p>
-                </div>
-                <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium">{contact.type}</span>
+                <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors" aria-label="패널 닫기">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors" aria-label="패널 닫기">
-                <X className="w-5 h-5" />
-              </button>
+              {contact.sourceType && SOURCE_TYPE_LABELS[contact.sourceType] && (
+                <span className={`self-start text-xs px-2 py-1 rounded-full ${SOURCE_TYPE_LABELS[contact.sourceType].color}`}>
+                  유입: {SOURCE_TYPE_LABELS[contact.sourceType].label}
+                </span>
+              )}
             </div>
 
             {/* Tab Bar */}

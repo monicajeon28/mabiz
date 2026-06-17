@@ -16,6 +16,7 @@ type Contact = {
   name: string;
   phone: string;
   type: string;
+  sourceType?: string | null;
   cruiseInterest: string | null;
   lastContactedAt: string | null;
   leadScore: number;
@@ -23,6 +24,15 @@ type Contact = {
   surveyData?: { inquiryTracking?: InquiryTracking | null } | null;
   groups: { group: { id: string; name: string; color: string | null } }[];
   _count: { callLogs: number };
+};
+
+const SOURCE_TYPE_LABELS: Record<string, { label: string; color: string }> = {
+  landing_page: { label: '랜딩페이지', color: 'bg-blue-100 text-blue-800' },
+  user: { label: '직접입력', color: 'bg-gray-100 text-gray-700' },
+  inquiry: { label: '문의신청', color: 'bg-yellow-100 text-yellow-800' },
+  affiliate: { label: '제휴/파트너', color: 'bg-purple-100 text-purple-800' },
+  gold_member: { label: '골드회원', color: 'bg-amber-100 text-amber-800' },
+  education: { label: '교육', color: 'bg-green-100 text-green-800' },
 };
 
 const getLeadTier = (score: number) => {
@@ -491,6 +501,11 @@ export default function InquiriesPage() {
                       <span className="font-medium text-gray-900">{c.name}</span>
                       {slidePanelLoadingId === c.id && (
                         <span className="text-sm text-gray-500">불러오는 중...</span>
+                      )}
+                      {c.sourceType && SOURCE_TYPE_LABELS[c.sourceType] && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${SOURCE_TYPE_LABELS[c.sourceType].color}`}>
+                          {SOURCE_TYPE_LABELS[c.sourceType].label}
+                        </span>
                       )}
                       <span className={`text-sm px-1.5 py-0.5 rounded-full font-bold ${tierInfo.color}`}>
                         {tierInfo.label}
