@@ -251,13 +251,13 @@ export default function InquiriesPage() {
     .sort((a, b) => (b.leadScore ?? 0) - (a.leadScore ?? 0))
     .slice(0, 5);
 
-  // FREE_SALES: 고객 DB 접근 권한 없음
-  if (role === 'FREE_SALES') {
-    return <div className="p-16px text-gray-500">고객 DB 접근 권한이 없습니다.</div>;
+  // FREE_SALES / AGENT: 고객 DB 접근 권한 없음
+  if (role === 'FREE_SALES' || role === 'AGENT') {
+    return <div className="p-4 text-gray-500">접근 권한이 없습니다.</div>;
   }
 
-  // AGENT일 때 안내 배너 표시 여부
-  const showAgentNotice = role === 'AGENT';
+  // (showAgentNotice 제거: AGENT는 위에서 차단됨)
+  const showAgentNotice = false;
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">

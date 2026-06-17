@@ -30,8 +30,8 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export default function ContactsAllPage() {
-  // 실제 세션에서 role 읽기 (layout의 SessionProvider가 주입)
-  const { role } = useSession();
+  // 실제 세션에서 role 및 isAdmin 읽기 (layout의 SessionProvider가 주입)
+  const { role, isAdmin } = useSession();
 
   const [contacts, setContacts] = useState<ContactAll[]>([]);
   const [total, setTotal] = useState(0);
@@ -124,10 +124,10 @@ export default function ContactsAllPage() {
   };
 
   // role 로딩 중 (undefined) → 대기
-  if (!role) return null;
+  if (role === undefined) return null;
 
-  // GLOBAL_ADMIN이 아니면 접근 거부 메시지 표시
-  if (role !== 'GLOBAL_ADMIN') {
+  // GLOBAL_ADMIN(isAdmin)이 아니면 접근 거부 메시지 표시
+  if (!isAdmin) {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-red-500 text-base">접근 권한이 없습니다. 관리자에게 문의하세요.</p>

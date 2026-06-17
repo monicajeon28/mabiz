@@ -192,9 +192,9 @@ export default function PurchasedPage() {
 
   const filteredContacts = contacts;
 
-  // FREE_SALES: 고객 DB 접근 권한 없음
-  if (role === 'FREE_SALES') {
-    return <div className="p-4 text-gray-500">고객 DB 접근 권한이 없습니다.</div>;
+  // FREE_SALES / AGENT: 고객 DB 접근 권한 없음
+  if (role === 'FREE_SALES' || role === 'AGENT') {
+    return <div className="p-4 text-gray-500">접근 권한이 없습니다.</div>;
   }
 
   return (
