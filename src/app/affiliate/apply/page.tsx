@@ -5,7 +5,8 @@
  * 등급 선택 → 계약서 본문 확인 → 계약자 정보 → 정산 계좌 → 필수 동의 → 사인+이름
  */
 
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { CONTRACT_PRICE_TIERS, type PriceTierKey } from '@/lib/affiliate/priceTiers';
 
@@ -545,8 +546,12 @@ function SignatureCanvas({ onChange }: { onChange: (dataUrl: string | null) => v
   );
 }
 
-// ─── 메인 페이지 ────────────────────────────────────────────────
-export default function AffiliatApplyPage() {
+// ─── 메인 폼 컴포넌트 (useSearchParams 사용) ─────────────────────────
+function AffiliateApplyForm() {
+  const searchParams = useSearchParams();
+  // ?agentCode=CODE 또는 ?ref=CODE 둘 다 지원
+  const agentCode = searchParams.get('agentCode') ?? searchParams.get('ref') ?? null;
+
   const [selectedTier, setSelectedTier] = useState<PriceTierKey>('SALES_330');
   const [step, setStep] = useState<'form' | 'success'>('form');
 
@@ -628,7 +633,10 @@ export default function AffiliatApplyPage() {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/affiliate/contracts', {
+      const apiUrl = agentCode
+        ? `/api/affiliate/contracts?agentCode=${encodeURIComponent(agentCode)}`
+        : '/api/affiliate/contracts';
+      const res = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1059,5 +1067,21 @@ export default function AffiliatApplyPage() {
         </p>
       </form>
     </div>
+  );
+}
+
+// ─── Suspense 래퍼 (useSearchParams 요구사항) ─────────────────────────
+export default function AffiliatApplyPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm text-gray-500">로딩 중...</p>
+        </div>
+      </div>
+    }>
+      <AffiliateApplyForm />
+    </Suspense>
   );
 }
