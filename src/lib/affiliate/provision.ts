@@ -581,7 +581,7 @@ export async function provisionAffiliateAccounts(
     ];
 
     try {
-      const cruisedotRes = await fetch(`${provisionUrl}/api/integration/affiliate/upsert`, {
+      const cruisedotRes = await fetch(`${provisionUrl}/api/integration/affiliate/mabiz-upsert`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
