@@ -84,8 +84,10 @@ export default function DbPage() {
     const params = new URLSearchParams({ page: String(page), limit: "20" });
     if (searchQ) params.set("q", searchQ);
 
-    // B2C → Contact 테이블, B2B → B2BProspect 테이블
+    // B2C → Contact 테이블 (문의=LEAD, 구매=CUSTOMER), B2B → B2BProspect 테이블
     const isB2B = importTarget === "b2b_buyer" || importTarget === "b2b_inquiry";
+    if (importTarget === "b2c") params.set("type", "LEAD");
+    if (importTarget === "b2c_purchased") params.set("type", "CUSTOMER");
     const url = isB2B ? `/api/b2b-prospects?${params}` : `/api/contacts?${params}`;
 
     fetch(url, signal ? { signal } : undefined)
@@ -130,6 +132,7 @@ export default function DbPage() {
 
   // B2B는 B2BProspect 테이블이라 contacts/bulk-delete 사용 불가
   const isB2BTab = importTarget === "b2b_buyer" || importTarget === "b2b_inquiry";
+  const isB2CTab = importTarget === "b2c" || importTarget === "b2c_purchased";
 
   // ── 하드 삭제 ─────────────────────────────────────────────
   const handleDelete = async () => {
@@ -335,7 +338,7 @@ export default function DbPage() {
       <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex gap-4 border-b border-gray-200">
-            {(["b2c", "b2b_buyer", "b2b_inquiry"] as const).map((target) => {
+            {(["b2c", "b2c_purchased", "b2b_buyer", "b2b_inquiry"] as const).map((target) => {
               const config = IMPORT_CONFIGS[target];
               const isActive = importTarget === target;
               return (
