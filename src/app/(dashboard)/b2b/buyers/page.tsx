@@ -36,14 +36,12 @@ type FormData = {
 };
 
 const STATUSES = [
-  { key: "잠재고객", color: "bg-blue-100 text-blue-700",    dot: "bg-blue-500"    },
-  { key: "문자",     color: "bg-sky-100 text-sky-700",      dot: "bg-sky-500"     },
-  { key: "부재",     color: "bg-yellow-100 text-yellow-700",dot: "bg-yellow-500"  },
-  { key: "3일부재",  color: "bg-orange-100 text-orange-700",dot: "bg-orange-500"  },
-  { key: "소통",     color: "bg-purple-100 text-purple-700",dot: "bg-purple-500"  },
-  { key: "구매완료", color: "bg-green-100 text-green-700",  dot: "bg-green-500"   },
-  { key: "VIP",      color: "bg-yellow-50 text-yellow-800 font-bold", dot: "bg-yellow-400" },
-  { key: "수신거부", color: "bg-gray-100 text-gray-500",    dot: "bg-gray-400"    },
+  { value: 'PENDING',   label: '잠재고객', color: "bg-blue-100 text-blue-700",    dot: "bg-blue-500"    },
+  { value: 'CONTACTED', label: '문자',     color: "bg-sky-100 text-sky-700",      dot: "bg-sky-500"     },
+  { value: 'FOLLOW_UP', label: '부재',     color: "bg-yellow-100 text-yellow-700",dot: "bg-yellow-500"  },
+  { value: 'REJECTED',  label: '3일부재',  color: "bg-orange-100 text-orange-700",dot: "bg-orange-500"  },
+  { value: 'CONVERTED', label: '전환완료', color: "bg-purple-100 text-purple-700",dot: "bg-purple-500"  },
+  { value: 'ACTIVE',    label: '활성',     color: "bg-green-100 text-green-700",  dot: "bg-green-500"   },
 ];
 
 const EMPTY_FORM: FormData = {
@@ -54,7 +52,7 @@ const EMPTY_FORM: FormData = {
   paymentAmount: "",
   paymentDate: "",
   notes: "",
-  status: "잠재고객"
+  status: "PENDING"
 };
 
 /**
@@ -83,8 +81,8 @@ async function fetchWithErrorHandling<T>(
 /**
  * 상태 정보 조회
  */
-function getStatusInfo(key: string) {
-  return STATUSES.find(s => s.key === key) ?? STATUSES[0];
+function getStatusInfo(value: string) {
+  return STATUSES.find(s => s.value === value) ?? STATUSES[0];
 }
 
 /**
@@ -127,11 +125,11 @@ function SearchSection({
         </button>
         {STATUSES.map(s => (
           <button
-            key={s.key}
-            onClick={() => onFilterChange(s.key === filter ? "" : s.key)}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${filter === s.key ? s.color + " border-current" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}
+            key={s.value}
+            onClick={() => onFilterChange(s.value === filter ? "" : s.value)}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${filter === s.value ? s.color + " border-current" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}
           >
-            {s.key}
+            {s.label}
           </button>
         ))}
       </div>
@@ -210,7 +208,7 @@ function CreateProspectModal({
             onChange={e => onFormChange("status", e.target.value)}
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
           >
-            {STATUSES.map(s => <option key={s.key} value={s.key}>{s.key}</option>)}
+            {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
         </div>
         <div>
@@ -313,7 +311,7 @@ function ProspectListItem({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-semibold text-gray-900">{prospect.name}</p>
-            <span className={`text-sm px-2 py-0.5 rounded-full font-medium ${si.color}`}>{prospect.status}</span>
+            <span className={`text-sm px-2 py-0.5 rounded-full font-medium ${si.color}`}>{si.label}</span>
             {prospect.productName && (
               <span className="text-sm bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">{prospect.productName}</span>
             )}
@@ -336,7 +334,7 @@ function ProspectListItem({
             onChange={e => onStatusChange(prospect.id, e.target.value)}
             className={`text-sm px-2 py-1 rounded-lg border font-medium cursor-pointer bg-white ${si.color}`}
           >
-            {STATUSES.map(s => <option key={s.key} value={s.key}>{s.key}</option>)}
+            {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
           <button onClick={() => onDetail(prospect)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-600">
             <ChevronRight className="w-4 h-4" />
@@ -471,13 +469,13 @@ function DetailPanel({
           <p className="text-sm font-medium text-gray-500 mb-2">상태 변경</p>
           <div className="grid grid-cols-1 gap-1.5">
             {STATUSES.map(s => (
-              <button key={s.key} onClick={() => onStatusChange(detail.id, s.key)}
+              <button key={s.value} onClick={() => onStatusChange(detail.id, s.value)}
                 className={`py-2 px-3 rounded-xl text-sm font-medium text-left flex items-center gap-2 transition-colors ${
-                  detail.status === s.key ? `${s.color} border border-current` : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                  detail.status === s.value ? `${s.color} border border-current` : "bg-gray-50 text-gray-600 hover:bg-gray-100"
                 }`}>
                 <span className={`w-2 h-2 rounded-full ${s.dot}`} />
-                {s.key}
-                {detail.status === s.key && <span className="ml-auto text-sm">✓ 현재</span>}
+                {s.label}
+                {detail.status === s.value && <span className="ml-auto text-sm">✓ 현재</span>}
               </button>
             ))}
           </div>
@@ -550,7 +548,10 @@ export default function BuyersPage() {
   const [groups, setGroups] = useState<Group[]>([]);
 
   // 데이터 로드 함수 (P1: 의존성 체크 강화)
+  // 역할 가드는 렌더 레벨(line 731-738)에서 단일 처리 — load() 내부 중복 제거 (T-003)
   const load = useCallback(async () => {
+    if (!role) return;
+
     setLoading(true);
     setFormError(null);
 
@@ -571,7 +572,7 @@ export default function BuyersPage() {
       setFormError(result.ok ? "데이터 로드 실패" : result.error);
     }
     setLoading(false);
-  }, [page, filter, q]);
+  }, [page, filter, q, role]);
 
   // 초기 로드 (P1: exhaustive-deps 강화)
   useEffect(() => {
@@ -727,7 +728,7 @@ export default function BuyersPage() {
 
   // AGENT·FREE_SALES 차단 (모든 hooks 이후에 배치)
   if (!role) return null; // 세션 로딩 중
-  if (role === 'agent' || role === 'free_sales') {
+  if (role === 'AGENT' || role === 'FREE_SALES') {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-red-500 text-base">이 페이지에 접근할 권한이 없습니다.</p>

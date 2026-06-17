@@ -30,6 +30,7 @@ import {
 import { showSuccess } from '@/components/ui/Toast';
 import { showError } from '@/components/ui/Toast';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { useSession } from '@/hooks/useSession';
 // ContractApproveModal 제거 — 계약 승인은 /admin/organizations 페이지에서 처리
 
 // dayjs 없음 → 간단한 상대 시간 유틸
@@ -120,7 +121,7 @@ type AgentMetric = {
     netRevenue: number | null;
     salesCommission: number | null;
     overrideCommission: number | null;
-    branchContribution: number | null;
+    // branchContribution 제거 — API /api/team/metrics agentSummaries가 반환하지 않는 미구현 필드 (T-006)
   };
   ledger: {
     settled: number;
@@ -259,6 +260,7 @@ type ConfirmState = {
 
 export default function AffiliateTeamDashboardPage() {
   const router = useRouter();
+  const { role: sessionRole } = useSession();
 
   // 언마운트 후 setState 차단용 ref (P1-3, P1-4, P1-5 공유)
   const mountedRef = useRef(true);
@@ -292,23 +294,38 @@ export default function AffiliateTeamDashboardPage() {
   // ── 대기 중인 계약 카운트 (뱃지용 — 상세는 대리점 관리 페이지에서) ──────
   const [pendingCount, setPendingCount] = useState<number>(0);
 
-  const fetchPendingCount = () => {
-    fetch('/api/affiliate/contracts?status=submitted&page=1')
-      .then(r => r.json())
-      .then(d => { if (d.ok && mountedRef.current) setPendingCount(d.data?.total ?? d.data?.contracts?.length ?? 0); })
-      .catch(() => {});
-  };
+  // T-019: AbortSignal 지원 추가 — 언마운트 시 setState 호출 방지
+  const fetchPendingCount = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const r = await fetch('/api/affiliate/contracts?status=submitted&page=1', { signal });
+      if (!r.ok || signal?.aborted) return;
+      const d = await r.json();
+      if (mountedRef.current) setPendingCount(d.data?.total ?? d.data?.contracts?.length ?? 0);
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') return;
+    }
+  }, []); // setter + mountedRef만 사용 — 외부 의존성 없음
 
+  // T-023: setInterval → 재귀 setTimeout 패턴으로 교체 (언마운트 시 불필요한 네트워크 요청 방지)
   useEffect(() => {
-    const ctrl = new AbortController();
-    fetch('/api/affiliate/contracts?status=submitted&page=1', { signal: ctrl.signal })
-      .then(r => r.json())
-      .then(d => { if (d.ok && mountedRef.current) setPendingCount(d.data?.total ?? d.data?.contracts?.length ?? 0); })
-      .catch(err => { if (err instanceof Error && err.name === 'AbortError') return; });
-    // 30초마다 자동 폴링 (대기 건수 실시간 반영) — setInterval 내부 fetch는 signal 없이 유지
-    const timer = setInterval(fetchPendingCount, 30_000);
-    return () => { ctrl.abort(); clearInterval(timer); };
-  }, []);
+    let cancelled = false;
+    let timerId: ReturnType<typeof setTimeout>;
+
+    const poll = async () => {
+      if (cancelled) return;
+      const ctrl = new AbortController();
+      await fetchPendingCount(ctrl.signal);
+      if (!cancelled) {
+        timerId = setTimeout(poll, 30_000);
+      }
+    };
+
+    poll();
+    return () => {
+      cancelled = true;
+      clearTimeout(timerId);
+    };
+  }, [fetchPendingCount]);
 
   // ── 대리점장 CRM 연결 정보 (활성화/비활성화/삭제용) ──────────────────────
   const [managerLookup, setManagerLookup] = useState<Map<number, {
@@ -335,7 +352,10 @@ export default function AffiliateTeamDashboardPage() {
         }
         setManagerLookup(map);
       })
-      .catch(err => { if (err instanceof Error && err.name === 'AbortError') return; });
+      .catch(err => {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        showError('대리점장 정보를 불러오지 못했습니다. 페이지를 새로고침해주세요.');
+      });
     return () => ctrl.abort();
   }, []);
 
@@ -386,6 +406,7 @@ export default function AffiliateTeamDashboardPage() {
   // P2-1: 인라인 타입 → 파일 상단 TeamMessage 타입으로 교체
   const [teamMessages, setTeamMessages] = useState<TeamMessage[]>([]);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+  // teamMessages / unreadMessageCount는 메시지 모달 UI에서 참조 — API 구현 후 loadTeamMessages 활성화 시 사용
   const [showMessagesModal, setShowMessagesModal] = useState(false);
   const [showSendMessageModal, setShowSendMessageModal] = useState(false);
   const [messageTitle, setMessageTitle] = useState('');
@@ -395,7 +416,7 @@ export default function AffiliateTeamDashboardPage() {
   const [loadingRecipients, setLoadingRecipients] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [messageTab, setMessageTab] = useState<'received' | 'sent'>('received');
-  const [sentMessages, setSentMessages] = useState<TeamMessage[]>([]);
+  const [sentMessages, setSentMessages] = useState<TeamMessage[]>([]); // API 구현 후 loadTeamMessages와 함께 활성화
 
   const [messageSearchQuery, setMessageSearchQuery] = useState('');
   const [messageSortBy, setMessageSortBy] = useState<'newest' | 'oldest' | 'unread'>('newest');
@@ -414,16 +435,8 @@ export default function AffiliateTeamDashboardPage() {
   const [selectedActivityIds, setSelectedActivityIds] = useState<number[]>([]);
   const [deletingActivities, setDeletingActivities] = useState(false);
 
-  useEffect(() => {
-    loadMetrics();
-    loadTeamMessages();
-    const interval = setInterval(() => {
-      loadTeamMessages();
-    }, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const loadMetrics = async (overrideFilters?: Partial<Filters>) => {
+  // T-009: loadMetrics를 useCallback으로 감싸고 filters를 의존성으로 추가
+  const loadMetrics = useCallback(async (overrideFilters?: Partial<Filters>) => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -433,8 +446,18 @@ export default function AffiliateTeamDashboardPage() {
       if (effectiveFilters.to) params.set('to', effectiveFilters.to);
 
       const res = await fetch(`/api/team/metrics?${params.toString()}`);
+      if (!res.ok) {
+        let errMsg = '팀 성과 데이터를 불러오지 못했습니다.';
+        try {
+          const errJson = await res.json();
+          errMsg = errJson?.message ?? errMsg;
+        } catch {
+          // non-JSON 응답(500 HTML 등) — 기본 메시지 사용
+        }
+        throw new Error(errMsg);
+      }
       const json: DashboardResponse = await res.json();
-      if (!res.ok || !json?.ok) {
+      if (!json?.ok) {
         throw new Error(json?.message || '팀 성과 데이터를 불러오지 못했습니다.');
       }
       setMetrics(json.managers || []);
@@ -444,7 +467,15 @@ export default function AffiliateTeamDashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]); // filters 의존성 추가 — filters 변경 시 자동 재실행
+
+  useEffect(() => {
+    loadMetrics();
+    // loadTeamMessages()는 미구현 상태 — API 구현 후 활성화 예정
+    // TODO: API 구현 후 아래 폴링 활성화
+    // const interval = setInterval(() => { loadTeamMessages(); }, 5 * 60 * 1000);
+    // return () => clearInterval(interval);
+  }, [loadMetrics]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -460,30 +491,17 @@ export default function AffiliateTeamDashboardPage() {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // /api/team/messages 미구현 — 향후 구현 시 활성화
-  const loadTeamMessages = async (showAll: boolean = false) => {
-    // API 미구현 상태 — 빈 배열 반환
-    void showAll;
-    return;
-    /* 향후 구현 시 활성화:
-    try {
-      const url = showAll
-        ? '/api/team/messages'
-        : '/api/team/messages?unreadOnly=true';
-      const res = await fetch(url, { credentials: 'include' });
-      const json = await res.json();
-      if (res.ok && json?.ok) {
-        const received = (json.messages as TeamMessage[] || []).filter((m) => !m.isSent);
-        const sent = (json.messages as TeamMessage[] || []).filter((m) => m.isSent);
-        setTeamMessages(received);
-        setSentMessages(sent);
-        setUnreadMessageCount(json.unreadCount || 0);
-      }
-    } catch {
-      // 클라이언트 컴포넌트 — 무시
-    }
-    */
-  };
+  // loadTeamMessages: /api/team/messages 미구현 — API 구현 후 아래 코드 활성화
+  // async (showAll: boolean = false) => {
+  //   const url = showAll ? '/api/team/messages' : '/api/team/messages?unreadOnly=true';
+  //   const res = await fetch(url, { credentials: 'include' });
+  //   const json = await res.json();
+  //   if (res.ok && json?.ok) {
+  //     setTeamMessages((json.messages as TeamMessage[] || []).filter((m) => !m.isSent));
+  //     setSentMessages((json.messages as TeamMessage[] || []).filter((m) => m.isSent));
+  //     setUnreadMessageCount(json.unreadCount || 0);
+  //   }
+  // };
 
   const loadRecipients = async () => {
     setLoadingRecipients(true);
@@ -522,7 +540,7 @@ export default function AffiliateTeamDashboardPage() {
         setMessageTitle('');
         setMessageContent('');
         setSelectedRecipient(null);
-        loadTeamMessages(true);
+        // loadTeamMessages(true) — API 구현 후 활성화
       } else {
         showError(json.error || '메시지 전송에 실패했습니다.');
       }
@@ -544,7 +562,7 @@ export default function AffiliateTeamDashboardPage() {
 
       const json = await res.json();
       if (res.ok && json?.ok) {
-        loadTeamMessages(true);
+        // loadTeamMessages(true) — API 구현 후 활성화
       } else {
         showError(json.error || '메시지 삭제에 실패했습니다.');
       }
@@ -643,7 +661,7 @@ export default function AffiliateTeamDashboardPage() {
       }
       setSelectedMessageIds([]);
       setMessageSelectionMode(false);
-      loadTeamMessages(true);
+      // loadTeamMessages(true) — API 구현 후 활성화
     } catch {
       showError('일부 메시지 삭제에 실패했습니다.');
     } finally {
@@ -656,27 +674,31 @@ export default function AffiliateTeamDashboardPage() {
     setSelectedMessageIds([]);
   };
 
-  const loadActivities = async (page = 1, append = false) => {
+  // T-017: loadActivities를 useCallback으로 감싸 stale closure 방지
+  // T-008: json.ok=false 또는 fetch 실패 시 showError 호출 추가
+  const loadActivities = useCallback(async (page = 1, append = false) => {
     setActivitiesLoading(true);
     try {
       const res = await fetch(`/api/team/messages/activities?page=${page}&limit=50`, {
         credentials: 'include',
       });
       const json = await res.json();
-      if (json.ok) {
-        if (append) {
-          setActivities(prev => [...prev, ...json.activities]);
-        } else {
-          setActivities(json.activities);
-        }
-        setActivitiesPagination(json.pagination);
+      if (!json.ok) {
+        showError('활동 기록을 불러오지 못했습니다.');
+        return;
       }
+      if (append) {
+        setActivities(prev => [...prev, ...json.activities]);
+      } else {
+        setActivities(json.activities);
+      }
+      setActivitiesPagination(json.pagination);
     } catch {
-      // 클라이언트 컴포넌트 — 무시
+      showError('활동 기록을 불러오지 못했습니다.');
     } finally {
       setActivitiesLoading(false);
     }
-  };
+  }, []); // setter 함수만 사용 — 외부 의존성 없음
 
   const toggleActivitySelection = (id: number) => {
     setSelectedActivityIds(prev =>
@@ -737,7 +759,7 @@ export default function AffiliateTeamDashboardPage() {
     } catch {
       showError('기록 삭제 중 오류가 발생했습니다.');
     }
-  }, [confirm]);
+  }, [confirm, loadActivities]); // T-017: loadActivities 의존성 추가
 
   // P2-3: interactionTypeLabels는 모듈 스코프로 이동됨 (컴포넌트 위 선언 참조)
 
@@ -855,6 +877,18 @@ export default function AffiliateTeamDashboardPage() {
     return cards;
   }, [totals]);
 
+  // T-016: 클라이언트 레벨 GLOBAL_ADMIN 접근 제어
+  // 세션 로드 전은 undefined — 하이드레이션 안전하게 null 반환
+  if (sessionRole === undefined) return null;
+  // GLOBAL_ADMIN이 아니면 즉시 차단
+  if (sessionRole !== 'GLOBAL_ADMIN') {
+    return (
+      <div className="p-8 text-center text-gray-500">
+        <p className="text-lg font-medium">접근 권한이 없습니다.</p>
+        <p className="text-sm mt-1">이 페이지는 본사 관리자 전용입니다.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 p-6">

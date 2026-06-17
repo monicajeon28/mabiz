@@ -89,16 +89,17 @@ export async function PATCH(
     // P1: 보안 - organizationId로 소유권 확인 (IDOR 방지)
     const result = await updateB2BProspect(effectiveOrgId, id, parseResult.data);
     return NextResponse.json(result, { status: 200 });
-  } catch (err: any) {
-    if (err.code === 'PROSPECT_NOT_FOUND') {
-      logger.warn('[b2b] [id] PATCH: 리소스 없음', { id: (await params).id });
+  } catch (err: unknown) {
+    const errCode = (err as { code?: string })?.code;
+    if (errCode === 'PROSPECT_NOT_FOUND') {
+      logger.warn('[b2b] [id] PATCH: 리소스 없음');
       return NextResponse.json(
         { ok: false, error: '찾을 수 없는 prospect입니다' },
         { status: 404 }
       );
     }
 
-    logger.error('[b2b] PATCH /api/b2b/[id] error', { err, id: (await params).id || 'unknown' });
+    logger.error('[b2b] PATCH /api/b2b/[id] error', { err });
     return NextResponse.json(
       { ok: false, error: '업데이트에 실패했습니다' },
       { status: 500 }
@@ -161,16 +162,17 @@ export async function DELETE(
     // P1: 보안 - organizationId로 소유권 확인 (IDOR 방지)
     const result = await deleteB2BProspect(effectiveOrgId, id);
     return NextResponse.json(result, { status: 200 });
-  } catch (err: any) {
-    if (err.code === 'PROSPECT_NOT_FOUND') {
-      logger.warn('[b2b] [id] DELETE: 리소스 없음', { id: (await params).id });
+  } catch (err: unknown) {
+    const errCode = (err as { code?: string })?.code;
+    if (errCode === 'PROSPECT_NOT_FOUND') {
+      logger.warn('[b2b] [id] DELETE: 리소스 없음');
       return NextResponse.json(
         { ok: false, error: '찾을 수 없는 prospect입니다' },
         { status: 404 }
       );
     }
 
-    logger.error('[b2b] DELETE /api/b2b/[id] error', { err, id: (await params).id || 'unknown' });
+    logger.error('[b2b] DELETE /api/b2b/[id] error', { err });
     return NextResponse.json(
       { ok: false, error: '삭제에 실패했습니다' },
       { status: 500 }

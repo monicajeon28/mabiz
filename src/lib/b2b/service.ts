@@ -11,7 +11,7 @@ interface WhereInput {
   status?: string;
   OR?: Array<{
     name?: { contains: string; mode: 'insensitive' };
-    phone?: { contains: string; mode: 'insensitive' };
+    phone?: { contains: string }; // mode: 'insensitive' 제거 — 전화번호는 대소문자 무의미, 인덱스 활용
     email?: { contains: string; mode: 'insensitive' };
     productName?: { contains: string; mode: 'insensitive' };
   }>;
@@ -76,7 +76,7 @@ export async function getB2BProspects(
     if (q) {
       where.OR = [
         { name: { contains: q, mode: 'insensitive' } },
-        { phone: { contains: q, mode: 'insensitive' } },
+        { phone: { contains: q } }, // mode: 'insensitive' 제거 — 인덱스 활용
         { email: { contains: q, mode: 'insensitive' } },
         { productName: { contains: q, mode: 'insensitive' } },
       ];
@@ -175,12 +175,6 @@ export async function updateB2BProspect(
   data: B2BProspectUpdateInput
 ) {
   try {
-    // Verify ownership (P1: 보안 - IDOR 방지)
-    const prospect = await prisma.b2BProspect.findUnique({ where: { id } });
-    if (!prospect || prospect.organizationId !== organizationId || prospect.deletedAt !== null) {
-      throw new ProspectNotFoundError();
-    }
-
     // Prepare update data
     const updateData: UpdateData = {};
     if (data.name !== undefined) updateData.name = data.name;
@@ -191,10 +185,20 @@ export async function updateB2BProspect(
     if (data.notes !== undefined) updateData.notes = data.notes ? data.notes.trim() : null;
     if (data.status !== undefined) updateData.status = data.status;
 
-    const updated = await prisma.b2BProspect.update({
-      where: { id },
+    // T-009: TOCTOU 레이스 컨디션 방지 — updateMany로 소유권(organizationId) + deletedAt 조건을
+    // update와 동시에 원자적으로 적용. 기존 findFirst→update(id만) 패턴은 두 쿼리 사이
+    // 레코드 변경 시 소유권 재검증 없이 업데이트되는 취약점이 있었음.
+    const result = await prisma.b2BProspect.updateMany({
+      where: { id, organizationId, deletedAt: null },
       data: updateData,
     });
+    if (result.count === 0) throw new ProspectNotFoundError();
+
+    // 업데이트 후 전체 레코드 재조회 (formatProspect에 필요한 전체 필드 포함)
+    const updated = await prisma.b2BProspect.findFirst({
+      where: { id, organizationId, deletedAt: null },
+    });
+    if (!updated) throw new ProspectNotFoundError();
 
     return {
       ok: true as const,
@@ -208,17 +212,14 @@ export async function updateB2BProspect(
 
 export async function deleteB2BProspect(organizationId: string, id: string) {
   try {
-    // Verify ownership (P1: 보안 - IDOR 방지)
-    const prospect = await prisma.b2BProspect.findUnique({ where: { id } });
-    if (!prospect || prospect.organizationId !== organizationId || prospect.deletedAt !== null) {
-      throw new ProspectNotFoundError();
-    }
-
-    // Soft delete
-    await prisma.b2BProspect.update({
-      where: { id },
+    // T-010: TOCTOU 레이스 컨디션 방지 — updateMany로 소유권(organizationId) + deletedAt 조건을
+    // 소프트 삭제와 동시에 원자적으로 적용. 기존 findFirst→update(id만) 패턴은 두 쿼리 사이
+    // 다른 조직의 레코드가 soft-delete 우회 가능한 취약점이 있었음.
+    const deleteResult = await prisma.b2BProspect.updateMany({
+      where: { id, organizationId, deletedAt: null },
       data: { deletedAt: new Date() },
     });
+    if (deleteResult.count === 0) throw new ProspectNotFoundError();
 
     return {
       ok: true as const,

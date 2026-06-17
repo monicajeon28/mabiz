@@ -59,18 +59,19 @@ export async function GET(req: Request) {
           organizationId: true,
           surveyData: true,
           organization: { select: { name: true } },
-          groups: { select: { group: { select: { id: true, name: true, color: true } } } },
+          // NOTE: groups는 ContactAll 타입에 없고 UI에서 사용되지 않음 — 불필요한 JOIN 제거
         },
       }),
       prisma.contact.count({ where }),
     ]);
 
-    const masked = contacts; // GLOBAL_ADMIN only (403 gate above)
-
     logger.log('[ContactsAll] 조회', { total, orgId: orgId || '전체' });
-    return NextResponse.json({ ok: true, contacts: masked, total, page, limit });
+    return NextResponse.json({ ok: true, contacts, total, page, limit });
   } catch (e) {
     logger.error('[ContactsAll]', { e });
-    return NextResponse.json({ ok: false }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, message: '서버 오류가 발생했습니다' },
+      { status: 500 }
+    );
   }
 }

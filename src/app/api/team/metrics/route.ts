@@ -157,48 +157,46 @@ type LedgerGroupRow = {
 
 export async function GET(req: NextRequest) {
   // ────────────────────────────────────────────────────────
-  // RBAC: GLOBAL_ADMIN + OWNER + AGENT 접근 허용
+  // RBAC: GLOBAL_ADMIN 전용 — 커미션/원천징수/본사순이익 민감 데이터
   // ────────────────────────────────────────────────────────
   const rbacCheck = enforceRBAC(req, {
-    allowedRoles: ['GLOBAL_ADMIN', 'OWNER', 'AGENT'],
-    errorMessage: '권한이 없습니다.',
+    allowedRoles: ['GLOBAL_ADMIN'], // OWNER/AGENT 제거
+    errorMessage: '어필리에이트 팀 지표는 관리자 전용입니다.',
   });
   if (rbacCheck !== true) return rbacCheck;
 
   try {
     const ctx = await getAuthContext();
-    const allowedRoles = ['GLOBAL_ADMIN', 'OWNER', 'AGENT'];
-    if (!allowedRoles.includes(ctx.role)) {
-      return NextResponse.json({ ok: false }, { status: 403 });
-    }
+    // enforceRBAC(allowedRoles: ['GLOBAL_ADMIN'])에서 이미 차단됨 — 중복 체크 불필요
 
     const { searchParams } = new URL(req.url);
     const search = (searchParams.get('search') || '').trim();
     const { from, to, fromParam, toParam } = parseDateRange(searchParams);
 
     // managers 조회 (AffiliateProfile WHERE type = 'BRANCH_MANAGER')
-    let managerQuery = `
-      SELECT id, "affiliateCode", "displayName", nickname, "branchLabel", "contactPhone", status
-      FROM "AffiliateProfile"
-      WHERE type = 'BRANCH_MANAGER'
-    `;
-    const managerParams: unknown[] = [];
-    if (search) {
-      managerParams.push(`%${search}%`);
-      const p = managerParams.length;
-      managerQuery += `
-        AND (
-          "displayName" ILIKE $${p}
-          OR nickname ILIKE $${p}
-          OR "branchLabel" ILIKE $${p}
-          OR "contactPhone" ILIKE $${p}
-          OR "affiliateCode" ILIKE $${p}
-        )
-      `;
-    }
-    managerQuery += ` ORDER BY "displayName" ASC, id ASC LIMIT 200`;
-
-    const managers = await prisma.$queryRawUnsafe<AffiliateProfileRow[]>(managerQuery, ...managerParams);
+    // $queryRawUnsafe → Prisma.sql 태그로 교체 (SQL 인젝션 방지)
+    const managers = search
+      ? await prisma.$queryRaw<AffiliateProfileRow[]>(Prisma.sql`
+          SELECT id, "affiliateCode", "displayName", nickname, "branchLabel", "contactPhone", status
+          FROM "AffiliateProfile"
+          WHERE type = 'BRANCH_MANAGER'
+            AND (
+              "displayName" ILIKE ${`%${search}%`}
+              OR nickname ILIKE ${`%${search}%`}
+              OR "branchLabel" ILIKE ${`%${search}%`}
+              OR "contactPhone" ILIKE ${`%${search}%`}
+              OR "affiliateCode" ILIKE ${`%${search}%`}
+            )
+          ORDER BY "displayName" ASC, id ASC
+          LIMIT 200
+        `)
+      : await prisma.$queryRaw<AffiliateProfileRow[]>(Prisma.sql`
+          SELECT id, "affiliateCode", "displayName", nickname, "branchLabel", "contactPhone", status
+          FROM "AffiliateProfile"
+          WHERE type = 'BRANCH_MANAGER'
+          ORDER BY "displayName" ASC, id ASC
+          LIMIT 200
+        `);
 
     if (managers.length === 0) {
       return NextResponse.json({ ok: true, managers: [], totals: null, filters: { from: fromParam, to: toParam } });

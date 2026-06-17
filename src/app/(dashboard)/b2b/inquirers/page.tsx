@@ -1,3 +1,9 @@
+/**
+ * B2B 문의자 관리 페이지
+ * API: /api/b2b-prospects (getAuthContext 기반 — getB2BProspects service 미사용)
+ * 비교: buyers 페이지는 /api/b2b (requirePartnerContext 기반 — B2B service layer 활용)
+ * 이원화 이유: prospects는 단순 CRUD, buyers는 파트너 컨텍스트(affiliate) 정보 필요
+ */
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -79,7 +85,7 @@ export default function B2BInquirersPage() {
     if (statusFilter) params.set("status", statusFilter);
 
     try {
-      const res = await fetch(`/api/b2b-prospects?${params}`, { signal });
+      const res = await fetch(`/api/b2b-prospects?${params}`, { signal, credentials: 'include' });
       if (!res.ok) throw new Error("서버 오류");
       const data = await res.json() as {
         ok: boolean;
@@ -99,11 +105,18 @@ export default function B2BInquirersPage() {
     }
   }, [q, page, statusFilter]);
 
+  // T-004: role 가드를 useEffect 최상단으로 이동 — fetchProspects 내부 early return 시
+  // finally 미실행으로 setLoading(false) 누락되는 무한 스켈레톤 버그 수정
   useEffect(() => {
+    if (!role) return; // 세션 로딩 중
+    if (role === 'AGENT' || role === 'FREE_SALES') {
+      setLoading(false);
+      return;
+    }
     const ctrl = new AbortController();
     fetchProspects(ctrl.signal);
     return () => ctrl.abort();
-  }, [fetchProspects]);
+  }, [fetchProspects, role]);
 
   // q / statusFilter 변경 시 페이지 초기화
   useEffect(() => { setPage(1); }, [q, statusFilter]);
@@ -111,7 +124,7 @@ export default function B2BInquirersPage() {
   // 그룹 목록 로드
   useEffect(() => {
     const ctrl = new AbortController();
-    fetch("/api/groups", { signal: ctrl.signal })
+    fetch("/api/groups", { signal: ctrl.signal, credentials: 'include' })
       .then(r => r.json())
       .then(d => { if (d.ok) setGroups(d.groups ?? []); })
       .catch(err => { if (err instanceof Error && err.name === "AbortError") return; });
@@ -153,6 +166,7 @@ export default function B2BInquirersPage() {
       const res = await fetch(`/api/b2b-prospects?id=${prospect.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include', // T-005: 세션 쿠키 전송 — 미포함 시 401 실패
         body: JSON.stringify({ status: newStatus }),
       });
       const data = await res.json();
@@ -175,14 +189,14 @@ export default function B2BInquirersPage() {
     STATUS_META[status] ?? { label: status, color: "bg-gray-100 text-gray-600", icon: null };
 
   // AGENT·FREE_SALES 차단
-  if (role && (role === 'agent' || role === 'free_sales')) {
+  if (!role) return null; // 세션 로딩 중 — 먼저 체크
+  if (role === 'AGENT' || role === 'FREE_SALES') {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-red-500 text-base">이 페이지에 접근할 권한이 없습니다.</p>
       </div>
     );
   }
-  if (!role) return null; // 세션 로딩 중
 
   // ── 렌더 ───────────────────────────────────────────────────
   return (
