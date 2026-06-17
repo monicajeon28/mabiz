@@ -86,6 +86,8 @@ export interface Contact {
   // 신청 이력
   signupCount?: number;
   signupHistory?: string | any[];
+  // 유입 출처
+  sourceType?: string | null;
   // 공유 설정
   visibility?: ContactVisibility;
   sharedWith?: ContactShare[];

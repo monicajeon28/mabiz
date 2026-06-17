@@ -133,10 +133,16 @@ export async function POST(req: NextRequest) {
       logger.log('[CruisedotWebhook] 어플리에이트 구매 감지', { bookingRef, affiliateCode, organizationId });
     }
 
-    // organizationId 미확인 시 조기종료 (테넌트 격리)
+    // organizationId 미확인 시 DB fallback (DEFAULT_ORGANIZATION_ID 미설정 대응)
     if (!organizationId) {
-      logger.warn('[CruisedotWebhook] 조직 미확인', { bookingRef, isDirectPurchase, organizationId });
-      return NextResponse.json({ ok: false, message: '조직 미확인' }, { status: 422 });
+      const defaultOrgId = process.env.DEFAULT_ORGANIZATION_ID
+        || (await prisma.organization.findFirst({ select: { id: true } }))?.id;
+      if (!defaultOrgId) {
+        logger.warn('[CruisedotWebhook] 조직 미확인', { bookingRef, isDirectPurchase, organizationId });
+        return NextResponse.json({ ok: false, message: 'organization not found' }, { status: 422 });
+      }
+      organizationId = defaultOrgId;
+      logger.log('[CruisedotWebhook] DB fallback으로 organizationId 결정', { bookingRef, organizationId });
     }
 
     // P0-ISS-02: UPSERT 패턴으로 동시 결제 중복 생성 방지 (Race condition 해결)
@@ -177,6 +183,9 @@ export async function POST(req: NextRequest) {
           affiliateCode: affiliateCode || null,
           lastPaymentStatus: status === 'CONFIRMED' ? 'paid' : 'pending',
           lastPaymentAt: status === 'CONFIRMED' ? new Date(timestamp) : undefined,
+          // 출처 분류: 어필리에이트 구매면 'affiliate', HQ 직접구매면 'user'
+          sourceType: isDirectPurchase ? 'user' : 'affiliate',
+          channel: 'b2c',
           // HQ 직접구매인 경우 담당자 미배정 (userId = null) — 기본값이므로 명시 불필요
         },
         update: {

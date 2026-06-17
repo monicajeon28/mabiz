@@ -11,11 +11,18 @@ import { formatInquiryTrackingSummary } from "@/lib/contact-inquiry-tracking";
 // 고객 상세 슬라이드 패널 (행 클릭 시 표시) — 코드 스플릿
 const ContactSlidePanel = lazy(() => import("../ContactSlidePanel"));
 
+const SOURCE_TYPE_LABELS: Record<string, { label: string; color: string }> = {
+  landing_page: { label: '랜딩페이지', color: 'bg-blue-100 text-blue-800' },
+  user: { label: '직접입력', color: 'bg-gray-100 text-gray-700' },
+  affiliate: { label: '제휴/파트너', color: 'bg-purple-100 text-purple-800' },
+};
+
 type Contact = {
   id: string;
   name: string;
   phone: string;
   type: string;
+  sourceType?: string | null;
   cruiseInterest: string | null;
   lastContactedAt: string | null;
   purchasedAt: string | null;
@@ -414,6 +421,11 @@ export default function PurchasedPage() {
                       <span className="text-sm px-2 py-0.5 rounded-full font-medium bg-green-100 text-green-700">
                         구매확정
                       </span>
+                      {c.sourceType && SOURCE_TYPE_LABELS[c.sourceType] && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full ml-1 ${SOURCE_TYPE_LABELS[c.sourceType].color}`}>
+                          {SOURCE_TYPE_LABELS[c.sourceType].label}
+                        </span>
+                      )}
                       {c.groups.slice(0, 2).map((g) => (
                         <span
                           key={g.group.id}

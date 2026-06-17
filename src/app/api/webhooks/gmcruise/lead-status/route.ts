@@ -45,6 +45,8 @@ export async function POST(req: NextRequest) {
     affiliateCode,
     changedAt,
     eventId,
+    phone,
+    email,
   } = body as {
     leadId?: number;
     status?: string;
@@ -53,6 +55,8 @@ export async function POST(req: NextRequest) {
     affiliateCode?: string | null;
     changedAt?: string;
     eventId?: string;
+    phone?: string | null;
+    email?: string | null;
   };
 
   if (!eventId) {
@@ -98,13 +102,36 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, matched: false });
     }
 
+    // 신규 리드: Contact 없으면 생성
+    let resolvedContact = contact;
+    if (!resolvedContact && (phone || email)) {
+      resolvedContact = await prisma.contact.create({
+        data: {
+          name: customerName || phone || '이름없음',
+          phone: phone || '',
+          email: email || null,
+          organizationId: organizationId,
+          type: 'INQUIRY',
+          sourceType: 'affiliate',
+          visibility: 'ADMIN_ONLY',
+        },
+        select: { id: true },
+      });
+      logger.log('[LeadStatusWebhook] 신규 Contact 생성', {
+        contactId: resolvedContact.id,
+        phone,
+        email,
+        leadId,
+      });
+    }
+
     // 트랜잭션
     await prisma.$transaction(async (tx) => {
       await tx.processedWebhookEvent.create({
         data: { eventId, webhookType: 'gmcruise-lead-status' },
       });
 
-      if (contact) {
+      if (resolvedContact) {
         const memoContent = [
           `[리드상태변경] ${previousStatus ?? '?'} → ${status ?? '?'}`,
           `리드#${leadId ?? '?'}`,
@@ -114,7 +141,7 @@ export async function POST(req: NextRequest) {
 
         await tx.contactMemo.create({
           data: {
-            contactId: contact.id,
+            contactId: resolvedContact.id,
             userId: 'system-webhook',
             content: memoContent,
           },
@@ -124,12 +151,12 @@ export async function POST(req: NextRequest) {
 
     logger.log('[LeadStatusWebhook] 완료', {
       leadId,
-      contactFound: !!contact,
+      contactFound: !!resolvedContact,
       status,
       eventId,
     });
 
-    return NextResponse.json({ ok: true, matched: !!contact });
+    return NextResponse.json({ ok: true, matched: !!resolvedContact });
   } catch (err) {
     logger.error('[LeadStatusWebhook] 처리 실패', { err, leadId, eventId });
     await enqueueDLQ('lead-status', body, err instanceof Error ? err.message : String(err)).catch((dlqErr) => {

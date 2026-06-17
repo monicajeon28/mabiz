@@ -187,6 +187,47 @@ export async function POST(req: Request, { params }: Params) {
       // unique constraint 위반 = 중복 등록
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes('Unique constraint') || msg.includes('P2002')) {
+        // 재신청 시 signupCount +1, signupHistory 업데이트
+        if (orgId) {
+          try {
+            const existing = await prisma.contact.findFirst({
+              where: { phone: normalizedPhone, organizationId: orgId },
+              select: { id: true, signupCount: true, signupHistory: true },
+            });
+            if (existing) {
+              let history: object[] = [];
+              try {
+                if (Array.isArray(existing.signupHistory)) {
+                  history = existing.signupHistory as object[];
+                } else if (typeof existing.signupHistory === 'string') {
+                  history = JSON.parse(existing.signupHistory as string) as object[];
+                }
+              } catch {
+                history = [];
+              }
+              const newEntry = {
+                index: history.length + 1,
+                landingPageId,
+                landingPageTitle: landingPage.title,
+                groupId: landingPage.groupId || null,
+                createdAt: new Date().toISOString(),
+                email: email ?? null,
+                phone: normalizedPhone,
+              };
+              await prisma.contact.update({
+                where: { id: existing.id },
+                data: {
+                  signupCount: (existing.signupCount ?? 0) + 1,
+                  signupHistory: JSON.stringify([...history, newEntry]),
+                },
+              });
+            }
+          } catch (updateErr) {
+            logger.warn('[LandingRegister] 재신청 signupHistory 업데이트 실패', {
+              error: updateErr instanceof Error ? updateErr.message : String(updateErr),
+            });
+          }
+        }
         return NextResponse.json({ ok: true, isDuplicate: true });
       }
       throw e;
@@ -218,10 +259,11 @@ export async function POST(req: Request, { params }: Params) {
               create: {
                 organizationId: orgId,
                 name,
-                phone:     normalizedPhone,
-                email:     email ?? null,
-                type:      "LEAD",
-                utmSource: utmSource ?? null,
+                phone:      normalizedPhone,
+                email:      email ?? null,
+                type:       "LEAD",
+                utmSource:  utmSource ?? null,
+                sourceType: "landing_page",
                 adminMemo: `랜딩페이지 신청 from: "${landingPage.title}"`,
                 // [P1-10] 신규 Contact 생성 시 signupCount = 1 (기본값)
                 signupCount: 1,
