@@ -49,6 +49,8 @@ const PatchSchema = z.object({
   companyName:    z.string().nullable().optional(),
   // 블록 에디터 설정 (JSON 문자열로 저장)
   blocksConfig:   z.string().nullable().optional(),
+  // SMS 자동화 범위 ("0-3" 등)
+  smsDayRange:    z.string().nullable().optional(),
   // 프론트엔드 전용 (DB 저장 안 함, strict 우회용)
   commentConfig:  z.any().optional(),
 }).strict();
@@ -111,7 +113,7 @@ export async function PATCH(req: Request, { params }: Params) {
       paymentEnabled, paymentType, productName, productPrice, cycleDay, expireDate,
       regEmailEnabled, regEmailSubject, regEmailContent,
       pageFormat, ctaType, imageFieldConfig, companyName,
-      blocksConfig,
+      blocksConfig, smsDayRange,
     } = parsed.data;
     const sanitizedContent = htmlContent !== undefined ? sanitizeHtml(htmlContent) : undefined;
 
@@ -186,6 +188,7 @@ export async function PATCH(req: Request, { params }: Params) {
         ...(blocksConfig !== undefined ? {
           blocksConfig: blocksConfig ? JSON.parse(blocksConfig) : null,
         } : {}),
+        ...(smsDayRange !== undefined ? { smsDayRange: smsDayRange ?? null } : {}),
       },
     });
 

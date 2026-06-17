@@ -40,6 +40,6 @@ ALTER TABLE "UserEmailConfig"
   REFERENCES "Organization"("id")
   ON DELETE CASCADE ON UPDATE CASCADE;
 
--- ScheduledEmailMessage에 senderUserId 필드 추가
-ALTER TABLE "ScheduledEmailMessage"
-  ADD COLUMN IF NOT EXISTS "senderUserId" TEXT;
+-- NOTE: ScheduledEmailMessage.senderUserId 컬럼 추가는
+-- 20260616000726_add_email_batch_processing/migration.sql 에서 처리
+-- (ScheduledEmailMessage 테이블이 해당 마이그레이션에서 생성되기 때문)

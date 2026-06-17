@@ -38,9 +38,14 @@ export async function GET(req: Request) {
 
   const now = new Date();
 
+  // KST 시간 계산 (UTC+9)
+  const kstNowHour = new Date(now.getTime() + 9 * 60 * 60 * 1000).getUTCHours();
+  const isNightTime = kstNowHour >= 22 || kstNowHour < 8;
+
   // 처리할 예약 목록 (최대 50건/회, 오래된 것부터)
+  // NIGHT_BLOCKED: 야간 차단 후 오전 8시 재시도를 위해 포함
   const due = await prisma.scheduledEmail.findMany({
-    where:   { status: "PENDING", scheduledAt: { lte: now } },
+    where:   { status: { in: ["PENDING", "NIGHT_BLOCKED"] }, scheduledAt: { lte: now } },
     orderBy: { scheduledAt: "asc" },
     take:    50,
   });
@@ -54,9 +59,35 @@ export async function GET(req: Request) {
 
   for (const item of due) {
     try {
+      // 야간 차단 (KST 22시-08시 사이 → NIGHT_BLOCKED 상태로 다음날 08시로 연기)
+      if (isNightTime) {
+        const kstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+        const kstTomorrowHour8 = new Date(
+          Date.UTC(
+            kstNow.getUTCFullYear(),
+            kstNow.getUTCMonth(),
+            kstNow.getUTCDate() + 1,
+            -1, // UTC 23:00 = KST 08:00
+            0,
+            0,
+            0
+          )
+        );
+        await prisma.scheduledEmail.updateMany({
+          where: { id: item.id },
+          data:  { status: "NIGHT_BLOCKED", scheduledAt: kstTomorrowHour8 },
+        });
+        logger.log("[Cron/ScheduledEmail] 야간 차단", {
+          id: item.id,
+          kstNowHour,
+          nextTry: kstTomorrowHour8,
+        });
+        continue;
+      }
+
       // 낙관적 잠금 — 다른 Cron 인스턴스 중복 처리 방지
       const locked = await prisma.scheduledEmail.updateMany({
-        where: { id: item.id, status: "PENDING" },
+        where: { id: item.id, status: { in: ["PENDING", "NIGHT_BLOCKED"] } },
         data:  { status: "SENDING" },
       });
       if (locked.count === 0) continue;

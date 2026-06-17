@@ -537,7 +537,7 @@ ${footerBlock}
   };
 
   // 이미지 라이브러리에서 선택 시
-  const handleLibraryInsert = useCallback((rawHtml: string) => {
+  const handleLibraryInsert = async (rawHtml: string) => {
     const info = extractDriveInfo(rawHtml);
 
     // OG 이미지 목적
@@ -556,20 +556,46 @@ ${footerBlock}
       setCopied(false);
       return;
     }
-    // 이미지 모드: Drive URL 파싱 → images 배열에 추가
+    // 이미지 모드: Drive URL 파싱 → POST /api/landing-pages/images (JSON) → 실제 DB id 사용
     if (!info) return;
-    setImages((prev) => [...prev, {
-      id:          crypto.randomUUID(),
-      assetId:     info.driveFileId,
-      url:         info.url,
-      fullUrl:     info.fullUrl,
-      driveFileId: info.driveFileId,
-      width: 0, height: 0,
-      mimeType:    "image/webp",
-      fileName:    "라이브러리 이미지",
-      sortOrder:   prev.length,
-    }]);
-  }, [editorMode, libraryPurpose]);
+
+    // 페이지가 아직 없으면 먼저 생성
+    let pageId: string | null = null;
+    try { pageId = await ensurePage(); } catch (e) { setError(`페이지 생성 오류: ${e instanceof Error ? e.message : String(e)}`); return; }
+    if (!pageId) return;
+
+    try {
+      const res = await fetch("/api/landing-pages/images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          landingPageId: pageId,
+          driveFileId: info.driveFileId,
+          sortOrder: images.length,
+        }),
+      });
+      const data = res.ok ? await res.json() : null;
+      if (data?.ok && data.image) {
+        // handleDragEnd는 실제 DB id만 사용하므로 반드시 API 응답의 id를 사용
+        setImages((prev) => [...prev, {
+          id:          data.image.id,
+          assetId:     data.image.assetId,
+          url:         data.image.url,
+          fullUrl:     info.fullUrl,
+          driveFileId: data.image.driveFileId,
+          width:       data.image.width,
+          height:      data.image.height,
+          mimeType:    data.image.mimeType,
+          fileName:    data.image.fileName,
+          sortOrder:   data.image.sortOrder,
+        }]);
+      } else {
+        setError(data?.message ?? "라이브러리 이미지 등록 실패");
+      }
+    } catch (e) {
+      setError(`라이브러리 이미지 등록 오류: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
 
   // ──────────────────────────────────────────────
   // 저장

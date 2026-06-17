@@ -927,6 +927,7 @@ model CrmLandingPage {
   pageFormat        String    @default("hybrid") @db.VarChar(30)  // squeeze|vsl|webinar|funnel|tripwire|downsell|launch|hybrid
   ctaType           String    @default("default") @db.VarChar(20) // default|urgent|explore|reserve
   imageFieldConfig  Json?     // [{fieldId, required, category, ...}]
+  smsDayRange       String?   // SMS 자동화 범위 예: "0-3" | null
 
   // Phase C: 블록 기반 에디터 설정 (2026-06-15)
   blocksConfig      Json?     // {blocks: Block[], selectedFeatures: {video, timer, testimonial, faq}}
