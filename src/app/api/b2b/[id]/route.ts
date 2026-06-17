@@ -24,6 +24,12 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: '인증이 필요합니다' }, { status: 403 });
     }
 
+    // AGENT(판매원) 수정 차단
+    if (ctx.sessionUser?.role === 'agent') {
+      logger.warn('[b2b] [id] PATCH: AGENT 접근 차단', { userId: ctx.sessionUser?.id });
+      return NextResponse.json({ ok: false, error: '수정/삭제 권한이 없습니다' }, { status: 403 });
+    }
+
     // GLOBAL_ADMIN(role='admin')은 organizationId가 null이어도 접근 가능
     if (!ctx.organizationId && ctx.sessionUser?.role !== 'admin') {
       logger.error('[b2b] [id] PATCH: organizationId 없음', { userId: ctx.sessionUser?.id });
@@ -110,6 +116,12 @@ export async function DELETE(
     if (!ctx) {
       logger.warn('[b2b] [id] DELETE: 미인증 요청');
       return NextResponse.json({ ok: false, error: '인증이 필요합니다' }, { status: 403 });
+    }
+
+    // AGENT(판매원) 삭제 차단
+    if (ctx.sessionUser?.role === 'agent') {
+      logger.warn('[b2b] [id] DELETE: AGENT 접근 차단', { userId: ctx.sessionUser?.id });
+      return NextResponse.json({ ok: false, error: '수정/삭제 권한이 없습니다' }, { status: 403 });
     }
 
     // GLOBAL_ADMIN(role='admin')은 organizationId가 null이어도 접근 가능

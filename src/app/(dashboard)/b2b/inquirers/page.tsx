@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Search, Users, CheckCircle, Clock, XCircle } from "lucide-react";
 import { useToast } from "@/lib/api/use-toast";
+import { useSession } from "@/hooks/useSession";
 
 type B2BProspect = {
   id: string;
@@ -50,6 +51,7 @@ function formatDate(dateStr: string) {
 
 export default function B2BInquirersPage() {
   const { toast } = useToast();
+  const { role } = useSession();
 
   const [prospects, setProspects]           = useState<B2BProspect[]>([]);
   const [total, setTotal]                   = useState(0);
@@ -171,6 +173,16 @@ export default function B2BInquirersPage() {
 
   const statusMeta = (status: string) =>
     STATUS_META[status] ?? { label: status, color: "bg-gray-100 text-gray-600", icon: null };
+
+  // AGENT·FREE_SALES 차단
+  if (role && (role === 'agent' || role === 'free_sales')) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-red-500 text-base">이 페이지에 접근할 권한이 없습니다.</p>
+      </div>
+    );
+  }
+  if (!role) return null; // 세션 로딩 중
 
   // ── 렌더 ───────────────────────────────────────────────────
   return (

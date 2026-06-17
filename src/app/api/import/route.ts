@@ -369,7 +369,7 @@ export async function POST(req: Request) {
           }
         }
 
-        // B2C 검증
+        // B2C 문의고객 검증
         if (target === "b2c") {
           if (!data["이름"] || !data["전화번호"]) {
             errors.push(`${lineNo}행: 이름 또는 전화번호 없음`);
@@ -377,6 +377,16 @@ export async function POST(req: Request) {
             continue;
           }
           batchData.push({ lineNo, data });
+        }
+
+        // B2C 구매고객 검증 (type 강제 = PURCHASED)
+        if (target === "b2c_purchased") {
+          if (!data["이름"] || !data["전화번호"]) {
+            errors.push(`${lineNo}행: 이름 또는 전화번호 없음`);
+            validationSkipCount++;
+            continue;
+          }
+          batchData.push({ lineNo, data: { ...data, 유형: "PURCHASED" } });
         }
 
         // B2B_BUYER 검증
@@ -403,7 +413,7 @@ export async function POST(req: Request) {
       // 배치 INSERT 실행 (반환값으로 정확한 성공/실패 카운트)
       try {
         let inserted = 0;
-        if (target === "b2c") {
+        if (target === "b2c" || target === "b2c_purchased") {
           inserted = await processBatchB2C(
             batchData as Parameters<typeof processBatchB2C>[0],
             orgId,

@@ -5,7 +5,7 @@ import { DuplicateProspectError, ProspectNotFoundError } from './errors';
 
 // Type definitions for type safety
 interface WhereInput {
-  organizationId: string;
+  organizationId?: string;
   deletedAt: null;
   eduType?: string;
   status?: string;
@@ -45,7 +45,7 @@ interface ProspectFormatInput {
 }
 
 export async function getB2BProspects(
-  organizationId: string,
+  organizationId: string | null,
   params: {
     page: number;
     limit: number;
@@ -59,9 +59,10 @@ export async function getB2BProspects(
     const skip = (page - 1) * limit;
 
     // Build where clause
+    // organizationId가 null이면 GLOBAL_ADMIN의 전체 조회 → organizationId 필터 생략
     const where: WhereInput = {
-      organizationId,
       deletedAt: null,
+      ...(organizationId ? { organizationId } : {}),
     };
 
     if (eduType) {

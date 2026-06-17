@@ -8,11 +8,16 @@ import {
 import Link from "next/link";
 import { IMPORT_CONFIGS, type ImportTarget } from "@/lib/import-config";
 import { logger } from "@/lib/logger";
+import { useSession } from "@/hooks/useSession";
 
 type Stats = { total: number; leads: number; customers: number; optOut: number };
 type Group = { id: string; name: string; memberCount: number };
 
 export default function DbPage() {
+  const { role } = useSession();
+  const canImport = role === 'GLOBAL_ADMIN' || role === 'OWNER';
+  const canDelete = role === 'GLOBAL_ADMIN' || role === 'OWNER';
+
   const [stats,        setStats]        = useState<Stats | null>(null);
   const [importing,    setImporting]    = useState(false);
   const [exporting,    setExporting]    = useState(false);
@@ -352,11 +357,13 @@ export default function DbPage() {
               );
             })}
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => setShowImport(!showImport)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${showImport ? "bg-navy-900 text-white" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
-              <Upload className="w-3.5 h-3.5" /> {showImport ? "목록 보기" : "엑셀 가져오기"}
-            </button>
-          </div>
+          {canImport && (
+            <div className="flex gap-2">
+              <button onClick={() => setShowImport(!showImport)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${showImport ? "bg-navy-900 text-white" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+                <Upload className="w-3.5 h-3.5" /> {showImport ? "목록 보기" : "엑셀 가져오기"}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 고객 목록 (기본 뷰) */}
@@ -384,10 +391,10 @@ export default function DbPage() {
               </div>
             ) : (
               <>
-                {/* 전체선택 + 삭제 버튼 (B2B 탭은 삭제 미지원) */}
+                {/* 전체선택 + 삭제 버튼 (B2B 탭은 삭제 미지원, AGENT/FREE_SALES는 삭제 불가) */}
                 <div className="flex items-center justify-between mb-2">
                   <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-600">
-                    {!isB2BTab && (
+                    {!isB2BTab && canDelete && (
                       <input
                         type="checkbox"
                         className="w-4 h-4 rounded border-gray-300 accent-red-500"
@@ -396,14 +403,14 @@ export default function DbPage() {
                         onChange={toggleAll}
                       />
                     )}
-                    {!isB2BTab && (allSelected ? '전체해제' : '전체선택')}
+                    {!isB2BTab && canDelete && (allSelected ? '전체해제' : '전체선택')}
                     {selected.size > 0 && (
                       <span className="text-red-600 font-medium">({selected.size}명 선택)</span>
                     )}
                   </label>
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-gray-500">총 {contactsTotal.toLocaleString()}건</span>
-                    {!isB2BTab && selected.size > 0 && (
+                    {!isB2BTab && canDelete && selected.size > 0 && (
                       <button
                         onClick={handleDelete}
                         disabled={deleting}
@@ -424,7 +431,7 @@ export default function DbPage() {
                         !isB2BTab && selected.has(c.id) ? 'bg-red-50 border-red-200' : 'hover:bg-gray-50 border-gray-100'
                       }`}
                     >
-                      {!isB2BTab && (
+                      {!isB2BTab && canDelete && (
                         <input
                           type="checkbox"
                           className="w-4 h-4 rounded border-gray-300 accent-red-500 flex-shrink-0"
@@ -460,8 +467,8 @@ export default function DbPage() {
           </div>
         )}
 
-        {/* 엑셀 가져오기 (토글) */}
-        {showImport && (
+        {/* 엑셀 가져오기 (토글, AGENT/FREE_SALES는 숨김) */}
+        {showImport && canImport && (
           <div>
 
         {/* 대량 업로드 안내 */}

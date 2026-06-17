@@ -8,6 +8,12 @@ import { logger } from "@/lib/logger";
 export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
+
+    // 판매원·프리세일즈 완전 차단
+    if (ctx.role === 'AGENT' || ctx.role === 'FREE_SALES') {
+      return NextResponse.json({ ok: false, error: '접근 권한이 없습니다' }, { status: 403 });
+    }
+
     const orgId = resolveOrgIdOrNull(ctx);
 
     const { searchParams } = new URL(req.url);
@@ -65,6 +71,10 @@ export async function GET(req: Request) {
       totalPages: Math.ceil(total / limit),
     });
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('UNAUTHORIZED') || msg.includes('401') || msg.includes('인증')) {
+      return NextResponse.json({ ok: false, error: '로그인이 필요합니다' }, { status: 401 });
+    }
     logger.error("[GET /api/b2b-prospects]", { err });
     return NextResponse.json({ ok: false, error: "서버 오류" }, { status: 500 });
   }
@@ -74,12 +84,13 @@ export async function GET(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = resolveOrgIdOrNull(ctx);
 
-    // GLOBAL_ADMIN이 아닌데 orgId가 null이면 403 (IDOR 방어)
-    if (orgId === null && ctx.role !== 'GLOBAL_ADMIN') {
-      return NextResponse.json({ ok: false, error: "권한 없음" }, { status: 403 });
+    // 판매원·프리세일즈 완전 차단
+    if (ctx.role === 'AGENT' || ctx.role === 'FREE_SALES') {
+      return NextResponse.json({ ok: false, error: '접근 권한이 없습니다' }, { status: 403 });
     }
+
+    const orgId = resolveOrgIdOrNull(ctx);
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");

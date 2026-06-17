@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Plus, Phone, X, Trash2, ChevronRight, Search, GraduationCap, Users } from "lucide-react";
 import { useToast } from "@/lib/api/use-toast";
+import { useSession } from "@/hooks/useSession";
 
 type Prospect = {
   id: string;
@@ -531,6 +532,7 @@ function Pagination({
  */
 export default function BuyersPage() {
   const { toast } = useToast();
+  const { role } = useSession();
 
   // 상태 관리
   const [prospects, setProspects] = useState<Prospect[]>([]);
@@ -722,6 +724,16 @@ export default function BuyersPage() {
     const maxPage = Math.ceil(total / 30);
     setPage(p => Math.min(maxPage, p + 1));
   };
+
+  // AGENT·FREE_SALES 차단 (모든 hooks 이후에 배치)
+  if (!role) return null; // 세션 로딩 중
+  if (role === 'agent' || role === 'free_sales') {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-red-500 text-base">이 페이지에 접근할 권한이 없습니다.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">

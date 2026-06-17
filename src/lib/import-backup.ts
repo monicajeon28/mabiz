@@ -14,7 +14,7 @@ import { logger } from '@/lib/logger';
 export async function backupImportFileToDrive(params: {
   orgName: string;
   buffer: Buffer;
-  target: 'b2c' | 'b2b_buyer' | 'b2b_inquiry';
+  target: 'b2c' | 'b2c_purchased' | 'b2b_buyer' | 'b2b_inquiry';
 }): Promise<null> {
   try {
     const { orgName, buffer, target } = params;

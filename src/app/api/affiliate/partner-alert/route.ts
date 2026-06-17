@@ -24,6 +24,14 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // OWNER·GLOBAL_ADMIN만 파트너 위험도 조회 허용
+    if (session.role !== 'OWNER' && session.role !== 'GLOBAL_ADMIN') {
+      return NextResponse.json(
+        { ok: false, error: '접근 권한이 없습니다.' },
+        { status: 403 }
+      );
+    }
+
     const searchParams = req.nextUrl.searchParams;
     const riskLevel = searchParams.get('riskLevel'); // RED, YELLOW, GREEN
     const cursor = searchParams.get('cursor') || undefined;
@@ -138,6 +146,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { ok: false, error: '인증이 필요합니다.' },
         { status: 401 }
+      );
+    }
+
+    // OWNER·GLOBAL_ADMIN만 파트너 Alert SMS 발송 허용
+    if (session.role !== 'OWNER' && session.role !== 'GLOBAL_ADMIN') {
+      return NextResponse.json(
+        { ok: false, error: '접근 권한이 없습니다.' },
+        { status: 403 }
       );
     }
 

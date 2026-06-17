@@ -13,6 +13,14 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
+    // 일괄 승인은 OWNER·GLOBAL_ADMIN만 허용
+    if (session.role !== 'OWNER' && session.role !== 'GLOBAL_ADMIN') {
+      return NextResponse.json(
+        { ok: false, error: '승인 권한이 없습니다.' },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
     const { ids } = body;
 
