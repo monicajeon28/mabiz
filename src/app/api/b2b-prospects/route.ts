@@ -1,14 +1,14 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, resolveOrgId } from "@/lib/rbac";
+import { getAuthContext, resolveOrgIdOrNull } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 // GET /api/b2b-prospects?eduType=INQUIRER&q=검색어&page=1&limit=50
 export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = resolveOrgId(ctx);
+    const orgId = resolveOrgIdOrNull(ctx);
 
     const { searchParams } = new URL(req.url);
     const eduType = searchParams.get("eduType") ?? undefined;
@@ -19,7 +19,7 @@ export async function GET(req: Request) {
     const status = searchParams.get("status") ?? undefined;
 
     const where = {
-      organizationId: orgId,
+      ...(orgId !== null ? { organizationId: orgId } : {}),
       deletedAt: null,
       ...(eduType ? { eduType } : {}),
       ...(status ? { status } : {}),
@@ -74,7 +74,12 @@ export async function GET(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = resolveOrgId(ctx);
+    const orgId = resolveOrgIdOrNull(ctx);
+
+    // GLOBAL_ADMIN이 아닌데 orgId가 null이면 403 (IDOR 방어)
+    if (orgId === null && ctx.role !== 'GLOBAL_ADMIN') {
+      return NextResponse.json({ ok: false, error: "권한 없음" }, { status: 403 });
+    }
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
@@ -86,7 +91,7 @@ export async function PATCH(req: Request) {
 
     // 소유권 확인
     const existing = await prisma.b2BProspect.findFirst({
-      where: { id, organizationId: orgId, deletedAt: null },
+      where: { id, ...(orgId !== null ? { organizationId: orgId } : {}), deletedAt: null },
       select: { id: true },
     });
     if (!existing) {

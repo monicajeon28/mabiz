@@ -179,15 +179,15 @@ export function parseRow(
 /**
  * ImportTarget 타입 정의
  */
-export type ImportTarget = 'b2c' | 'b2b_buyer' | 'b2b_inquiry';
+export type ImportTarget = 'b2c' | 'b2c_purchased' | 'b2b_buyer' | 'b2b_inquiry';
 
 /**
  * B2C 고객 가져오기 설정
  */
 export const B2C_IMPORT_CONFIG: ImportConfig = {
-  label: 'B2C 고객',
-  name: 'B2C 고객',
-  description: '개인 고객 정보 가져오기',
+  label: '문의 고객',
+  name: '문의 고객',
+  description: '크루즈 상담 문의 고객 정보 가져오기',
   columns: [
     {
       name: '이름',
@@ -239,12 +239,61 @@ export const B2C_IMPORT_CONFIG: ImportConfig = {
 };
 
 /**
+ * B2C 구매고객 가져오기 설정 (크루즈 구매 완료)
+ */
+export const B2C_PURCHASED_IMPORT_CONFIG: ImportConfig = {
+  label: '구매 고객',
+  name: '구매 고객',
+  description: '크루즈 구매 완료 고객 정보 가져오기',
+  columns: [
+    {
+      name: '이름',
+      label: '이름(필수)',
+      required: true,
+      field: 'name',
+      aliases: ['이름', '성명', 'name'],
+    },
+    {
+      name: '전화번호',
+      label: '전화번호(필수)',
+      required: true,
+      field: 'phone',
+      aliases: ['전화번호', '연락처', '핸드폰', 'phone', 'mobile'],
+    },
+    {
+      name: '예약번호',
+      label: '예약번호',
+      field: 'bookingRef',
+      aliases: ['예약번호', '예약ID', 'booking_ref', 'bookingRef'],
+    },
+    {
+      name: '이메일',
+      label: '이메일',
+      field: 'email',
+      aliases: ['이메일', 'email', 'e-mail'],
+    },
+    {
+      name: '관심크루즈',
+      label: '관심크루즈',
+      field: 'cruiseInterest',
+      aliases: ['선호 크루즈', '크루즈 관심도', 'cruise_interest', 'interest'],
+    },
+    {
+      name: '메모',
+      label: '메모',
+      field: 'adminMemo',
+      aliases: ['메모', '관리자메모', 'admin_memo', 'memo', 'notes'],
+    },
+  ],
+};
+
+/**
  * B2B 구매자 가져오기 설정
  */
 export const B2B_BUYER_IMPORT_CONFIG: ImportConfig = {
-  label: 'B2B 구매자',
-  name: 'B2B 구매자',
-  description: 'B2B 구매자 정보 가져오기',
+  label: '교육 구매자',
+  name: '교육 구매자',
+  description: '교육 상품 구매자 정보 가져오기',
   columns: [
     {
       name: '이름',
@@ -286,8 +335,8 @@ export const B2B_BUYER_IMPORT_CONFIG: ImportConfig = {
  * B2B 문의자 가져오기 설정
  */
 export const B2B_INQUIRY_IMPORT_CONFIG: ImportConfig = {
-  label: 'B2B 문의자',
-  name: 'B2B 문의자',
+  label: '교육 문의자',
+  name: '교육 문의자',
   description: 'B2B 문의자 정보 가져오기',
   columns: [
     {
@@ -331,6 +380,7 @@ export const B2B_INQUIRY_IMPORT_CONFIG: ImportConfig = {
  */
 export const IMPORT_CONFIGS: Record<ImportTarget, ImportConfig> = {
   b2c: B2C_IMPORT_CONFIG,
+  b2c_purchased: B2C_PURCHASED_IMPORT_CONFIG,
   b2b_buyer: B2B_BUYER_IMPORT_CONFIG,
   b2b_inquiry: B2B_INQUIRY_IMPORT_CONFIG,
 };

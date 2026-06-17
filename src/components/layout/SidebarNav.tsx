@@ -82,13 +82,6 @@ const navSections: NavSection[] = [
     ],
   },
   {
-    label: "B2B 파트너",
-    roles: ["GLOBAL_ADMIN", "OWNER"],
-    items: [
-      { href: "/b2b-editor", icon: Building2, label: "B2B 랜딩", roles: ["GLOBAL_ADMIN", "OWNER"] },
-    ],
-  },
-  {
     label: "그룹관리",
     roles: ["GLOBAL_ADMIN", "OWNER", "AGENT"],
     items: [
