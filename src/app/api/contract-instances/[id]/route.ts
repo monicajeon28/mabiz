@@ -13,6 +13,18 @@ interface RouteParams {
 }
 
 /**
+ * HTML 특수문자 이스케이프 (XSS 방지)
+ */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
  * 시간 남은 표시
  */
 function getTimeRemaining(expiresAt: Date | null): string {
@@ -46,7 +58,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { organizationId } = authContext;
+    const { organizationId, role } = authContext;
     const { id } = await params;
 
     const instance = await prisma.contractInstance.findUnique({
@@ -66,7 +78,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // 권한 확인
-    if (instance.organizationId !== organizationId) {
+    if (role !== "GLOBAL_ADMIN" && instance.organizationId !== organizationId) {
       return NextResponse.json(
         { ok: false, error: "접근 권한이 없습니다" },
         { status: 403 }
@@ -125,7 +137,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { organizationId } = authContext;
+    const { organizationId, role } = authContext;
     const { id } = await params;
 
     const instance = await prisma.contractInstance.findUnique({
@@ -143,7 +155,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // 권한 확인
-    if (instance.organizationId !== organizationId) {
+    if (role !== "GLOBAL_ADMIN" && instance.organizationId !== organizationId) {
       return NextResponse.json(
         { ok: false, error: "접근 권한이 없습니다" },
         { status: 403 }
@@ -226,7 +238,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     // 인스턴스 업데이트
     await prisma.contractInstance.updateMany({
-      where: { id, organizationId },
+      where: { id, ...(organizationId ? { organizationId } : {}) },
       data: {
         ...(status && { status }),
         ...(status === "SIGNED" && { signedAt: new Date() }),
@@ -266,7 +278,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>계약서 - ${customerName}</title>
+  <title>계약서 - ${escapeHtml(customerName)}</title>
   <style>
     body { font-family: 'Malgun Gothic', sans-serif; max-width: 800px; margin: 40px auto; padding: 0 24px; color: #222; }
     h1 { color: #1a2e4a; border-bottom: 2px solid #1a2e4a; padding-bottom: 12px; }
@@ -279,15 +291,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 <body>
   <h1>전자 계약서</h1>
   <table>
-    <tr><th>계약서 ID</th><td>${updatedInstance.id}</td></tr>
-    <tr><th>템플릿</th><td>${updatedInstance.template.name}</td></tr>
-    <tr><th>고객명</th><td>${customerName}</td></tr>
-    <tr><th>상태</th><td>${updatedInstance.status}</td></tr>
-    <tr><th>서명일시</th><td>${signedAtStr}</td></tr>
+    <tr><th>계약서 ID</th><td>${escapeHtml(updatedInstance.id)}</td></tr>
+    <tr><th>템플릿</th><td>${escapeHtml(updatedInstance.template.name)}</td></tr>
+    <tr><th>고객명</th><td>${escapeHtml(customerName)}</td></tr>
+    <tr><th>상태</th><td>${escapeHtml(updatedInstance.status)}</td></tr>
+    <tr><th>서명일시</th><td>${escapeHtml(signedAtStr)}</td></tr>
   </table>
   <h2>계약 내용</h2>
-  <pre style="background:#f8f9fa;padding:16px;border-radius:8px;white-space:pre-wrap;word-break:break-all;">${JSON.stringify(boundDataObj, null, 2)}</pre>
-  <div class="footer">이 문서는 마비즈 CRM에서 자동 생성된 전자 계약서입니다. 생성일시: ${new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}</div>
+  <pre style="background:#f8f9fa;padding:16px;border-radius:8px;white-space:pre-wrap;word-break:break-all;">${escapeHtml(JSON.stringify(boundDataObj, null, 2))}</pre>
+  <div class="footer">이 문서는 마비즈 CRM에서 자동 생성된 전자 계약서입니다. 생성일시: ${escapeHtml(new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" }))}</div>
 </body>
 </html>`;
 
@@ -418,7 +430,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // 권한 확인
-    if (instance.organizationId !== organizationId) {
+    if (role !== "GLOBAL_ADMIN" && instance.organizationId !== organizationId) {
       return NextResponse.json(
         { ok: false, error: "접근 권한이 없습니다" },
         { status: 403 }
@@ -437,7 +449,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     await prisma.contractInstance.delete({
-      where: { id, organizationId },
+      where: { id },
     });
 
     logger.log("[DELETE /api/contract-instances/[id]] 영구 삭제 완료", {
