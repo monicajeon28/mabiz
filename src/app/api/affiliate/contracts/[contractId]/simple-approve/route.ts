@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
  * PUT /api/affiliate/contracts/[contractId]/simple-approve
  *
  * 크루즈닷 파트너스(CRUISE_PARTNER) 신청 승인 — 계정 생성 없이 상태만 변경
- * 접근 권한: GLOBAL_ADMIN 또는 담당 대리점장 (OWNER/AGENT)
+ * 접근 권한: GLOBAL_ADMIN 또는 담당 대리점장 (OWNER)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -54,8 +54,30 @@ export async function PUT(
     if (contract.status === 'APPROVED') {
       return NextResponse.json({ ok: false, message: '이미 승인된 신청입니다.' }, { status: 409 });
     }
-    if (contract.status === 'rejected') {
+    if (contract.status === 'REJECTED') {
       return NextResponse.json({ ok: false, message: '반려된 신청은 승인할 수 없습니다.' }, { status: 409 });
+    }
+
+    // P0-1 IDOR 방지: OWNER는 자신이 담당한 신청만 승인 가능
+    if (ctx.role === 'OWNER') {
+      const supervisorPhone = (meta.supervisorPhone as string | undefined)
+        || (meta.agentPhone as string | undefined);
+      if (!supervisorPhone) {
+        return NextResponse.json(
+          { ok: false, message: '담당 대리점장 정보가 없는 신청입니다. 관리자에게 문의하세요.' },
+          { status: 403 },
+        );
+      }
+      const selfMember = await prisma.organizationMember.findFirst({
+        where: { userId: ctx.userId, isActive: true },
+        select: { phone: true },
+      });
+      if (!selfMember?.phone || selfMember.phone !== supervisorPhone) {
+        return NextResponse.json(
+          { ok: false, message: '담당 대리점장만 승인할 수 있습니다.' },
+          { status: 403 },
+        );
+      }
     }
 
     // supervisorPhone → 담당 대리점 산하 배정을 위한 OWNER 조회
