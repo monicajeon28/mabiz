@@ -87,8 +87,13 @@ export async function POST(req: Request) {
       orgId = b2bPage.organizationId;
 
       // ShortLink에서 페이지 생성자(어필리에이트) 조회
+      // 'b2b-landing' category는 경로 삭제 후 신규 생성 없음 → dead branch 제거
+      // 기존 DB에 해당 레코드가 있다면 scripts/migrate-shortlinks.mjs로 category 일괄 업데이트 권장
       const shortLink = await prisma.shortLink.findFirst({
-        where: { category: 'b2b-landing', targetUrl: { equals: `${process.env.NEXT_PUBLIC_APP_URL}/b2b-landing/${landingPageId}` } },
+        where: {
+          category: 'landing-pages',
+          targetUrl: { contains: landingPageId },
+        },
         select: { createdBy: true },
       });
 

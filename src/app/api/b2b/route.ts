@@ -21,11 +21,12 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: false, error: '인증이 필요합니다' }, { status: 403 });
     }
 
-    // AGENT(판매원) 완전 차단
-    // 주의: requirePartnerContext()의 sessionUser.role은 'admin'/'owner'/'agent' 소문자 반환
-    // (rbac.ts의 'GLOBAL_ADMIN'/'OWNER'/'AGENT' 대문자와 다름 — 향후 통합 필요)
-    if (ctx.sessionUser?.role === 'agent') {
-      logger.warn('[b2b] GET: AGENT 접근 차단', { userId: ctx.sessionUser?.id });
+    // AGENT(판매원)·FREE_SALES 완전 차단
+    // 주의: requirePartnerContext()의 sessionUser.role은 소문자 반환 가능
+    // 대소문자 무관 비교로 안전하게 처리
+    const getRoleLower = (ctx.sessionUser?.role ?? '').toLowerCase();
+    if (getRoleLower === 'agent' || getRoleLower === 'free_sales') {
+      logger.warn('[b2b] GET: AGENT/FREE_SALES 접근 차단', { userId: ctx.sessionUser?.id });
       return NextResponse.json({ ok: false, error: '접근 권한이 없습니다' }, { status: 403 });
     }
 
@@ -87,11 +88,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: '인증이 필요합니다' }, { status: 403 });
     }
 
-    // AGENT(판매원) 완전 차단
-    // 주의: requirePartnerContext()의 sessionUser.role은 'admin'/'owner'/'agent' 소문자 반환
-    // (rbac.ts의 'GLOBAL_ADMIN'/'OWNER'/'AGENT' 대문자와 다름 — 향후 통합 필요)
-    if (ctx.sessionUser?.role === 'agent') {
-      logger.warn('[b2b] POST: AGENT 접근 차단', { userId: ctx.sessionUser?.id });
+    // AGENT(판매원)·FREE_SALES 완전 차단
+    // 주의: requirePartnerContext()의 sessionUser.role은 소문자 반환 가능
+    // 대소문자 무관 비교로 안전하게 처리
+    const postRoleLower = (ctx.sessionUser?.role ?? '').toLowerCase();
+    if (postRoleLower === 'agent' || postRoleLower === 'free_sales') {
+      logger.warn('[b2b] POST: AGENT/FREE_SALES 접근 차단', { userId: ctx.sessionUser?.id });
       return NextResponse.json({ ok: false, error: '접근 권한이 없습니다' }, { status: 403 });
     }
 
@@ -115,7 +117,7 @@ export async function POST(req: Request) {
     try {
       body = await req.json();
     } catch (err) {
-      logger.warn('[b2b] POST: 잘못된 JSON 형식');
+      logger.warn('[b2b] POST: 잘못된 JSON 형식', { error: err instanceof Error ? err.message : String(err) });
       return NextResponse.json(
         { ok: false, error: 'JSON 형식이 올바르지 않습니다' },
         { status: 400 }
@@ -136,8 +138,8 @@ export async function POST(req: Request) {
     // P1: 보안 - effectiveOrgId로 생성 (클라이언트 전달값 무시, IDOR 방지)
     const result = await createB2BProspect(effectiveOrgId, parseResult.data);
     return NextResponse.json(result, { status: 201 });
-  } catch (err: any) {
-    if (err.code === 'DUPLICATE_PROSPECT') {
+  } catch (err: unknown) {
+    if (err instanceof Error && (err as { code?: string }).code === 'DUPLICATE_PROSPECT') {
       logger.warn('[b2b] POST: 중복 prospect');
       return NextResponse.json(
         { ok: false, error: '같은 조직에 이미 존재하는 전화번호입니다' },

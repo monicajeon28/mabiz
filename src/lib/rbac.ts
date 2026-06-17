@@ -7,7 +7,7 @@
  *   AGENT         - 자기에게 배당된 고객만 접근, 삭제 불가 (330만 직속판매원)
  *   FREE_SALES    - 내 판매 현황 + 어필리에이트 링크만 (고객 DB 접근 없음)
  */
-import { ContactVisibility } from "@prisma/client";
+import { ContactVisibility, Prisma } from "@prisma/client";
 
 import 'server-only';
 import { getMabizSession } from '@/lib/auth';
@@ -64,6 +64,7 @@ export async function getAuthContext(): Promise<AuthContext> {
  *   AND (
  *     assignedUserId = $2          -- idx_contact_org_assigned 활용
  *     OR createdBy = $2            -- idx_contact_org_created_by 활용
+ *     OR sharedWith ANY (idx_sharedTo)  -- ContactSharing 공유받은 고객
  *   )
  *   AND visibility != 'ADMIN_ONLY'  -- idx_contact_org_visibility 병렬 필터
  *   AND deletedAt IS NULL
@@ -87,14 +88,18 @@ export function buildContactWhere(ctx: AuthContext, extra: Record<string, unknow
     };
   }
   // AGENT: 할당된 고객 + 작성한 고객 + 공유받은 고객 + visibility !== ADMIN_ONLY
+  // 주의: extra에 OR 키를 전달하면 아래 OR 배열과 충돌함.
+  // 호출부 계약: extra에는 OR 키를 포함하지 않음. 필요시 반환값에서 직접 병합할 것.
   // 성능: PostgreSQL BitmapOr로 3개 인덱스 병합 (ContactSharing idx_sharedTo 활용)
+  const { OR: extraOR, ...restExtra } = extra as { OR?: Prisma.ContactWhereInput[]; [k: string]: unknown };
   return {
-    ...extra,
+    ...restExtra,
     organizationId: ctx.organizationId!,
     OR: [
       { assignedUserId: ctx.userId }, // 할당된 고객 (idx_contact_org_assigned)
       { createdBy: ctx.userId }, // 작성한 고객 (idx_contact_org_created_by)
       { sharedWith: { some: { sharedTo: ctx.userId } } }, // 공유받은 고객 (ContactSharing idx_sharedTo)
+      ...(extraOR ?? []),
     ],
     visibility: { not: ContactVisibility.ADMIN_ONLY },
     deletedAt: null,
@@ -117,13 +122,16 @@ export function buildContactWhereWithSourceFilter(
   const baseWhere = buildContactWhere(ctx, extra);
 
   // AGENT 역할인데 어필리에이트 메타데이터가 있으면 소스 기반 필터 적용
+  // buildContactWhere(AGENT)의 OR 배열을 spread한 후 sourceType 조건만 추가.
+  // sharedWith 조건은 baseWhere.OR에 이미 포함되므로 중복 추가하지 않음.
   if (ctx.role === "AGENT" && userAffiliateMeta) {
+    const baseOR = (baseWhere as { OR?: Prisma.ContactWhereInput[] }).OR ?? [];
     if (userAffiliateMeta.managerId) {
       // 본사: 자신의 managerId를 가진 어필리에이트만
       return {
         ...baseWhere,
         OR: [
-          { assignedUserId: ctx.userId }, // 기존 할당된 고객
+          ...baseOR,
           { sourceType: 'affiliate', affiliateManagerId: String(userAffiliateMeta.managerId) },
         ],
       };
@@ -133,7 +141,7 @@ export function buildContactWhereWithSourceFilter(
       return {
         ...baseWhere,
         OR: [
-          { assignedUserId: ctx.userId },
+          ...baseOR,
           { sourceType: 'affiliate', affiliateAgentId: String(userAffiliateMeta.agentId) },
         ],
       };
@@ -162,12 +170,14 @@ export function requireNotFreeSales(ctx: AuthContext): void {
  */
 function maskPhoneNumber(phone: string | null | undefined): string | null | undefined {
   if (!phone) return phone;
-  // 형식: 010-1234-5678 → 010-XXXX-5678
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length < 4) return phone;
-  const start = phone.substring(0, phone.lastIndexOf(digits.substring(0, digits.length - 4)));
-  const last4 = phone.substring(phone.length - 4);
-  return `${start}XXXX${last4}`;
+  // 형식: 010-1234-5678 → 010-XXXX-5678 (중간 자리 마스킹, 뒤 4자리 노출)
+  // 정규식 기반: 010/011/지역번호-중간-뒤4자리 모두 처리
+  const masked = phone.replace(
+    /(\d{2,4})-?(\d{3,4})-?(\d{4})$/,
+    (_, a, _b, c) => `${a}-XXXX-${c}`
+  );
+  // 치환이 발생하지 않았으면(국제번호 등) 원본 반환
+  return masked !== phone ? masked : phone;
 }
 
 function maskEmail(email: string | null | undefined): string | null | undefined {
@@ -175,7 +185,8 @@ function maskEmail(email: string | null | undefined): string | null | undefined 
   // 형식: user@example.com → u***@example.com
   const [local, domain] = email.split('@');
   if (!local || !domain) return email;
-  const masked = local.charAt(0) + '*'.repeat(Math.max(1, local.length - 2)) + (local.length > 1 ? '' : '');
+  if (local.length <= 1) return email;
+  const masked = local.charAt(0) + '*'.repeat(Math.max(0, local.length - 2)) + local.charAt(local.length - 1);
   return `${masked}@${domain}`;
 }
 
@@ -194,23 +205,23 @@ export function maskContactInfo<T extends object>(contact: T, ctx: AuthContext):
   if (ctx.role === 'GLOBAL_ADMIN') return contact;
 
   // contact 객체 깊은 복사 (원본 수정 방지)
-  const masked = { ...contact } as any;
+  const masked = { ...contact } as Record<string, unknown>;
 
   // OWNER: 부분 마스킹
   if (ctx.role === 'OWNER') {
-    if ('phone' in masked) masked.phone = maskPhoneNumber(masked.phone);
-    if ('email' in masked) masked.email = maskEmail(masked.email);
-    return masked;
+    if ('phone' in masked) masked.phone = maskPhoneNumber(masked.phone as string | null | undefined);
+    if ('email' in masked) masked.email = maskEmail(masked.email as string | null | undefined);
+    return masked as unknown as T;
   }
 
   // AGENT: 할당된 고객은 전체, 공유받은 고객은 마스킹
   if (ctx.role === 'AGENT' || ctx.role === 'FREE_SALES') {
     // FREE_SALES: 모든 고객 마스킹
     if (ctx.role === 'FREE_SALES') {
-      if ('phone' in masked) masked.phone = maskPhoneNumber(masked.phone);
-      if ('email' in masked) masked.email = maskEmail(masked.email);
-      if ('name' in masked) masked.name = maskName(masked.name);
-      return masked;
+      if ('phone' in masked) masked.phone = maskPhoneNumber(masked.phone as string | null | undefined);
+      if ('email' in masked) masked.email = maskEmail(masked.email as string | null | undefined);
+      if ('name' in masked) masked.name = maskName(masked.name as string | null | undefined);
+      return masked as unknown as T;
     }
 
     // AGENT: 할당된 고객은 전체, 공유받은 고객은 마스킹
@@ -222,11 +233,11 @@ export function maskContactInfo<T extends object>(contact: T, ctx: AuthContext):
 
     if (!isOwned) {
       // 공유받은 고객: 마스킹
-      if ('phone' in masked) masked.phone = maskPhoneNumber(masked.phone);
-      if ('email' in masked) masked.email = maskEmail(masked.email);
-      if ('name' in masked) masked.name = maskName(masked.name);
+      if ('phone' in masked) masked.phone = maskPhoneNumber(masked.phone as string | null | undefined);
+      if ('email' in masked) masked.email = maskEmail(masked.email as string | null | undefined);
+      if ('name' in masked) masked.name = maskName(masked.name as string | null | undefined);
     }
-    return masked;
+    return masked as unknown as T;
   }
 
   return contact;

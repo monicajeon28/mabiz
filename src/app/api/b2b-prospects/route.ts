@@ -100,7 +100,7 @@ export async function PATCH(req: Request) {
 
     const body = await req.json() as { status?: string; notes?: string };
 
-    // 소유권 확인
+    // 소유권 확인 (PK 단일 조회 — orderBy 불필요)
     const existing = await prisma.b2BProspect.findFirst({
       where: { id, ...(orgId !== null ? { organizationId: orgId } : {}), deletedAt: null },
       select: { id: true },

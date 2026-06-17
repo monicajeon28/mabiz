@@ -81,6 +81,9 @@ export default function ContactsAllPage() {
   }, []);
 
   const fetchContacts = useCallback(async () => {
+    // role이 확정되지 않았거나 GLOBAL_ADMIN이 아니면 실행 안 함
+    if (role === undefined) return;
+    if (!isAdmin) return;
     setLoading(true);
     setError('');
     const params = new URLSearchParams({
@@ -104,7 +107,7 @@ export default function ContactsAllPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, selectedOrg, q, typeFilter, selectedTags, sortBy]);
+  }, [page, selectedOrg, q, typeFilter, selectedTags, sortBy, role, isAdmin]);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
@@ -123,8 +126,12 @@ export default function ContactsAllPage() {
     setPage(1);
   };
 
-  // role 로딩 중 (undefined) → 대기
-  if (role === undefined) return null;
+  // role 로딩 중 (undefined) → 로딩 스켈레톤 표시
+  if (role === undefined) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="text-gray-400 text-base animate-pulse">로딩 중...</div>
+    </div>
+  );
 
   // GLOBAL_ADMIN(isAdmin)이 아니면 접근 거부 메시지 표시
   if (!isAdmin) {

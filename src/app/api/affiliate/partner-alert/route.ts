@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
@@ -5,7 +7,6 @@ import { logger } from '@/lib/logger';
 import { getSession } from '@/lib/auth';
 import {
   updatePartnerRiskScore,
-  calculatePartnerRiskScore,
   generateDay03Messages,
 } from '@/lib/partner-risk-scoring';
 import { sendPartnerAlertSms } from '@/lib/aligo-sms-service';
@@ -17,9 +18,15 @@ import { sendPartnerAlertSms } from '@/lib/aligo-sms-service';
 export async function GET(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!session?.organizationId) {
+    if (!session?.userId) {
       return NextResponse.json(
         { ok: false, error: '인증이 필요합니다.' },
+        { status: 401 }
+      );
+    }
+    if (!session.organizationId && session.role !== 'GLOBAL_ADMIN') {
+      return NextResponse.json(
+        { ok: false, error: '조직 정보가 없습니다.' },
         { status: 401 }
       );
     }
@@ -35,7 +42,7 @@ export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams;
     const riskLevel = searchParams.get('riskLevel'); // RED, YELLOW, GREEN
     const cursor = searchParams.get('cursor') || undefined;
-    const limit = Math.min(100, parseInt(searchParams.get('limit') || '50', 10));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)));
 
     const where: Prisma.PartnerRiskFlagsWhereInput = {};
     if (riskLevel && ['RED', 'YELLOW', 'GREEN'].includes(riskLevel)) {
@@ -67,9 +74,13 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    const orgFilter = session.role === 'GLOBAL_ADMIN'
+      ? {}
+      : { partner: { organizationId: session.organizationId! } };
+
     const [partners, total] = await Promise.all([
       prisma.partnerRiskFlags.findMany({
-        where: { partner: { organizationId: session.organizationId }, ...where },
+        where: { ...orgFilter, ...where },
         select: {
           partnerId: true,
           totalRiskScore: true,
@@ -95,7 +106,7 @@ export async function GET(req: NextRequest) {
         take: limit + 1,
       }),
       prisma.partnerRiskFlags.count({
-        where: { partner: { organizationId: session.organizationId }, ...where },
+        where: { ...orgFilter, ...where },
       }),
     ]);
 
@@ -142,11 +153,11 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!session?.userId || !session?.organizationId) {
-      return NextResponse.json(
-        { ok: false, error: '인증이 필요합니다.' },
-        { status: 401 }
-      );
+    if (!session?.userId) {
+      return NextResponse.json({ ok: false, error: '인증이 필요합니다.' }, { status: 401 });
+    }
+    if (!session.organizationId && session.role !== 'GLOBAL_ADMIN') {
+      return NextResponse.json({ ok: false, error: '조직 정보가 없습니다.' }, { status: 401 });
     }
 
     // OWNER·GLOBAL_ADMIN만 파트너 Alert SMS 발송 허용
@@ -163,6 +174,14 @@ export async function POST(req: NextRequest) {
     if (!partnerId) {
       return NextResponse.json(
         { ok: false, error: 'partnerId가 필요합니다.' },
+        { status: 400 }
+      );
+    }
+
+    const VALID_DAYS = ['day0', 'day1', 'day2', 'day3'] as const;
+    if (day !== undefined && !VALID_DAYS.includes(day)) {
+      return NextResponse.json(
+        { ok: false, error: 'day는 day0~day3 중 하나여야 합니다.' },
         { status: 400 }
       );
     }
@@ -194,7 +213,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (partner.organizationId !== session.organizationId) {
+    if (session.role !== 'GLOBAL_ADMIN' && partner.organizationId !== session.organizationId) {
       return NextResponse.json(
         { ok: false, error: '접근 권한이 없습니다.' },
         { status: 403 }
@@ -208,10 +227,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Risk Score 재계산
+    // Risk Score 재계산 (GLOBAL_ADMIN은 organizationId=null이므로 파트너의 조직 사용)
+    const effectiveOrgId = session.organizationId ?? partner.organizationId;
+    if (!effectiveOrgId) {
+      return NextResponse.json(
+        { ok: false, error: '조직 정보를 확인할 수 없습니다.' },
+        { status: 400 }
+      );
+    }
     const riskResult = await updatePartnerRiskScore(
       partnerId,
-      session.organizationId
+      effectiveOrgId
     );
 
     if (!riskResult) {
@@ -234,7 +260,7 @@ export async function POST(req: NextRequest) {
 
     // SMS 발송 (실제 Aligo 연동)
     const smsResult = await sendPartnerAlertSms(
-      session.organizationId,
+      effectiveOrgId,
       partnerId,
       targetDay as 'day0' | 'day1' | 'day2' | 'day3',
       riskResult.level,
@@ -243,7 +269,7 @@ export async function POST(req: NextRequest) {
       partner.phone
     );
 
-    logger.log('[partner-alert POST] SMS 발송', {
+    logger.info('[partner-alert POST] SMS 발송', {
       partnerId,
       day: targetDay,
       riskLevel: riskResult.level,
@@ -277,7 +303,7 @@ export async function POST(req: NextRequest) {
 function getMessageType(
   riskLevel: 'RED' | 'YELLOW' | 'GREEN',
   day: string
-): string {
+): 'URGENT_RETENTION' | 'URGENT_INCENTIVE' | 'TRAINING_OFFER' | 'POSITIVE_REINFORCEMENT' {
   if (riskLevel === 'RED') {
     if (day === 'day0' || day === 'day1') return 'URGENT_RETENTION';
     if (day === 'day2' || day === 'day3') return 'URGENT_INCENTIVE';

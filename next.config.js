@@ -47,6 +47,11 @@ const nextConfig = {
         destination: '/landing-pages',
         permanent: true,
       },
+      {
+        source: '/b2b-landing/:path*',
+        destination: '/landing-pages/:path*',
+        permanent: true,
+      },
     ];
   },
 };
