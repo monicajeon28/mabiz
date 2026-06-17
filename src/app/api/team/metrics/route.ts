@@ -1,7 +1,6 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthContext } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
