@@ -127,7 +127,7 @@ export async function provisionAffiliateAccounts(
   const sharedPassword = randomBytes(6).toString('base64url').slice(0, 8);
   const passwordHash = await hashPassword(sharedPassword);
 
-  // 단일 트랜잭션 — 전부 성공 or 전부 롤백
+  // 단일 트랜잭션 — 전부 성공 or 전부 롤백 (Supabase 콜드스타트 대비 30초 timeout)
   const result = await prisma.$transaction(async (tx) => {
     // Phase 4: partnerId 자동 생성 (boss1, boss2... / sales1, sales2... / pre1, pre2...)
     const managerPartnerId = await generateUniquePartnerId('boss', tx);
@@ -413,7 +413,7 @@ export async function provisionAffiliateAccounts(
         linkUrl: `${cruisedotBaseUrl}?ref=${presalesLinkCode}`,
       },
     } satisfies ProvisionInternalResult;
-  });
+  }, { timeout: 30000 });
 
   // Phase 4: Supabase 자동 동기화 (백업) — DLQ 기반 재시도
   const supabaseUrl = process.env.SUPABASE_BACKUP_URL;
@@ -435,7 +435,7 @@ export async function provisionAffiliateAccounts(
           role: 'affiliate_manager',
           email: contractorEmail,
         });
-        logger.log('[AFFILIATE-PROVISION] ✅ Manager Supabase 동기화 성공', {
+        logger.info('[AFFILIATE-PROVISION] ✅ Manager Supabase 동기화 성공', {
           gmUserId: result.manager.gmUserId,
           partnerId: result.managerPartnerId,
         });
@@ -469,7 +469,7 @@ export async function provisionAffiliateAccounts(
           name: `${contractorName} 판매원`,
           role: 'affiliate_agent',
         });
-        logger.log('[AFFILIATE-PROVISION] ✅ Agent Supabase 동기화 성공', {
+        logger.info('[AFFILIATE-PROVISION] ✅ Agent Supabase 동기화 성공', {
           gmUserId: result.agent.gmUserId,
           partnerId: result.agentPartnerId,
         });
@@ -503,7 +503,7 @@ export async function provisionAffiliateAccounts(
           name: `${contractorName} 프리세일즈`,
           role: 'affiliate_presales',
         });
-        logger.log('[AFFILIATE-PROVISION] ✅ Presales Supabase 동기화 성공', {
+        logger.info('[AFFILIATE-PROVISION] ✅ Presales Supabase 동기화 성공', {
           gmUserId: result.presales.gmUserId,
           partnerId: result.presalesPartnerId,
         });

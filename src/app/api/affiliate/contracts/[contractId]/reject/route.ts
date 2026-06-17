@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 /**
  * PUT /api/affiliate/contracts/[contractId]/reject — 계약 신청 반려
  *
- * 접근 권한: GLOBAL_ADMIN 또는 해당 신청의 담당 대리점장(BRANCH_MANAGER)
+ * 접근 권한: GLOBAL_ADMIN 또는 해당 신청의 담당 대리점장(OWNER)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -28,7 +28,7 @@ export async function PUT(
     }
 
     const body = await req.json().catch(() => ({}));
-    const rejectReason: string = typeof body.reason === 'string' ? body.reason.trim() : '';
+    const rejectReason: string = typeof body.reason === 'string' ? body.reason.trim().slice(0, 500) : '';
 
     const contract = await prisma.gmAffiliateContract.findUnique({
       where: { id: contractId },
@@ -40,7 +40,7 @@ export async function PUT(
     if (contract.status === 'APPROVED') {
       return NextResponse.json({ ok: false, message: '이미 승인된 신청은 반려할 수 없습니다.' }, { status: 409 });
     }
-    if (contract.status === 'rejected') {
+    if (contract.status === 'REJECTED') {
       return NextResponse.json({ ok: false, message: '이미 반려된 신청입니다.' }, { status: 409 });
     }
 
@@ -82,7 +82,7 @@ export async function PUT(
     await prisma.gmAffiliateContract.update({
       where: { id: contractId },
       data: {
-        status: 'rejected',
+        status: 'REJECTED',
         metadata: {
           ...existingMeta,
           rejectedAt: new Date().toISOString(),
@@ -92,6 +92,16 @@ export async function PUT(
         },
       },
     });
+
+    // 감사 로그 (실패해도 반려 흐름에 영향 없음)
+    await prisma.gmAffiliateContractAudit.create({
+      data: {
+        contractId,
+        action: 'REJECTED',
+        approvedBy: ctx.userId ? Number(ctx.userId) : null,
+        reason: rejectReason || null,
+      },
+    }).catch((e: unknown) => logger.warn('[AFFILIATE-REJECT] 감사 로그 저장 실패', { e }));
 
     logger.info('[AFFILIATE-CONTRACT] 신청 반려', {
       contractId,
