@@ -158,7 +158,9 @@ function CruiseDotPartnersForm() {
   const agentParam = searchParams.get('agent') ?? '';
   const agencyParam = searchParams.get('agency') ?? '';
   const agentPhoneParam = searchParams.get('agentPhone') ?? '';
-  const hasAgentParam = agentParam.length > 0;
+  // ?agentCode=CODE 또는 ?ref=CODE 둘 다 지원 (대리점 고유 코드)
+  const agentCodeParam = searchParams.get('agentCode') ?? searchParams.get('ref') ?? null;
+  const hasAgentParam = agentParam.length > 0 || agentCodeParam !== null;
 
   const [step, setStep] = useState<Step>('form');
   const [resultId, setResultId] = useState<number | null>(null);
@@ -257,7 +259,10 @@ function CruiseDotPartnersForm() {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/affiliate/contracts', {
+      const apiUrl = agentCodeParam
+        ? `/api/affiliate/contracts?agentCode=${encodeURIComponent(agentCodeParam)}`
+        : '/api/affiliate/contracts';
+      const res = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

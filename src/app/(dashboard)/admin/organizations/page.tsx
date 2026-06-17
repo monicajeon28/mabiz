@@ -142,10 +142,11 @@ const CONTRACT_STATUS_LABEL: Record<string, string> = {
 
 // ─── CopyBtn ──────────────────────────────────────────────────
 
-function CopyApplyLink({ path = '/affiliate/apply', colorClass = 'bg-white text-blue-700 hover:bg-blue-50' }: { path?: string; colorClass?: string }) {
+function CopyApplyLink({ path = '/affiliate/apply', colorClass = 'bg-white text-blue-700 hover:bg-blue-50', affiliateCode }: { path?: string; colorClass?: string; affiliateCode?: string | null }) {
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const url = typeof window !== 'undefined' ? `${window.location.origin}${path}` : path;
+  const fullPath = affiliateCode ? `${path}?agentCode=${encodeURIComponent(affiliateCode)}` : path;
+  const url = typeof window !== 'undefined' ? `${window.location.origin}${fullPath}` : fullPath;
 
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
 
@@ -741,6 +742,21 @@ function ManagerCard({
           <span className="text-sm text-gray-500 flex items-center gap-1"><Users className="w-3 h-3" />산하 {manager.subMemberCount}명</span>
         )}
       </div>
+      {/* 판매 파트너 신청 링크 (대리점 고유 코드 포함) */}
+      {manager.affiliateCode && (
+        <div className="flex items-center gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+          <CopyApplyLink
+            path="/affiliate/apply"
+            affiliateCode={manager.affiliateCode}
+            colorClass="bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs px-2 py-1"
+          />
+          <CopyApplyLink
+            path="/affiliate/pre-sales"
+            affiliateCode={manager.affiliateCode}
+            colorClass="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs px-2 py-1"
+          />
+        </div>
+      )}
     </div>
   );
 }
