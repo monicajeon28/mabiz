@@ -39,7 +39,7 @@ const ROLE_LABELS: Record<string, string> = {
 const ROLE_BADGE: Record<string, string> = {
   OWNER:      'bg-amber-100 text-amber-700',
   AGENT:      'bg-blue-100 text-blue-700',
-  FREE_SALES: 'bg-gray-100 text-gray-600',
+  FREE_SALES: 'bg-green-100 text-green-700',
 };
 
 const DOC_TYPE_LABELS: Record<string, string> = {
@@ -232,6 +232,7 @@ function MemberDocumentPanel({ userId }: { userId: string }) {
 export default function MembersPage() {
   const [members, setMembers]         = useState<Member[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(true);
+  const [myUserId, setMyUserId]       = useState<string | null>(null);
 
   // 멤버 삭제 컨펌
   const [confirmOpen, setConfirmOpen]   = useState(false);
@@ -259,16 +260,20 @@ export default function MembersPage() {
     setLoadingMembers(true);
 
     try {
-      // /api/auth/me 호출 제거 - layout에서 권한 관리
-      const membersRes = await fetch('/api/org/members', { signal: sig });
+      const [membersRes, meRes] = await Promise.all([
+        fetch('/api/org/members', { signal: sig }),
+        fetch('/api/auth/me',     { signal: sig }),
+      ]);
 
       if (sig.aborted) return;
 
       const membersData = await membersRes.json();
+      const meData      = await meRes.json();
 
       if (sig.aborted) return;
 
       setMembers(membersData.members ?? []);
+      if (meData.userId) setMyUserId(meData.userId);
     } catch (e) {
       if ((e as Error).name === 'AbortError') return;
       showError('데이터를 불러오지 못했습니다.');
@@ -349,6 +354,40 @@ export default function MembersPage() {
     }
   }
 
+  async function handleChangeRole(member: Member) {
+    const labels: Record<string, string> = { OWNER: '대리점장', AGENT: '판매원', FREE_SALES: '프리세일즈' };
+    const currentLabel = labels[member.role] ?? member.role;
+    const targetLabel = prompt(
+      `역할 변경: 현재 [${currentLabel}]\n새 역할 입력 (대리점장 / 판매원 / 프리세일즈)`
+    );
+    const roleMap: Record<string, string> = {
+      '대리점장': 'OWNER',
+      '판매원': 'AGENT',
+      '프리세일즈': 'FREE_SALES',
+    };
+    const newRole = roleMap[targetLabel?.trim() ?? ''];
+    if (!newRole) return;
+    if (newRole === member.role) { showError('현재와 같은 역할입니다.'); return; }
+    try {
+      const res = await fetch('/api/org/members', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberId: member.id, role: newRole }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showSuccess('역할을 변경했습니다.');
+        setMembers((prev) =>
+          prev.map((m) => (m.id === member.id ? { ...m, role: newRole } : m))
+        );
+      } else {
+        showError(data.message ?? '역할 변경 실패');
+      }
+    } catch {
+      showError('요청 처리 중 오류가 발생했습니다.');
+    }
+  }
+
   function copyPassword(pw: string) {
     navigator.clipboard.writeText(pw).then(() => {
       setPwCopied(true);
@@ -409,7 +448,7 @@ export default function MembersPage() {
                         골드 가입: {new Date(member.goldMemberSince).toLocaleDateString('ko-KR')}
                       </p>
                     )}
-                    <div className="flex items-center gap-3 mt-1">
+                    <div className="flex items-center gap-3 mt-1 flex-wrap">
                       <button
                         onClick={() => setSelectedMember(member)}
                         className="text-sm text-blue-600 hover:underline"
@@ -422,6 +461,14 @@ export default function MembersPage() {
                       >
                         비밀번호 확인
                       </button>
+                      {myUserId !== member.userId && (
+                        <button
+                          onClick={() => handleChangeRole(member)}
+                          className="text-sm text-purple-600 hover:underline"
+                        >
+                          역할 변경
+                        </button>
+                      )}
                     </div>
                   </div>
                   <button

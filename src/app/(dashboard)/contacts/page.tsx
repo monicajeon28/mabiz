@@ -53,7 +53,7 @@ type Contact = {
   sharedByName?: string;
 };
 
-type ContactTab = 'SHARED' | 'ADMIN_ONLY';
+type ContactTab = 'SHARED' | 'ADMIN_ONLY' | 'TEAM';
 
 // P0-6: 출처별 라벨 및 색상
 const SOURCE_TYPE_LABELS: Record<string, { label: string; icon: string; color: string }> = {
@@ -139,6 +139,7 @@ function getSourceLabel(contact: Contact): string {
 export default function ContactsPage() {
   const { toast } = useToast();
   const { role } = useSession();
+
   const canDelete = role === 'OWNER' || role === 'GLOBAL_ADMIN';
   const isAdmin = role === 'GLOBAL_ADMIN';
   const [activeTab, setActiveTab] = useState<ContactTab>('SHARED');
@@ -146,6 +147,7 @@ export default function ContactsPage() {
   const [total, setTotal] = useState(0);
   const [sharedCount, setSharedCount] = useState(0);
   const [adminOnlyCount, setAdminOnlyCount] = useState(0);
+  const [teamCount, setTeamCount] = useState(0);
   const [adminOnlyStats, setAdminOnlyStats] = useState<{ b2c: number; b2b: number; admin: number }>({ b2c: 0, b2b: 0, admin: 0 });
   const [q, setQ] = useState("");
   const [type, setType] = useState("");
@@ -436,9 +438,12 @@ export default function ContactsPage() {
     if (filterGroupId)            params.set("groupId",    filterGroupId);
     if (filterAssignedTo)         params.set("assignedTo", filterAssignedTo);
     if (selectedTags.length > 0)  params.set("tags",       selectedTags.join(","));
-    // Team-B: 탭별로 명시적으로 visibility 설정 (SHARED/ADMIN_ONLY)
+    // Team-B: 탭별로 명시적으로 visibility 설정 (SHARED/ADMIN_ONLY/TEAM)
     if (activeTab === 'ADMIN_ONLY') {
       params.set("visibility", "ADMIN_ONLY");
+    } else if (activeTab === 'TEAM') {
+      params.set("visibility", "SHARED");
+      params.set("teamView", "true");
     } else {
       params.set("visibility", "SHARED");
     }
@@ -506,12 +511,14 @@ export default function ContactsPage() {
   // 할당 통계 + 그룹 목록 + 탭 카운트 로드
   useEffect(() => {
     const ctrl = new AbortController();
+    const isOwner = role === 'OWNER';
     Promise.all([
       fetch("/api/groups", { signal: ctrl.signal }).then(r => r.json()),
       fetch("/api/contacts/assign-stats", { signal: ctrl.signal }).then(r => r.json()),
       fetch("/api/contacts?visibility=SHARED&limit=1", { signal: ctrl.signal }).then(r => r.json()),
       isAdmin ? fetch("/api/contacts?visibility=ADMIN_ONLY&limit=1", { signal: ctrl.signal }).then(r => r.json()) : Promise.resolve(null),
-    ]).then(([g, a, shared, adminOnly]) => {
+      isOwner ? fetch("/api/contacts?visibility=SHARED&teamView=true&limit=1", { signal: ctrl.signal }).then(r => r.json()) : Promise.resolve(null),
+    ]).then(([g, a, shared, adminOnly, team]) => {
       if (g.ok) setGroups(g.groups ?? []);
       if (a.ok) { setAssignStats(a.stats ?? []); setUnassignedCount(a.unassigned ?? 0); }
       if (shared.ok) setSharedCount(shared.total ?? 0);
@@ -521,11 +528,12 @@ export default function ContactsPage() {
           setAdminOnlyStats(adminOnly.sourceStats);
         }
       }
+      if (team?.ok) setTeamCount(team.total ?? 0);
     }).catch(err => {
       if (err instanceof Error && err.name !== 'AbortError') logger.error('[assign-stats failed]', { err });
     });
     return () => ctrl.abort();
-  }, [isAdmin]);
+  }, [isAdmin, role]);
 
   // [L6] setTimeout cleanup (공유 결과 메시지 자동 숨김)
   useEffect(() => {
@@ -725,6 +733,18 @@ export default function ContactsPage() {
     })
     .sort((a, b) => (b.leadScore ?? 0) - (a.leadScore ?? 0))  // HOT 먼저
     .slice(0, 5);
+
+  if (role === 'FREE_SALES') {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center p-8">
+        <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center text-3xl">🔒</div>
+        <h2 className="text-xl font-bold text-gray-900">고객 목록 접근 권한이 없습니다</h2>
+        <p className="text-base text-gray-600 max-w-sm">
+          프리세일즈 역할은 고객 목록을 볼 수 없습니다.<br />대리점장에게 문의하세요.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
@@ -943,6 +963,14 @@ export default function ContactsPage() {
 
       {/* Contact 탭 (Team-B UI) - 50대 친화 UX */}
       <div className="mb-6">
+        {/* AGENT 안내 메시지 */}
+        {role === 'AGENT' && (
+          <div className="mb-4 px-4 py-3 bg-blue-50 rounded-xl border border-blue-200 flex items-center gap-2">
+            <span className="text-blue-500 text-lg">ℹ️</span>
+            <p className="text-base font-medium text-blue-800">내가 담당하는 고객만 표시됩니다</p>
+          </div>
+        )}
+
         {/* 탭 버튼 (크고 명확한 텍스트) + 설명 */}
         <div className="flex gap-3 mb-4 flex-wrap">
           <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
@@ -961,6 +989,24 @@ export default function ContactsPage() {
               <p className="text-sm text-gray-600 px-1">다른 팀원과 함께 관리하는 고객 목록</p>
             )}
           </div>
+          {role === 'OWNER' && (
+            <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
+              <button
+                onClick={() => { setActiveTab('TEAM'); setPage(1); }}
+                className={`px-8 py-4 rounded-xl font-bold text-base md:text-lg transition-all transform text-left ${
+                  activeTab === 'TEAM'
+                    ? 'bg-amber-600 text-white shadow-lg scale-105'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                👥 우리 팀 고객 <br className="md:hidden" />
+                <span className="text-sm md:text-base font-semibold">({teamCount}명)</span>
+              </button>
+              {activeTab === 'TEAM' && (
+                <p className="text-sm text-gray-600 px-1">우리 팀 전체 고객 목록 (조직 내 모든 고객)</p>
+              )}
+            </div>
+          )}
           {isAdmin && (
             <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
               <button
@@ -986,6 +1032,8 @@ export default function ContactsPage() {
           <p className="text-base font-medium text-gray-800 leading-relaxed">
             ⓘ {activeTab === 'SHARED'
               ? '팀원들과 함께 보는 고객들입니다. 선택해서 팀에 공유할 수 있어요.'
+              : activeTab === 'TEAM'
+              ? '👥 우리 조직의 모든 고객을 한눈에 볼 수 있습니다. 팀 전체 현황을 파악해요.'
               : '👔 관리자만 따로 보관하는 특별한 고객 정보입니다. 다른 직원들에게 공유되지 않습니다.'}
           </p>
           {/* Team-A: 관리자 전용 탭 통계 */}

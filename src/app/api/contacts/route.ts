@@ -11,6 +11,7 @@ import { recommendProducts } from "@/lib/product-recommender";
 import { sendSms, resolveUserSmsConfig } from "@/lib/aligo";
 import { checkRateLimitAsync } from "@/lib/rate-limit";
 import { RATE_LIMIT_CONFIG, createRateLimitHeaders } from "@/lib/rate-limit-config";
+import { isStaffPhone } from "@/lib/contact-guard";
 
 // 고객 타입 정규화: PURCHASED (구매완료) | INQUIRY (문의) | GOLD (금회원)
 function normalizeCustomerType(type: string | undefined): 'PURCHASED' | 'INQUIRY' | 'GOLD' | undefined {
@@ -30,6 +31,10 @@ export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
     const { searchParams } = new URL(req.url);
+
+    if (ctx.role === 'FREE_SALES') {
+      return NextResponse.json({ ok: true, contacts: [], total: 0, page: 1, limit: 20 });
+    }
 
     const rawType  = searchParams.get("type");
     const customerOnly = searchParams.get("customerOnly") === "true";
@@ -67,17 +72,27 @@ export async function GET(req: Request) {
           deletedAt: null,
         };
       } else if (ctx.role === 'OWNER') {
-        // OWNER(대리점장): 자신의 고객 + 공유받음 Contact
-        baseWhere = {
-          visibility: 'SHARED' as const,
-          organizationId: ctx.organizationId!,
-          OR: [
-            { assignedUserId: ctx.userId }, // 자신의 고객
-            { createdBy: ctx.userId }, // 작성한 고객
-            { sharedWith: { some: { sharedTo: ctx.userId } } }, // 공유받은 Contact
-          ],
-          deletedAt: null,
-        };
+        // OWNER(대리점장): teamView=true면 팀 전체 고객, 아니면 자신의 고객 + 공유받음
+        const teamView = searchParams.get('teamView') === 'true';
+        if (teamView) {
+          // 우리 팀 고객: 같은 조직의 모든 공유 고객
+          baseWhere = {
+            visibility: 'SHARED' as const,
+            organizationId: ctx.organizationId!,
+            deletedAt: null,
+          };
+        } else {
+          baseWhere = {
+            visibility: 'SHARED' as const,
+            organizationId: ctx.organizationId!,
+            OR: [
+              { assignedUserId: ctx.userId }, // 자신의 고객
+              { createdBy: ctx.userId }, // 작성한 고객
+              { sharedWith: { some: { sharedTo: ctx.userId } } }, // 공유받은 Contact
+            ],
+            deletedAt: null,
+          };
+        }
       } else {
         // AGENT/SALES_AGENT: 자신 작성/할당 + 공유받음 Contact
         baseWhere = {
@@ -377,6 +392,15 @@ export async function POST(req: Request) {
     }
     if (typeof phone === 'string' && phone.length > 20) {
       return NextResponse.json({ ok: false, message: "전화번호는 20자 이하여야 합니다." }, { status: 400 });
+    }
+
+    // 직원 번호 차단
+    const isStaff = await isStaffPhone(phone, orgId);
+    if (isStaff) {
+      return NextResponse.json(
+        { ok: false, message: '직원 번호는 고객으로 등록할 수 없습니다.' },
+        { status: 409 }
+      );
     }
 
     // 세그먼트 자동 감지

@@ -113,6 +113,13 @@ export async function POST(req: Request) {
     let skipCount    = 0;
     const errors: string[] = [];
 
+    // 직원 번호 Set 조회 (임포트 전체에서 재사용)
+    const staffPhoneRows = await prisma.organizationMember.findMany({
+      where: { organizationId: orgId, phone: { not: null } },
+      select: { phone: true },
+    });
+    const staffPhones = new Set(staffPhoneRows.map((m) => m.phone!));
+
     // P1-23: 배열 기반 전처리 (유효성 검증 + 정규화)
     const validRows: Array<{ index: number; data: Record<string, string>; inflowDate: Date | null }> = [];
     for (let i = 0; i < rows.length; i++) {
@@ -131,6 +138,13 @@ export async function POST(req: Request) {
 
       // 전화번호 정규화 (하이픈 통일)
       data.phone = data.phone.replace(/[^0-9]/g, "").replace(/^(\d{3})(\d{4})(\d{4})$/, "$1-$2-$3");
+
+      // 직원 번호 차단
+      if (staffPhones.has(data.phone)) {
+        errors.push(`${i + 2}행: 직원 번호는 고객으로 등록할 수 없습니다 (${data.phone})`);
+        skipCount++;
+        continue;
+      }
 
       // 유형 정규화
       if (data.type) {
