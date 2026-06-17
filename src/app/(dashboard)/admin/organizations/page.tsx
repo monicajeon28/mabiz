@@ -980,6 +980,9 @@ export default function OrganizationsPage() {
   useEffect(() => {
     fetchManagers();
     fetchPendingContracts();
+    // 백그라운드: 링크 미할당 대리점장 크루즈닷 자동 동기화
+    fetch('/api/admin/affiliate-managers/re-sync', { method: 'POST' })
+      .catch(() => {}); // 실패해도 UI에 영향 없음
     return () => { fetchAbortRef.current?.abort(); contractsFetchAbortRef.current?.abort(); };
   }, [fetchManagers, fetchPendingContracts]);
 

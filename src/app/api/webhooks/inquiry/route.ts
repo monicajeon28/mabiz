@@ -270,8 +270,30 @@ export async function POST(req: NextRequest) {
 
   logger.log('[InquiryWebhook] 수신', { phone: maskPhone(phone), inquiryType, lensDetectionEnabled: true });
 
-  // [P0-SEC-103] organizationId 검증 — 테넌트 격리
+  // [P0-SEC-103] organizationId 결정 — affiliateCode 자동 매핑 우선
   let organizationId = bodyOrgId;
+
+  // affiliateCode가 있으면 → GmAffiliateProfile → OrganizationMember → organizationId 자동 매핑
+  if (!organizationId && affiliateCode) {
+    const profile = await prisma.gmAffiliateProfile.findFirst({
+      where: { affiliateCode },
+      select: { userId: true },
+    });
+    if (profile?.userId) {
+      const member = await prisma.organizationMember.findFirst({
+        where: { userId: `gm-${profile.userId}`, isActive: true, role: 'OWNER' },
+        select: { organizationId: true },
+      });
+      if (member?.organizationId) {
+        organizationId = member.organizationId;
+        logger.log('[InquiryWebhook] affiliateCode → organizationId 자동 매핑', {
+          affiliateCode,
+          organizationId,
+        });
+      }
+    }
+  }
+
   if (!organizationId) {
     organizationId = process.env.DEFAULT_ORGANIZATION_ID;
     if (!organizationId) {
