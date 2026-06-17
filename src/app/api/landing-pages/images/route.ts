@@ -34,6 +34,65 @@ export async function POST(req: Request) {
     const ctx = await getAuthContext();
     const orgId = await getOrgId(ctx);
 
+    // JSON body: 라이브러리 이미지 등록 (파일 업로드 없이 driveFileId로 연결)
+    const contentType = req.headers.get('content-type') ?? '';
+    if (contentType.includes('application/json')) {
+      const body = await req.json() as { landingPageId?: string; driveFileId?: string; sortOrder?: number };
+      const { landingPageId: lpId, driveFileId, sortOrder: sortOrderVal } = body;
+
+      if (!lpId || !driveFileId) {
+        return NextResponse.json(
+          { ok: false, message: 'landingPageId와 driveFileId는 필수입니다' },
+          { status: 400 },
+        );
+      }
+
+      // 소유권 확인
+      const page = await prisma.crmLandingPage.findFirst({
+        where: { id: lpId, organizationId: orgId },
+        select: { id: true },
+      });
+      if (!page) {
+        return NextResponse.json(
+          { ok: false, message: '랜딩페이지를 찾을 수 없습니다' },
+          { status: 404 },
+        );
+      }
+
+      // 기존 ImageAsset 조회 (driveFileId로)
+      const asset = await prisma.imageAsset.findFirst({
+        where: { driveFileId },
+        select: { id: true, driveFileId: true, originalFileName: true, mimeType: true, width: true, height: true },
+      });
+      if (!asset) {
+        return NextResponse.json(
+          { ok: false, message: '이미지를 찾을 수 없습니다. 먼저 파일로 업로드해주세요.' },
+          { status: 404 },
+        );
+      }
+
+      const resolvedSortOrder = sortOrderVal ?? await getNextSortOrder(lpId);
+      const pageImage = await prisma.crmLandingPageImage.create({
+        data: { landingPageId: lpId, imageAssetId: asset.id, sortOrder: resolvedSortOrder },
+      });
+
+      const thumbnailUrl = `/api/landing-pages/images/proxy?id=${asset.driveFileId}`;
+      return NextResponse.json({
+        ok: true,
+        image: {
+          id: pageImage.id,
+          assetId: asset.id,
+          url: thumbnailUrl,
+          driveFileId: asset.driveFileId,
+          width: asset.width || 0,
+          height: asset.height || 0,
+          mimeType: asset.mimeType || 'image/webp',
+          fileName: asset.originalFileName || '라이브러리 이미지',
+          sortOrder: resolvedSortOrder,
+        },
+      });
+    }
+
     // P0-1: Content-Length 헤더 사전 검증
     const contentLength = req.headers.get('content-length');
     if (contentLength) {

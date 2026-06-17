@@ -6,14 +6,12 @@ import { logger } from '@/lib/logger';
 
 type Params = { params: Promise<{ id: string }> };
 
-// 조직 ID 해석 (GLOBAL_ADMIN 지원 — 목록 API와 동일 정책)
-// GLOBAL_ADMIN은 organizationId가 null이므로 첫 조직을 사용한다.
+// 조직 ID 해석 (GLOBAL_ADMIN 지원)
+// GLOBAL_ADMIN: id만으로 조회, organizationId 조건 없음.
+// 일반 사용자: organizationId 조건 포함.
 async function resolveOrgId(ctx: Awaited<ReturnType<typeof getAuthContext>>): Promise<string | null> {
   if (ctx.organizationId) return ctx.organizationId;
-  if (ctx.role === 'GLOBAL_ADMIN') {
-    const firstOrg = await prisma.organization.findFirst({ select: { id: true } });
-    return firstOrg?.id ?? null;
-  }
+  if (ctx.role === 'GLOBAL_ADMIN') return null; // 전체 접근 — organizationId 필터 불필요
   return null;
 }
 
@@ -22,7 +20,7 @@ export async function GET(req: Request, { params }: Params) {
   try {
     const ctx = await getAuthContext();
     const orgId = await resolveOrgId(ctx);
-    if (!orgId) {
+    if (orgId === null && ctx.role !== 'GLOBAL_ADMIN') {
       return NextResponse.json(
         { ok: false, error: 'FORBIDDEN', message: '조직 정보가 없습니다.' },
         { status: 403 }
@@ -30,9 +28,13 @@ export async function GET(req: Request, { params }: Params) {
     }
     const { id: groupId } = await params;
 
-    // IDOR 보안: organizationId 체크
+    // GLOBAL_ADMIN: id만으로 조회. 일반 사용자: organizationId 조건 포함.
+    const groupWhere = ctx.role === 'GLOBAL_ADMIN'
+      ? { id: groupId }
+      : { id: groupId, organizationId: orgId! };
+
     const group = await prisma.contactGroup.findFirst({
-      where: { id: groupId, organizationId: orgId },
+      where: groupWhere,
       select: {
         id: true,
         name: true,
@@ -87,7 +89,7 @@ export async function PATCH(req: Request, { params }: Params) {
   try {
     const ctx = await getAuthContext();
     const orgId = await resolveOrgId(ctx);
-    if (!orgId) {
+    if (orgId === null && ctx.role !== 'GLOBAL_ADMIN') {
       return NextResponse.json(
         { ok: false, error: 'FORBIDDEN', message: '조직 정보가 없습니다.' },
         { status: 403 }
@@ -97,10 +99,14 @@ export async function PATCH(req: Request, { params }: Params) {
     const body = await req.json();
     const { name, description, funnelId } = body;
 
-    // IDOR 보안: organizationId 체크
+    // GLOBAL_ADMIN: id만으로 조회. 일반 사용자: organizationId 조건 포함.
+    const groupWhere = ctx.role === 'GLOBAL_ADMIN'
+      ? { id: groupId }
+      : { id: groupId, organizationId: orgId! };
+
     const group = await prisma.contactGroup.findFirst({
-      where: { id: groupId, organizationId: orgId },
-      select: { id: true, ownerId: true },
+      where: groupWhere,
+      select: { id: true, ownerId: true, organizationId: true },
     });
 
     if (!group) {
@@ -117,6 +123,9 @@ export async function PATCH(req: Request, { params }: Params) {
         { status: 403 }
       );
     }
+
+    // IDOR 검증에 사용할 실효 organizationId (GLOBAL_ADMIN이면 그룹의 실제 orgId 사용)
+    const effectiveOrgId: string = orgId ?? group.organizationId;
 
     // SEC-004: 화이트리스트 검증
     const updateData: Record<string, unknown> = {};
@@ -149,7 +158,7 @@ export async function PATCH(req: Request, { params }: Params) {
       } else if (typeof funnelId === 'string') {
         // TYPE-001: 펀널 소유권 검증 추가
         const funnel = await prisma.funnel.findFirst({
-          where: { id: funnelId, organizationId: orgId },
+          where: { id: funnelId, organizationId: effectiveOrgId },
           select: { id: true },
         });
         if (!funnel) {
@@ -209,7 +218,7 @@ export async function PATCH(req: Request, { params }: Params) {
     if (body.funnelIds !== undefined) {
       if (Array.isArray(body.funnelIds) && body.funnelIds.length > 0) {
         const validCount = await prisma.funnel.count({
-          where: { id: { in: body.funnelIds }, organizationId: orgId },
+          where: { id: { in: body.funnelIds }, organizationId: effectiveOrgId },
         });
         if (validCount !== body.funnelIds.length) {
           return NextResponse.json(
@@ -225,7 +234,7 @@ export async function PATCH(req: Request, { params }: Params) {
     if (body.funnelSmsIds !== undefined) {
       if (Array.isArray(body.funnelSmsIds) && body.funnelSmsIds.length > 0) {
         const validCount = await prisma.funnelSms.count({
-          where: { id: { in: body.funnelSmsIds }, organizationId: orgId },
+          where: { id: { in: body.funnelSmsIds }, organizationId: effectiveOrgId },
         });
         if (validCount !== body.funnelSmsIds.length) {
           return NextResponse.json(
@@ -243,7 +252,7 @@ export async function PATCH(req: Request, { params }: Params) {
         updateData.funnelEmailId = null;
       } else if (typeof body.funnelEmailId === 'string') {
         const fe = await prisma.funnelEmail.findFirst({
-          where: { id: body.funnelEmailId, organizationId: orgId },
+          where: { id: body.funnelEmailId, organizationId: effectiveOrgId },
           select: { id: true },
         });
         if (!fe) {
@@ -265,7 +274,7 @@ export async function PATCH(req: Request, { params }: Params) {
     if (body.funnelEmailIds !== undefined) {
       if (Array.isArray(body.funnelEmailIds) && body.funnelEmailIds.length > 0) {
         const validCount = await prisma.groupEmailFunnel.count({
-          where: { id: { in: body.funnelEmailIds }, organizationId: orgId },
+          where: { id: { in: body.funnelEmailIds }, organizationId: effectiveOrgId },
         });
         if (validCount !== body.funnelEmailIds.length) {
           return NextResponse.json(
@@ -285,7 +294,7 @@ export async function PATCH(req: Request, { params }: Params) {
         updateData.autoMoveTargetGroupId = null;
       } else if (typeof body.autoMoveTargetGroupId === 'string') {
         const targetGroup = await prisma.contactGroup.findFirst({
-          where: { id: body.autoMoveTargetGroupId, organizationId: orgId },
+          where: { id: body.autoMoveTargetGroupId, organizationId: effectiveOrgId },
           select: { id: true },
         });
         if (!targetGroup) {
@@ -325,7 +334,7 @@ export async function DELETE(req: Request, { params }: Params) {
   try {
     const ctx = await getAuthContext();
     const orgId = await resolveOrgId(ctx);
-    if (!orgId) {
+    if (orgId === null && ctx.role !== 'GLOBAL_ADMIN') {
       return NextResponse.json(
         { ok: false, error: 'FORBIDDEN', message: '조직 정보가 없습니다.' },
         { status: 403 }
@@ -333,9 +342,13 @@ export async function DELETE(req: Request, { params }: Params) {
     }
     const { id: groupId } = await params;
 
-    // IDOR 보안: organizationId 체크
+    // GLOBAL_ADMIN: id만으로 조회. 일반 사용자: organizationId 조건 포함.
+    const groupWhere = ctx.role === 'GLOBAL_ADMIN'
+      ? { id: groupId }
+      : { id: groupId, organizationId: orgId! };
+
     const group = await prisma.contactGroup.findFirst({
-      where: { id: groupId, organizationId: orgId },
+      where: groupWhere,
       select: { id: true, ownerId: true },
     });
 
@@ -367,11 +380,11 @@ export async function DELETE(req: Request, { params }: Params) {
       );
     }
 
-    // 트랜잭션으로 원자적 삭제
+    // 트랜잭션으로 원자적 삭제 (GLOBAL_ADMIN: id만으로 삭제)
     await prisma.$transaction([
       prisma.contactGroupMember.deleteMany({ where: { groupId } }),
       prisma.groupToken.deleteMany({ where: { groupId } }),
-      prisma.contactGroup.deleteMany({ where: { id: groupId, organizationId: orgId } }),
+      prisma.contactGroup.deleteMany({ where: { id: groupId } }),
     ]);
 
     logger.log('[GroupDelete]', { groupId });

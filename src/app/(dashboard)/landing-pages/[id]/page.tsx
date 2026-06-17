@@ -8,6 +8,7 @@ import { RegistrationsTab } from "./components/RegistrationsTab";
 import { CommentsTab } from "./components/CommentsTab";
 import FormBuilder, { FormField } from "@/components/forms/FormBuilder";
 import { MAX_IMAGE_UPLOAD_BYTES, prepareImageForUpload } from "@/lib/client-image-compress";
+import { Block, BlocksConfig } from "@/lib/landing-page-blocks";
 
 type Registration = {
   id: string;
@@ -139,6 +140,13 @@ export default function EditLandingPage() {
     { id: 'phone', name: 'phone', label: '전화번호', type: 'tel', required: true, placeholder: '010-0000-0000' },
     { id: 'email', name: 'email', label: '이메일', type: 'email', required: false, placeholder: 'example@email.com' },
   ]);
+  // 블록 에디터 상태 (blocksConfig 복원용)
+  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [selectedFeatures, setSelectedFeatures] = useState<BlocksConfig['selectedFeatures']>({
+    video: false, timer: false, testimonial: false, faq: false,
+  });
+  // CTA 유형 (new/page.tsx와 대칭)
+  const [ctaType, setCtaType] = useState<string>('default');
   // Task 1-5: 초기 데이터 로딩 — HTTP 에러 처리 추가
   useEffect(() => {
     const ctrl = new AbortController();
@@ -210,6 +218,28 @@ export default function EditLandingPage() {
         if (cc?.count)    setCommentCount(cc.count);
         if (cc?.dateFrom) setCommentDateFrom(cc.dateFrom);
         if (cc?.dateTo)   setCommentDateTo(cc.dateTo);
+        // blocksConfig 복원 — new/page.tsx와 대칭: { blocks, selectedFeatures }
+        if (pageData.page.blocksConfig) {
+          try {
+            const parsed = JSON.parse(
+              typeof pageData.page.blocksConfig === 'string'
+                ? pageData.page.blocksConfig
+                : JSON.stringify(pageData.page.blocksConfig)
+            ) as BlocksConfig;
+            if (parsed.blocks && Array.isArray(parsed.blocks)) {
+              setBlocks(parsed.blocks);
+            }
+            if (parsed.selectedFeatures && typeof parsed.selectedFeatures === 'object') {
+              setSelectedFeatures(parsed.selectedFeatures);
+            }
+          } catch {
+            // blocksConfig 파싱 실패는 조용히 무시 (레거시 데이터)
+          }
+        }
+        // ctaType 복원 — new/page.tsx와 대칭
+        if (pageData.page.ctaType) {
+          setCtaType(pageData.page.ctaType);
+        }
       }
       if (groupData.ok) setGroupCategories(groupData.categories ?? []);
       if (shareableOrgsData.ok && shareableOrgsData.orgs) {
@@ -727,6 +757,10 @@ export default function EditLandingPage() {
           ...(description       ? { description }                       : { description: null }),
           commentEnabled,
           commentConfig: commentEnabled ? { count: commentCount, dateFrom: commentDateFrom, dateTo: commentDateTo } : undefined,
+          // blocksConfig 저장 — new/page.tsx와 대칭
+          ...(blocks.length > 0 ? {
+            blocksConfig: JSON.stringify({ blocks, selectedFeatures } as BlocksConfig),
+          } : {}),
           ...(paymentEnabled ? {
             paymentType, productName: productName || null,
             productPrice: parseInt(productPrice) || null,

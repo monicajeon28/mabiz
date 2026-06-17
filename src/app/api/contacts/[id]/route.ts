@@ -163,8 +163,8 @@ export async function PATCH(req: Request, { params }: Params) {
     // ═══════════════════════════════════════════════════════════════
     // 권한 검증: buildContactWhere 필터 + 추가 역할별 검증
     // ═══════════════════════════════════════════════════════════════
-    // TOCTOU 방지: organizationId 확인
-    if (existing.organizationId !== resolveOrgId(ctx)) {
+    // TOCTOU 방지: organizationId 확인 (GLOBAL_ADMIN은 전체 접근 허용)
+    if (ctx.role !== 'GLOBAL_ADMIN' && existing.organizationId !== resolveOrgId(ctx)) {
       return NextResponse.json(
         { ok: false, message: '권한이 없습니다' },
         { status: 403 }
@@ -358,6 +358,14 @@ export async function DELETE(_req: Request, { params }: Params) {
       },
     });
     if (!existing) return NextResponse.json({ ok: false }, { status: 404 });
+
+    // TOCTOU 방지: organizationId 확인 (GLOBAL_ADMIN은 전체 접근 허용)
+    if (ctx.role !== 'GLOBAL_ADMIN' && existing.organizationId !== resolveOrgId(ctx)) {
+      return NextResponse.json(
+        { ok: false, message: '권한이 없습니다' },
+        { status: 403 }
+      );
+    }
 
     // 휴지통으로 이동 (소프트 삭제) + 삭제자 기록
     await prisma.contact.updateMany({

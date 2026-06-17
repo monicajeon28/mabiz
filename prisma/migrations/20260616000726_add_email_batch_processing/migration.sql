@@ -50,6 +50,11 @@ CREATE INDEX "ScheduledEmailMessage_contact_day_scheduled_idx"
 CREATE INDEX "ScheduledEmailMessage_status_scheduled_idx"
   ON "ScheduledEmailMessage"("status", "scheduledAt");
 
+-- senderUserId 필드 추가 (UserEmailConfig 연결용)
+-- 20260616000000_add_user_email_config 에서 이동됨
+ALTER TABLE "ScheduledEmailMessage"
+  ADD COLUMN IF NOT EXISTS "senderUserId" TEXT;
+
 
 -- 배치 실행 로그 (성능 모니터링)
 CREATE TABLE "BatchExecutionLog" (

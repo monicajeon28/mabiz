@@ -146,10 +146,11 @@ export async function POST(req: Request) {
           groupId: groupId ?? null,
           editorMode: mode,
           commentEnabled: commentEnabled === true,
-          // Phase 3: pageFormat + ctaType + imageFieldConfig
+          // Phase 3: pageFormat + ctaType + imageFieldConfig + smsDayRange
           pageFormat: validFormat,
           ctaType: validCtaType,
           imageFieldConfig: IMAGE_FIELDS_BY_FORMAT[validFormat] ?? {},
+          smsDayRange: smsDayRange ?? null,
           // 에디터 고도화 필드
           ...(rest.description      ? { description: rest.description }            : {}),
           ...(rest.buttonTitle      ? { buttonTitle: rest.buttonTitle }             : {}),

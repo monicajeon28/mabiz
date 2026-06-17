@@ -409,8 +409,7 @@ export async function POST(req: Request) {
 
       // 만료 검증
       if (
-        existingData.signTokenExpiresAt &&
-        new Date(existingData.signTokenExpiresAt as string) < new Date()
+        typeof existingData.signTokenExpiresAt === 'string' && new Date(existingData.signTokenExpiresAt) < new Date()
       ) {
         return 'EXPIRED' as const;
       }

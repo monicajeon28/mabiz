@@ -46,6 +46,7 @@ function generateUniqueSeq(): string {
 
 // ─────────────────────────────────────────────
 // 헬퍼: 조직 ID 해석 (GLOBAL_ADMIN 지원)
+// GLOBAL_ADMIN: POST/PUT/DELETE 시 첫 조직 사용. GET 목록은 null 반환(전체조회).
 // ─────────────────────────────────────────────
 async function resolveOrgId(ctx: Awaited<ReturnType<typeof getAuthContext>>): Promise<string | null> {
   if (ctx.organizationId) return ctx.organizationId;
@@ -53,6 +54,13 @@ async function resolveOrgId(ctx: Awaited<ReturnType<typeof getAuthContext>>): Pr
     const firstOrg = await prisma.organization.findFirst({ select: { id: true } });
     return firstOrg?.id ?? null;
   }
+  return null;
+}
+
+// GLOBAL_ADMIN GET 목록 조회용: organizationId 필터 없이 전체 조회를 위해 null 반환
+async function resolveOrgIdForList(ctx: Awaited<ReturnType<typeof getAuthContext>>): Promise<string | null> {
+  if (ctx.role === "GLOBAL_ADMIN") return null; // 전체 조회 — organizationId 필터 없음
+  if (ctx.organizationId) return ctx.organizationId;
   return null;
 }
 
@@ -160,12 +168,10 @@ function serializeGroup(
 export async function GET(req: NextRequest) {
   try {
     const ctx = await getAuthContext();
-    const orgId = await resolveOrgId(ctx);
+    // GLOBAL_ADMIN: organizationId 필터 완전 제거(전체 조회)
+    const orgId = await resolveOrgIdForList(ctx);
 
-    if (!orgId) {
-      if (ctx.role === "GLOBAL_ADMIN") {
-        return NextResponse.json({ ok: true, groups: [], totalCount: 0 });
-      }
+    if (orgId === null && ctx.role !== "GLOBAL_ADMIN") {
       return NextResponse.json(
         { ok: false, error: "FORBIDDEN", message: "이 작업을 수행할 권한이 없습니다" },
         { status: 403 }
@@ -196,6 +202,9 @@ export async function GET(req: NextRequest) {
         ? { OR: [{ ownerId: ctx.userId }, { ownerId: null as string | null }] }
         : {};
 
+    // organizationId 필터: GLOBAL_ADMIN이면 제거
+    const orgFilter = orgId ? { organizationId: orgId } : {};
+
     // parentId 필터 결정
     // - parentId=null (명시적 "null" 문자열) → 대그룹만 (parentGroupId IS NULL)
     // - parentId=<id> → 해당 그룹의 자식만
@@ -211,14 +220,14 @@ export async function GET(req: NextRequest) {
 
     // totalCount
     const totalCount = await prisma.contactGroup.count({
-      where: { organizationId: orgId, ...ownerFilter, ...parentFilter },
+      where: { ...orgFilter, ...ownerFilter, ...parentFilter },
     });
 
     // 대그룹 쿼리 시 children 포함
     const includeChildren = !isChildQuery; // 대그룹 조회 시 children include
 
     const groups = await prisma.contactGroup.findMany({
-      where: { organizationId: orgId, ...ownerFilter, ...parentFilter },
+      where: { ...orgFilter, ...ownerFilter, ...parentFilter },
       select: {
         id: true,
         seq: true,
@@ -289,7 +298,7 @@ export async function GET(req: NextRequest) {
     const funnelSmsTitleMap = new Map<string, string>();
     if (allFunnelSmsIds.size > 0) {
       const smsRows = await prisma.funnelSms.findMany({
-        where: { id: { in: [...allFunnelSmsIds] }, organizationId: orgId },
+        where: { id: { in: [...allFunnelSmsIds] }, ...(orgId ? { organizationId: orgId } : {}) },
         select: { id: true, title: true },
       });
       for (const row of smsRows) funnelSmsTitleMap.set(row.id, row.title);
@@ -307,7 +316,7 @@ export async function GET(req: NextRequest) {
       .filter((g): g is NonNullable<typeof g> => g !== null);
 
     const categoryRows = await prisma.contactGroup.findMany({
-      where: { organizationId: orgId, ...ownerFilter, category: { not: null } },
+      where: { ...orgFilter, ...ownerFilter, category: { not: null } },
       select: { category: true },
       distinct: ["category"],
       orderBy: { category: "asc" },
