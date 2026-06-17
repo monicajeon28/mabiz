@@ -31,6 +31,9 @@ scripts/fix-env-key.mjs
 *.bak
 *.tmp
 .DS_Store
+tsconfig.tsbuildinfo
+check_*.cjs
+check_*.mjs
 
 
 # ============================================================
