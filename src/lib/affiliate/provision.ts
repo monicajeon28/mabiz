@@ -541,6 +541,75 @@ export async function provisionAffiliateAccounts(
     }
   }
 
+  // Phase 5: 크루즈닷몰 어필리에이트 자동 등록 (POST /api/integration/affiliate/upsert)
+  // 새 계정 생성 시 cruisedot.co.kr에 어필리에이트 링크 자동 생성 (best-effort)
+  const provisionUrl = process.env.INTERNAL_PROVISION_URL;
+  if (!provisionUrl) {
+    logger.warn('[AFFILIATE-PROVISION] INTERNAL_PROVISION_URL 미설정 — 크루즈닷 어필리에이트 등록 스킵');
+  } else {
+    const affiliatePayload = [
+      {
+        role: 'manager',
+        partnerId: result.managerPartnerId,
+        affiliateCode: result.manager.affiliateCode,
+        linkCode: result.manager.linkCode,
+        linkUrl: result.manager.linkUrl,
+        name: contractorName,
+        phone: contractorPhone,
+        email: contractorEmail ?? null,
+      },
+      {
+        role: 'agent',
+        partnerId: result.agentPartnerId,
+        affiliateCode: result.agent.affiliateCode,
+        linkCode: result.agent.linkCode,
+        linkUrl: result.agent.linkUrl,
+        name: contractorName,
+        phone: contractorPhone,
+        email: contractorEmail ?? null,
+      },
+      {
+        role: 'presales',
+        partnerId: result.presalesPartnerId,
+        affiliateCode: result.presales.affiliateCode,
+        linkCode: result.presales.linkCode,
+        linkUrl: result.presales.linkUrl,
+        name: contractorName,
+        phone: contractorPhone,
+        email: contractorEmail ?? null,
+      },
+    ];
+
+    try {
+      const cruisedotRes = await fetch(`${provisionUrl}/api/integration/affiliate/upsert`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-Secret': process.env.CRUISEDOT_WEBHOOK_SECRET ?? '',
+        },
+        body: JSON.stringify({ affiliates: affiliatePayload, contractId }),
+      });
+      if (cruisedotRes.ok) {
+        logger.info('[AFFILIATE-PROVISION] ✅ 크루즈닷 어필리에이트 등록 성공', {
+          contractId,
+          managerCode: result.manager.affiliateCode,
+        });
+      } else {
+        const errText = await cruisedotRes.text().catch(() => '');
+        logger.warn('[AFFILIATE-PROVISION] ⚠️ 크루즈닷 어필리에이트 등록 실패', {
+          contractId,
+          status: cruisedotRes.status,
+          body: errText.slice(0, 200),
+        });
+      }
+    } catch (fetchErr) {
+      logger.error('[AFFILIATE-PROVISION] ❌ 크루즈닷 어필리에이트 네트워크 오류', {
+        contractId,
+        err: fetchErr,
+      });
+    }
+  }
+
   return {
     ...result,
     managerTempPassword: sharedPassword,
