@@ -67,6 +67,7 @@ function formatDaysSince(dateStr: string | null): string {
 export default function InquiriesPage() {
   const { toast } = useToast();
   const { role } = useSession();
+  const canCreate = role === 'GLOBAL_ADMIN' || role === 'OWNER';
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [total, setTotal] = useState(0);
   const [q, setQ] = useState("");
@@ -94,6 +95,11 @@ export default function InquiriesPage() {
   const [slidePanelError, setSlidePanelError] = useState<string | null>(null);
 
   const fetchContacts = useCallback(async (signal?: AbortSignal) => {
+    // role이 아직 로딩 중이거나 접근 불가 역할이면 즉시 반환
+    // 설계 결정: AGENT는 inquiries 페이지 전체 차단 (buildContactWhere AGENT 필터와 별개)
+    // AGENT는 /contacts (전체목록)에서만 할당된 고객 접근 가능
+    if (role === undefined) return;
+    if (role === 'FREE_SALES' || role === 'AGENT') return;
     setLoading(true);
     setFetchError('');
     const params = new URLSearchParams({ page: String(page), limit: "30", type: "LEAD" });
@@ -113,7 +119,7 @@ export default function InquiriesPage() {
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [q, page, selectedTags]);
+  }, [q, page, selectedTags, role]);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -251,7 +257,7 @@ export default function InquiriesPage() {
     .sort((a, b) => (b.leadScore ?? 0) - (a.leadScore ?? 0))
     .slice(0, 5);
 
-  // FREE_SALES / AGENT: 고객 DB 접근 권한 없음
+  // 설계 결정: AGENT는 inquiries/purchased 페이지 차단 → /contacts 메인에서만 접근
   if (role === 'FREE_SALES' || role === 'AGENT') {
     return <div className="p-4 text-gray-500">접근 권한이 없습니다.</div>;
   }
@@ -346,12 +352,14 @@ export default function InquiriesPage() {
           <p className="text-sm text-gray-500 mt-0.5">총 {total.toLocaleString()}명</p>
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={() => { setShowImport(true); setImportResult(null); setImportFile(null); }}
-            className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"
-          >
-            <Upload className="w-4 h-4" /> 엑셀 가져오기
-          </button>
+          {canCreate && (
+            <button
+              onClick={() => { setShowImport(true); setImportResult(null); setImportFile(null); }}
+              className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"
+            >
+              <Upload className="w-4 h-4" /> 엑셀 가져오기
+            </button>
+          )}
           <Link
             href="/contacts/new"
             className="flex items-center gap-1.5 bg-navy-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy-700 transition-colors"

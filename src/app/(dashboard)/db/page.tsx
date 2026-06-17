@@ -1,8 +1,8 @@
 ﻿"use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  Upload, Download, Database, Users, CheckCircle,
+  Upload, Download, Database, CheckCircle,
   AlertCircle, Loader2, FileSpreadsheet, Info, ChevronDown, Search, Trash2
 } from "lucide-react";
 import Link from "next/link";
@@ -17,13 +17,13 @@ export default function DbPage() {
   const { role } = useSession();
   const canImport = role === 'GLOBAL_ADMIN' || role === 'OWNER';
   const canDelete = role === 'GLOBAL_ADMIN' || role === 'OWNER';
+  const canExport = role === 'GLOBAL_ADMIN' || role === 'OWNER';
 
   const [stats,        setStats]        = useState<Stats | null>(null);
   const [importing,    setImporting]    = useState(false);
   const [exporting,    setExporting]    = useState(false);
   const [exportType,   setExportType]   = useState("all");
   const [groups,       setGroups]       = useState<Group[]>([]);
-  const [groupsLoaded, setGroupsLoaded] = useState(false);
   const [importTarget, setImportTarget] = useState<ImportTarget>("b2c");
   const [showImport,   setShowImport]   = useState(false);  // 업로드 UI 토글
   const [contacts,     setContacts]     = useState<{ id: string; name: string; phone: string; type: string; createdAt: string }[]>([]);
@@ -51,7 +51,7 @@ export default function DbPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   // ── 통계 로드 (단일 /api/team/crm-stats 호출) ───────────────
-  function loadStats(signal?: AbortSignal) {
+  const loadStats = useCallback((signal?: AbortSignal) => {
     fetch("/api/team/crm-stats", signal ? { signal } : undefined)
       .then((r) => r.json())
       .then((d) => {
@@ -64,11 +64,11 @@ export default function DbPage() {
           });
         }
       })
-      .catch(() => { /* silent fail */ });
-  }
+      .catch((e) => { logger.warn('[DbPage] 통계 로드 실패', { e }); });
+  }, []);
 
   // ── 그룹 로드 (AbortController로 stale fetch 방지) ──────────
-  function loadGroups(signal?: AbortSignal) {
+  const loadGroups = useCallback((signal?: AbortSignal) => {
     fetch("/api/groups", signal ? { signal } : undefined)
       .then((r) => r.json())
       .then((d) => {
@@ -80,11 +80,11 @@ export default function DbPage() {
           }))
         );
       })
-      .catch(() => { /* 실패 시 기존 목록 유지 — silent fail */ });
-  }
+      .catch((e) => { logger.warn('[DbPage] 그룹 로드 실패', { e }); });
+  }, []);
 
   // ── 고객 목록 로드 ─────────────────────────────────────────
-  function loadContacts(page: number = 1, signal?: AbortSignal) {
+  const loadContacts = useCallback((page: number = 1, signal?: AbortSignal) => {
     setContactsLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: "20" });
     if (searchQ) params.set("q", searchQ);
@@ -110,9 +110,9 @@ export default function DbPage() {
           setContactsPage(page);
         }
       })
-      .catch(() => {})
+      .catch((e) => { logger.warn('[DbPage] 연락처 로드 실패', { e }); })
       .finally(() => setContactsLoading(false));
-  }
+  }, [searchQ, importTarget]);
 
   // ── 선택 헬퍼 ─────────────────────────────────────────────
   const allIds = contacts.map(c => c.id);
@@ -141,7 +141,7 @@ export default function DbPage() {
 
   // ── 하드 삭제 ─────────────────────────────────────────────
   const handleDelete = async () => {
-    if (selected.size === 0 || isB2BTab) return;
+    if (!canDelete || selected.size === 0 || isB2BTab) return;
     if (!confirm(`선택한 ${selected.size}명의 고객을 삭제하시겠습니까?\n\n⚠️ DB에서 완전히 삭제됩니다. 복구하려면 백업에서 복원이 필요합니다.`)) return;
     setDeleting(true);
     setDeleteMsg(null);
@@ -151,10 +151,12 @@ export default function DbPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contactIds: Array.from(selected) }),
       });
-      const data = await res.json() as { ok: boolean; count?: number; message?: string };
+      const data = await res.json() as { ok: boolean; deleted?: number; count?: number; message?: string };
       if (data.ok) {
         const now = new Date().toLocaleString('ko-KR');
-        setDeleteMsg(`✅ ${data.count}명 삭제 완료 (${now})`);
+        // API는 { ok: true, deleted: number } 반환 (count는 하위 호환 fallback)
+        const deletedCount = data.deleted ?? data.count;
+        setDeleteMsg(`✅ ${deletedCount}명 삭제 완료 (${now})`);
         setSelected(new Set());
         loadContacts(contactsPage);
         loadStats();
@@ -174,9 +176,8 @@ export default function DbPage() {
     loadStats(ctrl.signal);
     loadGroups(ctrl.signal);
     loadContacts(1, ctrl.signal);
-    setGroupsLoaded(true);
     return () => ctrl.abort();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadStats, loadGroups, loadContacts]);
 
   // ── 탭 변경 시 고객 목록 새로고침 + 선택 초기화 ─────────────
   useEffect(() => {
@@ -186,7 +187,7 @@ export default function DbPage() {
     setDeleteMsg(null);
     loadContacts(1, ctrl.signal);
     return () => ctrl.abort();
-  }, [importTarget]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [importTarget, loadContacts]);
 
   // ── 탭 복귀 시 통계·그룹 자동 갱신 (메모리 누수 방지) ──────
   useEffect(() => {
@@ -249,15 +250,27 @@ export default function DbPage() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const estimate = Math.ceil(file.size / 1024);
-      setRowEstimate(estimate);
-      if (estimate > 1000) {
-        setImportHint(`⚠️ 약 ${estimate.toLocaleString()}행으로 추정됩니다. 1000행 초과이므로 파일을 나누어 업로드하세요.`);
+      const fileSizeKB = Math.ceil(file.size / 1024);
+      const rowEstimate = Math.ceil(file.size / 200); // 행당 약 200bytes 기준
+      setRowEstimate(rowEstimate);
+      if (rowEstimate > 1000) {
+        setImportHint(`⚠️ 약 ${rowEstimate.toLocaleString()}행으로 추정됩니다 (${fileSizeKB.toLocaleString()}KB). 1000행 초과이므로 파일을 나누어 업로드하세요.`);
       } else {
         setImportHint("처리 중...");
       }
     }
   };
+
+  function processFile(file: File) {
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+    if (fileRef.current) {
+      fileRef.current.files = dataTransfer.files;
+      const syntheticEvent = { target: { files: dataTransfer.files } } as React.ChangeEvent<HTMLInputElement>;
+      handleFileSelect(syntheticEvent);
+      handleImportNew(syntheticEvent);
+    }
+  }
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -278,16 +291,7 @@ export default function DbPage() {
 
     const files = e.dataTransfer.files;
     if (files.length > 0) {
-      const file = files[0];
-
-      // file input에 반영
-      const dataTransfer = new DataTransfer();
-      dataTransfer.items.add(file);
-      if (fileRef.current) {
-        fileRef.current.files = dataTransfer.files;
-        handleFileSelect({ target: { files: dataTransfer.files } } as any);
-        handleImportNew({ target: { files: dataTransfer.files } } as any as React.ChangeEvent<HTMLInputElement>);
-      }
+      processFile(files[0]);
     }
   };
 
@@ -317,6 +321,11 @@ export default function DbPage() {
       setExporting(false);
     }
   };
+
+  // ── FREE_SALES 접근 완전 차단 (모든 훅 선언 이후에 배치) ───
+  if (role === 'FREE_SALES') {
+    return <div className="p-4 text-gray-500">접근 권한이 없습니다.</div>;
+  }
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
@@ -552,45 +561,47 @@ export default function DbPage() {
         )}
       </div>
 
-      {/* 내보내기 - Sticky */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-40 px-4 py-3 md:sticky md:bottom-auto md:left-auto md:right-auto md:border-t md:rounded-xl md:shadow-none md:px-5 md:py-5 md:mb-4 md:border md:border-gray-200 md:border-t-0">
-        <div className="flex items-center gap-2 mb-3">
-          <Download className="w-5 h-5 text-navy-900" />
-          <h2 className="font-semibold text-gray-900">엑셀 내보내기</h2>
-        </div>
+      {/* 내보내기 - Sticky (GLOBAL_ADMIN / OWNER 전용) */}
+      {canExport && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-40 px-4 py-3 md:sticky md:bottom-auto md:left-auto md:right-auto md:border-t md:rounded-xl md:shadow-none md:px-5 md:py-5 md:mb-4 md:border md:border-gray-200 md:border-t-0">
+          <div className="flex items-center gap-2 mb-3">
+            <Download className="w-5 h-5 text-navy-900" />
+            <h2 className="font-semibold text-gray-900">엑셀 내보내기</h2>
+          </div>
 
-        <div className="flex flex-col md:flex-row gap-2">
-          <select
-            value={exportType}
-            onChange={(e) => setExportType(e.target.value)}
-            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-gold-500"
-          >
-            <option value="all">전체 고객</option>
-            <option value="type:LEAD">잠재고객만</option>
-            <option value="type:CUSTOMER">구매완료만</option>
-            {groupsLoaded && groups.length > 0 && (
-              <optgroup label="그룹별">
-                {groups.map((g) => (
-                  <option key={g.id} value={`group:${g.id}`}>
-                    {g.name} ({g.memberCount}명)
-                  </option>
-                ))}
-              </optgroup>
-            )}
-          </select>
-          <button
-            onClick={handleExport}
-            disabled={exporting}
-            className="w-full md:w-auto flex items-center justify-center md:justify-start gap-2 bg-navy-900 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-navy-700 disabled:opacity-50"
-          >
-            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            {exporting ? "다운로드 중..." : "엑셀 다운로드"}
-          </button>
+          <div className="flex flex-col md:flex-row gap-2">
+            <select
+              value={exportType}
+              onChange={(e) => setExportType(e.target.value)}
+              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-gold-500"
+            >
+              <option value="all">전체 고객</option>
+              <option value="type:LEAD">잠재고객만</option>
+              <option value="type:CUSTOMER">구매완료만</option>
+              {groups.length > 0 && (
+                <optgroup label="그룹별">
+                  {groups.map((g) => (
+                    <option key={g.id} value={`group:${g.id}`}>
+                      {g.name} ({g.memberCount}명)
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              className="w-full md:w-auto flex items-center justify-center md:justify-start gap-2 bg-navy-900 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-navy-700 disabled:opacity-50"
+            >
+              {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              {exporting ? "다운로드 중..." : "엑셀 다운로드"}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Padding for sticky export on mobile */}
-      <div className="h-24 md:h-0" />
+      {/* Padding for sticky export on mobile (GLOBAL_ADMIN / OWNER 전용) */}
+      {canExport && <div className="h-24 md:h-0" />}
 
       {/* 결과 메시지 */}
       {result && (

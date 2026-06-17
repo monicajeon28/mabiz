@@ -92,6 +92,11 @@ export default function PurchasedPage() {
   }, [toast]);
 
   const fetchContacts = useCallback(async (signal?: AbortSignal) => {
+    // role이 아직 로딩 중이거나 접근 불가 역할이면 즉시 반환
+    // 설계 결정: AGENT는 purchased 페이지 전체 차단 (inquiries와 동일 정책)
+    // AGENT는 /contacts (전체목록)에서만 할당된 고객 접근 가능
+    if (role === undefined) return;
+    if (role === 'FREE_SALES' || role === 'AGENT') return;
     setLoading(true);
     setFetchError('');
     // type 필터: "CUSTOMER"(영문) + "구매완료"(한글) 모두 포함해야 함 → API에 customerOnly 파라미터 사용
@@ -114,7 +119,7 @@ export default function PurchasedPage() {
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [q, page, channelFilter, selectedTags, sortBy]);
+  }, [q, page, channelFilter, selectedTags, sortBy, role]);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -192,7 +197,7 @@ export default function PurchasedPage() {
 
   const filteredContacts = contacts;
 
-  // FREE_SALES / AGENT: 고객 DB 접근 권한 없음
+  // 설계 결정: AGENT는 inquiries/purchased 페이지 차단 → /contacts 메인에서만 접근
   if (role === 'FREE_SALES' || role === 'AGENT') {
     return <div className="p-4 text-gray-500">접근 권한이 없습니다.</div>;
   }
