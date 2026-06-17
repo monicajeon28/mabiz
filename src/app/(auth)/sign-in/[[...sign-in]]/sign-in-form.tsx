@@ -123,7 +123,7 @@ export default function SignInContent() {
           {/* 프리마케터 간편 등록 */}
           <div className="mt-6 border-t border-slate-200 pt-5">
             <a
-              href="/landing"
+              href="/affiliate/pre-sales"
               className="w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-all"
               style={{ border: '2px solid var(--color-gold-500)', color: 'var(--color-gold-500)', backgroundColor: 'white' }}
             >
