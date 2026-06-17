@@ -1009,6 +1009,76 @@ export default function EditLandingPage() {
                     onChange={setFormFields}
                   />
                 </div>
+                {/* 추가 입력 항목 (additionalFields) */}
+                <div>
+                  <p className="text-xs font-semibold text-gray-600 mb-1.5">추가 입력 항목</p>
+                  <p className="text-xs text-gray-400 mb-2">신청 폼에 추가할 자유 입력 항목을 설정합니다.</p>
+                  <div className="space-y-2">
+                    {additionalFields.map((af) => (
+                      <div key={af.id} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded px-2 py-1.5">
+                        <span className="flex-1 text-xs text-gray-700">{af.name}</span>
+                        <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={af.required}
+                            onChange={() =>
+                              setAdditionalFields((prev) =>
+                                prev.map((f) => f.id === af.id ? { ...f, required: !f.required } : f)
+                              )
+                            }
+                            className="w-3.5 h-3.5"
+                          />
+                          필수
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setAdditionalFields((prev) => prev.filter((f) => f.id !== af.id))}
+                          className="text-red-400 hover:text-red-600 text-xs px-1"
+                          title="삭제"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                    <div className="flex gap-2 mt-1">
+                      <input
+                        id="additionalFieldInput"
+                        type="text"
+                        placeholder="항목명 입력 (예: 직급, 부서, 메모)"
+                        className="flex-1 border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-blue-400"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const input = e.currentTarget;
+                            const val = input.value.trim();
+                            if (!val) return;
+                            setAdditionalFields((prev) => [
+                              ...prev,
+                              { id: `af_${Date.now()}`, name: val, required: false },
+                            ]);
+                            input.value = '';
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const input = document.getElementById('additionalFieldInput') as HTMLInputElement | null;
+                          const val = input?.value.trim() ?? '';
+                          if (!val) return;
+                          setAdditionalFields((prev) => [
+                            ...prev,
+                            { id: `af_${Date.now()}`, name: val, required: false },
+                          ]);
+                          if (input) input.value = '';
+                        }}
+                        className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                      >
+                        추가
+                      </button>
+                    </div>
+                  </div>
+                </div>
                 {/* 푸터 */}
                 <div className="flex items-center gap-2">
                   <label className="text-xs text-gray-500 w-24 shrink-0">폼 하단 텍스트</label>
