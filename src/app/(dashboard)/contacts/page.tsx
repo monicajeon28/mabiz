@@ -474,7 +474,7 @@ export default function ContactsPage() {
     } finally {
       setLoading(false);
     }
-  }, [q, type, page, filterGroupId, filterSourceType, filterAssignedTo, selectedTags, activeTab, role]); // P0-6 + role
+  }, [q, type, page, filterGroupId, filterSourceType, filterAssignedTo, selectedTags, activeTab, role, toast]); // P0-6 + role
 
   // P2-8: refs persist across renders — prevents debounce timer reset and premature AbortController abort
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

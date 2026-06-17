@@ -166,7 +166,6 @@ export async function GET(req: NextRequest) {
   if (rbacCheck !== true) return rbacCheck;
 
   try {
-    const ctx = await getAuthContext();
     // enforceRBAC(allowedRoles: ['GLOBAL_ADMIN'])에서 이미 차단됨 — 중복 체크 불필요
 
     const { searchParams } = new URL(req.url);

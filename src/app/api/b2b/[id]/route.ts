@@ -57,7 +57,7 @@ export async function PATCH(
     let body;
     try {
       body = await req.json();
-    } catch (err) {
+    } catch (_err) {
       logger.warn('[b2b] [id] PATCH: 잘못된 JSON 형식');
       return NextResponse.json(
         { ok: false, error: 'JSON 형식이 올바르지 않습니다' },
