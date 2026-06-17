@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { enqueueDLQ } from '@/lib/mabiz-dlq';
 import { resolveGmcruiseWebhookContext } from '@/lib/gmcruise-webhook';
+import { isStaffPhone } from '@/lib/contact-guard';
 
 /**
  * POST /api/webhooks/gmcruise/lead-status
@@ -104,12 +105,36 @@ export async function POST(req: NextRequest) {
 
     // 신규 리드: Contact 없으면 생성
     let resolvedContact = contact;
-    if (!resolvedContact && (phone || email)) {
+    if (!resolvedContact && phone) {
+      const staffCheck = await isStaffPhone(phone, organizationId);
+      if (!staffCheck) {
+        resolvedContact = await prisma.contact.create({
+          data: {
+            name: customerName || phone || '이름없음',
+            phone: phone || '',
+            email: email || null,
+            organizationId: organizationId,
+            type: 'INQUIRY',
+            sourceType: 'affiliate',
+            visibility: 'ADMIN_ONLY',
+          },
+          select: { id: true },
+        });
+        logger.log('[LeadStatusWebhook] 신규 Contact 생성', {
+          contactId: resolvedContact.id,
+          phone,
+          email,
+          leadId,
+        });
+      } else {
+        logger.warn('[LeadStatusWebhook] 직원 번호 건너뜀', { phone: phone.slice(0, 6) + '****' });
+      }
+    } else if (!resolvedContact && email) {
       resolvedContact = await prisma.contact.create({
         data: {
-          name: customerName || phone || '이름없음',
-          phone: phone || '',
-          email: email || null,
+          name: customerName || email || '이름없음',
+          phone: '',
+          email: email,
           organizationId: organizationId,
           type: 'INQUIRY',
           sourceType: 'affiliate',
@@ -117,9 +142,8 @@ export async function POST(req: NextRequest) {
         },
         select: { id: true },
       });
-      logger.log('[LeadStatusWebhook] 신규 Contact 생성', {
+      logger.log('[LeadStatusWebhook] 신규 Contact 생성 (이메일만)', {
         contactId: resolvedContact.id,
-        phone,
         email,
         leadId,
       });

@@ -122,7 +122,6 @@ export async function POST(req: Request, { params }: Params) {
           phone:             phoneClean,
           email:             memberEmail,
           passwordHash,
-          passwordPlain:     plainPassword,
           role,
           displayName:       body.displayName?.trim() ?? null,
           isActive:          true,

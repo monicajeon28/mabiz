@@ -10,7 +10,6 @@ type MemberRow = {
   email: string | null;
   role: string;
   isActive: boolean;
-  phone: string | null;
   createdAt: Date;
   invitedAt: Date | null;
 };
@@ -68,13 +67,19 @@ export async function GET(req: Request) {
 
     const skip = (page - 1) * limit;
 
+    // AGENT는 자기 자신만 조회 가능
+    const memberWhere: { organizationId: string; userId?: string } = { organizationId: orgId };
+    if (ctx.role === 'AGENT') {
+      memberWhere.userId = ctx.userId;
+    }
+
     // 병렬 쿼리: count + list
     const [totalCount, members] = await Promise.all([
       prisma.organizationMember.count({
-        where: { organizationId: orgId },
+        where: memberWhere,
       }),
       prisma.organizationMember.findMany({
-        where: { organizationId: orgId },
+        where: memberWhere,
         select: {
           id: true,
           userId: true,
@@ -82,7 +87,6 @@ export async function GET(req: Request) {
           displayName: true,
           role: true,
           isActive: true,
-          phone: true,
         },
         skip,
         take: limit,
@@ -158,7 +162,7 @@ export async function PATCH(req: Request) {
     }
 
     // 검증: role은 유효한 값만 허용
-    const validRoles = ['OWNER', 'MANAGER', 'MEMBER', 'AGENT'];
+    const validRoles = ['OWNER', 'AGENT', 'FREE_SALES'];
     if (!validRoles.includes(role)) {
       return NextResponse.json(
         { ok: false, message: '유효하지 않은 role입니다' },

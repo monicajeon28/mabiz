@@ -54,7 +54,7 @@ export async function POST(req: Request, { params }: Params) {
       where: {
         id: assignedUserId,
         isActive: true,
-        role: { in: ['BRANCH_MANAGER', 'AGENT', 'SALES_AGENT'] },
+        role: { in: ['OWNER', 'AGENT', 'FREE_SALES'] },
       },
     });
 

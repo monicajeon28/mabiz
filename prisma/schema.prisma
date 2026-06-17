@@ -176,7 +176,6 @@ model OrganizationMember {
   userId            String
   phone             String?
   passwordHash      String?
-  passwordPlain     String?
   passwordExpiresAt DateTime?    // 임시비밀번호 만료일 (null = 정상비밀번호)
   role              String       @default("AGENT")
   displayName       String?
@@ -187,6 +186,10 @@ model OrganizationMember {
   // 계약서 디지털 서명
   contractSignature String?
   contractSignedAt  DateTime?
+  // 역할 계층 구조 (대리점장 → 판매원/프리세일즈)
+  managerId         String?      // 상위 대리점장 OrganizationMember.id
+  manager           OrganizationMember?  @relation("MemberHierarchy", fields: [managerId], references: [id], onDelete: SetNull)
+  subordinates      OrganizationMember[] @relation("MemberHierarchy")
   organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   // Contact 공유 관계
   sharedContactsBy  ContactSharing[] @relation("SharedBy")  // 이 사용자가 공유한 Contact
@@ -195,6 +198,7 @@ model OrganizationMember {
   @@unique([organizationId, userId])
   @@index([organizationId])
   @@index([userId])
+  @@index([managerId])
 }
 
 model GlobalAdmin {

@@ -24,14 +24,14 @@ export async function GET() {
     const toMember = (m: { id: string; displayName: string | null; role: string; phone: string | null; organization: { name: string } }) => ({
       id:          m.id,
       displayName: m.displayName,
-      loginId:     m.phone ?? m.id,   // boss1, sales1 등
+      loginId:     m.phone ?? null,
       orgName:     m.organization.name,
     });
 
     const toAdmin = (g: { id: string; displayName: string | null; phone: string | null }) => ({
       id:          g.id,
       displayName: g.displayName,
-      loginId:     g.phone ?? g.id,   // admin1, admin2 등
+      loginId:     g.phone ?? null,
       orgName:     "본사",
     });
 

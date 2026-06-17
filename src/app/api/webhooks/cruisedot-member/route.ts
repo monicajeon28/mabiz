@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { recordProcessedWebhookEvent } from '@/lib/webhook-execution';
+import { isStaffPhone } from '@/lib/contact-guard';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -111,36 +112,41 @@ export async function POST(req: NextRequest) {
           (await prisma.organization.findFirst({ select: { id: true } }))?.id;
 
         if (orgId) {
-          await prisma.contact.upsert({
-            where: {
-              phone_organizationId: { phone: member.phone, organizationId: orgId },
-            },
-            create: {
-              name: member.name || member.email || '이름없음',
-              phone: member.phone,
-              email: member.email ?? null,
-              organizationId: orgId,
-              type: 'INQUIRY',
-              sourceType: 'user',
-              signupMethod:
-                member.provider === 'direct' ? 'general' : member.provider,
-              visibility: 'ADMIN_ONLY',
-            },
-            update: {
-              // 이름/이메일만 업데이트, sourceType은 덮어쓰지 않음
-              ...(member.name ? { name: member.name } : {}),
-              ...(member.email ? { email: member.email } : {}),
-              ...(member.provider !== 'direct'
-                ? { signupMethod: member.provider }
-                : {}),
-            },
-          });
+          const staffCheck = await isStaffPhone(member.phone, orgId);
+          if (staffCheck) {
+            logger.warn('[MemberWebhook] 직원 번호 Contact 생성 건너뜀', { phone: member.phone.slice(0, 6) + '****' });
+          } else {
+            await prisma.contact.upsert({
+              where: {
+                phone_organizationId: { phone: member.phone, organizationId: orgId },
+              },
+              create: {
+                name: member.name || member.email || '이름없음',
+                phone: member.phone,
+                email: member.email ?? null,
+                organizationId: orgId,
+                type: 'INQUIRY',
+                sourceType: 'user',
+                signupMethod:
+                  member.provider === 'direct' ? 'general' : member.provider,
+                visibility: 'ADMIN_ONLY',
+              },
+              update: {
+                // 이름/이메일만 업데이트, sourceType은 덮어쓰지 않음
+                ...(member.name ? { name: member.name } : {}),
+                ...(member.email ? { email: member.email } : {}),
+                ...(member.provider !== 'direct'
+                  ? { signupMethod: member.provider }
+                  : {}),
+              },
+            });
 
-          logger.log('[MemberWebhook] Contact upsert 완료', {
-            phone: member.phone,
-            orgId,
-            eventType,
-          });
+            logger.log('[MemberWebhook] Contact upsert 완료', {
+              phone: member.phone,
+              orgId,
+              eventType,
+            });
+          }
         } else {
           logger.warn('[MemberWebhook] Organization 없음 — Contact 생성 건너뜀');
         }
