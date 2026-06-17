@@ -7,6 +7,7 @@ import { logger } from "@/lib/logger";
 import { useToast } from "@/lib/api/use-toast";
 import type { Contact as FullContact, InquiryTracking } from "@/types/contact";
 import { formatInquiryTrackingSummary } from "@/lib/contact-inquiry-tracking";
+import { useSession } from "@/hooks/useSession";
 
 // 고객 상세 슬라이드 패널 (행 클릭 시 표시) — 코드 스플릿
 const ContactSlidePanel = lazy(() => import("../ContactSlidePanel"));
@@ -44,6 +45,8 @@ function formatDate(dateStr: string | null): string {
 
 export default function PurchasedPage() {
   const { toast } = useToast();
+  const { role } = useSession();
+  const canCreate = role === 'GLOBAL_ADMIN' || role === 'OWNER';
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [total, setTotal] = useState(0);
   const [q, setQ] = useState("");
@@ -189,6 +192,11 @@ export default function PurchasedPage() {
 
   const filteredContacts = contacts;
 
+  // FREE_SALES: 고객 DB 접근 권한 없음
+  if (role === 'FREE_SALES') {
+    return <div className="p-4 text-gray-500">고객 DB 접근 권한이 없습니다.</div>;
+  }
+
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
 
@@ -281,20 +289,22 @@ export default function PurchasedPage() {
             <span className="text-sm text-gray-500">{total.toLocaleString()}명</span>
           </div>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => { setShowImport(true); setImportResult(null); setImportFile(null); }}
-            className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"
-          >
-            <Upload className="w-4 h-4" /> 엑셀 가져오기
-          </button>
-          <Link
-            href="/contacts/new"
-            className="flex items-center gap-1.5 bg-navy-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" /> 고객 추가
-          </Link>
-        </div>
+        {canCreate && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => { setShowImport(true); setImportResult(null); setImportFile(null); }}
+              className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"
+            >
+              <Upload className="w-4 h-4" /> 엑셀 가져오기
+            </button>
+            <Link
+              href="/contacts/new"
+              className="flex items-center gap-1.5 bg-navy-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" /> 고객 추가
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* 안내 배너 */}

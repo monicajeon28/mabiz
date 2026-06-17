@@ -37,8 +37,9 @@ export async function GET(req: NextRequest) {
         : {};
 
     // OWNER는 본인 조직 계약만 조회 (IDOR 방지: organizationId 격리)
+    // GmAffiliateContract에 organizationId 컬럼이 없으므로 metadata.organizationId로 필터링
     const orgFilter = ctx.role === 'OWNER' && ctx.organizationId
-      ? { organizationId: ctx.organizationId }
+      ? { metadata: { path: ['organizationId'], equals: ctx.organizationId } }
       : {};
 
     const where = {
@@ -252,6 +253,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // agentCode는 GmAffiliateProfile에 속하는 GM 크루즈 시스템 코드로,
+    // OrganizationMember(마비즈 CRM)와 직접 연결되지 않음.
+    // metadata.agentCode에 저장만 하고 organizationId 조회는 생략.
+    const agentOrganizationId: string | null = null;
+
     // Race Condition 방지: $transaction 내에서 중복 확인 + 생성을 원자적으로 처리
     // findFirst 후 create 사이에 다른 요청이 끼어드는 TOCTOU 문제를 차단
     const contract = await prisma.$transaction(async (tx) => {
@@ -263,6 +269,12 @@ export async function POST(req: NextRequest) {
       if (duplicate) {
         // null 반환으로 중복 신호 전달
         return null;
+      }
+
+      // agentCode로 조회한 organizationId를 metadata에 저장
+      // (GmAffiliateContract 테이블에 organizationId 컬럼 없음 — schema 변경 없이 metadata로 보관)
+      if (agentOrganizationId) {
+        metadata.organizationId = agentOrganizationId;
       }
 
       return tx.gmAffiliateContract.create({

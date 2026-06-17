@@ -74,6 +74,24 @@ export function getSampleRows(
         유형: "잠재고객",
       },
     ],
+    b2c_purchased: [
+      {
+        이름: "박구매",
+        전화번호: "010-1111-2222",
+        예약번호: "BK-2025-001",
+        이메일: "buy@example.com",
+        관심크루즈: "지중해 크루즈",
+        메모: "예약 완료",
+      },
+      {
+        이름: "최구매",
+        전화번호: "010-3333-4444",
+        예약번호: "BK-2025-002",
+        이메일: "",
+        관심크루즈: "일본 크루즈",
+        메모: "",
+      },
+    ],
     b2b_buyer: [
       {
         이름: "박대표",
@@ -117,6 +135,7 @@ export function getSampleRows(
 export function getColumnWidths(target: ImportTarget): number[] {
   const widths: Record<ImportTarget, number[]> = {
     b2c: [14, 16, 22, 18, 12, 16, 12],
+    b2c_purchased: [14, 16, 16, 22, 18, 16],
     b2b_buyer: [18, 14, 16, 22, 16],
     b2b_inquiry: [18, 14, 16, 22, 24],
   };

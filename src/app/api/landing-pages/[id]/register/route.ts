@@ -14,6 +14,7 @@ import { replaceMessagePlaceholders } from "@/lib/message-replacements";
 import { scheduleDay0To3Sms } from "@/lib/landing-page-sms-scheduler";
 
 // [P1-11] FormConfig Zod 검증 스키마
+// .passthrough()로 미래의 알 수 없는 키도 허용 (strict() 제거로 b2bEduType 파싱 실패 해결)
 const FormConfigSchema = z.object({
   b2bEduType: z.enum(["INQUIRER", "BUYER"]).optional(),
   additionalFields: z.array(z.object({
@@ -21,7 +22,9 @@ const FormConfigSchema = z.object({
     name: z.string(),
     required: z.boolean(),
   })).optional(),
-}).strict();
+  fields: z.array(z.any()).optional(),
+  footer: z.string().nullable().optional(),
+}).passthrough();
 
 type FormConfig = z.infer<typeof FormConfigSchema>;
 
@@ -387,7 +390,8 @@ export async function POST(req: Request, { params }: Params) {
       // [P1-12] 비블로킹 작업들을 Promise.allSettled로 묶기 (실패 감지)
       const backgroundTasks = [
         // 리드 스코어 +30 (랜딩 등록 = 강력한 관심 신호)
-        addLeadScore(contact.id, "LANDING_REGISTER").catch(() => {}),
+        // [P1-5] .catch(()=>{}) 제거 — Promise.allSettled가 실패를 감지해 로그 처리
+        addLeadScore(contact.id, "LANDING_REGISTER"),
       ];
 
       // B2B 문의자/구매자 자동 등록 (트랜잭션 외부, 비블로킹)
@@ -454,6 +458,8 @@ export async function POST(req: Request, { params }: Params) {
           logger.error('[LandingRegister] 잘못된 autoFunnelId 형식', { autoFunnelId: landingPage.autoFunnelId });
         } else {
           try {
+            // [CODE-SMELL] 동일 프로세스 내 루프백 HTTP 호출: 콜드스타트 중복 비용 + 타임아웃 위험 + Authorization 헤더 미전달.
+            // TODO(B2B-REFACTOR): lib/funnel-service.ts에 enrollContactToFunnel() 추출 후 직접 임포트 호출로 전환.
             const enrollRes = await fetch(new URL(`/api/funnels/${landingPage.autoFunnelId}/enroll`, req.url).toString(), {
             method: "POST",
             headers: { "Content-Type": "application/json" },

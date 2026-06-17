@@ -86,14 +86,15 @@ export function buildContactWhere(ctx: AuthContext, extra: Record<string, unknow
       deletedAt: null,
     };
   }
-  // AGENT: 할당된 고객 + visibility !== ADMIN_ONLY
-  // 성능: PostgreSQL BitmapOr로 2개 인덱스 병합 (15-25ms)
+  // AGENT: 할당된 고객 + 작성한 고객 + 공유받은 고객 + visibility !== ADMIN_ONLY
+  // 성능: PostgreSQL BitmapOr로 3개 인덱스 병합 (ContactSharing idx_sharedTo 활용)
   return {
     ...extra,
     organizationId: ctx.organizationId!,
     OR: [
       { assignedUserId: ctx.userId }, // 할당된 고객 (idx_contact_org_assigned)
       { createdBy: ctx.userId }, // 작성한 고객 (idx_contact_org_created_by)
+      { sharedWith: { some: { sharedTo: ctx.userId } } }, // 공유받은 고객 (ContactSharing idx_sharedTo)
     ],
     visibility: { not: ContactVisibility.ADMIN_ONLY },
     deletedAt: null,

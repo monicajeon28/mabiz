@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react"
 import { Search, Filter, Building2, ArrowUpDown, X, Tag } from "lucide-react";
 import type { Contact as FullContact, InquiryTracking } from "@/types/contact";
 import { formatInquiryTrackingSummary } from "@/lib/contact-inquiry-tracking";
+import { useSession } from "@/hooks/useSession";
 
 const ContactSlidePanel = lazy(() => import('../ContactSlidePanel'));
 
@@ -29,9 +30,8 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export default function ContactsAllPage() {
-  // 권한 확인은 layout에서 처리 (GLOBAL_ADMIN만 접근 가능)
-  const [role] = useState<string | null>('GLOBAL_ADMIN');
-  const [authLoaded] = useState(true);
+  // 실제 세션에서 role 읽기 (layout의 SessionProvider가 주입)
+  const { role } = useSession();
 
   const [contacts, setContacts] = useState<ContactAll[]>([]);
   const [total, setTotal] = useState(0);
@@ -123,9 +123,16 @@ export default function ContactsAllPage() {
     setPage(1);
   };
 
-  // GLOBAL_ADMIN 인증 전에는 아무것도 렌더링하지 않음
-  if (!authLoaded || role !== 'GLOBAL_ADMIN') {
-    return null;
+  // role 로딩 중 (undefined) → 대기
+  if (!role) return null;
+
+  // GLOBAL_ADMIN이 아니면 접근 거부 메시지 표시
+  if (role !== 'GLOBAL_ADMIN') {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-red-500 text-base">접근 권한이 없습니다. 관리자에게 문의하세요.</p>
+      </div>
+    );
   }
 
   return (

@@ -40,6 +40,13 @@ export const ROUTE_RULES: RouteRule[] = [
     redirectTo: '/403-forbidden',
   },
 
+  // 전체 고객 조회 - GLOBAL_ADMIN 전용 (OWNER·AGENT는 /contacts로 리다이렉트)
+  {
+    pattern: '/contacts/all',
+    requiredRole: 'GLOBAL_ADMIN',
+    redirectTo: '/contacts',
+  },
+
   // Team management pages - MEMBER+ (팀 관리)
   {
     pattern: '/dashboard/team/*',

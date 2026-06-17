@@ -3,7 +3,6 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { requirePartnerContext } from '@/lib/passport-auth';
 import { logger } from '@/lib/logger';
-import prisma from '@/lib/prisma';
 import {
   getB2BProspects,
   createB2BProspect,
@@ -11,6 +10,7 @@ import {
 import {
   B2BProspectCreateSchema,
 } from '@/lib/b2b/validation';
+import { resolveGlobalAdminOrgId } from '@/lib/partner-stats';
 
 export async function GET(req: Request) {
   try {
@@ -21,6 +21,15 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: false, error: '인증이 필요합니다' }, { status: 403 });
     }
 
+    // AGENT(판매원) 완전 차단
+    // 주의: requirePartnerContext()의 sessionUser.role은 'admin'/'owner'/'agent' 소문자 반환
+    // (rbac.ts의 'GLOBAL_ADMIN'/'OWNER'/'AGENT' 대문자와 다름 — 향후 통합 필요)
+    if (ctx.sessionUser?.role === 'agent') {
+      logger.warn('[b2b] GET: AGENT 접근 차단', { userId: ctx.sessionUser?.id });
+      return NextResponse.json({ ok: false, error: '접근 권한이 없습니다' }, { status: 403 });
+    }
+
+    // requirePartnerContext 반환 role: 'admin'(=GLOBAL_ADMIN), 'owner'(=OWNER), 'agent'(=AGENT)
     // GLOBAL_ADMIN(role='admin')은 organizationId 없이도 접근 가능
     if (!ctx.organizationId && ctx.sessionUser?.role !== 'admin') {
       logger.error('[b2b] GET: organizationId 없음', { userId: ctx.sessionUser?.id });
@@ -47,8 +56,8 @@ export async function GET(req: Request) {
       );
     }
 
-    // GLOBAL_ADMIN(admin role)은 빈 string 전달 → service에서 전체 조회
-    const effectiveOrgId = ctx.organizationId ?? '';
+    // GLOBAL_ADMIN(admin role)은 organizationId=null → service에서 전체 조회
+    const effectiveOrgId: string | null = ctx.organizationId ?? null;
 
     // P1: 성능 - 병렬 쿼리 실행 (getB2BProspects 내부에서 처리)
     const result = await getB2BProspects(effectiveOrgId, {
@@ -78,19 +87,28 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: '인증이 필요합니다' }, { status: 403 });
     }
 
-    // GLOBAL_ADMIN(role='admin')은 organizationId=null → 첫 번째 org를 effectiveOrgId로 사용
+    // AGENT(판매원) 완전 차단
+    // 주의: requirePartnerContext()의 sessionUser.role은 'admin'/'owner'/'agent' 소문자 반환
+    // (rbac.ts의 'GLOBAL_ADMIN'/'OWNER'/'AGENT' 대문자와 다름 — 향후 통합 필요)
+    if (ctx.sessionUser?.role === 'agent') {
+      logger.warn('[b2b] POST: AGENT 접근 차단', { userId: ctx.sessionUser?.id });
+      return NextResponse.json({ ok: false, error: '접근 권한이 없습니다' }, { status: 403 });
+    }
+
+    // GLOBAL_ADMIN(role='admin')은 organizationId=null → resolveGlobalAdminOrgId()로 안전하게 처리
+    // (BONSA_ORG_ID 환경변수 우선 → DB 최오래된 조직 순서로 fallback)
     let effectiveOrgId = ctx.organizationId;
     if (!effectiveOrgId) {
       if (ctx.sessionUser?.role !== 'admin') {
         logger.error('[b2b] POST: organizationId 없음', { userId: ctx.sessionUser?.id });
         return NextResponse.json({ ok: false, error: '조직 정보 없음' }, { status: 403 });
       }
-      const firstOrg = await prisma.organization.findFirst({ select: { id: true } });
-      if (!firstOrg) {
-        logger.error('[b2b] POST: 조직이 존재하지 않음');
-        return NextResponse.json({ ok: false, message: '조직이 없습니다' }, { status: 500 });
+      try {
+        effectiveOrgId = await resolveGlobalAdminOrgId();
+      } catch {
+        logger.error('[b2b] POST: 조직 없음 — BONSA_ORG_ID 환경변수 확인 필요');
+        return NextResponse.json({ ok: false, error: '조직을 찾을 수 없습니다' }, { status: 500 });
       }
-      effectiveOrgId = firstOrg.id;
     }
 
     let body;

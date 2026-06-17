@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAuthContext } from '@/lib/rbac';
+import { getAuthContext, maskContactInfo } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 // GET /api/contacts/all — GLOBAL_ADMIN 전용, 전 조직 고객 조회
@@ -65,11 +65,10 @@ export async function GET(req: Request) {
       prisma.contact.count({ where }),
     ]);
 
-    // phone 마스킹
-    const masked = contacts.map(c => ({
-      ...c,
-      phone: c.phone.substring(0, 4) + '****',
-    }));
+    // GLOBAL_ADMIN: 마스킹 없음 (전체 PII 접근), 나머지: maskContactInfo로 일관 마스킹
+    const masked = ctx.role === 'GLOBAL_ADMIN'
+      ? contacts
+      : contacts.map(c => maskContactInfo(c, ctx));
 
     logger.log('[ContactsAll] 조회', { total, orgId: orgId || '전체' });
     return NextResponse.json({ ok: true, contacts: masked, total, page, limit });

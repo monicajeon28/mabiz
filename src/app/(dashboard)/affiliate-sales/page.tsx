@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { CheckCircle, XCircle, RotateCcw, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import type { AffiliateSalesResponse } from "@/lib/affiliate/types";
 import { useToast } from "@/lib/api/use-toast";
@@ -43,6 +44,8 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 export default function AffiliateSalesPage() {
   const { toast } = useToast();
+  const router = useRouter();
+  const [authChecked, setAuthChecked] = useState(false);
   const [sales,   setSales]   = useState<Sale[]>([]);
   const [total,   setTotal]   = useState(0);
   const [page,    setPage]    = useState(1);
@@ -54,6 +57,28 @@ export default function AffiliateSalesPage() {
   const [confirming, setConfirming] = useState(false);
 
   const totalPages = Math.ceil(total / 20);
+
+  // FREE_SALES 역할 차단: /api/auth/me 기반 체크
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (!res.ok) {
+          router.replace('/');
+          return;
+        }
+        const ctx = await res.json();
+        if (ctx.role === 'FREE_SALES') {
+          router.replace('/');
+          return;
+        }
+        setAuthChecked(true);
+      } catch {
+        router.replace('/');
+      }
+    };
+    checkAuth();
+  }, [router]);
 
   const load = useCallback((signal?: AbortSignal) => {
     setLoading(true);
@@ -137,6 +162,14 @@ export default function AffiliateSalesPage() {
       setConfirming(false);
     }
   };
+
+  if (!authChecked) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto">

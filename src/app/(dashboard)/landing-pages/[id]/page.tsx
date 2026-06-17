@@ -140,6 +140,7 @@ export default function EditLandingPage() {
     { id: 'phone', name: 'phone', label: '전화번호', type: 'tel', required: true, placeholder: '010-0000-0000' },
     { id: 'email', name: 'email', label: '이메일', type: 'email', required: false, placeholder: 'example@email.com' },
   ]);
+  const [additionalFields, setAdditionalFields] = useState<{ id: string; name: string; required: boolean }[]>([]);
   // 블록 에디터 상태 (blocksConfig 복원용)
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [selectedFeatures, setSelectedFeatures] = useState<BlocksConfig['selectedFeatures']>({
@@ -202,10 +203,11 @@ export default function EditLandingPage() {
         setProductPrice(String(pageData.page.productPrice ?? ""));
         setCycleDay(String(pageData.page.cycleDay ?? "1"));
         setExpireDate(pageData.page.expireDate ? pageData.page.expireDate.split("T")[0] : "");
-        const fc = pageData.page.formConfig as { b2bEduType?: string; fields?: FormField[]; footer?: string } | null;
+        const fc = pageData.page.formConfig as { b2bEduType?: string; fields?: FormField[]; footer?: string; additionalFields?: { id: string; name: string; required: boolean }[] } | null;
         setB2bEduType((fc?.b2bEduType as "" | "INQUIRER" | "BUYER") ?? "");
         if (fc?.fields && Array.isArray(fc.fields)) setFormFields(fc.fields);
         if (fc?.footer) setFooter(fc.footer);
+        if (fc?.additionalFields && Array.isArray(fc.additionalFields)) setAdditionalFields(fc.additionalFields);
         // 추가 편집 필드
         setExposureTitle(pageData.page.exposureTitle ?? "");
         setExposureImage(pageData.page.exposureImage ?? "");
@@ -747,6 +749,7 @@ export default function EditLandingPage() {
           formConfig: {
             ...(b2bEduType ? { b2bEduType } : {}),
             fields: formFields,
+            additionalFields,
             ...(footer ? { footer } : {}),
           },
           ...(exposureTitle     ? { exposureTitle }                     : { exposureTitle: null }),

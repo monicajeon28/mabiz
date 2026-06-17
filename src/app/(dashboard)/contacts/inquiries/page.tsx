@@ -7,6 +7,7 @@ import { logger } from "@/lib/logger";
 import { useToast } from "@/lib/api/use-toast";
 import type { Contact as FullContact, InquiryTracking } from "@/types/contact";
 import { formatInquiryTrackingSummary } from "@/lib/contact-inquiry-tracking";
+import { useSession } from "@/hooks/useSession";
 
 // 고객 상세 슬라이드 패널 (행 클릭 시 표시) — 코드 스플릿
 const ContactSlidePanel = lazy(() => import("../ContactSlidePanel"));
@@ -65,6 +66,7 @@ function formatDaysSince(dateStr: string | null): string {
 
 export default function InquiriesPage() {
   const { toast } = useToast();
+  const { role } = useSession();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [total, setTotal] = useState(0);
   const [q, setQ] = useState("");
@@ -249,8 +251,23 @@ export default function InquiriesPage() {
     .sort((a, b) => (b.leadScore ?? 0) - (a.leadScore ?? 0))
     .slice(0, 5);
 
+  // FREE_SALES: 고객 DB 접근 권한 없음
+  if (role === 'FREE_SALES') {
+    return <div className="p-16px text-gray-500">고객 DB 접근 권한이 없습니다.</div>;
+  }
+
+  // AGENT일 때 안내 배너 표시 여부
+  const showAgentNotice = role === 'AGENT';
+
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
+
+      {/* AGENT 안내 배너: 본인에게 배정된 고객 또는 공유받은 고객만 표시 */}
+      {showAgentNotice && (
+        <div className="mb-4 px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700">
+          내게 배정되거나 공유받은 문의고객만 표시됩니다
+        </div>
+      )}
 
       {/* 엑셀 가져오기 모달 */}
       {showImport && (

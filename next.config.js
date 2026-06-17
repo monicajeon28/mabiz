@@ -34,6 +34,21 @@ const nextConfig = {
       headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
     },
   ],
+
+  async redirects() {
+    return [
+      {
+        source: '/b2b-editor',
+        destination: '/landing-pages',
+        permanent: true,
+      },
+      {
+        source: '/b2b-editor/:path*',
+        destination: '/landing-pages',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;
