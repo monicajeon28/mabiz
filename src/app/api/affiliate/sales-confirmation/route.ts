@@ -5,6 +5,14 @@ import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { getSession } from '@/lib/auth';
+import { checkRateLimitAsync } from '@/lib/rate-limit';
+
+function maskPhone(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  if (phone.length <= 4) return phone;
+  const mid = Math.floor(phone.length / 2);
+  return phone.slice(0, mid - 2) + '****' + phone.slice(mid + 2);
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -30,11 +38,32 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // T-005: GET rate limiting — 30초당 30회 제한
+    const rlGet = await checkRateLimitAsync(
+      `sales-confirm:get:${session.userId}`,
+      30,
+      30_000
+    );
+    if (!rlGet.allowed) {
+      return NextResponse.json(
+        { ok: false, error: '요청이 너무 많습니다.' },
+        { status: 429 }
+      );
+    }
+
     const searchParams = req.nextUrl.searchParams;
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)));
-    const status = searchParams.get('status');
-    const search = searchParams.get('search');
+    const rawSearch = searchParams.get('search') ?? '';
+    const search = rawSearch.slice(0, 200) || null;
+
+    // T-005: status 파라미터 enum 검증 — Prisma WHERE에 임의 문자열 직접 전달 방지
+    const ALLOWED_SALE_STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'EARNED', 'PAID'] as const;
+    type AllowedSaleStatus = typeof ALLOWED_SALE_STATUSES[number];
+    const rawStatus = searchParams.get('status');
+    const status = rawStatus && rawStatus !== 'ALL' && (ALLOWED_SALE_STATUSES as readonly string[]).includes(rawStatus)
+      ? rawStatus as AllowedSaleStatus
+      : undefined;
 
     const offset = (page - 1) * limit;
 
@@ -43,7 +72,7 @@ export async function GET(req: NextRequest) {
       : { organizationId: session.organizationId! };
     const where: Prisma.AffiliateSaleWhereInput = {
       ...orgFilter,
-      ...(status && status !== 'ALL' ? { status } : {}),
+      ...(status ? { status } : {}),
       ...(search ? {
         OR: [
           { productName: { contains: search, mode: 'insensitive' } },
@@ -96,15 +125,24 @@ export async function GET(req: NextRequest) {
     // 단순 userId → displayName fallback (GLOBAL_ADMIN 단일조직 환경 호환)
     const userMap = new Map(members.map((m) => [m.userId, m.displayName]));
 
+    const shouldMask = session.role !== 'GLOBAL_ADMIN';
+
     return NextResponse.json({
       ok: true,
-      data: data.map((d) => ({
-        ...d,
-        // 복합키(userId:orgId)로 먼저 조회, fallback은 단순 userId
-        agentDisplayName: d.affiliateUserId
-          ? (userOrgMap.get(`${d.affiliateUserId}:${d.organizationId}`) ?? userMap.get(d.affiliateUserId) ?? null)
-          : null,
-      })),
+      data: data.map((d) => {
+        // T-022: affiliateUserId 응답에서 제외 — OWNER가 다른 조직 판매원 UUID를 추론하는 데 악용 방지
+         
+        const { affiliateUserId, ...rest } = d;
+        return {
+          ...rest,
+          // T-016: OWNER 대상 고객 전화번호 마스킹
+          customerPhone: shouldMask ? maskPhone(d.customerPhone) : d.customerPhone,
+          // 복합키(userId:orgId)로 먼저 조회, fallback은 단순 userId — agentDisplayName만 노출
+          agentDisplayName: affiliateUserId
+            ? (userOrgMap.get(`${affiliateUserId}:${d.organizationId}`) ?? userMap.get(affiliateUserId) ?? null)
+            : null,
+        };
+      }),
       total,
       page,
       limit,

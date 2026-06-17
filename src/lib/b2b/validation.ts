@@ -27,3 +27,14 @@ export const B2BProspectUpdateSchema = z.object({
 
 export type B2BProspectCreateInput = z.infer<typeof B2BProspectCreateSchema>;
 export type B2BProspectUpdateInput = z.infer<typeof B2BProspectUpdateSchema>;
+
+/**
+ * B2BProspect.status 허용 enum 값 (SSOT — /api/b2b와 /api/b2b-prospects 양쪽 참조)
+ * NOTE: /api/b2b GET의 ALLOWED_B2B_STATUSES에는 'ACTIVE'가 포함되나
+ *       /api/b2b-prospects PATCH에서는 ACTIVE 미포함. 정책 통일 필요.
+ *       현재는 ACTIVE를 포함하여 두 쪽 모두 이 상수를 사용하도록 변경.
+ */
+export const B2B_PROSPECT_STATUSES = [
+  'PENDING', 'CONTACTED', 'CONVERTED', 'REJECTED', 'FOLLOW_UP', 'ACTIVE'
+] as const;
+export type B2BProspectStatus = typeof B2B_PROSPECT_STATUSES[number];

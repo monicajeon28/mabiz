@@ -17,14 +17,15 @@ interface TeamLayoutProps {
  * Team Layout - P2 (팀 관리 페이지)
  *
  * 역할 검증:
- * - OWNER, AGENT 역할만 접근 허용
+ * - GLOBAL_ADMIN, OWNER, AGENT 접근 허용
  * - FREE_SALES 차단
+ * - /team/affiliate는 별도 layout.tsx에서 GLOBAL_ADMIN 전용으로 제한
  * - 서버 사이드 검증 (매 로드마다 실시, 캐시 없음)
  * - 비허가 접근 시 /dashboard로 리다이렉트
  *
  * 보호되는 페이지:
  * - /team (팀 대시보드)
- * - /team/affiliate (제휴사 관리)
+ * - /team/affiliate (GLOBAL_ADMIN 전용 — 별도 layout.tsx 적용)
  */
 export default async function TeamLayout({ children }: TeamLayoutProps) {
   const ctx = await getMabizSession();

@@ -10,6 +10,23 @@ import {
   generateDay03Messages,
 } from '@/lib/partner-risk-scoring';
 import { sendPartnerAlertSms } from '@/lib/aligo-sms-service';
+import { checkRateLimitAsync } from '@/lib/rate-limit';
+
+// T-013: PII 마스킹 헬퍼
+function maskPhone(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  if (phone.length <= 4) return phone;
+  const visibleEnd = phone.slice(-4);
+  const masked = phone.slice(0, phone.length - 4).replace(/./g, '*');
+  return masked + visibleEnd;
+}
+
+function maskEmail(email: string | null | undefined): string | null {
+  if (!email) return null;
+  const [local, domain] = email.split('@');
+  if (!domain) return '***';
+  return local.slice(0, 2) + '***@' + domain;
+}
 
 /**
  * GET /api/affiliate/partner-alert
@@ -39,10 +56,30 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // T-004: GET rate limiting — 분당 30회 제한
+    const rlGet = await checkRateLimitAsync(
+      `partner-alert:get:${session.userId}`,
+      30,
+      60_000
+    );
+    if (!rlGet.allowed) {
+      return NextResponse.json(
+        { ok: false, error: '요청이 너무 많습니다.' },
+        { status: 429 }
+      );
+    }
+
     const searchParams = req.nextUrl.searchParams;
     const riskLevel = searchParams.get('riskLevel'); // RED, YELLOW, GREEN
-    const cursor = searchParams.get('cursor') || undefined;
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)));
+
+    // T-012: UUID 형식 검증 — 비 UUID cursor 입력 시 첫 페이지로 안전하게 fallback
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const rawCursor = searchParams.get('cursor') || undefined;
+    const cursor = rawCursor && UUID_REGEX.test(rawCursor) ? rawCursor : undefined;
+    if (rawCursor && !cursor) {
+      logger.warn('[partner-alert GET] cursor UUID 형식 오류, 첫 페이지로 fallback', { rawCursor });
+    }
 
     const where: Prisma.PartnerRiskFlagsWhereInput = {};
     if (riskLevel && ['RED', 'YELLOW', 'GREEN'].includes(riskLevel)) {
@@ -114,11 +151,12 @@ export async function GET(req: NextRequest) {
     const pageData = hasNextPage ? partners.slice(0, limit) : partners;
     const nextCursor = hasNextPage ? pageData[pageData.length - 1].partnerId : null;
 
+    const shouldMask = session.role !== 'GLOBAL_ADMIN';
     const mapped = pageData.map((p) => ({
       partnerId: p.partnerId,
       name: p.partner.name,
-      email: p.partner.email,
-      phone: p.partner.phone,
+      email: shouldMask ? maskEmail(p.partner.email) : p.partner.email,
+      phone: shouldMask ? maskPhone(p.partner.phone) : p.partner.phone,
       riskScore: p.totalRiskScore,
       riskLevel:
         p.totalRiskScore > 66 ? 'RED' : p.totalRiskScore > 33 ? 'YELLOW' : 'GREEN',
@@ -168,12 +206,33 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // T-003: POST rate limiting — 실제 SMS 발송이므로 분당 5회 제한 (비용 폭발 방지)
+    const rlPost = await checkRateLimitAsync(
+      `partner-alert:post:${session.userId}`,
+      5,
+      60_000
+    );
+    if (!rlPost.allowed) {
+      return NextResponse.json(
+        { ok: false, error: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const { partnerId, day } = body;
 
     if (!partnerId) {
       return NextResponse.json(
         { ok: false, error: 'partnerId가 필요합니다.' },
+        { status: 400 }
+      );
+    }
+    // T-011: UUID 형식 검증 — 비 UUID 입력 시 PostgreSQL invalid UUID 에러(500) 방지
+    const UUID_REGEX_POST = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!UUID_REGEX_POST.test(partnerId)) {
+      return NextResponse.json(
+        { ok: false, error: '올바른 파트너 ID 형식이 아닙니다.' },
         { status: 400 }
       );
     }
@@ -186,9 +245,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 파트너 조회
-    const partner = await prisma.partner.findUnique({
-      where: { id: partnerId },
+    // T-017: IDOR 방지 — 소유권 포함 단일 쿼리 (findFirst + organizationId 조건)
+    // findUnique → findFirst로 교체하여 권한 없는 파트너 존재 여부 열거 불가
+    const partner = await prisma.partner.findFirst({
+      where: {
+        id: partnerId,
+        ...(session.role !== 'GLOBAL_ADMIN' ? { organizationId: session.organizationId! } : {}),
+      },
       select: {
         id: true,
         organizationId: true,
@@ -210,13 +273,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { ok: false, error: '파트너를 찾을 수 없습니다.' },
         { status: 404 }
-      );
-    }
-
-    if (session.role !== 'GLOBAL_ADMIN' && partner.organizationId !== session.organizationId) {
-      return NextResponse.json(
-        { ok: false, error: '접근 권한이 없습니다.' },
-        { status: 403 }
       );
     }
 
@@ -269,7 +325,9 @@ export async function POST(req: NextRequest) {
       partner.phone
     );
 
-    logger.info('[partner-alert POST] SMS 발송', {
+    // T-004: 발송 본문은 서버 내부 로그에만 기록 (PII/메시지 내용 API 응답 노출 방지)
+    // T-021: messagePreview 제거 — PII 로그 노출 방지 (비PII 메타데이터만 기록)
+    logger.info('[partner-alert POST] SMS 발송 완료', {
       partnerId,
       day: targetDay,
       riskLevel: riskResult.level,
@@ -278,16 +336,23 @@ export async function POST(req: NextRequest) {
       senderId: session.userId,
     });
 
+    // T-004: smsResult.error는 내부 로그에만 기록하고 클라이언트 응답에서 제거 (정보 노출 방지)
+    if (!smsResult.success) {
+      logger.warn('[partner-alert POST] SMS 발송 실패 (내부 오류)', {
+        partnerId,
+        smsError: smsResult.error,
+      });
+    }
+
     return NextResponse.json({
       ok: smsResult.success,
       partnerId,
       riskLevel: riskResult.level,
       riskScore: riskResult.totalRiskScore,
-      message: targetMessage,
       day: targetDay,
       smsSent: smsResult.success,
       smsId: smsResult.smsId,
-      error: smsResult.error,
+      ...(smsResult.success ? {} : { error: 'SMS 발송에 실패했습니다.' }),
     });
   } catch (error: unknown) {
     logger.error('[partner-alert POST] 오류', {

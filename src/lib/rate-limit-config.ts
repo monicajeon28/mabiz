@@ -6,12 +6,13 @@
  */
 
 export const RATE_LIMIT_CONFIG = {
-  // POST /api/contacts (고객 생성)
+  // GET/POST /api/contacts
   contacts: {
-    perUser: 10,        // 사용자당 1분 10회
+    perUser: 10,        // POST: 사용자당 1분 10회 (고객 생성)
     perUserWindow: 60,  // 60초
     perIp: 100,         // IP당 1분 100회
     perIpWindow: 60,
+    perUserGet: 60,     // GET: 사용자당 1분 60회 (스크래핑 방지)
   },
 
   // POST /api/groups/[id]/members (그룹 멤버 추가)

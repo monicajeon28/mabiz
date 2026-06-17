@@ -6,27 +6,27 @@ import {
   TrendingUp,
   UserCheck,
   BarChart,
-  Phone,
   ChevronDown,
   ChevronUp,
   Calendar,
 } from "lucide-react";
 import { showError } from "@/components/ui/Toast";
 import { logger } from "@/lib/logger";
+import { useSession } from "@/hooks/useSession";
 
 // ─── 타입 정의 ───────────────────────────────────────────────────────────────
 
 type AgentMetric = {
   agent: {
     id: string;
-    affiliateCode: string;
+    userId: string; // OrganizationMember.userId (UUID) — API 필드명 변경 반영 (T-025)
     displayName: string | null;
     status: string;
-    lastActivityAt?: string | null;
+    // lastActivityAt 제거 — API 미구현, UI에서 '—' 표시 데드코드 (T-005)
   };
   leads: { total: number };
   sales: { count: number; salesCommission: number | null };
-  callCount?: number;
+  // callCount 제거 — /api/team/agents가 반환하지 않음 (T-005)
 };
 
 type FreeSalesMember = {
@@ -195,14 +195,17 @@ function LeaderboardSection({
   customFrom,
   customTo,
   orgId,
+  role,
 }: {
   period: Period;
   customFrom: string;
   customTo: string;
   orgId: string;
+  role: string | null;
 }) {
   const [agents, setAgents] = useState<AgentMetric[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
 
   const load = useCallback((signal?: AbortSignal) => {
@@ -212,11 +215,20 @@ function LeaderboardSection({
     if (period === "custom" && (!range.from || !range.to)) return;
 
     setLoading(true);
+    setError(null);
     const qs = new URLSearchParams({ from: range.from, to: range.to });
     if (orgId) qs.set("orgId", orgId);
     fetch(`/api/team/agents?${qs.toString()}`, { signal })
-      .then((r) => r.json())
+      .then((r) => {
+        if (r.status === 403) {
+          setError("이 데이터를 볼 권한이 없습니다.");
+          return null;
+        }
+        if (!r.ok) throw new Error("서버 오류");
+        return r.json();
+      })
       .then((d) => {
+        if (!d) return;
         if (d.ok) setAgents(d.metrics ?? []);
       })
       .catch((err) => {
@@ -243,6 +255,14 @@ function LeaderboardSection({
     );
   }
 
+  if (error) {
+    return (
+      <div className="text-center py-16 text-red-500">
+        <p>{error}</p>
+      </div>
+    );
+  }
+
   if (agents.length === 0) {
     return (
       <div className="text-center py-16 text-gray-600">
@@ -255,13 +275,6 @@ function LeaderboardSection({
     <div className="space-y-3">
       {agents.map((item, idx) => {
         const isExpanded = expandedAgent === item.agent.id;
-        const lastActivity = item.agent.lastActivityAt
-          ? new Date(item.agent.lastActivityAt).toLocaleDateString("ko-KR", {
-              year: "numeric",
-              month: "2-digit",
-              day: "2-digit",
-            })
-          : null;
 
         return (
           <div key={item.agent.id} className="bg-white border rounded-xl overflow-hidden shadow-sm">
@@ -275,43 +288,29 @@ function LeaderboardSection({
               <span className="text-2xl w-8 shrink-0">{rankEmojis[idx] ?? `${idx + 1}`}</span>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-navy-900 truncate">
-                  {item.agent.displayName ?? item.agent.affiliateCode}
+                  {item.agent.displayName ?? item.agent.userId}
                 </p>
                 <p className="text-sm text-gray-500 mt-0.5">
                   리드 {item.leads.total}건 · 판매 {item.sales.count}건
                 </p>
               </div>
-              <div className="text-right shrink-0">
-                <p className="font-bold text-navy-900">
-                  {(item.sales.salesCommission ?? 0).toLocaleString()}원
-                </p>
-                <p className="text-sm text-gray-600">커미션</p>
-              </div>
+              {(role === 'GLOBAL_ADMIN' || role === 'OWNER') && (
+                <div className="text-right shrink-0">
+                  <p className="font-bold text-navy-900">
+                    {(item.sales.salesCommission ?? 0).toLocaleString()}원
+                  </p>
+                  <p className="text-sm text-gray-600">커미션</p>
+                </div>
+              )}
               <span className="text-gray-600 shrink-0">
                 {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </span>
             </button>
 
-            {/* 활동 상세 (펼침) */}
+            {/* 활동 상세 (펼침) — callCount/lastActivityAt은 API 미구현으로 제거 (T-005) */}
             {isExpanded && (
-              <div className="border-t border-gray-100 bg-gray-50 px-4 py-3 flex flex-wrap gap-4 text-sm">
-                {/* 콜 횟수 */}
-                <div className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-navy-500 shrink-0" />
-                  <span className="text-gray-500">콜 횟수</span>
-                  <span className="font-semibold text-navy-900">
-                    {item.callCount != null ? `${item.callCount}회` : "—"}
-                  </span>
-                </div>
-
-                {/* 마지막 활동일 */}
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-navy-500 shrink-0" />
-                  <span className="text-gray-500">마지막 활동일</span>
-                  <span className="font-semibold text-navy-900">
-                    {lastActivity ?? "—"}
-                  </span>
-                </div>
+              <div className="border-t border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-500">
+                상세 활동 데이터를 불러올 수 없습니다.
               </div>
             )}
           </div>
@@ -426,21 +425,29 @@ export default function TeamPage() {
   const [activeTab, setActiveTab] = useState<"crm" | "leaderboard" | "freesales">("crm");
 
   // GLOBAL_ADMIN 조직 선택
-  const [role, setRole] = useState<string | null>(null);
+  // T-008: useSession에서 role을 직접 가져와 초기값으로 사용 (하이드레이션 지연 방지)
+  const { role: sessionRole } = useSession();
+  // sessionRole만 신뢰 (API 응답 role로 권한 상승 방지)
+  const displayRole = sessionRole ?? null;
   const [orgs, setOrgs] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string>(""); // "" = 전체
 
   // CRM 성과 탭 데이터
   const loadCrmStats = useCallback((signal?: AbortSignal) => {
-    const qs = selectedOrgId ? `?orgId=${selectedOrgId}` : "";
+    // T-007: GLOBAL_ADMIN만 orgId 파라미터 전송 (AGENT/OWNER는 서버에서 자동 처리)
+    const qs = (sessionRole === 'GLOBAL_ADMIN' && selectedOrgId) ? `?orgId=${selectedOrgId}` : "";
     fetch(`/api/team/crm-stats${qs}`, { signal })
-      .then((r) => r.json())
-      .then((data) => {
-        if (!data.ok) {
-          showError("팀 성과 데이터를 불러올 수 없습니다.");
-          return;
+      .then(async (r) => {
+        if (!r.ok) {
+          if (r.status === 403) showError('권한이 없습니다.');
+          else showError('팀 성과 데이터를 불러올 수 없습니다.');
+          return undefined;
         }
-        setRole(data.role ?? null);
+        return r.json();
+      })
+      .then((data) => {
+        if (!data || !data.ok) return;
+        // data.role은 UI 표시에 사용하지 않음 (sessionRole만 신뢰)
         setOrgs(data.orgs ?? []);
         setMembers(data.members ?? []);
         setSummary(data.summary ?? null);
@@ -451,7 +458,7 @@ export default function TeamPage() {
         showError("서버 오류가 발생했습니다.");
       })
       .finally(() => { if (!signal?.aborted) setCrmLoading(false); });
-  }, [selectedOrgId]);
+  }, [selectedOrgId, sessionRole]); // T-007: sessionRole 의존성 추가
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -461,6 +468,9 @@ export default function TeamPage() {
 
   // 프리세일즈 데이터 — agents API 에서 freeSales 필드 사용
   const loadFreeSales = useCallback((signal?: AbortSignal) => {
+    // T-009: AGENT 역할은 /api/team/agents 접근 불가 (API가 403 반환) — 클라이언트 guard 추가
+    if (sessionRole !== 'GLOBAL_ADMIN' && sessionRole !== 'OWNER') return;
+
     const range = getPeriodRange(period, customFrom, customTo);
     if (period === "custom" && (!range.from || !range.to)) return;
 
@@ -468,15 +478,20 @@ export default function TeamPage() {
     const qs = new URLSearchParams({ from: range.from, to: range.to });
     if (selectedOrgId) qs.set("orgId", selectedOrgId);
     fetch(`/api/team/agents?${qs.toString()}`, { signal })
-      .then((r) => r.json())
+      .then((r) => {
+        if (r.status === 403) return null;
+        if (!r.ok) throw new Error("서버 오류");
+        return r.json();
+      })
       .then((d) => {
+        if (!d) return;
         if (d.ok) setFreeSales(d.freeSales ?? []);
       })
       .catch((err) => {
         if (err instanceof Error && err.name === 'AbortError') return;
       })
       .finally(() => { if (!signal?.aborted) setFreeSalesLoading(false); });
-  }, [period, customFrom, customTo, selectedOrgId]);
+  }, [period, customFrom, customTo, selectedOrgId, sessionRole]); // T-009: sessionRole 의존성 추가
 
   // 프리세일즈 탭 활성화 시 or 필터 변경 시 로드
   useEffect(() => {
@@ -502,7 +517,7 @@ export default function TeamPage() {
       </div>
 
       {/* 조직 선택 드롭다운 — GLOBAL_ADMIN 전용 */}
-      {role === "GLOBAL_ADMIN" && orgs.length > 0 && (
+      {displayRole === "GLOBAL_ADMIN" && orgs.length > 0 && (
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-500">조직 선택</span>
           <select
@@ -519,16 +534,21 @@ export default function TeamPage() {
       )}
 
       {/* 탭 */}
+      {/* T-007: AGENT는 crm-stats 탭만 표시. leaderboard/freesales는 GLOBAL_ADMIN/OWNER 전용 */}
       <div className="flex flex-wrap gap-2 border-b pb-3">
         <button type="button" className={tabClass("crm")} onClick={() => setActiveTab("crm")}>
           CRM 성과
         </button>
-        <button type="button" className={tabClass("leaderboard")} onClick={() => setActiveTab("leaderboard")}>
-          판매원 순위
-        </button>
-        <button type="button" className={tabClass("freesales")} onClick={() => setActiveTab("freesales")}>
-          프리세일즈 현황
-        </button>
+        {(displayRole === "GLOBAL_ADMIN" || displayRole === "OWNER") && (
+          <button type="button" className={tabClass("leaderboard")} onClick={() => setActiveTab("leaderboard")}>
+            판매원 순위
+          </button>
+        )}
+        {(displayRole === "GLOBAL_ADMIN" || displayRole === "OWNER") && (
+          <button type="button" className={tabClass("freesales")} onClick={() => setActiveTab("freesales")}>
+            프리세일즈 현황
+          </button>
+        )}
       </div>
 
       {/* ── CRM 성과 탭 ─────────────────────────────────────────────────────── */}
@@ -617,9 +637,7 @@ export default function TeamPage() {
                             {ROLE_LABELS[m.role] ?? m.role}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-gray-600 text-sm hidden md:table-cell">
-                          향후 개인 실적 확장 예정
-                        </td>
+                        <td className="px-4 py-3 text-gray-600 text-sm hidden md:table-cell">-</td>
                       </tr>
                     ))
                   )}
@@ -630,8 +648,8 @@ export default function TeamPage() {
         </>
       )}
 
-      {/* ── 판매원 순위 탭 ──────────────────────────────────────────────────── */}
-      {activeTab === "leaderboard" && (
+      {/* ── 판매원 순위 탭 (GLOBAL_ADMIN / OWNER 전용) ─────────────────────── */}
+      {activeTab === "leaderboard" && (displayRole === "GLOBAL_ADMIN" || displayRole === "OWNER") && (
         <>
           <DateFilterBar
             period={period}
@@ -641,12 +659,12 @@ export default function TeamPage() {
             customTo={customTo}
             setCustomTo={setCustomTo}
           />
-          <LeaderboardSection period={period} customFrom={customFrom} customTo={customTo} orgId={selectedOrgId} />
+          <LeaderboardSection period={period} customFrom={customFrom} customTo={customTo} orgId={selectedOrgId} role={displayRole} />
         </>
       )}
 
-      {/* ── 프리세일즈 현황 탭 ──────────────────────────────────────────────── */}
-      {activeTab === "freesales" && (
+      {/* ── 프리세일즈 현황 탭 (GLOBAL_ADMIN / OWNER 전용) ──────────────────── */}
+      {activeTab === "freesales" && (displayRole === "GLOBAL_ADMIN" || displayRole === "OWNER") && (
         <>
           <DateFilterBar
             period={period}

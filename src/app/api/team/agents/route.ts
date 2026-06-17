@@ -28,10 +28,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const ctx = await getAuthContext();
-
-    if (ctx.role !== 'GLOBAL_ADMIN' && ctx.role !== 'OWNER') {
-      return NextResponse.json({ ok: false, message: 'Forbidden' }, { status: 403 });
-    }
+    // enforceRBAC(allowedRoles: ['GLOBAL_ADMIN', 'OWNER'])에서 이미 차단됨 — 중복 체크 불필요
 
     // ── 날짜 파라미터 파싱 (없으면 이번달 기본값) ──────────────
     const { searchParams } = new URL(req.url);
@@ -50,9 +47,20 @@ export async function GET(req: NextRequest) {
     // 조직 ID 결정
     // GLOBAL_ADMIN은 ?orgId=xxx 쿼리 파라미터로 특정 조직 필터링 가능
     const paramOrgId = searchParams.get('orgId');
-    const effectiveOrgId = ctx.role === 'GLOBAL_ADMIN'
-      ? (paramOrgId ?? undefined)   // undefined = 전체 (필터 없음)
-      : ctx.organizationId ?? undefined;
+    let effectiveOrgId: string | undefined;
+    if (ctx.role === 'GLOBAL_ADMIN') {
+      effectiveOrgId = paramOrgId ?? undefined; // undefined = 전체 (필터 없음)
+    } else {
+      // OWNER: 자기 조직 ID 필수
+      if (!ctx.organizationId) {
+        logger.error('[team/agents] OWNER organizationId 없음', { userId: ctx.userId });
+        return NextResponse.json(
+          { ok: false, message: '조직 정보가 없습니다.' },
+          { status: 403 }
+        );
+      }
+      effectiveOrgId = ctx.organizationId;
+    }
 
     // ── AGENT 역할 멤버 조회 ────────────────────────────────────
     const agentWhere = effectiveOrgId
@@ -132,7 +140,7 @@ export async function GET(req: NextRequest) {
         return {
           agent: {
             id: agent.id,
-            affiliateCode: agent.userId,
+            userId: agent.userId, // OrganizationMember.userId (UUID) — 실제 affiliateCode가 아님
             displayName: agent.displayName,
             status: agent.role,
           },
@@ -243,9 +251,11 @@ export async function GET(req: NextRequest) {
       period: { from: fromStr, to: toStr },
     });
   } catch (e: unknown) {
-    logger.error('[team/agents] 조회 실패', {
-      message: e instanceof Error ? e.message : String(e),
-    });
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg === 'UNAUTHORIZED') {
+      return NextResponse.json({ ok: false, error: '로그인이 필요합니다.' }, { status: 401 });
+    }
+    logger.error('[team/agents] 조회 실패', { message: msg });
     return NextResponse.json({ ok: false, message: 'Server error' }, { status: 500 });
   }
 }

@@ -33,26 +33,91 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
 
     if (ctx.role === 'FREE_SALES') {
+      // NOTE: API layer에서 FREE_SALES early return({ ok: true, contacts: [] })으로
+      // buildContactWhere의 FREE_SALES_NO_ACCESS throw는 실제 도달하지 않는 dead path.
+      // 이중 방어 패턴이므로 안전하지만 rbac.ts FREE_SALES 경로는 문서화 목적으로 유지.
       return NextResponse.json({ ok: true, contacts: [], total: 0, page: 1, limit: 20 });
+    }
+
+    // T-013: GET rate limiting — 고객 목록 스크래핑 방지 (분당 60회)
+    const rlGet = await checkRateLimitAsync(
+      `contacts:get:${ctx.userId}`,
+      RATE_LIMIT_CONFIG.contacts.perUserGet,
+      60_000
+    );
+    if (!rlGet.allowed) {
+      return NextResponse.json(
+        { ok: false, error: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' },
+        { status: 429 }
+      );
     }
 
     const rawType  = searchParams.get("type");
     const customerOnly = searchParams.get("customerOnly") === "true";
     // customerOnly=true: "CUSTOMER"(영문) + "구매완료"(한글) 모두 포함
     const type = customerOnly ? undefined : rawType;
-    const channel = searchParams.get("channel"); // b2c, b2b, direct
-    const sourceType = searchParams.get("sourceType"); // P0-6: user, inquiry, affiliate, landing_page, education, gold_member
     const visibility = searchParams.get("visibility"); // Team-B: SHARED | ADMIN_ONLY
-    const q       = searchParams.get("q");
-    const groupId = searchParams.get("groupId");
-    const tagParam = searchParams.get("tags");                      // 쉼표 구분 태그 필터
-    const tags    = tagParam ? tagParam.split(",").map((t) => t.trim()).filter(Boolean) : [];
-    const assignedTo = searchParams.get("assignedTo");             // 담당자 필터 (userId 또는 "unassigned")
-    const sortBy  = searchParams.get("sortBy");                     // 정렬: purchasedAt_desc | purchasedAt_asc
-    const cursor  = searchParams.get("cursor");                     // cursor 기반 페이지네이션
+    const rawQ = searchParams.get("q") ?? '';
+    const q = rawQ.slice(0, 200) || null;
+
+    // T-030: sourceType/channel enum 허용 목록 검증, assignedTo UUID 형식 검증
+    const ALLOWED_SOURCE_TYPES = ['user', 'inquiry', 'affiliate', 'landing_page', 'education', 'gold_member', 'UNKNOWN'];
+    const ALLOWED_CHANNELS = ['b2c', 'b2b', 'direct', 'landing', 'education'];
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    // T-007: groupId UUID 형식 검증 (미검증 시 DB에 임의 문자열 전달 → DoS 가능)
+    const groupId = (() => {
+      const v = searchParams.get('groupId');
+      return v && UUID_REGEX.test(v) ? v : undefined;
+    })();
+    // T-007: tags 개수(10개) + 각 길이(50자) 제한 (무제한 입력 시 DoS 가능)
+    const tagParam = searchParams.get("tags");
+    const tags = tagParam
+      ? tagParam
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean)
+          .slice(0, 10)
+          .map((t) => t.slice(0, 50))
+      : [];
+
+    const sourceType = (() => {
+      const v = searchParams.get("sourceType");
+      return v && ALLOWED_SOURCE_TYPES.includes(v) ? v : undefined;
+    })();
+
+    const channel = (() => {
+      const v = searchParams.get("channel");
+      return v && ALLOWED_CHANNELS.includes(v) ? v : undefined;
+    })();
+
+    const assignedTo = (() => {
+      const v = searchParams.get("assignedTo");
+      if (v === 'unassigned') return 'unassigned';
+      if (v && UUID_REGEX.test(v)) return v;
+      return undefined; // 잘못된 형식이면 무시
+    })();
+    const ALLOWED_SORT_VALUES = ['purchasedAt_desc', 'purchasedAt_asc'] as const;
+    const rawSortBy = searchParams.get("sortBy");
+    const sortBy = (rawSortBy && (ALLOWED_SORT_VALUES as readonly string[]).includes(rawSortBy))
+      ? rawSortBy : undefined; // 정렬: purchasedAt_desc | purchasedAt_asc (허용 목록 외 값 무시)
+    // T-007: cursor UUID 형식 검증 (임의 문자열 DB 전달 방지)
+    const cursor = (() => {
+      const v = searchParams.get('cursor');
+      return v && UUID_REGEX.test(v) ? v : undefined;
+    })();
     const rawPage = parseInt(searchParams.get("page") ?? "1", 10);
     const page    = Number.isNaN(rawPage) ? 1 : Math.min(Math.max(1, rawPage), 10000);
     const safeLimit = Math.min(Number(searchParams.get("limit")) || 30, 200); // limit 상한 강제 (200건)
+
+    // T-015: OWNER/AGENT는 organizationId 필수 — 세션 손상 시 전체 레코드 반환 방지
+    if ((ctx.role === 'OWNER' || ctx.role === 'AGENT') && !ctx.organizationId) {
+      logger.error('[GET /api/contacts] OWNER/AGENT organizationId 없음', { userId: ctx.userId, role: ctx.role });
+      return NextResponse.json(
+        { ok: false, error: '조직 정보가 없습니다.' },
+        { status: 403 }
+      );
+    }
 
     // visibility 필터: SHARED 탭과 ADMIN_ONLY 탭 분리
     let baseWhere: Prisma.ContactWhereInput;
@@ -190,6 +255,8 @@ export async function GET(req: Request) {
           name: true,
           email: true,
           type: true,
+          createdBy: true,        // maskContactInfo isOwned 판단용
+          assignedUserId: true,   // maskContactInfo isOwned 판단용
           cruiseInterest: true,
           leadScore: true,
           tags: true,
@@ -238,21 +305,26 @@ export async function GET(req: Request) {
     const masked = returnedContacts.map((c) => maskContactInfo(c, ctx));
 
     // ── 전달 이력 배치 조회 (N+1 없이) ──────────────────────────
+    // T-015: DISTINCT ON으로 contactId당 최신 1건 보장 (findMany+take 조합 누락 방지)
     const contactIds = returnedContacts.map((c) => c.id);
-    const rawLogs = contactIds.length > 0
-      ? await prisma.contactTransferLog.findMany({
-          where:   { contactId: { in: contactIds } },
-          orderBy: [{ contactId: 'asc' }, { createdAt: "desc" }],
-          take: contactIds.length,
-          select:  { id: true, contactId: true, toUserId: true, transferType: true, newContactId: true, transferredBy: true },
-        })
+    type RawLog = { id: string; contactId: string; toUserId: string | null; transferType: string; newContactId: string | null; transferredBy: string | null };
+    const rawLogs: RawLog[] = contactIds.length > 0
+      ? await prisma.$queryRaw<RawLog[]>`
+          SELECT DISTINCT ON ("contactId") id, "contactId", "toUserId", "transferType", "newContactId", "transferredBy"
+          FROM "ContactTransferLog"
+          WHERE "contactId" = ANY(${contactIds})
+          ORDER BY "contactId", "createdAt" DESC
+        `
       : [];
 
-    // contactId → 최신 로그 1건
-    const latestLog = new Map<string, typeof rawLogs[0]>();
-    for (const l of rawLogs) if (!latestLog.has(l.contactId)) latestLog.set(l.contactId, l);
+    // contactId → 최신 로그 1건 (DISTINCT ON이 이미 보장)
+    const latestLog = new Map<string, RawLog>();
+    for (const l of rawLogs) latestLog.set(l.contactId, l);
 
     // toUserId 배치 이름 조회
+    // NOTE: 전달 이력(ContactTransferLog)의 경우 비활성 멤버도 이름을 표시하는 것이 비즈니스상 올바름.
+    // (누가 누구에게 전달했는지 이력 추적 목적 — isActive 필터 의도적 미적용)
+    // affiliateMembers/sharedByMembers는 현재 활성 상태만 조회하므로 정책 불일치가 있음을 인지.
     const toUserIds = [...new Set([...latestLog.values()].map((l) => l.toUserId).filter((x): x is string => !!x))];
     const [orgMembers, globalAdmins] = toUserIds.length === 0
       ? [[], []]
@@ -322,18 +394,17 @@ export async function GET(req: Request) {
       };
     });
 
-    // 관리자전용 탭: 출처별 통계 (limit=1일 때 = 통계 요청)
+    // 관리자전용 탭: 출처별 통계 (includeStats=true 일 때만 집계 쿼리 실행)
+    const includeStats = searchParams.get('includeStats') === 'true';
     let sourceStats = null;
-    if (visibility === 'ADMIN_ONLY' && safeLimit === 1) {
-      const allAdminContacts = await prisma.contact.findMany({
-        where: { visibility: 'ADMIN_ONLY' as const, deletedAt: null },
-        select: { sourceType: true },
-      });
-      sourceStats = {
-        b2c: allAdminContacts.filter((c) => c.sourceType === 'user').length,
-        b2b: allAdminContacts.filter((c) => c.sourceType === 'inquiry').length,
-        admin: allAdminContacts.filter((c) => !c.sourceType || c.sourceType === 'UNKNOWN').length,
-      };
+    if (visibility === 'ADMIN_ONLY' && includeStats) {
+      const orgFilter = ctx.organizationId ? { organizationId: ctx.organizationId } : {};
+      const [b2cCount, b2bCount, adminCount] = await Promise.all([
+        prisma.contact.count({ where: { visibility: 'ADMIN_ONLY' as const, deletedAt: null, sourceType: 'user', ...orgFilter } }),
+        prisma.contact.count({ where: { visibility: 'ADMIN_ONLY' as const, deletedAt: null, sourceType: 'inquiry', ...orgFilter } }),
+        prisma.contact.count({ where: { visibility: 'ADMIN_ONLY' as const, deletedAt: null, OR: [{ sourceType: null }, { sourceType: 'UNKNOWN' }], ...orgFilter } }),
+      ]);
+      sourceStats = { b2c: b2cCount, b2b: b2bCount, admin: adminCount };
     }
 
     // cursor 기반이면 cursor 응답, 아니면 offset 응답
@@ -366,12 +437,15 @@ export async function POST(req: Request) {
       );
     }
 
-    // GLOBAL_ADMIN은 organizationId가 null — 첫 번째 조직 사용
+    // GLOBAL_ADMIN은 organizationId가 null — BONSA_ORG_ID 환경변수 우선, 없으면 가장 오래된 조직 사용
     let orgId: string;
     if (ctx.organizationId) {
       orgId = ctx.organizationId;
     } else if (ctx.role === 'GLOBAL_ADMIN') {
-      const firstOrg = await prisma.organization.findFirst({ select: { id: true } });
+      const bonsaOrgId = process.env.BONSA_ORG_ID;
+      const firstOrg = bonsaOrgId
+        ? { id: bonsaOrgId }
+        : await prisma.organization.findFirst({ orderBy: { createdAt: 'asc' }, select: { id: true } });
       if (!firstOrg) return NextResponse.json({ ok: false, error: '조직이 없습니다.' }, { status: 500 });
       orgId = firstOrg.id;
     } else {
@@ -394,6 +468,30 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, message: "전화번호는 20자 이하여야 합니다." }, { status: 400 });
     }
 
+    // T-008: type enum 허용 목록 검증 (임의 type 저장 시 역할 기반 필터링 우회 가능)
+    const ALLOWED_CONTACT_TYPES = ['LEAD', 'INQUIRY', 'CUSTOMER', '구매완료', 'PURCHASED', 'GOLD', '잠재고객'];
+    if (type && !ALLOWED_CONTACT_TYPES.includes(type)) {
+      return NextResponse.json(
+        { ok: false, message: `유효하지 않은 고객 유형입니다: ${type}` },
+        { status: 400 }
+      );
+    }
+    // T-008: email 형식 검증
+    if (email && typeof email === 'string' && email.length > 0) {
+      const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!EMAIL_REGEX.test(email) || email.length > 254) {
+        return NextResponse.json(
+          { ok: false, message: '이메일 형식이 올바르지 않습니다' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // T-031: adminMemo 길이 제한 (2000자)
+    if (adminMemo && typeof adminMemo === 'string' && adminMemo.length > 2000) {
+      return NextResponse.json({ ok: false, message: '관리자 메모는 2000자 이하여야 합니다.' }, { status: 400 });
+    }
+
     // 직원 번호 차단
     const isStaff = await isStaffPhone(phone, orgId);
     if (isStaff) {
@@ -403,6 +501,37 @@ export async function POST(req: Request) {
       );
     }
 
+    // T-003: assignedUserId 조직 소속 검증 (IDOR 방지)
+    let safeAssignedUserId: string | null = assignedUserId ?? null;
+    if (safeAssignedUserId) {
+      const UUID_REGEX_LOCAL = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!UUID_REGEX_LOCAL.test(safeAssignedUserId)) {
+        safeAssignedUserId = null;
+      } else {
+        const memberCheck = await prisma.organizationMember.findFirst({
+          where: { id: safeAssignedUserId, organizationId: orgId, isActive: true },
+          select: { id: true },
+        });
+        if (!memberCheck) {
+          logger.warn('[POST /api/contacts] assignedUserId 조직 불일치 — null로 대체', { assignedUserId, orgId });
+          safeAssignedUserId = null;
+        }
+      }
+    }
+
+    // T-004: groupIds 조직 소속 검증 (IDOR 방지)
+    let safeGroupIds: string[] = [];
+    if (groupIds && Array.isArray(groupIds) && groupIds.length > 0) {
+      const validGroups = await prisma.contactGroup.findMany({
+        where: { id: { in: groupIds as string[] }, organizationId: orgId },
+        select: { id: true },
+      });
+      safeGroupIds = validGroups.map((g: { id: string }) => g.id);
+      if (safeGroupIds.length !== (groupIds as string[]).length) {
+        logger.warn('[POST /api/contacts] 일부 groupId 조직 불일치 — 필터링됨', { requested: groupIds, allowed: safeGroupIds });
+      }
+    }
+
     // 세그먼트 자동 감지
     const segment = detectSegment({ age, maritalStatus, childrenCount });
 
@@ -410,46 +539,53 @@ export async function POST(req: Request) {
     const recommendations = recommendProducts(segment);
     const recommendedProduct = body.recommendedProduct ?? (recommendations.length > 0 ? recommendations[0].productCode : null);
 
-    const contact = await prisma.contact.create({
-      data: {
-        organizationId: orgId,
-        name,
-        phone,
-        email:          email          ?? null,
-        type:           type           ?? "LEAD",
-        cruiseInterest: cruiseInterest ?? null,
-        budgetRange:    budgetRange    ?? null,
-        adminMemo:      adminMemo      ?? null,
-        assignedUserId: assignedUserId ?? null,
-        age:            age            ?? null,
-        maritalStatus:  maritalStatus  ?? null,
-        childrenCount:  childrenCount  ?? 0,
-        segment,
-        recommendedProduct,
-        ...(groupIds?.length
-          ? { groups: { create: (groupIds as string[]).map((gid) => ({ groupId: gid })) } }
-          : {}),
-      },
+    // T-025: contact.create + 렌즈 태그 update를 $transaction으로 원자화
+    // (create 성공 후 update 실패 시 렌즈 없이 Contact 저장되는 문제 방지)
+    const contact = await prisma.$transaction(async (tx) => {
+      const newContact = await tx.contact.create({
+        data: {
+          organizationId: orgId,
+          name,
+          phone,
+          email:          email          ?? null,
+          type:           type           ?? "LEAD",
+          cruiseInterest: cruiseInterest ?? null,
+          budgetRange:    budgetRange    ?? null,
+          adminMemo:      adminMemo      ?? null,
+          assignedUserId: safeAssignedUserId,
+          age:            age            ?? null,
+          maritalStatus:  maritalStatus  ?? null,
+          childrenCount:  childrenCount  ?? 0,
+          segment,
+          recommendedProduct,
+          ...(safeGroupIds.length > 0
+            ? { groups: { create: safeGroupIds.map((gid) => ({ groupId: gid })) } }
+            : {}),
+        },
+      });
+
+      // Phase 4A: 렌즈 감지 (L0-L10 자동 분류)
+      const detectedLenses = detectLenses({
+        ...newContact,
+        callLogs: [],
+        memos: [],
+      } as Parameters<typeof detectLenses>[0]);
+      const sortedLenses = sortLensesByPriority(detectedLenses);
+
+      if (sortedLenses.length > 0) {
+        const newTags = [...(newContact.tags || []), ...sortedLenses];
+        await tx.contact.update({
+          where: { id: newContact.id },
+          data: { tags: newTags },
+        });
+        logger.log("[POST /api/contacts] 렌즈 감지 완료", { id: newContact.id, lenses: sortedLenses });
+        return { ...newContact, tags: newTags };
+      }
+
+      return newContact;
     });
 
     logger.log("[POST /api/contacts] 고객 생성", { id: contact.id, segment });
-
-    // Phase 4A: 렌즈 감지 (L0-L10 자동 분류)
-    const detectedLenses = detectLenses({
-      ...contact,
-      callLogs: [],
-      memos: [],
-    } as Parameters<typeof detectLenses>[0]);
-    const sortedLenses = sortLensesByPriority(detectedLenses);
-
-    if (sortedLenses.length > 0) {
-      const newTags = [...(contact.tags || []), ...sortedLenses];
-      await prisma.contact.update({
-        where: { id: contact.id },
-        data: { tags: newTags },
-      });
-      logger.log("[POST /api/contacts] 렌즈 감지 완료", { id: contact.id, lenses: sortedLenses });
-    }
 
     // C-1: 세그먼트별 SMS 템플릿 조회 및 발송 + 퍼널 상태 + 그룹 퍼널 (await로 완료 보장)
     await Promise.allSettled([
@@ -461,6 +597,10 @@ export async function POST(req: Request) {
               segmentCode: segment,
               category: 'AUTO_RECOMMEND',
               isSystem: true,
+              OR: [
+                { organizationId: orgId },
+                { organizationId: null }, // 전역 시스템 템플릿
+              ],
             },
             orderBy: { createdAt: 'desc' as const },
           });
@@ -527,8 +667,8 @@ export async function POST(req: Request) {
       }),
 
       // 그룹 배정 시 퍼널 자동 시작
-      ...(groupIds?.length && contact.id
-        ? (groupIds as string[]).map((gid) =>
+      ...(safeGroupIds.length > 0 && contact.id
+        ? safeGroupIds.map((gid) =>
             triggerGroupFunnel({
               contactId: contact.id,
               groupId: gid,
@@ -543,12 +683,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, contact }, { status: 201 });
   } catch (err: unknown) {
     // P0-3 Security Fix: Duplicate phone UNIQUE constraint (enhanced error message)
-    if ((err as { code?: string }).code === "P2002") {
-      const message = (err as any)?.meta?.target?.includes("phone")
-        ? "이미 등록된 전화번호입니다."
-        : "중복된 정보입니다.";
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      const target = err.meta?.target as string[] | undefined;
+      const message = target?.includes('phone')
+        ? '이미 등록된 전화번호입니다.'
+        : '중복된 정보입니다.';
       return NextResponse.json(
-        { ok: false, error: message, code: "DUPLICATE_CONTACT" },
+        { ok: false, error: message, code: 'DUPLICATE_CONTACT' },
         { status: 409 }
       );
     }

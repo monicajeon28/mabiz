@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const ctx = await getAuthContext();
-    if (ctx.role === 'FREE_SALES') return NextResponse.json({ ok: false }, { status: 403 });
+    // FREE_SALES 이중 체크 제거 — enforceRBAC에서 이미 차단됨 (allowedRoles: GLOBAL_ADMIN/OWNER/AGENT)
 
     // ── query param 파싱 ──────────────────────────────────────
     const paramOrgId = req.nextUrl.searchParams.get('orgId') ?? undefined;
@@ -45,8 +45,11 @@ export async function GET(req: NextRequest) {
     // ── 전체 모드(GLOBAL_ADMIN + orgId 없음) 여부 ────────────
     const isGlobalAll = ctx.role === 'GLOBAL_ADMIN' && !effectiveOrgId;
 
-    // ── 캐시 키 (전체 모드는 'all', 조직 지정이면 orgId) ──────
-    const cacheKey = `crm-stats:${effectiveOrgId ?? 'all'}:v2`;
+    // ── 캐시 키 (role 포함 — 역할별 데이터 격리) ──────────────
+    // AGENT는 userId별 격리 — 같은 조직 내 다른 AGENT 간 캐시 공유 방지
+    const cacheKey = ctx.role === 'AGENT'
+      ? `crm-stats:AGENT:${ctx.userId}:v2`
+      : `crm-stats:${ctx.role}:${effectiveOrgId ?? 'all'}:v2`;
     const cached = await getCache(cacheKey);
     if (cached) {
       return NextResponse.json(cached, {
@@ -60,29 +63,44 @@ export async function GET(req: NextRequest) {
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1) - kstOffset);
 
     // ── organizationId 필터 (전체 모드에서는 필터 없음) ───────
-    const orgFilter = effectiveOrgId ? { organizationId: effectiveOrgId } : {};
+    // deletedAt: null 포함 — 소프트 삭제된 Contact가 통계에서 제외됨
+    const orgFilter = effectiveOrgId
+      ? { organizationId: effectiveOrgId, deletedAt: null as null }
+      : { deletedAt: null as null };
+
+    // ── AGENT 역할: 자신에게 할당된 Contact만 카운트 (다른 판매원 고객 노출 방지) ──
+    const agentFilter = ctx.role === 'AGENT' ? { assignedUserId: ctx.userId } : {};
 
     // ── 7-way Promise.all: members + 6개 count() 쿼리 병합 ──
     const [members, totalContacts, totalLeads, totalCustomers, monthLeads, monthCustomers, optOutCount] =
       await Promise.all([
-        // 전체 모드에서는 멤버가 너무 많으므로 빈 배열 반환
-        isGlobalAll
+        // 전체 모드 또는 AGENT 역할에서는 멤버 배열 반환 안 함
+        // — 전체 모드: 멤버가 너무 많음 / AGENT: 동료 판매원 정보 노출 방지
+        (isGlobalAll || ctx.role === 'AGENT')
           ? Promise.resolve([])
-          : prisma.organizationMember.findMany({
-              where: { organizationId: effectiveOrgId!, isActive: true },
-              select: { userId: true, displayName: true, role: true },
-            }),
-        prisma.contact.count({ where: { ...orgFilter } }),
-        prisma.contact.count({ where: { ...orgFilter, type: { in: ['LEAD', '잠재고객', 'INQUIRY'] } } }),
-        prisma.contact.count({ where: { ...orgFilter, type: { in: ['CUSTOMER', '구매완료', 'PURCHASED'] } } }),
+          : (() => {
+              if (!effectiveOrgId) {
+                // isGlobalAll=true인 경우는 위에서 이미 Promise.resolve([]) 처리됨
+                // 여기 도달하면 로직 오류 — 방어적으로 처리
+                logger.error('[TeamCrmStats] effectiveOrgId undefined 비-GlobalAll 경로', { role: ctx.role });
+                throw new Error('ORGANIZATION_REQUIRED');
+              }
+              return prisma.organizationMember.findMany({
+                where: { organizationId: effectiveOrgId, isActive: true },
+                select: { userId: true, displayName: true, role: true },
+              });
+            })(),
+        prisma.contact.count({ where: { ...orgFilter, ...agentFilter } }),
+        prisma.contact.count({ where: { ...orgFilter, ...agentFilter, type: { in: ['LEAD', '잠재고객', 'INQUIRY'] } } }),
+        prisma.contact.count({ where: { ...orgFilter, ...agentFilter, type: { in: ['CUSTOMER', '구매완료', 'PURCHASED'] } } }),
         prisma.contact.count({
-          where: { ...orgFilter, type: { in: ['LEAD', '잠재고객', 'INQUIRY'] }, createdAt: { gte: monthStart } },
+          where: { ...orgFilter, ...agentFilter, type: { in: ['LEAD', '잠재고객', 'INQUIRY'] }, createdAt: { gte: monthStart } },
         }),
         prisma.contact.count({
-          where: { ...orgFilter, purchasedAt: { gte: monthStart } },
+          where: { ...orgFilter, ...agentFilter, purchasedAt: { gte: monthStart } },
         }),
         prisma.contact.count({
-          where: { ...orgFilter, optOutAt: { not: null } },
+          where: { ...orgFilter, ...agentFilter, optOutAt: { not: null } },
         }),
       ]);
 
@@ -98,7 +116,7 @@ export async function GET(req: NextRequest) {
 
     const responseData = {
       ok: true,
-      role: ctx.role,
+      // role 필드 제거 — 클라이언트는 세션에서 role을 가져와야 함
       // GLOBAL_ADMIN에게만 조직 목록 제공 (OWNER는 null)
       ...(orgs !== null && { orgs }),
       members,

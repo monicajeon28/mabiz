@@ -96,10 +96,13 @@ export default function InquiriesPage() {
 
   const fetchContacts = useCallback(async (signal?: AbortSignal) => {
     // role이 아직 로딩 중이거나 접근 불가 역할이면 즉시 반환
-    // 설계 결정: AGENT는 inquiries 페이지 전체 차단 (buildContactWhere AGENT 필터와 별개)
-    // AGENT는 /contacts (전체목록)에서만 할당된 고객 접근 가능
-    if (role === undefined) return;
-    if (role === 'FREE_SALES' || role === 'AGENT') return;
+    if (role === undefined) {
+      return; // setLoading(false) 제거 — loading=true 유지로 깜박임 방지
+    }
+    if (role === 'FREE_SALES') {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setFetchError('');
     const params = new URLSearchParams({ page: String(page), limit: "30", type: "LEAD" });
@@ -164,15 +167,22 @@ export default function InquiriesPage() {
     if (!importFile) return;
     setImporting(true);
     setImportResult(null);
-    const form = new FormData();
-    form.append("file", importFile);
-    const res  = await fetch("/api/contacts/import", { method: "POST", body: form });
-    const data = await res.json();
-    if (data.ok) {
-      setImportResult({ successCount: data.successCount, skipCount: data.skipCount, errors: data.errors ?? [] });
-      fetchContacts();
+    try {
+      const form = new FormData();
+      form.append('file', importFile);
+      const res = await fetch('/api/contacts/import', { method: 'POST', body: form });
+      const data = await res.json();
+      if (data.ok) {
+        setImportResult({ successCount: data.successCount, skipCount: data.skipCount, errors: data.errors ?? [] });
+        fetchContacts();
+      } else {
+        toast({ title: '가져오기 실패', description: data.error ?? '다시 시도해주세요.', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: '네트워크 오류', description: '다시 시도해주세요.', variant: 'destructive' });
+    } finally {
+      setImporting(false);
     }
-    setImporting(false);
   };
 
   const quickAssign = async (contactId: string, groupId: string) => {
@@ -246,8 +256,6 @@ export default function InquiriesPage() {
     return Array.from(set).sort();
   }, [contacts]);
 
-  const filteredContacts = contacts;
-
   const todayCallList = contacts
     .filter((c) => {
       const days = getDaysSince(c.lastContactedAt);
@@ -257,13 +265,11 @@ export default function InquiriesPage() {
     .sort((a, b) => (b.leadScore ?? 0) - (a.leadScore ?? 0))
     .slice(0, 5);
 
-  // 설계 결정: AGENT는 inquiries/purchased 페이지 차단 → /contacts 메인에서만 접근
-  if (role === 'FREE_SALES' || role === 'AGENT') {
+  if (role === 'FREE_SALES') {
     return <div className="p-4 text-gray-500">접근 권한이 없습니다.</div>;
   }
 
-  // (showAgentNotice 제거: AGENT는 위에서 차단됨)
-  const showAgentNotice = false;
+  const showAgentNotice = role === 'AGENT';
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
@@ -360,12 +366,14 @@ export default function InquiriesPage() {
               <Upload className="w-4 h-4" /> 엑셀 가져오기
             </button>
           )}
-          <Link
-            href="/contacts/new"
-            className="flex items-center gap-1.5 bg-navy-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" /> 고객 추가
-          </Link>
+          {canCreate && (
+            <Link
+              href="/contacts/new"
+              className="flex items-center gap-1.5 bg-navy-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" /> 고객 추가
+            </Link>
+          )}
         </div>
       </div>
 
@@ -495,7 +503,7 @@ export default function InquiriesPage() {
             <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />
           ))}
         </div>
-      ) : !fetchError && filteredContacts.length === 0 ? (
+      ) : !fetchError && contacts.length === 0 ? (
         <div className="text-center py-16 text-gray-600">
           <p className="text-4xl mb-3">📞</p>
           <p className="font-medium">{selectedTags.length > 0 ? '해당 태그를 보유한 고객이 없습니다' : '문의 고객이 없습니다'}</p>
@@ -503,7 +511,7 @@ export default function InquiriesPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filteredContacts.map((c) => {
+          {contacts.map((c) => {
             const tierInfo = getLeadTier(c.leadScore ?? 0);
             const isQuickCallOpen = quickCallId === c.id;
             const trackingSummary = formatInquiryTrackingSummary(c.surveyData?.inquiryTracking);

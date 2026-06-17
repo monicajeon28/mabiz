@@ -5,6 +5,7 @@ import { Search, Filter, Building2, ArrowUpDown, X, Tag } from "lucide-react";
 import type { Contact as FullContact, InquiryTracking } from "@/types/contact";
 import { formatInquiryTrackingSummary } from "@/lib/contact-inquiry-tracking";
 import { useSession } from "@/hooks/useSession";
+import { logger } from "@/lib/logger";
 
 const ContactSlidePanel = lazy(() => import('../ContactSlidePanel'));
 
@@ -51,6 +52,7 @@ export default function ContactsAllPage() {
   const [slidePanelOpen, setSlidePanelOpen] = useState(false);
   const [slidePanelLoadingId, setSlidePanelLoadingId] = useState<string | null>(null);
   const slidePanelAbortRef = useRef<AbortController | null>(null);
+  const closePanelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const openSlidePanel = useCallback(async (contactId: string) => {
     slidePanelAbortRef.current?.abort();
@@ -59,6 +61,11 @@ export default function ContactsAllPage() {
     setSlidePanelLoadingId(contactId);
     try {
       const res = await fetch(`/api/contacts/${contactId}`, { signal: controller.signal });
+      if (!res.ok) {
+        if (res.status === 403) setError('접근 권한이 없습니다.');
+        else setError('고객 정보를 불러오지 못했습니다.');
+        return;
+      }
       const data = await res.json();
       if (data.ok && data.contact) {
         setSlidePanelContact(data.contact as FullContact);
@@ -66,24 +73,37 @@ export default function ContactsAllPage() {
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return;
+      logger.error('[all/openSlidePanel]', { err });
     } finally {
       setSlidePanelLoadingId(null);
     }
   }, []);
 
-  // 조직 목록 로드
+  // 언마운트 시 slidePanelAbortRef cleanup (메모리 누수/setState 경고 방지)
   useEffect(() => {
-    fetch('/api/org/list')
-      .then(r => r.json())
-      .then(d => {
-        if (d.ok) setOrgs(d.orgs ?? []);
-      });
+    return () => {
+      slidePanelAbortRef.current?.abort();
+    };
   }, []);
+
+  // 조직 목록 로드 (GLOBAL_ADMIN 전용)
+  useEffect(() => {
+    if (!isAdmin) return;
+    const ctrl = new AbortController();
+    fetch('/api/org/list', { signal: ctrl.signal })
+      .then(r => r.json())
+      .then(d => { if (d.ok && !ctrl.signal.aborted) setOrgs(d.orgs ?? []); })
+      .catch(err => { if (err instanceof Error && err.name === 'AbortError') return; logger.error('[org/list]', { err }); });
+    return () => ctrl.abort();
+  }, [isAdmin]);
 
   const fetchContacts = useCallback(async () => {
     // role이 확정되지 않았거나 GLOBAL_ADMIN이 아니면 실행 안 함
     if (role === undefined) return;
-    if (!isAdmin) return;
+    if (!isAdmin) {
+      setLoading(false); // loading=true 고착 방지
+      return;
+    }
     setLoading(true);
     setError('');
     const params = new URLSearchParams({
@@ -110,6 +130,13 @@ export default function ContactsAllPage() {
   }, [page, selectedOrg, q, typeFilter, selectedTags, sortBy, role, isAdmin]);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
+
+  // closePanelTimerRef cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (closePanelTimerRef.current) clearTimeout(closePanelTimerRef.current);
+    };
+  }, []);
 
   // 태그 추가 핸들러
   const handleAddTag = () => {
@@ -362,7 +389,11 @@ export default function ContactsAllPage() {
           <ContactSlidePanel
             contact={slidePanelContact}
             open={slidePanelOpen}
-            onClose={() => { setSlidePanelOpen(false); setTimeout(() => setSlidePanelContact(null), 400); }}
+            onClose={() => {
+              setSlidePanelOpen(false);
+              if (closePanelTimerRef.current) clearTimeout(closePanelTimerRef.current);
+              closePanelTimerRef.current = setTimeout(() => setSlidePanelContact(null), 400);
+            }}
             onRefresh={(updated) => {
               if (updated) {
                 setSlidePanelContact(prev => prev ? { ...prev, ...updated } : null);

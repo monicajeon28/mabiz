@@ -54,6 +54,7 @@ type Contact = {
 };
 
 type ContactTab = 'SHARED' | 'ADMIN_ONLY' | 'TEAM';
+type AssignStat = { userId: string; displayName: string; role: string; count: number };
 
 // P0-6: 출처별 라벨 및 색상
 const SOURCE_TYPE_LABELS: Record<string, { label: string; icon: string; color: string }> = {
@@ -164,14 +165,6 @@ export default function ContactsPage() {
   // 전체 백업
   const [backingUp,     setBackingUp]     = useState(false);
   const [backupMsg,     setBackupMsg]     = useState("");
-  const backupMsgTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // 백업 메시지 타이머 cleanup
-  useEffect(() => {
-    return () => {
-      if (backupMsgTimerRef.current) clearTimeout(backupMsgTimerRef.current);
-    };
-  }, []);
 
   const handleOrgBackup = async () => {
     setBackingUp(true);
@@ -181,8 +174,7 @@ export default function ContactsPage() {
       const data = await res.json();
       if (data.ok) {
         setBackupMsg(`✅ ${data.count}명 저장했어요`);
-        if (backupMsgTimerRef.current) clearTimeout(backupMsgTimerRef.current);
-        backupMsgTimerRef.current = setTimeout(() => setBackupMsg(""), 4000);
+        // backupMsg 상태 변경 → useEffect(line 522-526)가 4000ms 후 자동 초기화
       } else {
         setBackupMsg("❌ 저장에 실패했어요");
       }
@@ -201,7 +193,6 @@ export default function ContactsPage() {
   const [filterSourceType, setFilterSourceType] = useState("");
 
   // 담당자 할당
-  type AssignStat = { userId: string; displayName: string; role: string; count: number };
   const [assignStats, setAssignStats] = useState<AssignStat[]>([]);
   const [unassignedCount, setUnassignedCount] = useState(0);
   const [filterAssignedTo, setFilterAssignedTo] = useState("");
@@ -238,10 +229,10 @@ export default function ContactsPage() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === filteredContacts.length) {
+    if (selectedIds.size === contacts.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(filteredContacts.map((c: { id: string }) => c.id)));
+      setSelectedIds(new Set(contacts.map(c => c.id)));
     }
   };
 
@@ -250,8 +241,14 @@ export default function ContactsPage() {
     setShareResult("");
     setShareTarget("");
     setShareSearch("");
-    const res = await fetch("/api/org/agents").then(r => r.json());
-    if (res.ok) setShareSections(res.sections ?? []);
+    try {
+      const res = await fetch("/api/org/agents");
+      const data = await res.json();
+      if (data.ok) setShareSections(data.sections ?? []);
+    } catch {
+      toast({ title: '팀원 목록 로딩 실패', variant: 'destructive' });
+      return;
+    }
     setShowShareModal(true);
   };
 
@@ -391,6 +388,14 @@ export default function ContactsPage() {
   const [slidePanelOpen,    setSlidePanelOpen]    = useState(false);
   const [slidePanelLoadingId, setSlidePanelLoadingId] = useState<string | null>(null);
   const slidePanelAbortRef = useRef<AbortController | null>(null);
+  const closePanelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // closePanelTimerRef cleanup (언마운트 시 메모리 누수 방지)
+  useEffect(() => {
+    return () => {
+      if (closePanelTimerRef.current) clearTimeout(closePanelTimerRef.current);
+    };
+  }, []);
 
   // 행 클릭 시 전체 고객 정보를 받아와 패널 열기
   const openSlidePanel = useCallback(async (contactId: string) => {
@@ -430,6 +435,8 @@ export default function ContactsPage() {
   const [quickCallError, setQuickCallError] = useState<string | null>(null);
 
   const fetchContacts = useCallback(async (signal?: AbortSignal) => {
+    if (role === undefined) return; // 세션 로드 전 fetch 방지 — loading=true 유지로 깜박임 방지
+    if (role === 'FREE_SALES') { setLoading(false); return; } // FREE_SALES 클라이언트 guard
     setLoading(true);
     const params = new URLSearchParams({ page: String(page), limit: "30" });
     if (q)                        params.set("q",          q);
@@ -450,6 +457,12 @@ export default function ContactsPage() {
 
     try {
       const res = await fetch(`/api/contacts?${params}`, { signal });
+      if (!res.ok) {
+        if (res.status === 401) toast({ title: '로그인이 필요합니다.', variant: 'destructive' });
+        else if (res.status === 403) toast({ title: '접근 권한이 없습니다.', variant: 'destructive' });
+        else toast({ title: '고객 목록을 불러오지 못했습니다.', variant: 'destructive' });
+        return;
+      }
       const data = await res.json();
       if (data.ok) {
         setContacts(data.contacts);
@@ -461,7 +474,7 @@ export default function ContactsPage() {
     } finally {
       setLoading(false);
     }
-  }, [q, type, page, filterGroupId, filterSourceType, filterAssignedTo, selectedTags, activeTab]); // P0-6
+  }, [q, type, page, filterGroupId, filterSourceType, filterAssignedTo, selectedTags, activeTab, role]); // P0-6 + role
 
   // P2-8: refs persist across renders — prevents debounce timer reset and premature AbortController abort
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -510,13 +523,14 @@ export default function ContactsPage() {
 
   // 할당 통계 + 그룹 목록 + 탭 카운트 로드
   useEffect(() => {
+    if (role === undefined) return; // 세션 로드 전 fetch 방지
     const ctrl = new AbortController();
     const isOwner = role === 'OWNER';
     Promise.all([
       fetch("/api/groups", { signal: ctrl.signal }).then(r => r.json()),
       fetch("/api/contacts/assign-stats", { signal: ctrl.signal }).then(r => r.json()),
       fetch("/api/contacts?visibility=SHARED&limit=1", { signal: ctrl.signal }).then(r => r.json()),
-      isAdmin ? fetch("/api/contacts?visibility=ADMIN_ONLY&limit=1", { signal: ctrl.signal }).then(r => r.json()) : Promise.resolve(null),
+      isAdmin ? fetch("/api/contacts?visibility=ADMIN_ONLY&limit=1&includeStats=true", { signal: ctrl.signal }).then(r => r.json()) : Promise.resolve(null),
       isOwner ? fetch("/api/contacts?visibility=SHARED&teamView=true&limit=1", { signal: ctrl.signal }).then(r => r.json()) : Promise.resolve(null),
     ]).then(([g, a, shared, adminOnly, team]) => {
       if (g.ok) setGroups(g.groups ?? []);
@@ -545,36 +559,51 @@ export default function ContactsPage() {
   const doBulkAssign = async () => {
     if (selectedIds.size === 0) return;
     setBulkAssigning(true);
-    const res = await fetch("/api/contacts/bulk-assign", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contactIds: Array.from(selectedIds), assignToUserId: bulkAssignTarget || null }),
-    });
-    const data = await res.json();
-    setBulkAssigning(false);
-    if (data.ok) {
-      setShowBulkAssign(false);
-      setSelectedIds(new Set());
-      fetchContacts();
-      // 통계 갱신
-      fetch("/api/contacts/assign-stats").then(r => r.json()).then(d => {
-        if (d.ok) { setAssignStats(d.stats); setUnassignedCount(d.unassigned); }
+    try {
+      const res = await fetch("/api/contacts/bulk-assign", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactIds: Array.from(selectedIds), assignToUserId: bulkAssignTarget || null }),
       });
-    } else { toast({ title: '할당 실패', description: data.message ?? '다시 시도해주세요.', variant: 'destructive' }); }
+      const data = await res.json();
+      if (data.ok) {
+        setShowBulkAssign(false);
+        setSelectedIds(new Set());
+        // T-018: assign-stats 별도 fire-and-forget 대신 fetchContacts로 통합 — UI 상태 일관성 확보
+        await fetchContacts();
+        // 통계 갱신 (await로 완료 보장)
+        fetch("/api/contacts/assign-stats").then(r => r.json()).then(d => {
+          if (d.ok) { setAssignStats(d.stats); setUnassignedCount(d.unassigned); }
+        }).catch(err => logger.warn('[assign-stats]', { err }));
+      } else {
+        toast({ title: '할당 실패', description: data.message ?? '다시 시도해주세요.', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: '네트워크 오류', description: '잠시 후 다시 시도해주세요.', variant: 'destructive' });
+    } finally {
+      setBulkAssigning(false);
+    }
   };
 
   const runImport = async () => {
     if (!importFile) return;
     setImporting(true);
     setImportResult(null);
-    const form = new FormData();
-    form.append("file", importFile);
-    const res  = await fetch("/api/contacts/import", { method: "POST", body: form });
-    const data = await res.json();
-    if (data.ok) {
-      setImportResult({ successCount: data.successCount, skipCount: data.skipCount, errors: data.errors ?? [] });
-      fetchContacts();
+    try {
+      const form = new FormData();
+      form.append("file", importFile);
+      const res  = await fetch("/api/contacts/import", { method: "POST", body: form });
+      const data = await res.json();
+      if (data.ok) {
+        setImportResult({ successCount: data.successCount, skipCount: data.skipCount, errors: data.errors ?? [] });
+        fetchContacts();
+      } else {
+        toast({ title: '가져오기 실패', description: data.message ?? '다시 시도해주세요.', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: '네트워크 오류', description: '잠시 후 다시 시도해주세요.', variant: 'destructive' });
+    } finally {
+      setImporting(false);
     }
-    setImporting(false);
   };
 
   const quickAssign = async (contactId: string, groupId: string) => {
@@ -605,7 +634,7 @@ export default function ContactsPage() {
         body: JSON.stringify({ contactIds: [contactId] }),
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json() as { ok?: boolean; message?: string };
+      const data = await res.json() as unknown as { ok?: boolean; message?: string };
       if (!data.ok) throw new Error(data.message ?? '배정 실패');
 
       // 로컬 상태 업데이트 (새 그룹만 표시)
@@ -651,7 +680,9 @@ export default function ContactsPage() {
     } catch {
       toast({ title: '네트워크 오류', description: '다시 시도해주세요.', variant: 'destructive' });
     }
-    fetchContacts();
+    fetchContacts().catch((err: unknown) => {
+      logger.warn('[bulkAssignUnassigned refetch 실패]', { err });
+    });
   };
 
   const handleQuickCall = async (contactId: string, result: QuickCallResult) => {
@@ -720,8 +751,8 @@ export default function ContactsPage() {
     // Load tags once on mount (cache in Redis server-side)
   }, []);
 
-  // 태그 필터는 DB 레벨에서 처리 (fetchContacts의 tags 파라미터로 전달)
-  const filteredContacts = contacts;
+  // 태그/채널/담당자 필터는 fetchContacts() API 파라미터로 DB 레벨에서 처리됨
+  // (클라이언트 사이드 contacts 변수 제거, contacts 직접 사용)
 
   // 오늘 콜할 사람: LEAD + (연락 없음 OR 3일 이상 연락 없음) → 리드 스코어 높은 순
   const todayCallList = contacts
@@ -922,7 +953,7 @@ export default function ContactsPage() {
               className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
             >
               <MessageSquare className="w-4 h-4" />
-              태그 메시지 ({filteredContacts.length}명)
+              태그 메시지 ({contacts.length}명)
             </button>
           )}
           {filterGroupId && (
@@ -946,12 +977,14 @@ export default function ContactsPage() {
             }
             모든 고객 저장하기
           </button>
-          <button
-            onClick={() => { setShowImport(true); setImportResult(null); setImportFile(null); }}
-            className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"
-          >
-            <Upload className="w-4 h-4" /> 엑셀에서 가져오기
-          </button>
+          {(role === 'OWNER' || role === 'GLOBAL_ADMIN') && (
+            <button
+              onClick={() => { setShowImport(true); setImportResult(null); setImportFile(null); }}
+              className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"
+            >
+              <Upload className="w-4 h-4" /> 엑셀에서 가져오기
+            </button>
+          )}
           <Link
             href="/contacts/new"
             className="flex items-center gap-1.5 bg-navy-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy-700 transition-colors"
@@ -1319,7 +1352,7 @@ export default function ContactsPage() {
             <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />
           ))}
         </div>
-      ) : filteredContacts.length === 0 ? (
+      ) : contacts.length === 0 ? (
         <div className="text-center py-16 text-gray-600">
           <p className="text-4xl mb-3">👥</p>
           <p className="font-medium">{selectedTags.length > 0 ? '해당 태그를 보유한 고객이 없습니다' : '고객이 없습니다'}</p>
@@ -1328,11 +1361,11 @@ export default function ContactsPage() {
       ) : (
         <div className="space-y-2">
           {/* 전체선택 행 */}
-          {filteredContacts.length > 0 && (
+          {contacts.length > 0 && (
             <div className="flex items-center gap-2 px-2 pb-1">
               <input
                 type="checkbox"
-                checked={selectedIds.size === filteredContacts.length && filteredContacts.length > 0}
+                checked={selectedIds.size === contacts.length && contacts.length > 0}
                 onChange={toggleSelectAll}
                 className="w-4 h-4 rounded cursor-pointer accent-purple-600"
               />
@@ -1341,7 +1374,7 @@ export default function ContactsPage() {
               </span>
             </div>
           )}
-          {filteredContacts.map((c) => {
+          {contacts.map((c) => {
             const typeInfo = TYPE_LABELS[c.type] ?? { label: c.type, color: "bg-gray-100 text-gray-600" };
             const tierInfo = getLeadTier(c.leadScore ?? 0);
             const isQuickCallOpen = quickCallId === c.id;
@@ -1401,7 +1434,6 @@ export default function ContactsPage() {
                         const addedDate = new Date(filtered.addedAt);
                         const now = new Date();
                         const daysSince = Math.floor((now.getTime() - addedDate.getTime()) / (24 * 60 * 60 * 1000));
-                        const formattedDate = `${String(addedDate.getMonth() + 1).padStart(2, '0')}/${String(addedDate.getDate()).padStart(2, '0')}`;
                         return (
                           <div className="text-sm text-gray-600 mt-1.5 flex items-center gap-3">
                             <span>그룹유입일: {addedDate.getFullYear()}. {String(addedDate.getMonth() + 1).padStart(2, '0')}. {String(addedDate.getDate()).padStart(2, '0')}.</span>
@@ -1665,14 +1697,14 @@ export default function ContactsPage() {
             </div>
             {(() => {
               const sel = shareSections.flatMap(s => s.members).find(m => m.id === shareTarget);
-              const q   = shareSearch.trim().toLowerCase();
+              const searchQ = shareSearch.trim().toLowerCase();
               const filtered = shareSections.map(sec => ({
                 ...sec,
                 members: sec.members.filter(m =>
-                  !q ||
-                  (m.displayName ?? "").toLowerCase().includes(q) ||
-                  m.loginId.toLowerCase().includes(q) ||
-                  m.orgName.toLowerCase().includes(q)
+                  !searchQ ||
+                  (m.displayName ?? "").toLowerCase().includes(searchQ) ||
+                  m.loginId.toLowerCase().includes(searchQ) ||
+                  m.orgName.toLowerCase().includes(searchQ)
                 ),
               })).filter(sec => sec.members.length > 0);
               return (
@@ -1823,7 +1855,11 @@ export default function ContactsPage() {
           <ContactSlidePanel
             contact={slidePanelContact}
             open={slidePanelOpen}
-            onClose={() => { setSlidePanelOpen(false); setTimeout(() => setSlidePanelContact(null), 400); }}
+            onClose={() => {
+              setSlidePanelOpen(false);
+              if (closePanelTimerRef.current) clearTimeout(closePanelTimerRef.current);
+              closePanelTimerRef.current = setTimeout(() => setSlidePanelContact(null), 400);
+            }}
             onRefresh={(updated) => {
               if (updated) {
                 // 패널의 FullContact 일부 → 목록 행(Contact)에 맞는 필드만 병합

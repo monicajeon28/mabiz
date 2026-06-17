@@ -93,10 +93,13 @@ export default function PurchasedPage() {
 
   const fetchContacts = useCallback(async (signal?: AbortSignal) => {
     // role이 아직 로딩 중이거나 접근 불가 역할이면 즉시 반환
-    // 설계 결정: AGENT는 purchased 페이지 전체 차단 (inquiries와 동일 정책)
-    // AGENT는 /contacts (전체목록)에서만 할당된 고객 접근 가능
-    if (role === undefined) return;
-    if (role === 'FREE_SALES' || role === 'AGENT') return;
+    if (role === undefined) {
+      return; // setLoading(false) 제거 — loading=true 유지로 깜박임 방지
+    }
+    if (role === 'FREE_SALES') {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setFetchError('');
     // type 필터: "CUSTOMER"(영문) + "구매완료"(한글) 모두 포함해야 함 → API에 customerOnly 파라미터 사용
@@ -128,7 +131,7 @@ export default function PurchasedPage() {
   }, [fetchContacts]);
 
   // 의존성: 필터 변경 시 페이지 초기화
-  useEffect(() => { setPage(1); }, [channelFilter, sortBy]);
+  useEffect(() => { setPage(1); }, [channelFilter, sortBy, selectedTags]);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -143,15 +146,22 @@ export default function PurchasedPage() {
     if (!importFile) return;
     setImporting(true);
     setImportResult(null);
-    const form = new FormData();
-    form.append("file", importFile);
-    const res  = await fetch("/api/contacts/import", { method: "POST", body: form });
-    const data = await res.json();
-    if (data.ok) {
-      setImportResult({ successCount: data.successCount, skipCount: data.skipCount, errors: data.errors ?? [] });
-      fetchContacts();
+    try {
+      const form = new FormData();
+      form.append('file', importFile);
+      const res = await fetch('/api/contacts/import', { method: 'POST', body: form });
+      const data = await res.json();
+      if (data.ok) {
+        setImportResult({ successCount: data.successCount, skipCount: data.skipCount, errors: data.errors ?? [] });
+        fetchContacts();
+      } else {
+        toast({ title: '가져오기 실패', description: data.error ?? '다시 시도해주세요.', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: '네트워크 오류', description: '다시 시도해주세요.', variant: 'destructive' });
+    } finally {
+      setImporting(false); // 이전에 누락됨 — 영구 '가져오는 중...' 상태 방지
     }
-    setImporting(false);
   };
 
   const quickAssign = async (contactId: string, groupId: string) => {
@@ -181,12 +191,22 @@ export default function PurchasedPage() {
     if (!bulkGroupId) return;
     const unassigned = contacts.filter((c) => c.groups.length === 0);
     if (unassigned.length === 0) return;
-    await fetch(`/api/groups/${bulkGroupId}/members`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contactIds: unassigned.map((c) => c.id) }),
-    });
-    fetchContacts();
+    try {
+      const res = await fetch(`/api/groups/${bulkGroupId}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contactIds: unassigned.map((c) => c.id) }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        toast({ title: '일괄 배정 실패', description: data.message ?? '다시 시도해주세요.', variant: 'destructive' });
+        return;
+      }
+      toast({ title: `${unassigned.length}명 배정 완료`, variant: 'success' });
+    } catch {
+      toast({ title: '네트워크 오류', description: '다시 시도해주세요.', variant: 'destructive' });
+    }
+    fetchContacts().catch(() => {});
   };
 
   const allTags = useMemo(() => {
@@ -195,15 +215,19 @@ export default function PurchasedPage() {
     return Array.from(set).sort();
   }, [contacts]);
 
-  const filteredContacts = contacts;
-
-  // 설계 결정: AGENT는 inquiries/purchased 페이지 차단 → /contacts 메인에서만 접근
-  if (role === 'FREE_SALES' || role === 'AGENT') {
+  if (role === 'FREE_SALES') {
     return <div className="p-4 text-gray-500">접근 권한이 없습니다.</div>;
   }
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
+
+      {/* AGENT 안내 배너 */}
+      {role === 'AGENT' && (
+        <div className="mb-4 px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700">
+          내게 배정되거나 공유받은 구매 고객만 표시됩니다
+        </div>
+      )}
 
       {/* 엑셀 가져오기 모달 */}
       {showImport && (
@@ -409,7 +433,7 @@ export default function PurchasedPage() {
             <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />
           ))}
         </div>
-      ) : !fetchError && filteredContacts.length === 0 ? (
+      ) : !fetchError && contacts.length === 0 ? (
         <div className="text-center py-16 text-gray-600">
           <p className="text-4xl mb-3">🛍️</p>
           <p className="font-medium">{selectedTags.length > 0 ? '해당 태그를 보유한 고객이 없습니다' : '구매 고객이 없습니다'}</p>
@@ -417,7 +441,7 @@ export default function PurchasedPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filteredContacts.map((c) => {
+          {contacts.map((c) => {
             const trackingSummary = formatInquiryTrackingSummary(c.surveyData?.inquiryTracking);
             return (
               <div key={c.id} className="bg-white rounded-xl border border-gray-200 hover:border-green-300 hover:shadow-sm transition-all">

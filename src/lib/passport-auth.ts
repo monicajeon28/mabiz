@@ -80,7 +80,7 @@ export interface PartnerContext {
     id: number;
     crmUserId: string;
     name: string | null;
-    role: string;
+    role: 'admin' | 'owner' | 'agent';
   };
   profile: {
     id: number;
@@ -131,8 +131,17 @@ export async function requirePartnerContext(): Promise<PartnerContext | null> {
       };
     }
 
+    // FREE_SALES: 어떤 경우에도 파트너 컨텍스트 접근 불가
+    if (session.role === 'FREE_SALES') {
+      logger.warn('[passport-auth] FREE_SALES requirePartnerContext 접근 차단', { userId: session.userId });
+      return null;
+    }
+
     // AGENT: mallUser에서 AffiliateProfile 확인
-    if (!session.mallUser?.affiliateProfileId) return null;
+    if (!session.mallUser?.affiliateProfileId) {
+      logger.warn('[passport-auth] AGENT affiliateProfileId 없음 → 접근 차단', { userId: session.userId });
+      return null;
+    }
 
     const profile = await prisma.$queryRaw<Array<{
       id: number;
