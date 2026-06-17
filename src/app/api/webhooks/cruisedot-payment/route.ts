@@ -130,7 +130,25 @@ export async function POST(req: NextRequest) {
         select: { id: true, saleAmount: true, commissionAmount: true, organizationId: true },
       });
       organizationId = affiliateSale?.organizationId;
-      logger.log('[CruisedotWebhook] 어플리에이트 구매 감지', { bookingRef, affiliateCode, organizationId });
+      logger.log('[CruisedotWebhook] 어필리에이트 구매 감지', { bookingRef, affiliateCode, organizationId });
+
+      // AffiliateSale 미존재 시: affiliateCode → GmAffiliateProfile → OrganizationMember 자동 매핑
+      if (!organizationId && affiliateCode) {
+        const profile = await prisma.gmAffiliateProfile.findFirst({
+          where: { affiliateCode },
+          select: { userId: true },
+        });
+        if (profile?.userId) {
+          const member = await prisma.organizationMember.findFirst({
+            where: { userId: `gm-${profile.userId}`, isActive: true, role: 'OWNER' },
+            select: { organizationId: true },
+          });
+          if (member?.organizationId) {
+            organizationId = member.organizationId;
+            logger.log('[CruisedotWebhook] affiliateCode → organizationId 자동 매핑', { affiliateCode, organizationId });
+          }
+        }
+      }
     }
 
     // organizationId 미확인 시 DB fallback (DEFAULT_ORGANIZATION_ID 미설정 대응)
