@@ -903,6 +903,7 @@ model CrmLandingPage {
   infoCollection    Boolean   @default(false)
   editorMode        String    @default("html")
   formConfig        Json?
+  b2bEduType        String?   @db.VarChar(20)
   paymentEnabled    Boolean   @default(false)
   paymentType       String?
   productName       String?
