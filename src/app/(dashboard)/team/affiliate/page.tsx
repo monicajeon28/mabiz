@@ -1,8 +1,6 @@
 ﻿'use client';
 
-import dynamic from 'next/dynamic';
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronDown,
   ChevronRight,
@@ -11,7 +9,7 @@ import {
   Search,
   TrendingUp,
   Users,
-  ArrowRight,
+
   MessageSquare,
   X,
   Send,
@@ -21,7 +19,7 @@ import {
   CheckSquare,
   Square,
   Check,
-  FileCheck,
+
   Bell,
   ToggleLeft,
   ToggleRight,
@@ -259,7 +257,6 @@ type ConfirmState = {
 };
 
 export default function AffiliateTeamDashboardPage() {
-  const router = useRouter();
   const { role: sessionRole } = useSession();
 
   // 언마운트 후 setState 차단용 ref (P1-3, P1-4, P1-5 공유)
@@ -416,7 +413,7 @@ export default function AffiliateTeamDashboardPage() {
   const [loadingRecipients, setLoadingRecipients] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [messageTab, setMessageTab] = useState<'received' | 'sent'>('received');
-  const [sentMessages, setSentMessages] = useState<TeamMessage[]>([]); // API 구현 후 loadTeamMessages와 함께 활성화
+  const [sentMessages, _setSentMessages] = useState<TeamMessage[]>([]); // API 구현 후 loadTeamMessages와 함께 활성화
 
   const [messageSearchQuery, setMessageSearchQuery] = useState('');
   const [messageSortBy, setMessageSortBy] = useState<'newest' | 'oldest' | 'unread'>('newest');

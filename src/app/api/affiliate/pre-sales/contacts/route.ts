@@ -4,7 +4,7 @@ import prisma from '@/lib/prisma';
 import { getAuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
-export async function GET(req: Request) {
+export async function GET(_req: Request) {
   try {
     const ctx = await getAuthContext();
     if (ctx.role !== 'GLOBAL_ADMIN') {
