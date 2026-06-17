@@ -17,7 +17,7 @@ export async function PUT(
 ) {
   try {
     const ctx = await getAuthContext();
-    if (!ctx || !['GLOBAL_ADMIN', 'OWNER', 'AGENT'].includes(ctx.role)) {
+    if (!ctx || !['GLOBAL_ADMIN', 'OWNER'].includes(ctx.role)) {
       return NextResponse.json({ ok: false, message: '권한이 없습니다.' }, { status: 403 });
     }
 
@@ -72,6 +72,12 @@ export async function PUT(
       // 이름 조회 실패해도 반려 처리는 계속
     }
 
+    // P2-9: 반려사유 전용 컬럼 (GmAffiliateContract 스키마에 컬럼 추가 후 마이그레이션 필요)
+    // rejectionReason, rejectedAt, rejectedById — 현재는 metadata JSON에만 저장
+    // TODO: prisma migrate dev 후 아래 주석 해제
+    // rejectionReason: rejectReason || null,
+    // rejectedAt: new Date(),
+    // rejectedById: ctx.userId ? Number(ctx.userId) : null,
     const existingMeta = (contract.metadata as Record<string, unknown> | null) ?? {};
     await prisma.gmAffiliateContract.update({
       where: { id: contractId },

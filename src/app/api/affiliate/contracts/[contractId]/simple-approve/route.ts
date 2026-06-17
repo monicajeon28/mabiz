@@ -20,7 +20,7 @@ export async function PUT(
 ) {
   try {
     const ctx = await getAuthContext();
-    if (!ctx || !['GLOBAL_ADMIN', 'OWNER', 'AGENT'].includes(ctx.role)) {
+    if (!ctx || !['GLOBAL_ADMIN', 'OWNER'].includes(ctx.role)) {
       return NextResponse.json({ ok: false, message: '권한이 없습니다.' }, { status: 403 });
     }
 
@@ -58,6 +58,22 @@ export async function PUT(
       return NextResponse.json({ ok: false, message: '반려된 신청은 승인할 수 없습니다.' }, { status: 409 });
     }
 
+    // supervisorPhone → 담당 대리점 산하 배정을 위한 OWNER 조회
+    const supervisorPhone = (meta.supervisorPhone as string | undefined)
+      || (meta.agentPhone as string | undefined);
+    let supervisorMember: { id: string; organizationId: string } | null = null;
+    if (supervisorPhone) {
+      supervisorMember = await prisma.organizationMember.findFirst({
+        where: { phone: supervisorPhone, role: 'OWNER', isActive: true },
+        select: { id: true, organizationId: true },
+      });
+      if (!supervisorMember) {
+        logger.warn('[simple-approve] supervisorPhone 매칭 실패, 본사로 폴백', {
+          supervisorPhone: supervisorPhone.slice(0, 6) + '****',
+        });
+      }
+    }
+
     const completionToken = randomUUID();
     const completionLink = `${process.env.NEXT_PUBLIC_APP_URL}/affiliate/pre-sales/complete?token=${completionToken}`;
 
@@ -73,6 +89,9 @@ export async function PUT(
           completionToken,
           completionTokenIssuedAt: new Date().toISOString(),
           completionLink,
+          // 매칭된 대리점 정보 저장 (pre-sales/complete 단계에서 계정 생성 시 활용)
+          assignedOrganizationId: supervisorMember?.organizationId ?? null,
+          assignedManagerId: supervisorMember?.id ?? null,
         },
       },
     });

@@ -692,6 +692,13 @@ function ManagerCard({
   onClick: () => void;
   onChanged: () => void;
 }) {
+  // 등록 경로 배지: hasAffiliateProfile + affiliateCode 기반 추론
+  const regBadge = manager.hasAffiliateProfile && manager.affiliateCode
+    ? { label: '정식계약', cls: 'bg-green-100 text-green-700' }
+    : manager.hasAffiliateProfile && !manager.affiliateCode
+      ? { label: '자동연결', cls: 'bg-gray-100 text-gray-500' }
+      : { label: '수동등록', cls: 'bg-yellow-100 text-yellow-700' };
+
   return (
     <div className={`border rounded-xl p-4 transition-all ${
       manager.isActive
@@ -707,6 +714,10 @@ function ManagerCard({
             </span>
             <span className={`text-sm px-2 py-0.5 rounded-full font-medium ${ROLE_BADGE[manager.role] ?? 'bg-gray-100 text-gray-500'}`}>
               {ROLE_LABEL[manager.role] ?? manager.role}
+            </span>
+            {/* 등록 경로 배지 */}
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${regBadge.cls}`}>
+              {regBadge.label}
             </span>
             {!manager.isActive && (
               <span className="text-sm px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">정지됨</span>
@@ -877,11 +888,18 @@ export default function OrganizationsPage() {
   const [search, setSearch] = useState('');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
 
+  // 섹션 탭: 신청관리 / 대리점 목록
+  const [activeSection, setActiveSection] = useState<'applications' | 'list'>('applications');
+  // 티어 필터 탭
+  const [tierFilter, setTierFilter] = useState<string>('all');
+
   const [pendingContracts, setPendingContracts] = useState<PendingContract[]>([]);
   const [contractsLoading, setContractsLoading] = useState(true);
   const [contractStatus, setContractStatus] = useState<string>('submitted');
   const [contractTypeFilter, setContractTypeFilter] = useState<string>('');
   const [contractsTotal, setContractsTotal] = useState<number>(0);
+  const [contractsPage, setContractsPage] = useState<number>(1);
+  const [totalContractPages, setTotalContractPages] = useState<number>(1);
 
   // 승인 모달: contractId
   const [approveContractId, setApproveContractId] = useState<number | null>(null);
@@ -920,19 +938,20 @@ export default function OrganizationsPage() {
     }
   }, []);
 
-  const fetchPendingContracts = useCallback(async () => {
+  const fetchPendingContracts = useCallback(async (page?: number) => {
     contractsFetchAbortRef.current?.abort();
     const controller = new AbortController();
     contractsFetchAbortRef.current = controller;
     setContractsLoading(true);
     try {
-      const params = new URLSearchParams({ status: contractStatus });
+      const params = new URLSearchParams({ status: contractStatus, page: String(page ?? contractsPage) });
       if (contractTypeFilter) params.set('type', contractTypeFilter);
       const res = await fetch(`/api/affiliate/contracts?${params}`, { signal: controller.signal });
       const data = await res.json();
       if (data.ok) {
         setPendingContracts(data.data.contracts ?? []);
         setContractsTotal(data.data.pagination?.total ?? 0);
+        setTotalContractPages(data.data.pagination?.totalPages ?? 1);
       } else {
         showError('계약 목록을 불러오지 못했습니다.');
       }
@@ -941,7 +960,7 @@ export default function OrganizationsPage() {
     } finally {
       setContractsLoading(false);
     }
-  }, [contractStatus, contractTypeFilter]);
+  }, [contractStatus, contractTypeFilter, contractsPage]);
 
   // searchRef: 검색어 최신값을 ref로 추적 → handleMemberChanged deps에서 search 제거
   // (search가 deps에 있으면 타이핑마다 DetailPanel 리렌더 발생)
@@ -952,6 +971,11 @@ export default function OrganizationsPage() {
     () => fetchManagers(searchRef.current),
     [fetchManagers],
   );
+
+  // 필터(상태/유형) 변경 시 페이지 1로 리셋
+  useEffect(() => {
+    setContractsPage(1);
+  }, [contractStatus, contractTypeFilter]);
 
   useEffect(() => {
     fetchManagers();
@@ -969,8 +993,76 @@ export default function OrganizationsPage() {
     );
   }
 
+  // 티어 필터 적용된 대리점 목록
+  const tierFilteredManagers = tierFilter === 'all'
+    ? managers
+    : managers.filter((m) => {
+        const plan = m.organizationPlan ?? '';
+        if (tierFilter === 'BRANCH_750') return plan === 'BRANCH_750' || plan === 'PREMIUM';
+        if (tierFilter === 'SALES_540')  return plan === 'SALES_540'  || plan === 'STANDARD';
+        if (tierFilter === 'SALES_330')  return plan === 'SALES_330'  || plan === 'BASIC';
+        return false;
+      });
+
+  // submitted 상태만 배너 카운트
+  const submittedCount = pendingContracts.filter((c) => c.status === 'submitted').length;
+
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-5">
+
+      {/* 대기 신청 카운터 배너 */}
+      {submittedCount > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between">
+          <span className="text-base font-bold text-amber-800">
+            🔔 대기 중인 신청 {submittedCount}건
+          </span>
+          <button
+            onClick={() => { setActiveSection('applications'); setContractStatus('submitted'); }}
+            className="text-sm text-amber-700 underline"
+          >
+            바로가기
+          </button>
+        </div>
+      )}
+
+      {/* 섹션 탭 */}
+      <div className="flex gap-1 border-b border-gray-200">
+        <button
+          onClick={() => setActiveSection('applications')}
+          className={`px-4 text-sm font-semibold transition-colors ${
+            activeSection === 'applications'
+              ? 'text-blue-600 border-b-2 border-blue-600 pb-2.5 pt-2'
+              : 'text-gray-500 hover:text-gray-700 pb-2.5 pt-2'
+          }`}
+          style={{ minHeight: '48px' }}
+        >
+          신청 관리
+          {submittedCount > 0 && (
+            <span className="ml-1.5 px-1.5 py-0.5 bg-amber-500 text-white text-xs font-bold rounded-full">
+              {submittedCount}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveSection('list')}
+          className={`px-4 text-sm font-semibold transition-colors ${
+            activeSection === 'list'
+              ? 'text-blue-600 border-b-2 border-blue-600 pb-2.5 pt-2'
+              : 'text-gray-500 hover:text-gray-700 pb-2.5 pt-2'
+          }`}
+          style={{ minHeight: '48px' }}
+        >
+          대리점 목록
+          {!loading && managers.length > 0 && (
+            <span className="ml-1.5 px-1.5 py-0.5 bg-gray-200 text-gray-600 text-xs font-bold rounded-full">
+              {managers.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* ─── 신청 관리 섹션 ─────────────────────────── */}
+      {activeSection === 'applications' && (<>
 
       {/* 계약서 가입 신청 링크 */}
       <section className="space-y-2">
@@ -1039,7 +1131,7 @@ export default function OrganizationsPage() {
             )}
           </div>
           <button
-            onClick={fetchPendingContracts}
+            onClick={() => fetchPendingContracts()}
             disabled={contractsLoading}
             className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors"
             title="새로고침"
@@ -1163,11 +1255,12 @@ export default function OrganizationsPage() {
 
                     {/* 액션 버튼 — 검토대기만 표시 */}
                     {!isRejected && !isApproved && (
-                      <div className="flex items-center gap-2 px-3 py-3 shrink-0">
+                      <div className="flex items-center gap-3 px-3 py-3 shrink-0">
                         <button
                           type="button"
                           onClick={() => setRejectContract(c)}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-white border border-red-300 text-red-600 hover:bg-red-50 text-sm font-semibold rounded-lg transition-colors"
+                          style={{ minHeight: '44px' }}
+                          className="flex items-center gap-1.5 px-3 py-2.5 bg-white border border-red-300 text-red-600 hover:bg-red-50 text-sm font-semibold rounded-lg transition-colors"
                         >
                           <XCircle className="w-3.5 h-3.5" />
                           반려
@@ -1175,7 +1268,8 @@ export default function OrganizationsPage() {
                         <button
                           type="button"
                           onClick={() => setApproveContractId(c.id)}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                          style={{ minHeight: '44px' }}
+                          className="flex items-center gap-1.5 px-3 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-lg transition-colors"
                         >
                           <CheckCircle className="w-3.5 h-3.5" />
                           승인
@@ -1188,7 +1282,35 @@ export default function OrganizationsPage() {
             })}
           </div>
         )}
+
+        {/* 페이지네이션 */}
+        {totalContractPages > 1 && (
+          <div className="flex items-center justify-center gap-3 mt-4">
+            <button
+              onClick={() => setContractsPage((p) => Math.max(1, p - 1))}
+              disabled={contractsPage === 1 || contractsLoading}
+              className="px-4 py-3 rounded-xl bg-gray-100 disabled:opacity-40 text-base font-medium hover:bg-gray-200 transition-colors"
+            >
+              이전
+            </button>
+            <span className="text-base text-gray-700">
+              {contractsPage} / {totalContractPages}
+            </span>
+            <button
+              onClick={() => setContractsPage((p) => Math.min(totalContractPages, p + 1))}
+              disabled={contractsPage === totalContractPages || contractsLoading}
+              className="px-4 py-3 rounded-xl bg-gray-100 disabled:opacity-40 text-base font-medium hover:bg-gray-200 transition-colors"
+            >
+              다음
+            </button>
+          </div>
+        )}
       </section>
+
+      </>)}
+
+      {/* ─── 대리점 목록 섹션 ─────────────────────── */}
+      {activeSection === 'list' && (<>
 
       {/* 대리점 목록 헤더 */}
       <div className="flex items-center justify-between gap-3">
@@ -1209,6 +1331,29 @@ export default function OrganizationsPage() {
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
+      </div>
+
+      {/* 티어 필터 탭 */}
+      <div className="flex gap-1.5 flex-wrap">
+        {[
+          { val: 'all',        label: '전체' },
+          { val: 'BRANCH_750', label: TIER_LABEL['BRANCH_750'] },
+          { val: 'SALES_540',  label: TIER_LABEL['SALES_540'] },
+          { val: 'SALES_330',  label: TIER_LABEL['SALES_330'] },
+        ].map(({ val, label }) => (
+          <button
+            key={val}
+            onClick={() => setTierFilter(val)}
+            style={{ minHeight: '44px' }}
+            className={`px-3 rounded-lg text-sm font-medium transition-colors border ${
+              tierFilter === val
+                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* 검색 */}
@@ -1243,8 +1388,12 @@ export default function OrganizationsPage() {
               계약서 작성 → 승인 절차를 완료하면<br />대리점장이 자동으로 추가됩니다.
             </p>
           </div>
+        ) : tierFilteredManagers.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 py-8 text-gray-600">
+            <p className="text-sm">해당 티어의 대리점장이 없습니다.</p>
+          </div>
         ) : (
-          managers.map((mgr) => (
+          tierFilteredManagers.map((mgr) => (
             <ManagerCard
               key={mgr.memberId}
               manager={mgr}
@@ -1254,6 +1403,8 @@ export default function OrganizationsPage() {
           ))
         )}
       </section>
+
+      </>)}
 
       {/* 계약 승인 모달 */}
       {approveContractId !== null && (

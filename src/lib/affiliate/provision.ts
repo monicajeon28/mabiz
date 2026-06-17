@@ -21,6 +21,35 @@ import { hashPassword } from '@/lib/password';
 import { logger } from '@/lib/logger';
 import pg from 'pg';
 
+// ── slug 유틸 (organization.ts와 동일 로직 — import 순환 방지용 로컬 복사) ──
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9가-힣]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 48);
+}
+
+/**
+ * 트랜잭션 컨텍스트 내에서 충돌 없는 slug를 생성합니다.
+ * prisma.$transaction 블록 내에서만 호출하세요.
+ */
+async function uniqueSlugInTx(
+  base: string,
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+): Promise<string> {
+  let slug = base ?? 'org';
+  let attempt = 0;
+  while (attempt < 10) {
+    const exists = await tx.organization.findUnique({ where: { slug } });
+    if (!exists) return slug;
+    slug = `${base}-${randomBytes(3).toString('hex')}`;
+    attempt++;
+  }
+  return `${base}-${Date.now()}`;
+}
+
 const { Client: PgClient } = pg;
 
 export interface ProvisionResult {
@@ -50,7 +79,7 @@ interface ProvisionInput {
   contractorName: string;
   contractorEmail: string;
   contractorPhone: string;
-  organizationId: string; // CRM 조직 ID (대리점이 속할 조직)
+  organizationId?: string; // 레거시 호환용 (무시됨 — 독립 Organization을 자동 생성)
   approvedByMemberId: string; // 승인한 관리자 ID
   managerId?: number; // 담당 매니저 ID (선택사항)
 }
@@ -80,7 +109,6 @@ export async function provisionAffiliateAccounts(
     contractorName,
     contractorEmail,
     contractorPhone,
-    organizationId,
     approvedByMemberId,
   } = input;
 
@@ -267,10 +295,44 @@ export async function provisionAffiliateAccounts(
       },
     });
 
-    // ── 6. OrganizationMember (CRM 관리자 로그인 계정) ────────────
+    // ── 6. 대리점 전용 독립 Organization 생성 ────────────────────
+    // contractRef = "aff-contract-{contractId}" 로 멱등성 보장
+    const contractRef = `aff-contract-${contractId}`;
+    const existingOrg = await tx.organization.findFirst({
+      where: { contractRef },
+    });
+
+    let agentOrgId: string;
+    if (existingOrg) {
+      // 이미 생성된 조직 재사용 (재시도 시 멱등)
+      agentOrgId = existingOrg.id;
+      logger.info('[AFFILIATE-PROVISION] 기존 대리점 조직 재사용', {
+        orgId: agentOrgId,
+        contractRef,
+      });
+    } else {
+      const orgSlug = await uniqueSlugInTx(slugify(`${contractorName}-대리점`), tx);
+      const newOrg = await tx.organization.create({
+        data: {
+          name: `${contractorName} 대리점`,
+          slug: orgSlug,
+          status: 'ACTIVE',
+          plan: 'BASIC',
+          contractRef,
+        },
+      });
+      agentOrgId = newOrg.id;
+      logger.info('[AFFILIATE-PROVISION] 대리점 전용 Organization 생성', {
+        orgId: agentOrgId,
+        slug: orgSlug,
+        contractorName,
+      });
+    }
+
+    // ── 6-a. OrganizationMember: 대리점장 (OWNER) ─────────────────
     const crmMember = await tx.organizationMember.create({
       data: {
-        organizationId,
+        organizationId: agentOrgId,
         userId: `gm-${managerGmUser.id}`, // GmUser ID 연결
         role: 'OWNER', // 대리점장 = OWNER
         displayName: `${contractorName} 대리점장`,
@@ -281,8 +343,39 @@ export async function provisionAffiliateAccounts(
       },
     });
 
+    // ── 6-b. OrganizationMember: 판매원 (AGENT, managerId = 대리점장) ──
+    await tx.organizationMember.create({
+      data: {
+        organizationId: agentOrgId,
+        userId: `gm-${agentGmUser.id}`,
+        role: 'AGENT',
+        displayName: `${contractorName} 판매원`,
+        phone: contractorPhone || null,
+        email: null,
+        passwordHash: passwordHash,
+        isActive: true,
+        managerId: crmMember.id, // 대리점장 하위
+      },
+    });
+
+    // ── 6-c. OrganizationMember: 프리세일즈 (FREE_SALES, managerId = 대리점장) ──
+    await tx.organizationMember.create({
+      data: {
+        organizationId: agentOrgId,
+        userId: `gm-${presalesGmUser.id}`,
+        role: 'FREE_SALES',
+        displayName: `${contractorName} 프리세일즈`,
+        phone: contractorPhone || null,
+        email: null,
+        passwordHash: passwordHash,
+        isActive: true,
+        managerId: crmMember.id, // 대리점장 하위
+      },
+    });
+
     logger.info('[AFFILIATE-PROVISION] 대리점 계정 생성 완료', {
       contractId,
+      agentOrgId,
       managerGmUserId: managerGmUser.id,
       managerProfileId: managerProfile.id,
       agentGmUserId: agentGmUser.id,
