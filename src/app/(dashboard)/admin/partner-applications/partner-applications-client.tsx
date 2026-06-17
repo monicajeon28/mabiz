@@ -419,22 +419,26 @@ export default function PartnerApplicationsClient({ initialRole: _initialRole }:
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [toastMsg, setToastMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [page, setPage] = useState<number>(1);
+  const [totalPages, setTotalPages] = useState<number>(1);
 
   const showToast = useCallback((text: string, type: 'success' | 'error') => {
     setToastMsg({ text, type });
     setTimeout(() => setToastMsg(null), 3000);
   }, []);
 
-  const refreshApplications = useCallback(async (signal?: AbortSignal) => {
+  const refreshApplications = useCallback(async (signal?: AbortSignal, overridePage?: number) => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/affiliate/contracts?status=${statusFilter}&page=1`, { signal });
+      const currentPage = overridePage ?? page;
+      const res = await fetch(
+        `/api/affiliate/contracts?status=${statusFilter}&page=${currentPage}&type=CRUISE_PARTNER`,
+        { signal },
+      );
       const data = await res.json();
       if (data?.ok) {
-        const cruisePartners = ((data.data?.contracts ?? []) as Application[]).filter(
-          (c) => (c.metadata as Record<string, unknown>)?.type === 'CRUISE_PARTNER',
-        );
-        setApplications(cruisePartners);
+        setApplications((data.data?.contracts ?? []) as Application[]);
+        setTotalPages(data.data?.pagination?.totalPages ?? 1);
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return;
@@ -442,7 +446,12 @@ export default function PartnerApplicationsClient({ initialRole: _initialRole }:
     } finally {
       if (!signal?.aborted) setIsLoading(false);
     }
-  }, [statusFilter, showToast]);
+  }, [statusFilter, showToast, page]);
+
+  // 상태 필터 변경 시 페이지 1로 리셋
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter]);
 
   // 권한 확인 (GLOBAL_ADMIN만)
   useEffect(() => {
@@ -593,6 +602,29 @@ export default function PartnerApplicationsClient({ initialRole: _initialRole }:
             {applications.map((app) => (
               <ApplicationCard key={app.id} app={app} onClick={() => setSelectedId(app.id)} />
             ))}
+          </div>
+        )}
+
+        {/* 페이지네이션 */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-3 mt-4">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1 || isLoading}
+              className="px-4 py-3 rounded-xl bg-gray-100 disabled:opacity-40 text-base font-medium hover:bg-gray-200 transition-colors"
+            >
+              이전
+            </button>
+            <span className="text-base text-gray-700">
+              {page} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages || isLoading}
+              className="px-4 py-3 rounded-xl bg-gray-100 disabled:opacity-40 text-base font-medium hover:bg-gray-200 transition-colors"
+            >
+              다음
+            </button>
           </div>
         )}
       </div>

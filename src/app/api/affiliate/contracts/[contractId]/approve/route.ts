@@ -402,6 +402,20 @@ export async function PUT(
       approvedBy: ctx.userId,
     });
 
+    // P1-5: 감사 로그 기록 (실패해도 승인 결과에 영향 없음)
+    try {
+      await prisma.gmAffiliateContractAudit.create({
+        data: {
+          contractId,
+          action: 'APPROVED',
+          approvedBy: ctx.userId ? Number(ctx.userId) : null,
+          approvalTier: tierKey,
+        },
+      });
+    } catch (auditErr) {
+      logger.warn('[AFFILIATE-PROVISION] 감사 로그 저장 실패', { auditErr });
+    }
+
     // 11. 크루즈닷몰 웹훅 발송 (비차단 — 실패 시 계약 승인 유지)
     const contractMeta2 = contract.metadata as ContractMeta | null;
     notifyCruisedotAffiliateCreated({
