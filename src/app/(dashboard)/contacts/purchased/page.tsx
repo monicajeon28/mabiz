@@ -14,7 +14,10 @@ const ContactSlidePanel = lazy(() => import("../ContactSlidePanel"));
 const SOURCE_TYPE_LABELS: Record<string, { label: string; color: string }> = {
   landing_page: { label: '랜딩페이지', color: 'bg-blue-100 text-blue-800' },
   user: { label: '직접입력', color: 'bg-gray-100 text-gray-700' },
+  inquiry: { label: '문의신청', color: 'bg-yellow-100 text-yellow-800' },
   affiliate: { label: '제휴/파트너', color: 'bg-purple-100 text-purple-800' },
+  gold_member: { label: '골드회원', color: 'bg-amber-100 text-amber-800' },
+  education: { label: '교육', color: 'bg-green-100 text-green-800' },
 };
 
 type Contact = {

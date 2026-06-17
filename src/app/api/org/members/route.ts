@@ -131,7 +131,7 @@ export async function GET(req: Request) {
  * 요청 본문:
  *   {
  *     memberId: string,  // OrganizationMember.id
- *     role: "OWNER" | "MANAGER" | "MEMBER"
+ *     role: "OWNER" | "AGENT" | "FREE_SALES"
  *   }
  *
  * RBAC: OWNER 또는 GLOBAL_ADMIN만 가능
