@@ -134,8 +134,8 @@ export interface SalesApiData {
   adminPersonalSales: AdminPersonalSales | null;
   // LIB-TYPES-003: GLOBAL_ADMIN 판별용 (서버가 명시적으로 내려주는 플래그)
   isGlobalAdmin: boolean;
-  /** [API-SALES-006] 귀속 기준 명시: 'affiliate' = 판매원 소속 대리점 기준 */
-  orgBreakdownBasis: 'affiliate' | 'landing_owner';
+  /** [API-SALES-006] 귀속 기준: 현재 항상 'affiliate'(판매원 소속 대리점 기준). [LIB-TYPES-NEW-002] landing_owner 분기 미구현이므로 리터럴 고정 */
+  orgBreakdownBasis: 'affiliate';
 }
 
 // LIB-TYPES-NEW-002: variants/page.tsx 로컬 정의 인터페이스를 이곳으로 이동 (LIB-TYPES-012 완료)

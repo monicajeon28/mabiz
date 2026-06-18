@@ -10,13 +10,13 @@ export function SalesBarChart({ monthly }: SalesBarChartProps) {
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6">
-      <h2 className="text-base font-semibold text-gray-900 mb-4">최근 6개월 매출</h2>
+      <h2 className="text-xl font-bold text-gray-900 mb-4">최근 6개월 매출</h2>
       <div className="flex items-end gap-3 h-40">
         {monthly.map((row) => {
           const heightPct = Math.max((row.revenue / maxRevenue) * 100, 2);
           return (
             <div key={row.month} className="flex-1 flex flex-col items-center gap-1">
-              <span className="text-[10px] text-gray-600 truncate w-full text-center">
+              <span className="text-xs text-gray-600 truncate w-full text-center">
                 {row.revenue > 0 ? formatAmount(row.revenue) : ""}
               </span>
               <div
