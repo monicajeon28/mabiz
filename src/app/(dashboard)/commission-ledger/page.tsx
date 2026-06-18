@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { BookOpen, ChevronLeft, ChevronRight } from "lucide-react";
 import { logger } from "@/lib/logger";
+import { CommissionButtons } from "./commission-buttons";
+import type { UserRole } from "@/lib/rbac";
 
 type LedgerEntry = {
   id: number;
@@ -81,7 +83,29 @@ export default function CommissionLedgerPage() {
   const [yearMonth,  setYearMonth]  = useState("");
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState<string | null>(null);
+  const [userRole,   setUserRole]   = useState<UserRole>("AGENT"); // 기본값: AGENT
   const abortRef = useRef<AbortController | null>(null);
+
+  // Phase 3: 사용자 역할 로드 (버튼 권한 결정용)
+  // API 응답에서 역할 정보를 추출하여 설정
+  useEffect(() => {
+    const loadUserRole = async () => {
+      try {
+        const res = await fetch('/api/commission-ledger?limit=1', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          // API 응답에 role이 포함되어 있으면 설정
+          if (data.userRole) {
+            setUserRole(data.userRole as UserRole);
+          }
+        }
+      } catch (err) {
+        logger.error('[commission-ledger] role load error', { error: err instanceof Error ? err.message : String(err) });
+        // role load 실패시 기본값 유지
+      }
+    };
+    loadUserRole();
+  }, []);
 
   const load = useCallback(() => {
     abortRef.current?.abort();
@@ -132,6 +156,32 @@ export default function CommissionLedgerPage() {
     setPage(1);
   }
 
+  // Phase 3: 버튼 액션 핸들러
+  const handleSettle = async () => {
+    alert('💰 월말정산\n\n모든 판매원의 수당을 정산하는 프로세스를 시작합니다.');
+    // TODO: Phase 4에서 openSettleModal() 구현
+  };
+
+  const handleDispute = async () => {
+    alert('🚨 이의제기\n\n수당 계산에 이의가 있으신가요?\n상세 이유를 입력해주세요.');
+    // TODO: Phase 4에서 openDisputeModal() 구현
+  };
+
+  const handleVerify = async () => {
+    alert('✅ 확인\n\n선택한 항목의 상세 정보를 확인합니다.');
+    // TODO: Phase 4에서 openDetailModal() 구현
+  };
+
+  const handleExcelDownload = async () => {
+    alert('📥 엑셀다운\n\n수당 기록을 엑셀로 다운로드합니다.');
+    // TODO: Phase 5에서 downloadExcel() 구현
+  };
+
+  const handleRecalculate = async () => {
+    alert('🔄 재계산\n\n모든 팀의 수당을 다시 계산하는 프로세스를 시작합니다.');
+    // TODO: Phase 6에서 openRecalculateModal() 구현
+  };
+
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6">
       {/* Header */}
@@ -142,6 +192,16 @@ export default function CommissionLedgerPage() {
         </div>
         <p className="text-sm text-gray-500">판매원별 수당 입금·차감·조정 내역을 확인합니다</p>
       </div>
+
+      {/* Phase 3: 버튼 권한 시스템 */}
+      <CommissionButtons
+        userRole={userRole}
+        onSettle={handleSettle}
+        onDispute={handleDispute}
+        onVerify={handleVerify}
+        onExcelDownload={handleExcelDownload}
+        onRecalculate={handleRecalculate}
+      />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
