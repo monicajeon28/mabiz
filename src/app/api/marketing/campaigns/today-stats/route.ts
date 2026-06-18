@@ -47,6 +47,7 @@ export async function GET(req: NextRequest) {
 
     const logWhere = ctx.role === 'GLOBAL_ADMIN'
       ? {
+          sourceType: 'CAMPAIGN' as const,
           scheduledAt: {
             gte: todayStart,
             lte: todayEnd,
@@ -54,6 +55,7 @@ export async function GET(req: NextRequest) {
         }
       : {
           organizationId: ctx.organizationId!,
+          sourceType: 'CAMPAIGN' as const,
           scheduledAt: {
             gte: todayStart,
             lte: todayEnd,
@@ -82,8 +84,9 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    // SENDING 상태이면서 totalCount=0(초기화 미완료)이거나 아직 sentCount < totalCount인 경우
     const inProgress = campaigns.filter(
-      c => c.sentCount < c.totalCount
+      c => c.totalCount === 0 || c.sentCount < c.totalCount
     ).length;
 
     // 3. 오늘 완료한 캠페인 — status: SENT 기준으로 정확히 계산

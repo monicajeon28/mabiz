@@ -131,7 +131,12 @@ export default function MarketingDashboardPage() {
       {!loading && data && <FunnelChart summary={data.summary} />}
 
       {/* ━━━ 상위 랜딩페이지 ━━━ */}
-      {!loading && data && <TopPagesTable topPages={data.topPages} loading={loading} />}
+      {(loading || data) && (
+        <TopPagesTable
+          topPages={data?.topPages ?? []}
+          loading={loading}
+        />
+      )}
     </div>
   );
 }

@@ -17,6 +17,7 @@ export async function GET() {
     const orgId = resolveOrgIdOrNull(ctx);
 
     // ── 1. 조직 소유 랜딩페이지 목록 + viewCount 합계
+    // DB-23: GLOBAL_ADMIN 전체 조회 시 OOM 방지를 위해 take:500 상한 적용
     const pages = await prisma.crmLandingPage.findMany({
       where: { ...(orgId ? { organizationId: orgId } : {}) },
       select: {
@@ -26,16 +27,20 @@ export async function GET() {
         viewCount: true,
         _count: { select: { registrations: true } },
       },
+      take: 500,
+      orderBy: { createdAt: "desc" },
     });
 
     const totalViews = pages.reduce((sum, p) => sum + p.viewCount, 0);
     const totalRegistrations = pages.reduce((sum, p) => sum + p._count.registrations, 0);
 
     // ── 3. 구매 전환 수 (Contact.purchasedAt IS NOT NULL, orgId 소속)
+    // API-MKT-013: 소프트 삭제된 연락처가 집계에 포함되지 않도록 deletedAt:null 필터 추가
     const purchasedResult = await prisma.contact.count({
       where: {
         ...(orgId ? { organizationId: orgId } : {}),
         purchasedAt: { not: null },
+        deletedAt: null,
       },
     });
 
