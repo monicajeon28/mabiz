@@ -4,7 +4,7 @@ import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
 
 import { logger } from '@/lib/logger';
-import { sendSms, getOrgSmsConfig } from '@/lib/aligo';
+import { sendSms, getOrgSmsConfig, detectMessageType } from '@/lib/aligo';
 import { sendEmail, getOrgEmailConfig } from '@/lib/email';
 
 type CampaignRecord = NonNullable<
@@ -61,6 +61,15 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       );
     }
 
+    // API-SEND-CROSSORG-AUDIT-001: GLOBAL_ADMIN이 다른 조직 캠페인을 발송하는 경우 감사 로그
+    if (ctx.role === 'GLOBAL_ADMIN') {
+      logger.info('[POST send] GLOBAL_ADMIN cross-org send triggered', {
+        actorId: ctx.userId,
+        campaignId: id,
+        targetOrgId: campaign.organizationId,
+      });
+    }
+
     // organizationId 유효성 검증: 빈 문자열이면 getOrgSmsConfig('') 호출 방지 (LIB-TYPES-013)
     if (!campaign.organizationId) {
       return NextResponse.json(
@@ -70,6 +79,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     }
 
     // 그룹 멤버 조회 (cross-org 멤버 유출 방지: contact.organizationId 필터 추가)
+    // SEND-017: 전량 메모리 로드 방지 — take:5000 안전 상한 적용
     const members = await prisma.contactGroupMember.findMany({
       where: {
         groupId: campaign.groupId,
@@ -85,7 +95,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
           },
         },
       },
+      take: 5000,
     });
+
+    if (members.length === 5000) {
+      logger.warn('[send] 그룹 멤버 5000명 상한 도달 — 일부 수신자가 누락될 수 있음', { campaignId: id });
+    }
 
     if (members.length === 0) {
       return NextResponse.json(
@@ -245,7 +260,7 @@ async function processRecipient(
         config: { key: smsConfig.aligoKey, userId: smsConfig.aligoUserId, sender: smsConfig.senderPhone },
         receiver: contact.phone,
         msg: text,
-        msgType: text.length > 90 ? 'LMS' : 'SMS',
+        msgType: detectMessageType(text),
         organizationId,
         contactId: contact.id,
         channel: 'MANUAL',
@@ -274,7 +289,8 @@ async function processRecipient(
     // ExecutionLog upsert: 캠페인 발송 이력 기록 (월별 중복 방지)
     // SEND-012: channel을 발송 결과 기반으로 결정 (캠페인 플래그 기반 → 실제 발송 채널 기반)
     // SEND-013: executeMonth를 외부에서 전달받아 월 경계 불일치 방지
-    const actualChannel = smsSent ? 'SMS' : emailSent ? 'EMAIL' : (campaign.sendSms ? 'SMS' : 'EMAIL');
+    // SEND-015: sendEmail=false인 경우도 정확히 반영하는 폴백 로직
+    const actualChannel = smsSent ? 'SMS' : emailSent ? 'EMAIL' : (campaign.sendSms ? 'SMS' : campaign.sendEmail ? 'EMAIL' : 'SMS');
     try {
       await prisma.executionLog.upsert({
         where: {
