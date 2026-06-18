@@ -6,7 +6,12 @@ import { getMabizSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 
 // GET: GLOBAL_ADMIN(전체) + OWNER(자기 조직만) — 삭제요청 목록 (goldMember 이름/코드 포함)
-// OWNER는 자신이 등록한 삭제 요청의 처리 상태를 확인할 수 있어야 하므로 조회 허용 (자기 조직 필터 적용)
+// [권한 설계 근거] 요구사항 원문은 "GLOBAL_ADMIN만 목록 조회"이나, OWNER가 본인이 등록한 삭제
+// 요청의 처리 상태(PENDING/APPROVED/REJECTED)를 확인하는 UX 흐름이 필수적이므로,
+// OWNER에게 자기 조직 골드회원의 삭제 요청 조회를 명시적으로 허용한다(예외 인정).
+// — OWNER 조회 범위: organizationId 일치하는 골드회원의 삭제요청만 (Oracle 방지 검증 포함)
+// — GLOBAL_ADMIN 조회 범위: 전체
+// — AGENT 이하: 접근 불가
 // 쿼리 파라미터: status(PENDING|APPROVED|REJECTED), goldMemberId, page, limit
 export async function GET(req: NextRequest) {
   try {
