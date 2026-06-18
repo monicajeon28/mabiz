@@ -74,6 +74,15 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     if (body.includeLanding !== undefined) data.includeLanding = body.includeLanding;
     if (body.sendAt !== undefined) data.sendAt = new Date(body.sendAt);
     if (body.repeatRule !== undefined) data.repeatRule = body.repeatRule || null;
+
+    // [API-CAMPAIGNS-007] 이미 처리된 캠페인(SENT/FAILED/CANCELLED) 상태 역행 차단
+    if (body.status !== undefined && !['DRAFT', 'PENDING'].includes(existing.status)) {
+      return NextResponse.json(
+        { ok: false, message: '이미 처리된 캠페인은 상태를 변경할 수 없습니다. (현재 상태: ' + existing.status + ')' },
+        { status: 409 }
+      );
+    }
+
     if (body.status !== undefined) {
       const PATCHABLE_STATUSES = ['DRAFT', 'PENDING'];
       if (!PATCHABLE_STATUSES.includes(body.status)) {
@@ -93,6 +102,16 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
         group: { select: { id: true, name: true } },
       },
     });
+
+    // [API-CAMPAIGNS-008] GLOBAL_ADMIN cross-org 수정 감사 로그
+    if (ctx.role === 'GLOBAL_ADMIN') {
+      logger.info('[PATCH campaign] GLOBAL_ADMIN cross-org edit', {
+        actorRole: ctx.role,
+        actorId: ctx.userId,
+        campaignId: id,
+        targetOrgId: existing.organizationId,
+      });
+    }
 
     return NextResponse.json({ ok: true, campaign });
   } catch (err) {

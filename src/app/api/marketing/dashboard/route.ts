@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, resolveOrgIdOrNull } from "@/lib/rbac";
+import { getMabizSession } from "@/lib/auth";
+import { resolveOrgIdOrNull } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 // GET /api/marketing/dashboard
 export async function GET() {
   try {
-    const ctx = await getAuthContext();
+    const ctx = await getMabizSession();
+    if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
 
     if (ctx.role === "FREE_SALES") {
       return NextResponse.json({ ok: false, message: "접근 권한이 없습니다." }, { status: 403 });
@@ -29,14 +31,6 @@ export async function GET() {
     const totalViews = pages.reduce((sum, p) => sum + p.viewCount, 0);
     const totalRegistrations = pages.reduce((sum, p) => sum + p._count.registrations, 0);
 
-    // ── 2. 퍼널 진입 수 (funnelStarted = true)
-    const funnelEnteredResult = await prisma.crmLandingRegistration.count({
-      where: {
-        ...(orgId ? { landingPage: { organizationId: orgId } } : {}),
-        funnelStarted: true,
-      },
-    });
-
     // ── 3. 구매 전환 수 (Contact.purchasedAt IS NOT NULL, orgId 소속)
     const purchasedResult = await prisma.contact.count({
       where: {
@@ -57,6 +51,15 @@ export async function GET() {
 
     // ── 4-1. 전월 대비 등록수
     const lpIds = pages.map((p) => p.id);
+
+    // ── 2. 퍼널 진입 수 (funnelStarted = true) — lpIds 기반 인덱스 최적화
+    const funnelEnteredResult =
+      lpIds.length === 0
+        ? 0
+        : await prisma.crmLandingRegistration.count({
+            where: { landingPageId: { in: lpIds }, funnelStarted: true },
+          });
+
     const thisMonthStart = new Date();
     thisMonthStart.setUTCDate(1);
     thisMonthStart.setUTCHours(0, 0, 0, 0);
@@ -107,13 +110,16 @@ export async function GET() {
     sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 6);
     sevenDaysAgo.setUTCHours(0, 0, 0, 0);
 
-    const recentRegs = await prisma.crmLandingRegistration.findMany({
-      where: {
-        ...(orgId ? { landingPage: { organizationId: orgId } } : {}),
-        createdAt: { gte: sevenDaysAgo },
-      },
-      select: { createdAt: true },
-    });
+    const recentRegs =
+      lpIds.length === 0
+        ? []
+        : await prisma.crmLandingRegistration.findMany({
+            where: {
+              landingPageId: { in: lpIds },
+              createdAt: { gte: sevenDaysAgo },
+            },
+            select: { createdAt: true },
+          });
 
     // UTC+9 기준 날짜별 집계
     const trendMap: Record<string, number> = {};
@@ -154,9 +160,6 @@ export async function GET() {
       trend,
     });
   } catch (err) {
-    if (err instanceof Error && err.message === 'UNAUTHORIZED') {
-      return NextResponse.json({ ok: false }, { status: 401 });
-    }
     logger.error("[GET /api/marketing/dashboard]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });
   }

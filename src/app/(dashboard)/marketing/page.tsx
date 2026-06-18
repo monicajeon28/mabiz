@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { BarChart2, Users, MousePointerClick, TrendingUp, RefreshCw } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { KpiCard } from "@/components/marketing/KpiCard";
@@ -17,6 +17,7 @@ export default function MarketingDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const refreshCtrlRef = useRef<AbortController | null>(null);
 
   const fetchData = useCallback((signal?: AbortSignal) => {
     setLoading(true);
@@ -57,7 +58,11 @@ export default function MarketingDashboardPage() {
           <p className="text-gray-500 text-sm mt-1">랜딩페이지 성과 및 전환율 분석</p>
         </div>
         <button
-          onClick={() => fetchData()}
+          onClick={() => {
+            refreshCtrlRef.current?.abort();
+            refreshCtrlRef.current = new AbortController();
+            fetchData(refreshCtrlRef.current.signal);
+          }}
           disabled={loading}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed focus:ring-2 focus:ring-offset-1 focus:ring-navy-600"
           aria-label="새로고침"
@@ -123,10 +128,10 @@ export default function MarketingDashboardPage() {
       {!loading && data && <TrendChart trend={data.trend} loading={loading} />}
 
       {/* ━━━ 전환 퍼널 차트 ━━━ */}
-      {data && <FunnelChart summary={data.summary} />}
+      {!loading && data && <FunnelChart summary={data.summary} />}
 
       {/* ━━━ 상위 랜딩페이지 ━━━ */}
-      {data && <TopPagesTable topPages={data.topPages} loading={loading} />}
+      {!loading && data && <TopPagesTable topPages={data.topPages} loading={loading} />}
     </div>
   );
 }

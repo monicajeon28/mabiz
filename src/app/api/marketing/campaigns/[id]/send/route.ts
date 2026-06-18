@@ -49,17 +49,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       );
     }
 
-    // 상태 확인 (PENDING 또는 DRAFT 모두 허용)
-    if (!['PENDING', 'DRAFT'].includes(campaign.status)) {
-      return NextResponse.json(
-        { ok: false, message: '이미 발송 중이거나 발송 완료된 캠페인입니다.' },
-        { status: 409 }
-      );
-    }
-
-    // 그룹 멤버 조회
+    // 그룹 멤버 조회 (cross-org 멤버 유출 방지: contact.organizationId 필터 추가)
     const members = await prisma.contactGroupMember.findMany({
-      where: { groupId: campaign.groupId },
+      where: {
+        groupId: campaign.groupId,
+        contact: { organizationId: campaign.organizationId ?? undefined },
+      },
       include: {
         contact: {
           select: {
@@ -79,11 +74,21 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       );
     }
 
-    // SENDING 상태를 동기적으로 설정 (레이스 컨디션 방지)
-    await prisma.crmMarketingCampaign.update({
-      where: { id },
+    // CAS(Compare-And-Swap): PENDING/DRAFT 상태인 경우에만 SENDING으로 원자적 전환 (TOCTOU 방지)
+    const cas = await prisma.crmMarketingCampaign.updateMany({
+      where: {
+        id,
+        status: { in: ['PENDING', 'DRAFT'] },
+        organizationId: campaign.organizationId,
+      },
       data: { status: 'SENDING', totalCount: members.length },
     });
+    if (cas.count === 0) {
+      return NextResponse.json(
+        { ok: false, message: '이미 발송 중이거나 발송 완료된 캠페인입니다.' },
+        { status: 409 }
+      );
+    }
 
     // 배경 작업으로 발송 시작 (비동기 처리)
     sendCampaignAsync(id, campaign, members, campaign.organizationId).catch((err) => {
@@ -229,6 +234,39 @@ async function processRecipient(
     }
 
     // 발송 기록은 SmsLog (sendSms 내부에서 자동 기록) 및 EmailLog에서 처리
+
+    // ExecutionLog upsert: 캠페인 발송 이력 기록 (월별 중복 방지)
+    try {
+      await prisma.executionLog.upsert({
+        where: {
+          uq_execution_monthly: {
+            sourceType: 'CAMPAIGN',
+            sourceId: campaignId,
+            contactId: contact.id,
+            executeMonth: new Date().toISOString().slice(0, 7),
+          },
+        },
+        create: {
+          organizationId,
+          sourceType: 'CAMPAIGN',
+          sourceId: campaignId,
+          sourceName: campaign.title,
+          contactId: contact.id,
+          channel: campaign.sendSms ? 'SMS' : 'EMAIL',
+          status: (smsSent || emailSent) ? 'SENT' : 'FAILED',
+          executeMonth: new Date().toISOString().slice(0, 7),
+          scheduledAt: campaign.sendAt,
+          sentAt: new Date(),
+          campaignId,
+        },
+        update: {
+          status: (smsSent || emailSent) ? 'SENT' : 'FAILED',
+          sentAt: new Date(),
+        },
+      });
+    } catch (logErr) {
+      logger.error('[processRecipient] ExecutionLog upsert failed', { logErr, campaignId, contactId: contact.id });
+    }
 
     logger.info('[processRecipient] done', { campaignId, contactId: contact.id, smsSent, emailSent });
     return smsSent || emailSent;

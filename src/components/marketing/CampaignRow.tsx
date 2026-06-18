@@ -10,6 +10,7 @@ interface CampaignRowProps {
 }
 
 const STATUS_LABEL_MAP = {
+  DRAFT: '임시저장',
   PENDING: '대기',
   SENDING: '발송 중',
   SENT: '발송 완료',
