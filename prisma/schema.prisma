@@ -3867,6 +3867,8 @@ model CommissionLedger {
   @@index([profileId, isSettled])
   @@index([saleId])
   @@index([organizationId, isSettled, createdAt], map: "idx_commission_org_settled_date")
+  // ✅ 성능 개선 인덱스 (2026-06-19)
+  @@index([agentId, isSettled], map: "idx_commission_ledger_agentid_settled")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -5227,8 +5229,11 @@ model AffiliatePayslip {
 
   @@unique([agentId, yearMonth])
   @@index([status])
-  @@index([agentId, yearMonth])
+  // @@index([agentId, yearMonth]) -- 중복 제거: UNIQUE가 이미 인덱싱됨
   @@index([createdAt])
+  // ✅ 성능 개선 인덱스 (2026-06-19)
+  @@index([yearMonth, status], map: "idx_affiliate_payslip_yearmonth_status")
+  @@index([status, paidAt], map: "idx_affiliate_payslip_status_paidat")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -6624,6 +6629,8 @@ model AuditLog {
   @@index([action, createdAt])
   @@index([status, createdAt])
   @@index([resourceType, resourceId])
+  // ✅ 성능 개선 인덱스 (2026-06-19)
+  @@index([action, resourceType, createdAt], map: "idx_audit_log_action_resourcetype_date")
   @@map("AuditLog")
 }
 

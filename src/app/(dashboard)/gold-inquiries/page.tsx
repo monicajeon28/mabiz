@@ -14,6 +14,7 @@ type GoldInquiry = {
   message: string | null;
   submittedAt: string | null;
   createdAt: string;
+  /** "본사" | "대리점장 홍길동" | "판매원 김철수" | "프리세일즈 이영희" | 이름만 */
   agentName: string | null;
 };
 
@@ -159,7 +160,7 @@ export default function GoldInquiriesPage() {
       // ✅ HTTP 상태 확인
       if (!r.ok) {
         logger.warn(`[gold-inquiries] 상태 변경 실패`, { id, status: r.status });
-        alert(`상태 변경 실패 (${r.status})`);
+        toast({ title: "상태 변경 실패", description: `오류 코드: ${r.status}`, variant: "destructive" });
         setActing(null);
         return;
       }
@@ -167,15 +168,15 @@ export default function GoldInquiriesPage() {
       const d = await r.json() as { ok: boolean; error?: string };
 
       if (d.ok) {
-        alert(`상태가 변경되었습니다`);
+        toast({ title: "상태 변경 완료", description: "상태가 변경되었습니다.", variant: "success" });
         load();
       } else {
-        alert(d.error ?? '상태 변경 실패');
+        toast({ title: "상태 변경 실패", description: d.error ?? "알 수 없는 오류", variant: "destructive" });
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : '네트워크 오류';
       logger.warn("[gold-inquiries] changeStatus 네트워크 오류", { err: msg });
-      alert(`네트워크 오류: ${msg}`);
+      toast({ title: "네트워크 오류", description: msg, variant: "destructive" });
     } finally {
       setActing(null);
     }
@@ -194,7 +195,7 @@ export default function GoldInquiriesPage() {
       if (!r.ok) {
         const errorMsg = await r.text().catch(() => `HTTP ${r.status}`);
         logger.warn(`[gold-inquiries] 회원 전환 실패`, { id: inq.id, status: r.status });
-        alert(`요청 실패 (${r.status}): ${errorMsg}`);
+        toast({ title: "회원 전환 실패", description: `오류 (${r.status}): ${errorMsg}`, variant: "destructive" });
         setConverting(null);
         return;
       }
@@ -209,24 +210,21 @@ export default function GoldInquiriesPage() {
 
       if (d.ok && d.memberId) {
         setConvertedIds((prev) => ({ ...prev, [inq.id]: d.memberId! }));
-        // ✅ 성공 메시지 개선
-        const msg = d.memberCode
+        const desc = d.memberCode
           ? `${d.memberCode}로 골드회원 전환되었습니다`
           : '골드회원으로 전환되었습니다';
-        alert(msg);
-        // 데이터 재로드
+        toast({ title: "회원 전환 완료", description: desc, variant: "success" });
         load();
       } else {
-        // ✅ 실패 메시지
-        const msg = d.alreadyExists
+        const desc = d.alreadyExists
           ? '이미 골드회원으로 등록된 고객입니다'
           : (d.error ?? '회원 전환 실패');
-        alert(msg);
+        toast({ title: "회원 전환 실패", description: desc, variant: "destructive" });
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : '네트워크 오류';
       logger.warn("[gold-inquiries] convertToMember 네트워크 오류", { err: msg });
-      alert(`네트워크 오류: ${msg}`);
+      toast({ title: "네트워크 오류", description: msg, variant: "destructive" });
     } finally {
       setConverting(null);
     }
@@ -290,7 +288,118 @@ export default function GoldInquiriesPage() {
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* 모바일 카드 뷰 (640px 미만) */}
+          <div className="md:hidden divide-y divide-gray-100">
+            {inquiries.map((inq) => {
+              const st = STATUS_LABELS[inq.status] ?? { label: inq.status, color: "bg-gray-100 text-gray-500" };
+              const nextStatuses = NEXT_STATUS[inq.status] ?? [];
+              return (
+                <div key={`m-${inq.id}`} className="p-4 space-y-3">
+                  {/* 상단: 이름 + 상태 + 담당자 */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-gray-900 text-base">{inq.name}</p>
+                      <p className="text-sm text-gray-500 font-mono mt-0.5">{inq.phone}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
+                      {inq.agentName === '본사' ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                          🏢 본사
+                        </span>
+                      ) : inq.agentName?.startsWith('대리점장') ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                          {inq.agentName}
+                        </span>
+                      ) : inq.agentName?.startsWith('판매원') ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                          {inq.agentName}
+                        </span>
+                      ) : inq.agentName?.startsWith('프리세일즈') ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                          {inq.agentName}
+                        </span>
+                      ) : inq.agentName ? (
+                        <span className="text-xs text-gray-600">{inq.agentName}</span>
+                      ) : (
+                        <span className="text-xs text-gray-400">담당 없음</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 희망등급 + 접수일 */}
+                  <div className="flex items-center gap-3 text-sm text-gray-500">
+                    <span>희망등급: {inq.tier != null ? (TIER_LABELS[inq.tier] ?? `Tier${inq.tier}`) : "-"}</span>
+                    <span>·</span>
+                    <span>{(inq.submittedAt ?? inq.createdAt).slice(0, 10)}</span>
+                  </div>
+
+                  {/* 메시지 */}
+                  {inq.message && (
+                    <p className="text-sm text-gray-500 line-clamp-2">{inq.message}</p>
+                  )}
+
+                  {/* 상태 변경 버튼 */}
+                  {nextStatuses.length > 0 && (
+                    <div className="flex gap-2 flex-wrap">
+                      {acting === inq.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-gray-600" />
+                      ) : (
+                        nextStatuses.map((ns) => (
+                          <button
+                            key={ns}
+                            onClick={() => changeStatus(inq.id, ns)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium min-h-[44px] transition-colors ${
+                              ns === "confirmed"
+                                ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                : ns === "unavailable" || ns === "refund"
+                                ? "bg-red-100 text-red-700 hover:bg-red-200"
+                                : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                            }`}
+                          >
+                            {STATUS_LABELS[ns]?.label ?? ns}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  {/* 그룹 배정 */}
+                  <div className="flex items-center gap-2">
+                    {assigning === inq.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-gray-600" />
+                    ) : (
+                      <>
+                        <select
+                          value={selectedGroupId[inq.id] ?? ""}
+                          onChange={(e) =>
+                            setSelectedGroupId((prev) => ({ ...prev, [inq.id]: e.target.value }))
+                          }
+                          className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-navy-900/20 bg-white text-gray-700"
+                        >
+                          <option value="">그룹 선택</option>
+                          {groups.map((g) => (
+                            <option key={g.id} value={g.id}>{g.name}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => quickAssign(inq)}
+                          disabled={!selectedGroupId[inq.id]}
+                          className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium min-h-[44px] bg-indigo-100 text-indigo-700 hover:bg-indigo-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <Users className="w-4 h-4" />
+                          배정
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* 데스크톱 테이블 뷰 (640px 이상) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
@@ -320,7 +429,29 @@ export default function GoldInquiriesPage() {
                       <td className="px-4 py-3 text-gray-500 text-sm max-w-[180px] truncate" title={inq.message ?? ""}>
                         {inq.message ?? "-"}
                       </td>
-                      <td className="px-4 py-3 text-gray-600 text-sm">{inq.agentName ?? "-"}</td>
+                      <td className="px-4 py-3">
+                        {inq.agentName === '본사' ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                            🏢 본사
+                          </span>
+                        ) : inq.agentName?.startsWith('대리점장') ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                            {inq.agentName}
+                          </span>
+                        ) : inq.agentName?.startsWith('판매원') ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                            {inq.agentName}
+                          </span>
+                        ) : inq.agentName?.startsWith('프리세일즈') ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                            {inq.agentName}
+                          </span>
+                        ) : inq.agentName ? (
+                          <span className="text-gray-600 text-sm">{inq.agentName}</span>
+                        ) : (
+                          <span className="text-gray-400 text-sm">-</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${st.color}`}>{st.label}</span>
                       </td>

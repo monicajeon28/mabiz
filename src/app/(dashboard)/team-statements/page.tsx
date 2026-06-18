@@ -146,14 +146,14 @@ function SummaryCard({ title, value, sub, icon: Icon, iconColor }: {
   icon: React.ElementType; iconColor: string;
 }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm flex items-start gap-4">
-      <div className={`p-2 rounded-lg ${iconColor} bg-opacity-10 shrink-0`}>
-        <Icon className={`w-5 h-5 ${iconColor}`} />
+    <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex items-start gap-4">
+      <div className={`p-3 rounded-lg ${iconColor} bg-opacity-10 shrink-0`}>
+        <Icon className={`w-6 h-6 ${iconColor}`} />
       </div>
       <div>
-        <p className="text-sm text-gray-500 font-medium">{title}</p>
-        <p className="text-2xl font-bold text-navy-900 mt-0.5">{value}</p>
-        {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+        <p className="text-sm text-gray-600 font-medium">{title}</p>
+        <p className="text-3xl font-bold text-navy-900 mt-1">{value}</p>
+        {sub && <p className="text-sm text-gray-500 mt-1">{sub}</p>}
       </div>
     </div>
   );
@@ -172,45 +172,45 @@ function ConfirmModal({ modal, onClose, onConfirm, submitting, actionError }: {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h3 className="text-lg font-bold text-navy-900">
+        <div className="px-6 py-5 border-b border-gray-100">
+          <h3 className="text-xl font-bold text-navy-900">
             {isApprove ? "정산 승인 확인" : "정산서 발송 확인"}
           </h3>
         </div>
-        <div className="px-6 py-5 space-y-4">
-          <p className="text-sm text-gray-600">
+        <div className="px-6 py-6 space-y-5">
+          <p className="text-base text-gray-700">
             <span className="font-semibold text-navy-900">{modal.memberName}</span> 님의{" "}
             {y}년 {parseInt(m, 10)}월 정산을 {isApprove ? "승인" : "발송"}하시겠습니까?
           </p>
-          <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
+          <div className="bg-gray-50 rounded-xl p-5 space-y-3 text-base">
             <div className="flex justify-between">
-              <span className="text-gray-500">실지급액</span>
+              <span className="text-gray-600">실지급액</span>
               <span className="font-bold text-navy-900">{formatKRW(modal.netAmount)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500">원천징수 (3.3%)</span>
-              <span className="text-gray-600">-{formatKRW(modal.withholdingAmount)}</span>
+              <span className="text-gray-600">원천징수 (3.3%)</span>
+              <span className="text-gray-700">-{formatKRW(modal.withholdingAmount)}</span>
             </div>
-            <div className="flex justify-between border-t border-gray-200 pt-2 mt-2">
-              <span className="text-gray-500">예정 지급일</span>
+            <div className="flex justify-between border-t border-gray-200 pt-3 mt-3">
+              <span className="text-gray-600">예정 지급일</span>
               <span className="font-semibold text-navy-900">{formatDate(modal.expectedPaymentDate)}</span>
             </div>
           </div>
         </div>
         {actionError && (
-          <div className="px-6 pb-3">
-            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />{actionError}
+          <div className="px-6 pb-4">
+            <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" /><span>{actionError}</span>
             </div>
           </div>
         )}
-        <div className="px-6 py-4 border-t border-gray-100 flex gap-3 justify-end">
+        <div className="px-6 py-5 border-t border-gray-100 flex flex-col-reverse sm:flex-row gap-3 justify-end">
           <button type="button" onClick={onClose} disabled={submitting}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors disabled:opacity-50">
+            className="px-6 py-3 rounded-lg text-base font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors disabled:opacity-50 min-h-[48px]">
             취소
           </button>
           <button type="button" onClick={onConfirm} disabled={submitting}
-            className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${isApprove ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-green-600 hover:bg-green-700 text-white"}`}>
+            className={`px-6 py-3 rounded-lg text-base font-medium transition-colors disabled:opacity-50 min-h-[48px] ${isApprove ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-green-600 hover:bg-green-700 text-white"}`}>
             {submitting ? "처리 중..." : isApprove ? "승인 확인" : "발송 확인"}
           </button>
         </div>
@@ -229,31 +229,31 @@ function MemberRow({ member, onAction }: {
   const st = STATUS_LABELS[member.status] ?? { label: member.status, color: "bg-gray-100 text-gray-500" };
   return (
     <tr className={`hover:bg-gray-50 transition-colors ${rowBg}`}>
-      <td className="px-4 py-3 font-medium text-navy-900 whitespace-nowrap">{member.name}</td>
-      <td className="px-4 py-3 whitespace-nowrap">
-        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${ROLE_BADGE_COLORS[member.role] ?? "bg-gray-100 text-gray-600"}`}>
+      <td className="px-5 py-4 font-medium text-navy-900 whitespace-nowrap text-base">{member.name}</td>
+      <td className="px-5 py-4 whitespace-nowrap">
+        <span className={`inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium ${ROLE_BADGE_COLORS[member.role] ?? "bg-gray-100 text-gray-600"}`}>
           {ROLE_LABELS[member.role] ?? member.role}
         </span>
       </td>
-      <td className="px-3 py-3 text-center">
-        {member.hasIdCard ? <CheckCircle className="w-4 h-4 text-green-500 mx-auto" /> : <XCircle className="w-4 h-4 text-red-400 mx-auto" />}
+      <td className="px-4 py-4 text-center">
+        {member.hasIdCard ? <CheckCircle className="w-5 h-5 text-green-500 mx-auto" /> : <XCircle className="w-5 h-5 text-red-400 mx-auto" />}
       </td>
-      <td className="px-3 py-3 text-center">
-        {member.hasBankBook ? <CheckCircle className="w-4 h-4 text-green-500 mx-auto" /> : <XCircle className="w-4 h-4 text-red-400 mx-auto" />}
+      <td className="px-4 py-4 text-center">
+        {member.hasBankBook ? <CheckCircle className="w-5 h-5 text-green-500 mx-auto" /> : <XCircle className="w-5 h-5 text-red-400 mx-auto" />}
       </td>
-      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{member.bankName ?? "—"}</td>
-      <td className="px-4 py-3 text-gray-600 font-mono text-xs whitespace-nowrap">{member.bankAccount ?? "—"}</td>
-      <td className="px-4 py-3 text-right text-gray-700 whitespace-nowrap">{formatKRW(member.baseCommission)}</td>
-      <td className="px-4 py-3 text-right whitespace-nowrap">
+      <td className="px-5 py-4 text-gray-700 whitespace-nowrap text-base">{member.bankName ?? "—"}</td>
+      <td className="px-5 py-4 text-gray-700 font-mono text-sm whitespace-nowrap">{member.bankAccount ?? "—"}</td>
+      <td className="px-5 py-4 text-right text-gray-700 whitespace-nowrap text-base">{formatKRW(member.baseCommission)}</td>
+      <td className="px-5 py-4 text-right whitespace-nowrap text-base">
         {member.deduction > 0 ? <span className="text-red-500 font-medium">-{formatKRW(member.deduction)}</span> : <span className="text-gray-400">—</span>}
       </td>
-      <td className="px-4 py-3 text-right text-gray-400 whitespace-nowrap text-xs">-{formatKRW(member.withholdingAmount)}</td>
-      <td className="px-4 py-3 text-right font-bold text-navy-900 whitespace-nowrap">{formatKRW(member.netAmount)}</td>
-      <td className="px-4 py-3 text-center text-gray-600 whitespace-nowrap text-xs">{formatDate(member.expectedPaymentDate)}</td>
-      <td className="px-4 py-3 text-center">
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
+      <td className="px-5 py-4 text-right text-gray-600 whitespace-nowrap text-sm">-{formatKRW(member.withholdingAmount)}</td>
+      <td className="px-5 py-4 text-right font-bold text-navy-900 whitespace-nowrap text-base">{formatKRW(member.netAmount)}</td>
+      <td className="px-5 py-4 text-center text-gray-600 whitespace-nowrap text-sm">{formatDate(member.expectedPaymentDate)}</td>
+      <td className="px-5 py-4 text-center">
+        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${st.color}`}>{st.label}</span>
       </td>
-      <td className="px-4 py-3 text-center whitespace-nowrap">
+      <td className="px-5 py-4 text-center whitespace-nowrap">
         <ActionButton member={member} onAction={onAction} />
       </td>
     </tr>
@@ -266,19 +266,19 @@ function TableHeader() {
   return (
     <thead className="bg-gray-50 border-b border-gray-200">
       <tr>
-        <th className="text-left px-4 py-3 font-medium text-gray-500">이름</th>
-        <th className="text-left px-4 py-3 font-medium text-gray-500">역할</th>
-        <th className="text-center px-3 py-3 font-medium text-gray-500">신분증</th>
-        <th className="text-center px-3 py-3 font-medium text-gray-500">통장사본</th>
-        <th className="text-left px-4 py-3 font-medium text-gray-500">은행</th>
-        <th className="text-left px-4 py-3 font-medium text-gray-500">계좌번호</th>
-        <th className="text-right px-4 py-3 font-medium text-gray-500">커미션</th>
-        <th className="text-right px-4 py-3 font-medium text-gray-500">환수금</th>
-        <th className="text-right px-4 py-3 font-medium text-gray-500">원천징수</th>
-        <th className="text-right px-4 py-3 font-medium text-gray-500">실지급액</th>
-        <th className="text-center px-4 py-3 font-medium text-gray-500">예정 지급일</th>
-        <th className="text-center px-4 py-3 font-medium text-gray-500">상태</th>
-        <th className="text-center px-4 py-3 font-medium text-gray-500">액션</th>
+        <th className="text-left px-5 py-4 font-semibold text-gray-700 text-sm">이름</th>
+        <th className="text-left px-5 py-4 font-semibold text-gray-700 text-sm">역할</th>
+        <th className="text-center px-4 py-4 font-semibold text-gray-700 text-sm">신분증</th>
+        <th className="text-center px-4 py-4 font-semibold text-gray-700 text-sm">통장사본</th>
+        <th className="text-left px-5 py-4 font-semibold text-gray-700 text-sm">은행</th>
+        <th className="text-left px-5 py-4 font-semibold text-gray-700 text-sm">계좌번호</th>
+        <th className="text-right px-5 py-4 font-semibold text-gray-700 text-sm">커미션</th>
+        <th className="text-right px-5 py-4 font-semibold text-gray-700 text-sm">환수금</th>
+        <th className="text-right px-5 py-4 font-semibold text-gray-700 text-sm">원천징수</th>
+        <th className="text-right px-5 py-4 font-semibold text-gray-700 text-sm">실지급액</th>
+        <th className="text-center px-5 py-4 font-semibold text-gray-700 text-sm">예정 지급일</th>
+        <th className="text-center px-5 py-4 font-semibold text-gray-700 text-sm">상태</th>
+        <th className="text-center px-5 py-4 font-semibold text-gray-700 text-sm">액션</th>
       </tr>
     </thead>
   );
@@ -322,15 +322,15 @@ function TeamAccordionView({ teams, onAction }: {
             <button
               type="button"
               onClick={() => toggle(team.managerId)}
-              className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors"
+              className="w-full flex items-center justify-between px-6 py-5 hover:bg-gray-50 transition-colors"
             >
-              <div className="flex items-center gap-3">
-                <Building2 className="w-5 h-5 text-purple-500 shrink-0" />
+              <div className="flex items-center gap-4">
+                <Building2 className="w-6 h-6 text-purple-500 shrink-0" />
                 <div className="text-left">
-                  <p className="font-bold text-navy-900 text-base">
+                  <p className="font-bold text-navy-900 text-lg">
                     {team.managerId ? `${team.managerName} 대리점` : "미배정"}
                   </p>
-                  <p className="text-xs text-gray-400 mt-0.5">
+                  <p className="text-sm text-gray-600 mt-1">
                     {team.members.length}명
                     {pendingCount > 0 && (
                       <span className="ml-2 text-yellow-600 font-medium">승인대기 {pendingCount}건</span>
@@ -338,15 +338,15 @@ function TeamAccordionView({ teams, onAction }: {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-5">
                 {/* 팀 총 정산액 — 50대도 한눈에 */}
                 <div className="text-right">
-                  <p className="text-xs text-gray-400">팀 총 실지급액</p>
-                  <p className="text-xl font-bold text-teal-700">{formatKRW(team.teamTotal)}</p>
+                  <p className="text-sm text-gray-600">팀 총 실지급액</p>
+                  <p className="text-2xl font-bold text-teal-700 mt-1">{formatKRW(team.teamTotal)}</p>
                 </div>
                 {isOpen
-                  ? <ChevronUp className="w-5 h-5 text-gray-400 shrink-0" />
-                  : <ChevronDown className="w-5 h-5 text-gray-400 shrink-0" />}
+                  ? <ChevronUp className="w-6 h-6 text-gray-400 shrink-0" />
+                  : <ChevronDown className="w-6 h-6 text-gray-400 shrink-0" />}
               </div>
             </button>
 
@@ -398,19 +398,19 @@ function ListView({ members, onAction, page, totalPages, pagination, onPageChang
         </table>
       </div>
       {totalPages > 1 && (
-        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50">
-          <p className="text-sm text-gray-500">총 {pagination?.total.toLocaleString()}건</p>
-          <div className="flex items-center gap-1">
+        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50">
+          <p className="text-base text-gray-700">총 {pagination?.total.toLocaleString()}건</p>
+          <div className="flex items-center gap-2">
             <button type="button" onClick={() => onPageChange(Math.max(1, page - 1))}
               disabled={page === 1}
-              className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-200 disabled:opacity-30 transition-colors">
-              <ChevronLeft className="w-4 h-4" />
+              className="p-2.5 rounded-lg text-gray-600 hover:bg-gray-200 disabled:opacity-30 transition-colors min-h-[40px] min-w-[40px]">
+              <ChevronLeft className="w-5 h-5" />
             </button>
-            <span className="px-3 py-1 text-sm text-gray-600">{page} / {totalPages}</span>
+            <span className="px-4 py-2 text-base text-gray-700 font-medium">{page} / {totalPages}</span>
             <button type="button" onClick={() => onPageChange(Math.min(totalPages, page + 1))}
               disabled={page === totalPages}
-              className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-200 disabled:opacity-30 transition-colors">
-              <ChevronRight className="w-4 h-4" />
+              className="p-2.5 rounded-lg text-gray-600 hover:bg-gray-200 disabled:opacity-30 transition-colors min-h-[40px] min-w-[40px]">
+              <ChevronRight className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -531,37 +531,37 @@ export default function TeamStatementsPage() {
       <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
 
         {/* ── 헤더 ──────────────────────────────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <FileText className="w-5 h-5 text-teal-600" />
-              <h1 className="text-xl font-bold text-navy-900">팀 정산 관리</h1>
+            <div className="flex items-center gap-3 mb-2">
+              <FileText className="w-6 h-6 text-teal-600" />
+              <h1 className="text-2xl font-bold text-navy-900">팀 정산 관리</h1>
             </div>
-            <p className="text-sm text-gray-500">대리점장·판매원·프리세일즈 월별 커미션 정산 현황</p>
+            <p className="text-base text-gray-600">대리점장·판매원·프리세일즈 월별 커미션 정산 현황</p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
             {/* 뷰 모드 토글 */}
-            <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+            <div className="flex items-center bg-gray-100 rounded-lg p-1">
               <button type="button" onClick={() => setViewMode("team")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${viewMode === "team" ? "bg-white text-navy-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
-                <Building2 className="w-3.5 h-3.5" />팀별
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-colors min-h-[44px] ${viewMode === "team" ? "bg-white text-navy-900 shadow-sm" : "text-gray-600 hover:text-gray-800"}`}>
+                <Building2 className="w-5 h-5" />팀별
               </button>
               <button type="button" onClick={() => setViewMode("list")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${viewMode === "list" ? "bg-white text-navy-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
-                <LayoutList className="w-3.5 h-3.5" />목록
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-colors min-h-[44px] ${viewMode === "list" ? "bg-white text-navy-900 shadow-sm" : "text-gray-600 hover:text-gray-800"}`}>
+                <LayoutList className="w-5 h-5" />목록
               </button>
             </div>
 
             {/* 기간 선택 */}
             <select value={period} onChange={(e) => { setPeriod(e.target.value); setPage(1); }}
-              className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-navy-900/20">
+              className="px-4 py-2.5 text-base border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-navy-900/20 min-h-[44px]">
               {ymOptions.map((ym) => <option key={ym} value={ym}>{ym}</option>)}
             </select>
 
             {/* 역할 필터 */}
             <select value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
-              className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-navy-900/20">
+              className="px-4 py-2.5 text-base border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-navy-900/20 min-h-[44px]">
               <option value="all">전체 역할</option>
               <option value="BRANCH_MANAGER">대리점장</option>
               <option value="SALES_AGENT">판매원</option>
@@ -572,13 +572,13 @@ export default function TeamStatementsPage() {
 
         {/* ── 에러 배너 ─────────────────────────────────────────────────────── */}
         {error && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-            <div className="flex items-start gap-2">
-              <XCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <div className="p-5 bg-red-50 border border-red-200 rounded-lg text-red-700 text-base">
+            <div className="flex items-start gap-3">
+              <XCircle className="w-6 h-6 shrink-0 mt-0.5" />
               <span className="flex-1">{error}</span>
               {isNetworkError && (
                 <button type="button" onClick={load}
-                  className="ml-2 px-3 py-1 rounded-lg text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-colors whitespace-nowrap shrink-0">
+                  className="ml-3 px-4 py-2 rounded-lg text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-colors whitespace-nowrap shrink-0 min-h-[40px]">
                   ↺ 다시 시도
                 </button>
               )}
@@ -602,8 +602,8 @@ export default function TeamStatementsPage() {
 
         {/* ── 서류 미제출 경고 ──────────────────────────────────────────────── */}
         {!loading && summary && summary.missingDocCount > 0 && (
-          <div className="flex items-center gap-3 p-4 bg-orange-50 border border-orange-200 rounded-xl text-sm">
-            <AlertTriangle className="w-5 h-5 text-orange-500 shrink-0" />
+          <div className="flex items-start gap-4 p-5 bg-orange-50 border border-orange-200 rounded-xl text-base">
+            <AlertTriangle className="w-6 h-6 text-orange-500 shrink-0 mt-0.5" />
             <p className="text-orange-700">
               <span className="font-semibold">{summary.missingDocCount}명</span>의 서류가 미제출되어 승인이 불가합니다.
             </p>
@@ -634,26 +634,26 @@ function ActionButton({ member, onAction }: {
   onAction: (m: MemberStatement, a: ConfirmAction) => void;
 }) {
   if (member.status === "SENT") return (
-    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-green-600 bg-green-50">
-      <CheckCircle className="w-3.5 h-3.5" />지급완료
+    <span className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-green-600 bg-green-50 min-h-[40px]">
+      <CheckCircle className="w-5 h-5" />지급완료
     </span>
   );
   if (member.status === "APPROVED") return (
     <button type="button" onClick={() => onAction(member, "send")}
-      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-green-600 text-white hover:bg-green-700 transition-colors">
-      <Send className="w-3.5 h-3.5" />정산서 발송
+      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors min-h-[40px]">
+      <Send className="w-5 h-5" />정산서 발송
     </button>
   );
   if (member.canApprove) return (
     <button type="button" onClick={() => onAction(member, "approve")}
-      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors">
-      <CheckCircle className="w-3.5 h-3.5" />승인
+      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors min-h-[40px]">
+      <CheckCircle className="w-5 h-5" />승인
     </button>
   );
   return (
     <span title="신분증 및 통장사본이 필요합니다"
-      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-gray-400 bg-gray-100 cursor-not-allowed">
-      <XCircle className="w-3.5 h-3.5" />서류확인 필요
+      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-500 bg-gray-100 cursor-not-allowed min-h-[40px]">
+      <XCircle className="w-5 h-5" />서류확인 필요
     </span>
   );
 }
