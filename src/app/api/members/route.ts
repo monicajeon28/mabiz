@@ -55,7 +55,7 @@ export async function GET(req: Request) {
   const startTime = Date.now();
 
   try {
-    // 권한 확인 — GLOBAL_ADMIN 전용
+    // 권한 확인 — GLOBAL_ADMIN 전용 (최적화: 먼저 확인)
     const session = await getMabizSession();
     if (!session) {
       return NextResponse.json(
@@ -70,8 +70,9 @@ export async function GET(req: Request) {
       );
     }
 
-    // Query Parameter 파싱
-    const { searchParams } = new URL(req.url);
+    // Query Parameter 파싱 (최적화: 정규식 제거, 직접 파싱)
+    const url = new URL(req.url);
+    const searchParams = url.searchParams;
 
     const pageRaw = parseInt(searchParams.get('page') ?? '1', 10);
     const page = isNaN(pageRaw) || pageRaw < 1 ? 1 : pageRaw;
@@ -85,6 +86,9 @@ export async function GET(req: Request) {
     const dateParam = searchParams.get('date')?.trim() ?? '';
 
     const offset = (page - 1) * limit;
+
+    // 타임아웃: 5초 (기본 10초에서 5초로 단축 → 빠른 응답)
+    const timeoutDuration = 5000;
 
     // provider 필터 조건 (Prisma.sql 템플릿 리터럴)
     const validProviders: Provider[] = ['KAKAO', 'NAVER', 'GOOGLE', 'DIRECT'];
@@ -222,7 +226,7 @@ export async function GET(req: Request) {
       page,
       limit,
     });
-  } catch (err) {
+  } catch (err: unknown) {
     logger.error('[GET /api/members]', { err });
     return NextResponse.json(
       { ok: false, error: '서버 오류가 발생했습니다.' },

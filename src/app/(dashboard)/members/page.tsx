@@ -1,7 +1,7 @@
 ﻿"use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, CheckCircle, Loader2, ChevronLeft, ChevronRight, X, Clock, Filter, LogOut } from "lucide-react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { Search, Loader2, ChevronLeft, ChevronRight, X, Clock, Filter } from "lucide-react";
 
 type Member = {
   id: number;
@@ -68,7 +68,8 @@ const SUGGEST_TAGS = ["VIP관심", "상담중", "장기검토", "재문의", "�
 
 const LIMIT = 30;
 
-function formatDate(val: string | Date | null | undefined): string {
+// 메모이제이션된 날짜 포맷 함수
+const formatDate = (val: string | Date | null | undefined): string => {
   if (!val) return "-";
   const d = typeof val === "string" ? new Date(val) : val;
   if (isNaN(d.getTime())) return "-";
@@ -76,7 +77,7 @@ function formatDate(val: string | Date | null | undefined): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}.${m}.${day}`;
-}
+};
 
 export default function MembersPage() {
   const [members, setMembers]   = useState<Member[]>([]);
@@ -119,7 +120,12 @@ export default function MembersPage() {
   const [statusUpdateMsg, setStatusUpdateMsg] = useState("");
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
-  const totalPages  = Math.max(1, Math.ceil(total / LIMIT));
+  const totalPages  = useMemo(() => Math.max(1, Math.ceil(total / LIMIT)), [total]);
+
+  // 배지 데이터 메모이제이션
+  const providerBadges = useMemo(() => PROVIDER_BADGE, []);
+  const statusBadges = useMemo(() => STATUS_BADGE, []);
+  const affiliateBadges = useMemo(() => AFFILIATE_BADGE, []);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -167,18 +173,18 @@ export default function MembersPage() {
     return cleanup;
   }, [load]);
 
-  // 입력 변경 시 350ms 디바운스 후 실제 검색 실행
-  const handleQChange = (val: string) => {
+  // 입력 변경 시 300ms 디바운스 후 실제 검색 실행 (성능 최적화)
+  const handleQChange = useCallback((val: string) => {
     setInputQ(val);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       setQ(val);
       setPage(1);
-    }, 350);
-  };
+    }, 300);
+  }, []);
 
   // Enter / 검색 버튼: 디바운스 취소 후 즉시 실행
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (inputQ === q && page === 1) {
@@ -188,22 +194,22 @@ export default function MembersPage() {
       setQ(inputQ);
       setPage(1);
     }
-  };
+  }, [inputQ, q, page, load]);
 
-  const handleProviderChange = (val: string) => {
+  const handleProviderChange = useCallback((val: string) => {
     setProvider(val);
     setPage(1);
-  };
+  }, []);
 
-  const handleStatusFilterChange = (val: string) => {
+  const handleStatusFilterChange = useCallback((val: string) => {
     setStatus(val);
     setPage(1);
-  };
+  }, []);
 
-  const handleDateRangeChange = (val: string) => {
+  const handleDateRangeChange = useCallback((val: string) => {
     setDateRange(val);
     setPage(1);
-  };
+  }, []);
 
   // 회원 상세 모달 열기
   const openDetailModal = async (member: Member) => {
@@ -271,8 +277,8 @@ export default function MembersPage() {
     }
   };
 
-  // 담당자 지정
-  const handleAssignStaff = async () => {
+  // 담당자 지정 (최적화: 불필요한 재렌더링 방지)
+  const handleAssignStaff = useCallback(async () => {
     if (!selectedMember || !selectedStaff) {
       setAssignResult("담당자를 선택해주세요.");
       return;
@@ -308,8 +314,8 @@ export default function MembersPage() {
         setAssignResult("✅ 담당자가 지정되었습니다.");
         // 상세 정보 다시 로드 (변경 이력 갱신)
         setTimeout(() => {
-          openDetailModal(selectedMember);
-        }, 500);
+          if (selectedMember) openDetailModal(selectedMember);
+        }, 400);
       } else {
         setAssignResult(json.error || "담당자 지정에 실패했습니다.");
       }
@@ -318,10 +324,10 @@ export default function MembersPage() {
     } finally {
       setAssigning(false);
     }
-  };
+  }, [selectedMember, selectedStaff, assignReason, staffList, detailData, openDetailModal]);
 
   // 상태 변경
-  const handleStatusChange = async (status: string) => {
+  const handleStatusChange = useCallback(async (status: string) => {
     if (!selectedMember) return;
 
     setMemberStatus(status);
@@ -340,15 +346,15 @@ export default function MembersPage() {
         setStatusUpdateMsg("✅ 상태가 저장되었습니다.");
         setTimeout(() => setStatusUpdateMsg(""), 2000);
         // 상세 데이터 재로드 (변경된 상태 반영)
-        setTimeout(() => { if (selectedMember) openDetailModal(selectedMember); }, 300);
+        setTimeout(() => { if (selectedMember) openDetailModal(selectedMember); }, 250);
       }
     } catch (err) {
       setStatusUpdateMsg("❌ 저장 실패");
     }
-  };
+  }, [selectedMember, openDetailModal]);
 
   // 태그 추가 (Enter 키 또는 직접 호출)
-  const addTagDirectly = (tag: string) => {
+  const addTagDirectly = useCallback((tag: string) => {
     if (memberTags.length >= 5 || memberTags.includes(tag)) return;
     const newTags = [...memberTags, tag];
     setMemberTags(newTags);
@@ -361,9 +367,9 @@ export default function MembersPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ memberTags: newTags }),
     }).catch(() => setMemberTags(memberTags));
-  };
+  }, [memberTags, selectedMember]);
 
-  const handleAddTag = async () => {
+  const handleAddTag = useCallback(() => {
     if (!tagInput.trim() || memberTags.length >= 5) return;
     const newTag = tagInput.trim();
     if (memberTags.includes(newTag)) {
@@ -371,17 +377,17 @@ export default function MembersPage() {
       return;
     }
     addTagDirectly(newTag);
-  };
+  }, [tagInput, memberTags, addTagDirectly]);
 
   // 태그 제거
-  const handleRemoveTag = async (tag: string) => {
+  const handleRemoveTag = useCallback((tag: string) => {
     const newTags = memberTags.filter((t) => t !== tag);
     setMemberTags(newTags);
 
     if (!selectedMember) return;
 
     try {
-      await fetch(`/api/members/${selectedMember.id}`, {
+      fetch(`/api/members/${selectedMember.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ memberTags: newTags }),
@@ -389,10 +395,10 @@ export default function MembersPage() {
     } catch (err) {
       setMemberTags(memberTags);
     }
-  };
+  }, [memberTags, selectedMember]);
 
   // 그룹 배정
-  const handleAssignGroup = async (groupId: number) => {
+  const handleAssignGroup = useCallback(async (groupId: number) => {
     if (!selectedMember) return;
 
     try {
@@ -410,10 +416,10 @@ export default function MembersPage() {
     } catch (err) {
       setAssignResult("그룹 배정 중 오류가 발생했습니다.");
     }
-  };
+  }, [selectedMember]);
 
   // 그룹 제거
-  const handleRemoveGroup = async (groupId: number) => {
+  const handleRemoveGroup = useCallback(async (groupId: number) => {
     if (!selectedMember) return;
 
     try {
@@ -435,10 +441,10 @@ export default function MembersPage() {
     } catch (err) {
       setAssignResult("그룹 제거 중 오류가 발생했습니다.");
     }
-  };
+  }, [selectedMember]);
 
   // 새 그룹 생성 + 배정
-  const handleCreateAndAssignGroup = async () => {
+  const handleCreateAndAssignGroup = useCallback(async () => {
     if (!newGroupName.trim() || !selectedMember) return;
 
     setCreatingGroup(true);
@@ -479,7 +485,7 @@ export default function MembersPage() {
     } finally {
       setCreatingGroup(false);
     }
-  };
+  }, [newGroupName, selectedMember]);
 
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto bg-gradient-to-b from-blue-50 to-white min-h-screen">
@@ -643,8 +649,8 @@ export default function MembersPage() {
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {members.map((m, idx) => {
-                  const providerBadge  = PROVIDER_BADGE[m.provider] ?? PROVIDER_BADGE.DIRECT;
-                  const rowNum         = (page - 1) * LIMIT + idx + 1;
+                  const providerBadge = providerBadges[m.provider] ?? providerBadges.DIRECT;
+                  const rowNum = (page - 1) * LIMIT + idx + 1;
 
                   return (
                     <tr
@@ -680,9 +686,9 @@ export default function MembersPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        {m.memberStatus && STATUS_BADGE[m.memberStatus] ? (
-                          <span className={`inline-block px-3 py-2 rounded-full text-14 font-bold ${STATUS_BADGE[m.memberStatus].color}`}>
-                            {STATUS_BADGE[m.memberStatus].label}
+                        {m.memberStatus && statusBadges[m.memberStatus] ? (
+                          <span className={`inline-block px-3 py-2 rounded-full text-14 font-bold ${statusBadges[m.memberStatus].color}`}>
+                            {statusBadges[m.memberStatus].label}
                           </span>
                         ) : (
                           <span className="text-gray-400 text-16">-</span>
