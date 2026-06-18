@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
-import { resolveOrgId } from '@/lib/rbac';
+
 import { logger } from '@/lib/logger';
 import { sendSms, getOrgSmsConfig } from '@/lib/aligo';
 import { sendEmail, getOrgEmailConfig } from '@/lib/email';
+
+type CampaignRecord = NonNullable<
+  Awaited<ReturnType<typeof prisma.crmMarketingCampaign.findFirst>>
+>;
+type MemberWithContact = Prisma.ContactGroupMemberGetPayload<{
+  include: { contact: { select: { id: true; phone: true; email: true; name: true } } };
+}>;
 
 // 배치 처리 유틸리티
 function chunk<T>(array: T[], size: number): T[][] {
@@ -30,7 +38,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     const campaign = await prisma.crmMarketingCampaign.findFirst({
       where: {
         id,
-        organizationId: resolveOrgId(ctx),
+        organizationId: ctx.organizationId ?? undefined,
       },
     });
 
@@ -73,7 +81,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
     // 배경 작업으로 발송 시작 (비동기 처리)
     // 상태 업데이트는 sendCampaignAsync 내부에서 관리하여 레이스 컨디션 방지
-    sendCampaignAsync(id, campaign, members, resolveOrgId(ctx)).catch((err) => {
+    sendCampaignAsync(id, campaign, members, campaign.organizationId).catch((err) => {
       logger.error('[sendCampaignAsync]', { err, campaignId: id });
     });
 
@@ -96,15 +104,15 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 // 비동기 발송 처리
 async function sendCampaignAsync(
   campaignId: string,
-  campaign: any,
-  members: any[],
+  campaign: CampaignRecord,
+  members: MemberWithContact[],
   organizationId: string
 ) {
   try {
     // 상태를 SENDING으로 업데이트 (발송 시작)
     await prisma.crmMarketingCampaign.update({
       where: { id: campaignId },
-      data: { status: 'SENDING' },
+      data: { status: 'SENDING', totalCount: members.length },
     });
 
     // 발송 설정 미리 로드 (배치마다 재조회 방지)
@@ -118,6 +126,7 @@ async function sendCampaignAsync(
 
     const batches = chunk(members, BATCH_SIZE);
     let totalSent = 0;
+    let totalFailed = 0;
 
     for (let i = 0; i < batches.length; i += CONCURRENT_BATCHES) {
       const batchGroup = batches.slice(i, i + CONCURRENT_BATCHES);
@@ -125,7 +134,7 @@ async function sendCampaignAsync(
       const batchResults = await Promise.all(
         batchGroup.map((batch) => processBatch(campaignId, campaign, batch, organizationId, smsConfig, emailConfig))
       );
-      totalSent += batchResults.reduce((a, b) => a + b, 0);
+      batchResults.forEach((r) => { totalSent += r.sent; totalFailed += r.failed; });
     }
 
     await prisma.crmMarketingCampaign.update({
@@ -133,6 +142,7 @@ async function sendCampaignAsync(
       data: {
         status: 'SENT',
         sentCount: totalSent,
+        failedCount: totalFailed,
       },
     });
 
@@ -153,25 +163,25 @@ async function sendCampaignAsync(
 // 배치 처리 - 성공한 수신자 수 반환
 async function processBatch(
   campaignId: string,
-  campaign: any,
-  members: any[],
+  campaign: CampaignRecord,
+  members: MemberWithContact[],
   organizationId: string,
   smsConfig: Awaited<ReturnType<typeof getOrgSmsConfig>>,
   emailConfig: Awaited<ReturnType<typeof getOrgEmailConfig>>
-): Promise<number> {
+): Promise<{ sent: number; failed: number }> {
   const results = await Promise.all(
     members.map((member) =>
       processRecipient(campaignId, campaign, member, organizationId, smsConfig, emailConfig)
     )
   );
-  return results.filter(Boolean).length;
+  return { sent: results.filter(Boolean).length, failed: results.filter((v) => !v).length };
 }
 
 // 개별 수신자 처리 - 성공 여부 반환
 async function processRecipient(
   campaignId: string,
-  campaign: any,
-  member: any,
+  campaign: CampaignRecord,
+  member: MemberWithContact,
   organizationId: string,
   smsConfig: Awaited<ReturnType<typeof getOrgSmsConfig>>,
   emailConfig: Awaited<ReturnType<typeof getOrgEmailConfig>>

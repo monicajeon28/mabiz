@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { logger } from '@/lib/logger';
+import { useToast } from '@/lib/api/use-toast';
 
 interface Campaign {
   id: string;
@@ -33,6 +34,8 @@ export default function CampaignDetailPage() {
   const params = useParams();
   const router = useRouter();
   const campaignId = params.id as string;
+
+  const { toast } = useToast();
 
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -83,8 +86,6 @@ export default function CampaignDetailPage() {
   }, [refreshInterval, fetchCampaignData]);
 
   const handleSend = async () => {
-    if (!confirm('이 캠페인을 지금 발송하시겠습니까?')) return;
-
     try {
       const res = await fetch(`/api/marketing/campaigns/${campaignId}/send`, {
         method: 'POST',
@@ -92,12 +93,12 @@ export default function CampaignDetailPage() {
 
       if (!res.ok) throw new Error('발송 실패');
 
-      alert('캠페인 발송이 시작되었습니다!');
+      toast({ title: '캠페인 발송이 시작되었습니다!' });
       setRefreshInterval(2000);
       fetchCampaignData();
     } catch (err) {
       logger.error('[handleSend]', { err });
-      alert('발송 실패');
+      toast({ title: '발송 실패', description: '다시 시도해주세요.', variant: 'destructive' });
     }
   };
 

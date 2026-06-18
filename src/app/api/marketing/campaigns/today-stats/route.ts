@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 import { startOfDay, endOfDay } from 'date-fns';
+import { ExecutionStatus } from '@prisma/client';
 
 /**
  * GET /api/marketing/campaigns/today-stats
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
     // OWNER/AGENT: 소속 조직 캠페인만 조회
     const campaignWhere = ctx.role === 'GLOBAL_ADMIN'
       ? baseWhere
-      : { ...baseWhere, organizationId: ctx.organizationId };
+      : { ...baseWhere, organizationId: ctx.organizationId ?? undefined };
 
     const logWhere = ctx.role === 'GLOBAL_ADMIN'
       ? {
@@ -44,7 +45,7 @@ export async function GET(req: NextRequest) {
           },
         }
       : {
-          organizationId: ctx.organizationId,
+          organizationId: ctx.organizationId ?? undefined,
           scheduledAt: {
             gte: todayStart,
             lte: todayEnd,
@@ -56,7 +57,7 @@ export async function GET(req: NextRequest) {
       where: {
         ...campaignWhere,
         status: { in: ['DRAFT'] },
-      } as any,
+      },
     });
 
     // 2. 발송 진행 중 (ExecutionLog에서 일부는 SENT, 일부는 PENDING)
@@ -64,8 +65,8 @@ export async function GET(req: NextRequest) {
     const campaigns = await prisma.crmMarketingCampaign.findMany({
       where: {
         ...campaignWhere,
-        status: { in: ['SENDING', 'ACTIVE'] },
-      } as any,
+        status: { in: ['SENDING'] },
+      },
       select: {
         id: true,
         totalCount: true,
@@ -77,14 +78,11 @@ export async function GET(req: NextRequest) {
       c => c.sentCount > 0 && c.sentCount < c.totalCount
     ).length;
 
-    // 3. 오늘 완료한 캠페인 — ExecutionLog 기준으로 정확히 계산
-    const completedCampaignGroups = await prisma.executionLog.groupBy({
-      by: ['sourceId'],
+    // 3. 오늘 완료한 캠페인 — status: SENT 기준으로 정확히 계산
+    const completedToday = await prisma.crmMarketingCampaign.count({
       where: {
-        ...logWhere,
-      } as any,
-      _count: {
-        id: true,
+        ...campaignWhere,
+        status: 'SENT',
       },
     });
 
@@ -92,18 +90,14 @@ export async function GET(req: NextRequest) {
     const completedExecutions = await prisma.executionLog.count({
       where: {
         ...logWhere,
-        status: 'SENT',
-      } as any,
+        status: ExecutionStatus.SENT,
+      },
     });
 
     // 전체 예정된 발송건 중 완료된 비율로 계산
     const totalExecutionLogsToday = await prisma.executionLog.count({
-      where: logWhere as any,
+      where: logWhere,
     });
-
-    // 완료된 캠페인 수 = COMPLETED 상태인 캠페인
-    // (ExecutionLog에서 모든 건이 SENT인 경우)
-    const completedToday = completedCampaignGroups.length;
 
     return NextResponse.json({
       ok: true,

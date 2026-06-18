@@ -148,6 +148,9 @@ export async function GET() {
       trend,
     });
   } catch (err) {
+    if (err instanceof Error && err.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ ok: false }, { status: 401 });
+    }
     logger.error("[GET /api/marketing/dashboard]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });
   }

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
-import { resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 // ── GET /api/marketing/campaigns/[id]/track — 추적 데이터 조회 ─────────
@@ -18,7 +17,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
     const campaign = await prisma.crmMarketingCampaign.findFirst({
       where: {
         id,
-        organizationId: resolveOrgId(ctx),
+        organizationId: ctx.organizationId ?? undefined,
       },
     });
 
@@ -66,6 +65,10 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
 // ── POST /api/marketing/campaigns/[id]/track — 추적 데이터 수집 ──
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
+    const ctx = await getMabizSession();
+    if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
+    if (ctx.role === 'FREE_SALES') return NextResponse.json({ ok: false }, { status: 403 });
+
     const { id } = await context.params;
     const body = await req.json();
     const { action, timestamp } = body;
@@ -93,6 +96,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
           { ok: false, message: '지원하지 않는 액션입니다.' },
           { status: 400 }
         );
+    }
+
+    const campaign = await prisma.crmMarketingCampaign.findFirst({ where: { id } });
+    if (!campaign) {
+      return NextResponse.json(
+        { ok: false, message: '캠페인을 찾을 수 없습니다.' },
+        { status: 404 }
+      );
     }
 
     await prisma.crmMarketingCampaign.update({

@@ -3,28 +3,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { RefreshCw } from "lucide-react";
 import { logger } from "@/lib/logger";
-import { formatAmount, formatDate, formatMonth, maskPhone } from "@/lib/marketing-utils";
+import { formatAmount, formatDate, maskPhone } from "@/lib/marketing-utils";
 import { SkeletonRow } from "@/components/marketing/SkeletonRow";
 import { StatusBadge } from "@/components/marketing/StatusBadge";
 import { SalesBarChart } from "@/components/marketing/SalesBarChart";
-import type { MonthlyRow, LandingRow, RecentRow, SalesApiData } from "@/types/marketing";
-
-interface Summary {
-  totalRevenue: number;
-  totalRefund:  number;
-  netRevenue:   number;
-  paidCount:    number;
-  month:        string;
-}
-
-interface ApiData {
-  ok: boolean;
-  summary: Summary;
-  monthly: MonthlyRow[];
-  byLanding: LandingRow[];
-  recent: RecentRow[];
-  pagination?: { page: number; limit: number; totalCount: number; totalPages: number };
-}
+import type { MonthlyRow, LandingRow, RecentRow, SalesApiData, SalesSummary } from "@/types/marketing";
 
 function cn(...classes: (string | boolean | undefined | null)[]) {
   return classes.filter(Boolean).join(' ');
@@ -143,7 +126,7 @@ function RecentPaymentCard({ recent, loading }: { recent: RecentRow[], loading: 
 
 // ─── 메인 페이지 ──────────────────────────────────────────────
 export default function MarketingSalesPage() {
-  const [data,    setData]    = useState<ApiData | null>(null);
+  const [data,    setData]    = useState<SalesApiData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
   const [page,    setPage]    = useState(1);
@@ -154,7 +137,7 @@ export default function MarketingSalesPage() {
     setPage(pageNum);
     fetch(`/api/marketing/sales?page=${pageNum}&limit=20`)
       .then((res) => res.json())
-      .then((json: ApiData) => {
+      .then((json: SalesApiData) => {
         if (json.ok) {
           setData(json);
         } else {
@@ -169,7 +152,7 @@ export default function MarketingSalesPage() {
     load(1);
   }, [load]);
 
-  const summary   = data?.summary;
+  const summary: SalesSummary | undefined = data?.summary;
   const monthly   = data?.monthly   ?? [];
   const byLanding = data?.byLanding ?? [];
   const recent    = data?.recent    ?? [];

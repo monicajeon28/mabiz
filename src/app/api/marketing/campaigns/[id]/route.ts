@@ -82,9 +82,9 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       data.status = body.status;
     }
 
-    // organizationId 포함: findFirst → update 사이 TOCTOU 방지
+    // findFirst에서 소유권 이미 검증 완료 — id만으로 update (@@unique 없는 복합 where는 Prisma P2025 오류)
     const campaign = await prisma.crmMarketingCampaign.update({
-      where: { id, organizationId: existing.organizationId ?? undefined },
+      where: { id },
       data,
       include: {
         group: { select: { id: true, name: true } },
@@ -103,7 +103,7 @@ export async function DELETE(_req: NextRequest, context: { params: Promise<{ id:
   try {
     const ctx = await getMabizSession();
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
-    if (ctx.role !== 'OWNER' && ctx.role !== 'GLOBAL_ADMIN' && ctx.role !== 'AGENT') {
+    if (ctx.role !== 'OWNER' && ctx.role !== 'GLOBAL_ADMIN') {
       return NextResponse.json({ ok: false, message: '삭제 권한이 없습니다.' }, { status: 403 });
     }
 
@@ -124,9 +124,9 @@ export async function DELETE(_req: NextRequest, context: { params: Promise<{ id:
     }
 
     // 메시지는 onDelete: Cascade로 자동 삭제
-    // organizationId 조건 포함: findFirst → delete 사이 TOCTOU 방지
+    // findFirst에서 소유권 이미 검증 완료 — id만으로 delete (@@unique 없는 복합 where는 Prisma P2025 오류)
     await prisma.crmMarketingCampaign.delete({
-      where: { id, organizationId: ctx.organizationId ?? undefined },
+      where: { id },
     });
 
     return NextResponse.json({ ok: true });
