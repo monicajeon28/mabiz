@@ -182,6 +182,8 @@ function OrgBreakdownSection({ orgBreakdown }: { orgBreakdown: OrgBreakdown[] })
           <div>
             <h2 className="text-xl font-bold text-gray-900">대리점별 이번 달 매출</h2>
             <p className="text-base text-gray-500 mt-0.5">각 대리점 소속 판매원이 이번 달 성사시킨 매출을 확인하세요</p>
+            {/* [LIB-TYPES-008 / LIB-TYPES-NEW-002] orgBreakdownBasis 귀속 기준 안내 */}
+            <p className="text-sm text-blue-500 mt-0.5">※ 판매원 소속 대리점 기준으로 집계됩니다</p>
           </div>
         </div>
         <div className="flex flex-col items-center gap-3 py-12">
@@ -196,6 +198,8 @@ function OrgBreakdownSection({ orgBreakdown }: { orgBreakdown: OrgBreakdown[] })
   const totalRevenue = orgBreakdown.reduce((sum, o) => sum + o.totalRevenue, 0);
   const totalCount   = orgBreakdown.reduce((sum, o) => sum + o.paidCount,    0);
   const totalNet     = orgBreakdown.reduce((sum, o) => sum + o.netRevenue,    0);
+  // [UI-SALES-NEW-002] IIFE 제거 — tfoot 합계 환불 미리 계산
+  const totalRefund  = orgBreakdown.reduce((sum, o) => sum + o.totalRefund,  0);
 
   return (
     <div className="bg-white rounded-xl border border-gray-200">
@@ -204,6 +208,8 @@ function OrgBreakdownSection({ orgBreakdown }: { orgBreakdown: OrgBreakdown[] })
         <div>
           <h2 className="text-xl font-bold text-gray-900">대리점별 이번 달 매출</h2>
           <p className="text-base text-gray-500 mt-0.5">각 대리점 소속 판매원이 이번 달 성사시킨 매출을 확인하세요</p>
+          {/* [LIB-TYPES-008 / LIB-TYPES-NEW-002] orgBreakdownBasis 귀속 기준 안내 */}
+          <p className="text-sm text-blue-500 mt-0.5">※ 판매원 소속 대리점 기준으로 집계됩니다 (랜딩페이지 소유 기준 아님)</p>
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -235,10 +241,7 @@ function OrgBreakdownSection({ orgBreakdown }: { orgBreakdown: OrgBreakdown[] })
               <td className="px-6 py-4 text-right text-base font-bold text-blue-900">{formatAmount(totalRevenue)}</td>
               <td className="px-6 py-4 text-right text-base font-bold text-blue-900">{totalCount}건</td>
               <td className="px-6 py-4 text-right text-base font-bold text-red-700">
-                {(() => {
-                  const totalRef = orgBreakdown.reduce((s, o) => s + o.totalRefund, 0);
-                  return totalRef > 0 ? formatAmount(totalRef) : '-';
-                })()}
+                {totalRefund > 0 ? formatAmount(totalRefund) : '-'}
               </td>
               <td className="px-6 py-4 text-right text-base font-bold text-green-800">{formatAmount(totalNet)}</td>
             </tr>
@@ -267,7 +270,7 @@ function AccessDeniedView() {
 
 // ─── 메인 페이지 ──────────────────────────────────────────────
 export default function MarketingSalesPage() {
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const [data,      setData]      = useState<SalesApiData | null>(null);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState<string | null>(null);
@@ -312,6 +315,15 @@ export default function MarketingSalesPage() {
 
   // [UI-SALES-009] 세션에서 역할을 즉시 읽어 AGENT/FREE_SALES 차단 (fetch 완료 전 조기 차단)
   const sessionRole = (session?.user as { role?: string } | undefined)?.role;
+  // [UI-SALES-NEW-001] 세션 로딩 중(status === 'loading')이면 데이터 UI 노출 방지
+  // next-auth의 status를 사용하여 로딩/미인증/인증 상태를 정확히 구분
+  if (sessionStatus === 'loading') {
+    return (
+      <div className="p-6 max-w-6xl mx-auto flex items-center justify-center py-24">
+        <div className="w-8 h-8 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" aria-label="불러오는 중" />
+      </div>
+    );
+  }
   if (sessionRole === 'AGENT' || sessionRole === 'FREE_SALES') {
     return <AccessDeniedView />;
   }
@@ -405,7 +417,16 @@ export default function MarketingSalesPage() {
             color="bg-green-50 border-green-100"
           />
         </div>
-      ) : null}
+      ) : (
+        // [UI-SALES-017] summary null + 로드완료 + 에러없음 → 빈 카드로 CLS 방지
+        !error && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="rounded-xl border p-5 bg-white h-[88px]" />
+            ))}
+          </div>
+        )
+      )}
 
       {/* 월별 막대 그래프 */}
       {!loading && monthly.length > 0 && <SalesBarChart monthly={monthly} />}
@@ -436,8 +457,15 @@ export default function MarketingSalesPage() {
       )}
 
       {/* UI-SALES-003: GLOBAL_ADMIN 전용 - 관리자 개인 링크 매출 */}
-      {!loading && isGlobalAdmin && adminPersonalSales !== null && (
-        <AdminPersonalSalesSection sales={adminPersonalSales} />
+      {/* [UI-SALES-NEW-003] adminPersonalSales가 null이어도 섹션 표시 (API는 항상 객체 반환) */}
+      {!loading && isGlobalAdmin && (
+        adminPersonalSales !== null
+          ? <AdminPersonalSalesSection sales={adminPersonalSales} />
+          : (
+            <div className="bg-purple-50 rounded-xl border border-purple-200 px-6 py-5">
+              <p className="text-base text-purple-600">이번 달 내 링크 매출이 없어요</p>
+            </div>
+          )
       )}
 
       {/* UI-SALES-002: GLOBAL_ADMIN 전용 - 대리점별 매출 breakdown */}

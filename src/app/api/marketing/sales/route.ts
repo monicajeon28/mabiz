@@ -37,10 +37,12 @@ export async function GET(req: NextRequest) {
     const KST_OFFSET     = 9 * 60 * 60 * 1000;  // 9시간을 ms로
     const nowUTC         = new Date();
     const nowKST         = new Date(nowUTC.getTime() + KST_OFFSET);  // KST 현재 시각
-    // KST 기준 이번 달 1일 00:00:00 KST → UTC로 역산
+    // KST 이번 달 1일 00:00 KST → thisMonthStart(UTC), 다음 달 1일 00:00 KST → thisMonthEnd(UTC)
+    // 두 변수는 동일한 KST-to-UTC 역산 로직(- KST_OFFSET)을 사용하므로 한쪽만 수정하지 말 것 [API-SALES-012]
     const thisMonthStart = new Date(Date.UTC(nowKST.getUTCFullYear(), nowKST.getUTCMonth(), 1) - KST_OFFSET);
     const thisMonthEnd   = new Date(Date.UTC(nowKST.getUTCFullYear(), nowKST.getUTCMonth() + 1, 1) - KST_OFFSET);
     const sixMonthsAgo   = new Date(Date.UTC(nowKST.getUTCFullYear(), nowKST.getUTCMonth() - 5, 1) - KST_OFFSET);
+    logger.debug('[GET /api/marketing/sales] 날짜 범위', { thisMonthStart, thisMonthEnd, sixMonthsAgo });
     // 월 키 계산도 KST 기준으로
     const now = nowKST;  // 이후 monthKey 계산 등에 now 대신 nowKST 사용
 
@@ -73,7 +75,7 @@ export async function GET(req: NextRequest) {
     // af.orderId IS NULL인 AffiliateSale은 자동으로 제외됨 (SQL NULL 비교 규칙)
     type RawPayment = {
       orderId:       string;
-      amount:        number | bigint;
+      amount:        number;  // [LIB-TYPES-008] Prisma Int → JS number. COUNT()는 별도 bigint 타입 사용
       status:        string;
       customerName:  string | null;
       customerPhone: string | null;
@@ -159,13 +161,14 @@ export async function GET(req: NextRequest) {
     // 직접 결제 포함이 필요하면 LEFT JOIN으로 변경하고 pp.organizationId 필터를 추가할 것
     // af.orderId IS NULL인 AffiliateSale은 자동으로 제외됨 (SQL NULL 비교 규칙)
     type SumRow = { total: number | bigint | null };
+    // [API-SALES-011] 환불 쿼리에 'refunded'(환불완료) 상태 추가 — cancelled만 필터하면 순매출 부풀려짐
     const refundRows: SumRow[] = orgId
       ? await prisma.$queryRaw<SumRow[]>`
           SELECT SUM(pp."amount")::float AS total
           FROM "CrmPayAppPayment" pp
           INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
           WHERE af."organizationId" = ${orgId}::uuid
-            AND pp."status" = 'cancelled'
+            AND pp."status" IN ('cancelled', 'refunded')
             AND pp."createdAt" >= ${thisMonthStart}
             AND pp."createdAt" < ${thisMonthEnd}
         `
@@ -173,7 +176,7 @@ export async function GET(req: NextRequest) {
           SELECT SUM(pp."amount")::float AS total
           FROM "CrmPayAppPayment" pp
           INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
-          WHERE pp."status" = 'cancelled'
+          WHERE pp."status" IN ('cancelled', 'refunded')
             AND pp."createdAt" >= ${thisMonthStart}
             AND pp."createdAt" < ${thisMonthEnd}
         `;
@@ -294,14 +297,16 @@ export async function GET(req: NextRequest) {
         GROUP BY af."organizationId"
       `;
 
-      // 3. 이번 달 조직별 환불(cancelled) 집계
+      // 3. 이번 달 조직별 환불(cancelled + refunded) 집계
+      // [API-SALES-011] 'refunded' 상태 누락 방지 — 환불완료 건도 순매출에서 차감 필요
+      // [API-SALES-NEW-001] 명시적 SQL 별칭 "organizationId" 사용 — $queryRaw camelCase 매핑 보장
       type OrgRefundRow = { organizationId: string; refund: number | bigint };
       const orgRefundRows: OrgRefundRow[] = await prisma.$queryRaw<OrgRefundRow[]>`
-        SELECT af."organizationId",
+        SELECT af."organizationId" AS "organizationId",
                COALESCE(SUM(pp."amount"), 0)::float AS refund
         FROM "CrmPayAppPayment" pp
         INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
-        WHERE pp."status" = 'cancelled'
+        WHERE pp."status" IN ('cancelled', 'refunded')
           AND pp."createdAt" >= ${thisMonthStart}
           AND pp."createdAt" < ${thisMonthEnd}
         GROUP BY af."organizationId"
@@ -343,13 +348,14 @@ export async function GET(req: NextRequest) {
           AND pp."createdAt" < ${thisMonthEnd}
       `;
 
+      // [API-SALES-011] 관리자 개인 링크 환불도 'refunded' 상태 포함
       const adminRefundRows: AdminRefundSumRow[] = await prisma.$queryRaw<AdminRefundSumRow[]>`
         SELECT COALESCE(SUM(pp."amount"), 0)::float AS refund
         FROM "CrmPayAppPayment" pp
         INNER JOIN "CrmLandingPage" lp ON lp."id" = pp."landingPageId"
         INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
         WHERE lp."createdByUserId" = ${ctx.userId}
-          AND pp."status" = 'cancelled'
+          AND pp."status" IN ('cancelled', 'refunded')
           AND pp."createdAt" >= ${thisMonthStart}
           AND pp."createdAt" < ${thisMonthEnd}
       `;
