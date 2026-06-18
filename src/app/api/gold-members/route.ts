@@ -83,14 +83,10 @@ export async function GET(req: NextRequest) {
     } catch (err) {
       if (err instanceof Error && err.message.includes('timeout')) {
         logger.warn('[GET /api/gold-members] Query timeout', { page, limit, query: q });
-        return NextResponse.json({
-          ok: true,
-          goldMembers: [],
-          total: 0,
-          page,
-          totalPages: 0,
-          warning: '쿼리 타임아웃으로 인해 빈 결과가 반환되었습니다.',
-        });
+        return NextResponse.json(
+          { ok: false, error: '쿼리 타임아웃: 잠시 후 다시 시도해 주세요.' },
+          { status: 504 }
+        );
       }
       throw err;
     }
@@ -107,8 +103,19 @@ export async function GET(req: NextRequest) {
         const phones = userRows.map((u) => u.phone).filter((p): p is string => p != null);
         const phoneToDisplayName = new Map<string, string | null>();
         if (phones.length > 0) {
+          // REVIEW-007: organizationId 필터 추가 — 동일 전화번호가 여러 조직에 존재할 때
+          // 다른 조직의 displayName이 반환되는 PII 간접 노출 방지.
+          // GLOBAL_ADMIN은 organizationId 제한 없이 조회 (User.name 폴백 유지).
+          const orgMemberWhere: {
+            phone: { in: string[] };
+            isActive: boolean;
+            organizationId?: string;
+          } = { phone: { in: phones }, isActive: true };
+          if (ctx.role !== 'GLOBAL_ADMIN' && ctx.organizationId != null) {
+            orgMemberWhere.organizationId = ctx.organizationId;
+          }
           const orgMembers = await prisma.organizationMember.findMany({
-            where: { phone: { in: phones }, isActive: true },
+            where: orgMemberWhere,
             select: { phone: true, displayName: true },
           });
           for (const om of orgMembers) {
@@ -200,7 +207,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: '올바른 날짜 형식이 아닙니다.' }, { status: 400 });
     }
 
-    const organizationId = ctx.organizationId ?? (await prisma.organization.findFirst({ select: { id: true } }))?.id;
+    if (ctx.role === 'OWNER' && !ctx.organizationId) {
+      return NextResponse.json({ ok: false, error: '조직 정보가 없습니다.' }, { status: 403 });
+    }
+    const organizationId = ctx.organizationId ?? (ctx.role === 'GLOBAL_ADMIN' ? (await prisma.organization.findFirst({ select: { id: true } }))?.id : undefined);
     if (!organizationId) return NextResponse.json({ ok: false, error: '조직이 없습니다.' }, { status: 500 });
 
     // 고유 memberCode 생성
