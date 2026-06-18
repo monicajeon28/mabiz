@@ -25,6 +25,10 @@ export default function CampaignDetailPage() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [pollError, setPollError] = useState<string | null>(null);  // UI-CAMPAIGNS-005: 폴링 실패는 별도 상태
   const retryCtrlRef = useRef<AbortController | null>(null);
+  const pollErrorCountRef = useRef(0);  // UI-CAMPAIGNS-006: 연속 폴링 실패 횟수 추적
+
+  // UI-CAMPAIGNS-006: 언마운트 시 진행 중인 retry fetch 취소 (메모리 누수 방지)
+  useEffect(() => () => { retryCtrlRef.current?.abort(); }, []);
 
   const fetchCampaignData = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -34,6 +38,7 @@ export default function CampaignDetailPage() {
       const data = await res.json();
       setCampaign(data.campaign);
       campaignLoadedRef.current = true;
+      pollErrorCountRef.current = 0;  // UI-CAMPAIGNS-006: 성공 시 연속 실패 카운터 리셋
       setStats(data.stats);
       setConversionRates(data.conversionRates);
       setPollError(null);  // 성공 시 이전 폴링 에러 클리어
@@ -52,7 +57,14 @@ export default function CampaignDetailPage() {
       if (!campaignLoadedRef.current) {
         setFetchError('데이터를 불러올 수 없습니다.');
       } else {
-        setPollError('데이터 갱신에 실패했습니다. 잠시 후 다시 시도됩니다.');
+        // UI-CAMPAIGNS-006: 폴링 연속 실패 5회 시 자동 중단
+        pollErrorCountRef.current += 1;
+        if (pollErrorCountRef.current >= 5) {
+          setRefreshInterval(null);
+          setPollError('데이터 자동 갱신이 중단되었습니다. 페이지를 새로고침해주세요.');
+        } else {
+          setPollError('데이터 갱신에 실패했습니다. 잠시 후 다시 시도됩니다.');
+        }
       }
     } finally {
       if (!signal?.aborted) setLoading(false);

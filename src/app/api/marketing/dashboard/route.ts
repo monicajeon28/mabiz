@@ -58,6 +58,9 @@ export async function GET() {
     const lpIds = pages.map((p) => p.id);
 
     // ── 2. 퍼널 진입 수 (funnelStarted = true) — lpIds 기반 인덱스 최적화
+    // [API-MKT-DASHBOARD-FUNNELREG-CROSSORG-001] GLOBAL_ADMIN의 경우 lpIds는 모든 조직의 랜딩페이지 ID를 포함하므로
+    // funnelEntered는 전체 조직 합산 집계임.
+    // 특정 조직 기준 대시보드가 필요하면 ?orgId= 쿼리 파라미터를 추가하고 orgId 필터를 적용할 것.
     const funnelEnteredResult =
       lpIds.length === 0
         ? 0

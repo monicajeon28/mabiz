@@ -32,187 +32,214 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(100, Math.max(1, parseInt(req.nextUrl.searchParams.get('limit') ?? '20', 10)));
     const skip  = (page - 1) * limit;
 
-    const now   = new Date();
-    const thisMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-    const thisMonthEnd   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
-    const sixMonthsAgo   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1));
+    const now             = new Date();
+    const thisMonthStart  = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const thisMonthEnd    = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+    const sixMonthsAgo    = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1));
 
-    // DB-27/API-SALES-006: AffiliateSale ↔ PayAppPayment DB 레벨 INNER JOIN 단일 쿼리.
-    // 기존 두 단계(AffiliateSale 5000건 IN-메모리 → PayAppPayment IN 쿼리) 방식 제거.
-    // PostgreSQL이 INNER JOIN + index scan으로 처리하므로 왕복 1회로 줄고 IN절 크기 문제 해소.
+    // ─── (A) COUNT 쿼리: DB 레벨 전체 건수 ──────────────────────
+    // DB-SALES-INMEMORY-PAGINATION-001 / API-SALES-007: in-memory slice 제거
+    type CountRow = { total: number | bigint };
+    const countRows: CountRow[] = orgId
+      ? await prisma.$queryRaw<CountRow[]>`
+          SELECT COUNT(*)::int AS total
+          FROM "CrmPayAppPayment" pp
+          INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
+          WHERE af."organizationId" = ${orgId}::uuid
+            AND pp."createdAt" >= ${sixMonthsAgo}
+        `
+      : await prisma.$queryRaw<CountRow[]>`
+          SELECT COUNT(*)::int AS total
+          FROM "CrmPayAppPayment" pp
+          INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
+          WHERE pp."createdAt" >= ${sixMonthsAgo}
+        `;
+    const totalCount = Number(countRows[0]?.total ?? 0);
+    const totalPages = Math.ceil(totalCount / limit);
 
-    // 집계용 타입 정의 (Prisma $queryRaw는 snake_case 컬럼명 반환)
+    // ─── (B) 목록 쿼리: DB LIMIT/OFFSET ─────────────────────────
     type RawPayment = {
-      id:              string;
-      order_id:        string | null;
-      organization_id: string | null;
-      amount:          number | bigint;
-      status:          string;
-      customer_name:   string | null;
-      customer_phone:  string | null;
-      landing_page_id: string | null;
-      created_at:      Date;
-      paid_at:         Date | null;
+      orderId:       string | null;
+      amount:        number | bigint;
+      status:        string;
+      customerName:  string | null;
+      customerPhone: string | null;
+      landingPageId: string | null;
+      paidAt:        Date | null;
     };
-
-    // GLOBAL_ADMIN(orgId=null)이면 org 필터 없이 전체 조회
-    const rawPayments: RawPayment[] = orgId
+    const rawPage: RawPayment[] = orgId
       ? await prisma.$queryRaw<RawPayment[]>`
-          SELECT pp.id, pp.order_id, pp.organization_id, pp.amount, pp.status,
-                 pp.customer_name, pp.customer_phone, pp.landing_page_id,
-                 pp.created_at, pp.paid_at
-          FROM payapp_payments pp
-          INNER JOIN affiliate_sales af ON af.order_id = pp.order_id
-          WHERE af.organization_id = ${orgId}
-            AND pp.created_at >= ${sixMonthsAgo}
-          ORDER BY pp.created_at DESC
+          SELECT pp."orderId", pp."amount", pp."status",
+                 pp."customerName", pp."customerPhone",
+                 pp."landingPageId", pp."paidAt"
+          FROM "CrmPayAppPayment" pp
+          INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
+          WHERE af."organizationId" = ${orgId}::uuid
+            AND pp."createdAt" >= ${sixMonthsAgo}
+          ORDER BY pp."createdAt" DESC
+          LIMIT ${limit} OFFSET ${skip}
         `
       : await prisma.$queryRaw<RawPayment[]>`
-          SELECT pp.id, pp.order_id, pp.organization_id, pp.amount, pp.status,
-                 pp.customer_name, pp.customer_phone, pp.landing_page_id,
-                 pp.created_at, pp.paid_at
-          FROM payapp_payments pp
-          INNER JOIN affiliate_sales af ON af.order_id = pp.order_id
-          WHERE pp.created_at >= ${sixMonthsAgo}
-          ORDER BY pp.created_at DESC
+          SELECT pp."orderId", pp."amount", pp."status",
+                 pp."customerName", pp."customerPhone",
+                 pp."landingPageId", pp."paidAt"
+          FROM "CrmPayAppPayment" pp
+          INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
+          WHERE pp."createdAt" >= ${sixMonthsAgo}
+          ORDER BY pp."createdAt" DESC
+          LIMIT ${limit} OFFSET ${skip}
         `;
 
-    // snake_case → camelCase 정규화 + BigInt 방어 (PostgreSQL numeric → JS number)
-    const normalizedPayments = rawPayments.map((p) => ({
-      id:             p.id,
-      orderId:        p.order_id,
-      organizationId: p.organization_id,
-      amount:         Number(p.amount),
-      status:         p.status,
-      customerName:   p.customer_name,
-      customerPhone:  p.customer_phone,
-      landingPageId:  p.landing_page_id,
-      createdAt:      p.created_at instanceof Date ? p.created_at : new Date(p.created_at),
-      paidAt:         p.paid_at
-                        ? (p.paid_at instanceof Date ? p.paid_at : new Date(p.paid_at))
-                        : null,
-    }));
+    // ─── (C) 월별 집계: DB GROUP BY ──────────────────────────────
+    type RawMonthly = { month: Date; revenue: number | bigint; count: number | bigint };
+    const rawMonthly: RawMonthly[] = orgId
+      ? await prisma.$queryRaw<RawMonthly[]>`
+          SELECT DATE_TRUNC('month', pp."createdAt") AS month,
+                 SUM(pp."amount")::float AS revenue,
+                 COUNT(*)::int AS count
+          FROM "CrmPayAppPayment" pp
+          INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
+          WHERE af."organizationId" = ${orgId}::uuid
+            AND pp."status" = 'paid'
+            AND pp."createdAt" >= ${sixMonthsAgo}
+          GROUP BY 1
+          ORDER BY 1
+        `
+      : await prisma.$queryRaw<RawMonthly[]>`
+          SELECT DATE_TRUNC('month', pp."createdAt") AS month,
+                 SUM(pp."amount")::float AS revenue,
+                 COUNT(*)::int AS count
+          FROM "CrmPayAppPayment" pp
+          INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
+          WHERE pp."status" = 'paid'
+            AND pp."createdAt" >= ${sixMonthsAgo}
+          GROUP BY 1
+          ORDER BY 1
+        `;
 
-    // 메모리 페이지네이션 (JOIN 결과는 이미 전체이므로 DB 재조회 불필요)
-    const totalCount    = normalizedPayments.length;
-    const recentPayments = normalizedPayments.slice(skip, skip + limit);
-
-    // 집계 루프에서 사용할 payments 별칭 (기존 변수명 유지)
-    const payments = normalizedPayments;
-    const truncated = false; // JOIN 방식으로 5000건 상한 제거
-    const paymentsTruncated = false; // 10000건 상한 제거
-
-    // ─── 이번 달 요약 ────────────────────────────────────────
-    const thisMonthPayments = payments.filter((p) => {
-      const d = p.createdAt;
-      return d >= thisMonthStart && d < thisMonthEnd;
-    });
-
-    const totalRevenue = thisMonthPayments
-      .filter((p) => p.status === "paid")
-      .reduce((sum, p) => sum + p.amount, 0);
-
-    const totalRefund = thisMonthPayments
-      .filter((p) => p.status === "cancelled")
-      .reduce((sum, p) => sum + p.amount, 0);
-
-    const paidCount = thisMonthPayments.filter((p) => p.status === "paid").length;
-
-    const month = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
-
-    const summary = {
-      totalRevenue,
-      totalRefund,
-      netRevenue: totalRevenue - totalRefund,
-      paidCount,
-      month,
-    };
-
-    // ─── 최근 6개월 월별 집계 ────────────────────────────────
+    // 6개월 빈 슬롯 보장 후 DB 결과 병합
     const monthlyMap: Record<string, { revenue: number; count: number }> = {};
-
     for (let i = 5; i >= 0; i--) {
       const d   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
       const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
       monthlyMap[key] = { revenue: 0, count: 0 };
     }
-
-    for (const p of payments) {
-      if (p.status !== "paid") continue;
-      const d   = p.createdAt;
+    for (const row of rawMonthly) {
+      const d   = row.month instanceof Date ? row.month : new Date(row.month);
       const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
-      if (monthlyMap[key]) {
-        monthlyMap[key].revenue += p.amount;
-        monthlyMap[key].count   += 1;
-      }
+      monthlyMap[key] = { revenue: Number(row.revenue), count: Number(row.count) };
     }
-
     const monthly = Object.entries(monthlyMap).map(([m, v]) => ({
-      month: m,
+      month:   m,
       revenue: v.revenue,
       count:   v.count,
     }));
 
-    // ─── 랜딩페이지별 매출 기여 ──────────────────────────────
-    // landingPageId → CrmLandingPage.title 조회
-    const landingIds = [
-      ...new Set(
-        payments
-          .filter((p) => p.status === "paid" && p.landingPageId)
-          .map((p) => p.landingPageId as string)
-      ),
-    ];
+    // ─── (D) 이번 달 요약: monthly 결과에서 추출 + 별도 환불 SUM ─
+    const monthKey    = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+    const thisMonth   = monthlyMap[monthKey] ?? { revenue: 0, count: 0 };
 
+    type SumRow = { total: number | bigint | null };
+    const refundRows: SumRow[] = orgId
+      ? await prisma.$queryRaw<SumRow[]>`
+          SELECT SUM(pp."amount")::float AS total
+          FROM "CrmPayAppPayment" pp
+          INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
+          WHERE af."organizationId" = ${orgId}::uuid
+            AND pp."status" = 'cancelled'
+            AND pp."createdAt" >= ${thisMonthStart}
+            AND pp."createdAt" < ${thisMonthEnd}
+        `
+      : await prisma.$queryRaw<SumRow[]>`
+          SELECT SUM(pp."amount")::float AS total
+          FROM "CrmPayAppPayment" pp
+          INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
+          WHERE pp."status" = 'cancelled'
+            AND pp."createdAt" >= ${thisMonthStart}
+            AND pp."createdAt" < ${thisMonthEnd}
+        `;
+
+    const totalRevenue = thisMonth.revenue;
+    const totalRefund  = Number(refundRows[0]?.total ?? 0);
+    const paidCount    = thisMonth.count;
+    const summary = {
+      totalRevenue,
+      totalRefund,
+      netRevenue: totalRevenue - totalRefund,
+      paidCount,
+      month: monthKey,
+    };
+
+    // ─── (E) 랜딩페이지별 집계: DB GROUP BY ──────────────────────
+    type RawByLanding = {
+      landingPageId: string | null;
+      revenue:       number | bigint;
+      count:         number | bigint;
+    };
+    const rawByLanding: RawByLanding[] = orgId
+      ? await prisma.$queryRaw<RawByLanding[]>`
+          SELECT pp."landingPageId",
+                 SUM(pp."amount")::float AS revenue,
+                 COUNT(*)::int AS count
+          FROM "CrmPayAppPayment" pp
+          INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
+          WHERE af."organizationId" = ${orgId}::uuid
+            AND pp."status" = 'paid'
+            AND pp."createdAt" >= ${sixMonthsAgo}
+          GROUP BY pp."landingPageId"
+        `
+      : await prisma.$queryRaw<RawByLanding[]>`
+          SELECT pp."landingPageId",
+                 SUM(pp."amount")::float AS revenue,
+                 COUNT(*)::int AS count
+          FROM "CrmPayAppPayment" pp
+          INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
+          WHERE pp."status" = 'paid'
+            AND pp."createdAt" >= ${sixMonthsAgo}
+          GROUP BY pp."landingPageId"
+        `;
+
+    // landingPageId → title 조회 (집계된 고유 ID만)
+    const landingIds = rawByLanding
+      .map((r) => r.landingPageId)
+      .filter((id): id is string => !!id);
     const landingPages = landingIds.length > 0
       ? await prisma.crmLandingPage.findMany({
           where: { id: { in: landingIds }, ...(orgId ? { organizationId: orgId } : {}) },
           select: { id: true, title: true },
         })
       : [];
-
     const landingTitleMap: Record<string, string> = {};
     for (const lp of landingPages) landingTitleMap[lp.id] = lp.title;
 
-    const byLandingMap: Record<string, { revenue: number; count: number; title: string }> = {};
-
-    for (const p of payments) {
-      if (p.status !== "paid") continue;
-      const key   = p.landingPageId ?? "__none__";
-      const title = p.landingPageId
-        ? (landingTitleMap[p.landingPageId] ?? "알 수 없는 랜딩페이지")
-        : "직접 유입";
-      if (!byLandingMap[key]) {
-        byLandingMap[key] = { revenue: 0, count: 0, title };
-      }
-      byLandingMap[key].revenue += p.amount;
-      byLandingMap[key].count   += 1;
-    }
-
-    const byLanding = Object.entries(byLandingMap)
-      .map(([id, v]) => ({
-        landingPageId:    id === "__none__" ? null : id,
-        landingPageTitle: v.title,
-        revenue:          v.revenue,
-        count:            v.count,
+    const byLanding = rawByLanding
+      .map((r) => ({
+        landingPageId:    r.landingPageId ?? null,
+        landingPageTitle: r.landingPageId
+          ? (landingTitleMap[r.landingPageId] ?? "알 수 없는 랜딩페이지")
+          : "직접 유입",
+        revenue: Number(r.revenue),
+        count:   Number(r.count),
       }))
       .sort((a, b) => b.revenue - a.revenue);
 
-    // ─── 페이지네이션 최근 결제 내역 ──────────────────────────
-    const totalPages = Math.ceil(totalCount / limit);
+    // ─── 페이지네이션 최근 결제 내역 ──────────────────────────────
     // API-SALES-ROLE-TYPE-001: masked 플래그를 포함해 UI 소비자가 PII 마스킹 여부를 명확히 인지
     const isGlobalAdmin = ctx.role === 'GLOBAL_ADMIN';
-    const recent = recentPayments.map((p) => ({
+    const recent = rawPage.map((p) => ({
       orderId:       p.orderId,
-      amount:        p.amount,
+      amount:        Number(p.amount),
       status:        p.status,
       buyerName:     isGlobalAdmin ? (p.customerName ?? '') : maskCustomerName(p.customerName),
       buyerTel:      isGlobalAdmin ? (p.customerPhone ?? '') : maskPhone(p.customerPhone ?? ''),
-      paidAt:        p.paidAt?.toISOString() ?? null,
+      paidAt:        p.paidAt
+                       ? (p.paidAt instanceof Date ? p.paidAt : new Date(p.paidAt)).toISOString()
+                       : null,
       landingPageId: p.landingPageId ?? null,
       masked:        !isGlobalAdmin,
     }));
 
-    logger.log("[GET /api/marketing/sales] 조회", { orgId, page, limit, totalCount, orderCount: payments.length, truncated, paymentsTruncated });
+    logger.log("[GET /api/marketing/sales] 조회", { orgId, page, limit, totalCount, totalPages });
 
     return NextResponse.json({
       ok: true,
@@ -221,7 +248,6 @@ export async function GET(req: NextRequest) {
       byLanding,
       recent,
       pagination: { page, limit, totalCount, totalPages },
-      ...((truncated || paymentsTruncated) ? { warning: '데이터가 많아 일부 통계가 불완전할 수 있습니다.' } : {}),
     });
   } catch (err: unknown) {
     if (err instanceof Error && err.message === "UNAUTHORIZED") {

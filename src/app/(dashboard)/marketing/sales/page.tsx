@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Lock } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { formatAmount, formatDate } from "@/lib/marketing-utils";
 import { SkeletonRow } from "@/components/marketing/SkeletonRow";
@@ -70,7 +70,17 @@ function RecentPaymentTable({ recent, loading }: { recent: RecentRow[], loading:
                 <td className="px-4 py-3 text-gray-500 font-mono text-sm">{row.orderId}</td>
                 <td className="px-4 py-3 text-gray-700">
                   {row.buyerName}{" "}
-                  <span className="text-gray-600 text-sm">{row.buyerTel}</span>
+                  {row.masked ? (
+                    <span
+                      className="inline-flex items-center gap-0.5 text-gray-400 italic text-xs"
+                      title="개인정보 보호를 위해 마스킹된 번호입니다"
+                    >
+                      <Lock className="w-3 h-3 shrink-0" />
+                      {row.buyerTel}
+                    </span>
+                  ) : (
+                    <span className="text-gray-600 text-sm">{row.buyerTel}</span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-right font-semibold text-gray-900">
                   {formatAmount(row.amount)}
@@ -111,8 +121,19 @@ function RecentPaymentCard({ recent, loading }: { recent: RecentRow[], loading: 
             <StatusBadge status={row.status} />
           </div>
           <p className="text-base font-bold text-gray-900">{formatAmount(row.amount)}</p>
-          <p className="text-sm text-gray-600 mt-1">
-            {row.buyerTel} · {row.paidAt ? formatDate(row.paidAt) : '-'}
+          <p className="text-sm mt-1">
+            {row.masked ? (
+              <span
+                className="inline-flex items-center gap-0.5 text-gray-400 italic text-xs"
+                title="개인정보 보호를 위해 마스킹된 번호입니다"
+              >
+                <Lock className="w-3 h-3 shrink-0" />
+                {row.buyerTel}
+              </span>
+            ) : (
+              <span className="text-gray-600">{row.buyerTel}</span>
+            )}{" "}
+            · {row.paidAt ? formatDate(row.paidAt) : '-'}
           </p>
         </div>
       ))}
@@ -188,7 +209,14 @@ export default function MarketingSalesPage() {
       {error && (
         <div className="text-center py-12">
           <p className="text-red-500 text-sm mb-3">{error}</p>
-          <button onClick={() => load(1)} className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm">
+          <button
+            onClick={() => {
+              refreshCtrlRef.current?.abort();
+              refreshCtrlRef.current = new AbortController();
+              load(1, refreshCtrlRef.current.signal);
+            }}
+            className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm"
+          >
             다시 시도
           </button>
         </div>
@@ -296,7 +324,11 @@ export default function MarketingSalesPage() {
           return (
             <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-center gap-2">
               <button
-                onClick={() => load(Math.max(1, page - 1))}
+                onClick={() => {
+                  refreshCtrlRef.current?.abort();
+                  refreshCtrlRef.current = new AbortController();
+                  load(Math.max(1, page - 1), refreshCtrlRef.current.signal);
+                }}
                 disabled={page <= 1}
                 className="px-3 py-1 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -317,7 +349,11 @@ export default function MarketingSalesPage() {
                   return (
                     <button
                       key={pageNum}
-                      onClick={() => load(pageNum)}
+                      onClick={() => {
+                        refreshCtrlRef.current?.abort();
+                        refreshCtrlRef.current = new AbortController();
+                        load(pageNum, refreshCtrlRef.current.signal);
+                      }}
                       className={cn(
                         "px-3 py-1 rounded-lg text-sm font-medium",
                         pageNum === page
@@ -331,7 +367,11 @@ export default function MarketingSalesPage() {
                 })}
               </div>
               <button
-                onClick={() => load(Math.min(paging.totalPages, page + 1))}
+                onClick={() => {
+                  refreshCtrlRef.current?.abort();
+                  refreshCtrlRef.current = new AbortController();
+                  load(Math.min(paging.totalPages, page + 1), refreshCtrlRef.current.signal);
+                }}
                 disabled={page >= paging.totalPages}
                 className="px-3 py-1 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >

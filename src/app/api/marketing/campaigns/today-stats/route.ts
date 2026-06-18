@@ -48,6 +48,7 @@ export async function GET(req: NextRequest) {
     const logWhere = ctx.role === 'GLOBAL_ADMIN'
       ? {
           sourceType: 'CAMPAIGN' as const,
+          campaignId: { not: null },
           scheduledAt: {
             gte: todayStart,
             lte: todayEnd,
@@ -56,6 +57,7 @@ export async function GET(req: NextRequest) {
       : {
           organizationId: ctx.organizationId!,
           sourceType: 'CAMPAIGN' as const,
+          campaignId: { not: null },
           scheduledAt: {
             gte: todayStart,
             lte: todayEnd,
@@ -117,7 +119,7 @@ export async function GET(req: NextRequest) {
       completedToday,
       // 추가 통계 (운영용)
       totalExecutedToday: completedExecutions,
-      totalPendingToday: totalExecutionLogsToday - completedExecutions,
+      totalPendingToday: Math.max(0, totalExecutionLogsToday - completedExecutions),
     });
   } catch (err) {
     logger.error('[GET /api/marketing/campaigns/today-stats]', { err });

@@ -62,12 +62,10 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
 }
 
 // ── POST /api/marketing/campaigns/[id]/track — 추적 데이터 수집 ──
+// 인증 없음: 이메일 수신자(CRM 세션 없음)가 오픈/클릭 시 호출되는 공개 엔드포인트.
+// 인증 요구 시 openCount/clickCount/registeredCount가 프로덕션에서 영구 0이 되는 P0 버그.
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const ctx = await getMabizSession();
-    if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
-    if (ctx.role === 'FREE_SALES') return NextResponse.json({ ok: false, message: '접근 권한이 없습니다.' }, { status: 403 });
-
     const { id } = await context.params;
     const body = await req.json();
     const { action } = body;
@@ -89,10 +87,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       return NextResponse.json({ ok: false, message: '지원하지 않는 액션입니다.' }, { status: 400 });
     }
 
-    // update()는 @id/@unique 필드만 where에서 실제로 동작하므로 organizationId 조건이 무시됨
-    // updateMany()로 교체하여 복합 where 조건이 실제로 적용되도록 수정
+    // id만으로 where 조건 — 수신자는 조직 소속이 아니므로 organizationId 필터 제거
     const result = await prisma.crmMarketingCampaign.updateMany({
-      where: { id, organizationId: ctx.organizationId ?? undefined },
+      where: { id },
       data: { [field]: { increment: 1 } },
     });
     if (result.count === 0) {

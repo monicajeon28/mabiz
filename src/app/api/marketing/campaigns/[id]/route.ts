@@ -112,6 +112,16 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       }
     }
 
+    // [API-CAMPAIGNS-PATCH-IMMUTABLE-001] SENT/FAILED/CANCELLED/SENDING 상태 캠페인 콘텐츠 변경 차단
+    // body.status 유무와 무관하게 모든 필드 변경을 막아 로그 불일치 및 데이터 조작 방지
+    // (SENDING 포함: 발송 중 title 변경 시 ExecutionLog와 불일치 발생)
+    if (!['DRAFT', 'PENDING'].includes(existing.status)) {
+      return NextResponse.json(
+        { ok: false, message: '이미 처리된 캠페인은 수정할 수 없습니다. (현재 상태: ' + existing.status + ')' },
+        { status: 409 }
+      );
+    }
+
     const data: Prisma.CrmMarketingCampaignUpdateInput = {};
     if (body.title !== undefined) data.title = body.title;
     if (body.sendEmail !== undefined) data.sendEmail = body.sendEmail;
@@ -119,14 +129,6 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     if (body.includeLanding !== undefined) data.includeLanding = body.includeLanding;
     if (body.sendAt !== undefined) data.sendAt = new Date(body.sendAt);
     if (body.repeatRule !== undefined) data.repeatRule = body.repeatRule || null;
-
-    // [API-CAMPAIGNS-007] 이미 처리된 캠페인(SENT/FAILED/CANCELLED) 상태 역행 차단
-    if (body.status !== undefined && !['DRAFT', 'PENDING'].includes(existing.status)) {
-      return NextResponse.json(
-        { ok: false, message: '이미 처리된 캠페인은 상태를 변경할 수 없습니다. (현재 상태: ' + existing.status + ')' },
-        { status: 409 }
-      );
-    }
 
     if (body.status !== undefined) {
       const PATCHABLE_STATUSES = ['DRAFT', 'PENDING'];
@@ -170,6 +172,9 @@ export async function DELETE(_req: NextRequest, context: { params: Promise<{ id:
   try {
     const ctx = await getMabizSession();
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
+    // [API-CAMPAIGNS-DELETE-AGENT-001] 정책: AGENT는 캠페인을 생성할 수 있으나 삭제는 불가.
+    // 삭제는 OWNER 또는 GLOBAL_ADMIN만 허용 (감사 추적 및 실수 방지 목적).
+    // AGENT에게 자기 캠페인 삭제 권한을 부여하려면 아래 조건에 ctx.role === 'AGENT' && existing.createdById === ctx.userId를 추가할 것.
     if (ctx.role !== 'OWNER' && ctx.role !== 'GLOBAL_ADMIN') {
       return NextResponse.json({ ok: false, message: '삭제 권한이 없습니다.' }, { status: 403 });
     }
