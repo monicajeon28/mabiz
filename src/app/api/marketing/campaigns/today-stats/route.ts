@@ -76,10 +76,14 @@ export async function GET(req: NextRequest) {
     // [API-TODAY-STATS-SENDING-FILTER-001] SENDING 쿼리에서 sendAt 범위 필터 제거
     // — 어제 시작해 자정을 넘긴 캠페인도 inProgress에 포함되어야 함
     // [DB-TODAY-STATS-INPROGRESS-STUCK-001] totalCount=0 stuck 방지: updatedAt 기준 30분 이내만 포함
+    // [DB-TODAY-STATS-STALE-THRESHOLD-NO-DB-FILTER-001]
+    // updatedAt 필터를 DB 레벨에서 적용해 GLOBAL_ADMIN의 전체 SENDING 캠페인 full-scan 방지.
+    // Prisma StringFilter.in은 mutable string[]을 요구하므로 변수로 선언해 readonly 타입 오류 방지.
     const staleThreshold = new Date(Date.now() - 30 * 60 * 1000);
+    const sendingStatusFilter: string[] = ['SENDING'];
     const sendingWhere = ctx.role === 'GLOBAL_ADMIN'
-      ? { status: { in: ['SENDING'] } }
-      : { status: { in: ['SENDING'] }, organizationId: ctx.organizationId! };
+      ? { status: { in: sendingStatusFilter }, updatedAt: { gte: staleThreshold } }
+      : { status: { in: sendingStatusFilter }, organizationId: ctx.organizationId!, updatedAt: { gte: staleThreshold } };
     const campaigns = await prisma.crmMarketingCampaign.findMany({
       where: sendingWhere,
       select: {
@@ -90,13 +94,10 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // SENDING 상태이면서:
-    // - totalCount>0인 경우: sentCount < totalCount (정상 진행 중)
-    // - totalCount=0인 경우: updatedAt이 staleThreshold 이내여야 함 (stuck 캠페인 제외)
+    // DB에서 staleThreshold 이전 캠페인이 이미 필터링됨.
+    // totalCount=0인 캠페인(초기화 직후)은 준비 중으로 간주하고 inProgress에서 제외.
     const inProgress = campaigns.filter(c =>
-      c.totalCount > 0
-        ? c.sentCount < c.totalCount
-        : c.updatedAt > staleThreshold
+      c.totalCount > 0 ? c.sentCount < c.totalCount : false
     ).length;
 
     // 3. 오늘 완료한 캠페인 — status: SENT 기준으로 정확히 계산
