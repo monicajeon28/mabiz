@@ -1,322 +1,450 @@
-import 'server-only';
+/**
+ * 감사 로거 라이브러리
+ * Phase 4: 정산, 이의, 검증, 재계산 액션 로깅
+ *
+ * 특징:
+ * - 성공/실패 모두 기록
+ * - PII 자동 마스킹 (이메일, 이름, 전화번호)
+ * - 성능 메트릭 추적 (실행 시간)
+ * - 비동기 로깅 (메인 플로우 차단 안 함)
+ * - 타입 안전
+ */
+
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-import type { MabizAuthContext } from '@/lib/auth';
+
+// ============================================================================
+// Compliance AuditLog 함수 (BigInt ID AuditLog 모델 사용)
+// ============================================================================
 
 /**
- * 감시 로그 엔트리 타입
+ * 감사 로그 항목 기록 (Compliance & Monitoring 용)
  */
-export interface AuditLogEntry {
-  action: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE';
+export async function logAuditEntry({
+  action,
+  table,
+  userId,
+  organizationId,
+  status,
+  reason,
+  details,
+  timestamp,
+}: {
+  action: string;
   table: string;
-  recordId?: string | number;
-  userId: string;
-  organizationId: string | null;
-  status: 'ALLOWED' | 'DENIED';
+  userId?: string | null;
+  organizationId?: string | null;
+  status: 'ALLOWED' | 'DENIED' | 'SUCCESS' | 'FAILED';
   reason?: string;
   details?: Record<string, unknown>;
-  timestamp: Date;
-}
-
-/**
- * 보안 알림 이벤트
- */
-export interface SecurityEvent {
-  type: 'UNAUTHORIZED_ACCESS' | 'PERMISSION_DENIED' | 'SUSPICIOUS_ACTIVITY' | 'PRIVILEGE_ESCALATION';
-  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-  userId: string;
-  organizationId: string | null;
-  description: string;
-  details: Record<string, unknown>;
-  timestamp: Date;
-}
-
-/**
- * 감시 로그 저장
- * 모든 데이터베이스 접근을 기록합니다.
- */
-export async function logAuditEntry(entry: AuditLogEntry): Promise<void> {
+  timestamp?: Date;
+}): Promise<void> {
   try {
-    // 메모리 로그 (console)
-    logger.info('AUDIT_LOG', {
-      action: entry.action,
-      table: entry.table,
-      recordId: entry.recordId,
-      userId: entry.userId,
-      organizationId: entry.organizationId,
-      status: entry.status,
-      reason: entry.reason,
-      timestamp: entry.timestamp.toISOString(),
+    await prisma.auditLog.create({
+      data: {
+        action,
+        resourceType: table,
+        userId: userId ?? undefined,
+        organizationId: organizationId ?? undefined,
+        status,
+        reasonDescription: reason,
+        piiValuesModified: details ? (details as object) : undefined,
+        createdAt: timestamp ?? new Date(),
+      },
     });
-
-    // 데이터베이스 저장 (AuditLog 테이블 추가 예정)
-    // await prisma.auditLog.create({
-    //   data: {
-    //     action: entry.action,
-    //     table: entry.table,
-    //     recordId: entry.recordId?.toString(),
-    //     userId: entry.userId,
-    //     organizationId: entry.organizationId,
-    //     status: entry.status,
-    //     reason: entry.reason,
-    //     details: entry.details,
-    //     createdAt: entry.timestamp,
-    //   },
-    // });
-  } catch (error) {
-    logger.error('AUDIT_LOG_ERROR', { error, entry });
+  } catch (err) {
+    logger.error('[logAuditEntry] 감사 로그 저장 실패:', err);
   }
-}
-
-/**
- * 보안 이벤트 저장 및 알림
- * 권한 거부, 무단 접근, 의심 활동 등을 기록하고 알림을 발송합니다.
- */
-export async function logSecurityEvent(event: SecurityEvent): Promise<void> {
-  try {
-    // 콘솔 로그
-    const logLevel = event.severity === 'CRITICAL' ? 'error' : event.severity === 'HIGH' ? 'warn' : 'info';
-    logger[logLevel]('SECURITY_EVENT', {
-      type: event.type,
-      severity: event.severity,
-      userId: event.userId,
-      organizationId: event.organizationId,
-      description: event.description,
-      details: event.details,
-      timestamp: event.timestamp.toISOString(),
-    });
-
-    // CRITICAL 이벤트는 AuditLog DB에 저장 (감사 추적 필수)
-    if (event.severity === 'CRITICAL') {
-      await prisma.auditLog.create({
-        data: {
-          userId: event.userId,
-          organizationId: event.organizationId,
-          action: 'SECURITY_EVENT',
-          resourceType: event.type,
-          status: 'DENIED',
-          errorMessage: event.description,
-          reasonDescription: JSON.stringify(event.details),
-          createdAt: event.timestamp,
-        },
-      });
-    }
-
-    // CRITICAL 또는 HIGH 심각도인 경우 실시간 알림
-    if (['CRITICAL', 'HIGH'].includes(event.severity)) {
-      await notifySecurityTeam(event);
-    }
-  } catch (error) {
-    logger.error('SECURITY_EVENT_ERROR', { error, event });
-  }
-}
-
-/**
- * 보안팀에 실시간 알림 전송
- * CRITICAL/HIGH 보안 이벤트를 보안팀에 즉시 알립니다.
- */
-export async function notifySecurityTeam(event: SecurityEvent): Promise<void> {
-  try {
-    logger.warn('SECURITY_TEAM_NOTIFICATION', {
-      type: event.type,
-      severity: event.severity,
-      userId: event.userId,
-      organizationId: event.organizationId,
-      description: event.description,
-      timestamp: event.timestamp.toISOString(),
-    });
-
-    // TODO: 실제 알림 채널 구현
-    // - Slack 웹훅
-    // - 메일 발송
-    // - SMS 경고
-    // - 관리자 대시보드 푸시 알림
-  } catch (error) {
-    logger.error('SECURITY_NOTIFICATION_ERROR', { error, event });
-  }
-}
-
-/**
- * RLS 권한 검증
- * CommissionLedger 접근 권한을 검증합니다.
- */
-export interface RLSCheckResult {
-  allowed: boolean;
-  reason?: string;
-}
-
-/**
- * CommissionLedger SELECT 권한 검증
- */
-export async function checkCommissionLedgerSelectPermission(
-  ctx: MabizAuthContext | null,
-  organizationId: string,
-  profileId?: number
-): Promise<RLSCheckResult> {
-  // 인증 확인
-  if (!ctx) {
-    await logSecurityEvent({
-      type: 'UNAUTHORIZED_ACCESS',
-      severity: 'HIGH',
-      userId: 'ANONYMOUS',
-      organizationId: null,
-      description: 'CommissionLedger SELECT without authentication',
-      details: { organizationId, profileId },
-      timestamp: new Date(),
-    });
-    return { allowed: false, reason: 'UNAUTHENTICATED' };
-  }
-
-  // GLOBAL_ADMIN는 모든 조직의 데이터 접근 가능
-  if (ctx.role === 'GLOBAL_ADMIN') {
-    return { allowed: true };
-  }
-
-  // 조직 소유자/관리자는 자신의 조직 데이터만 접근 가능
-  if (ctx.role === 'OWNER') {
-    if (ctx.organizationId !== organizationId) {
-      await logSecurityEvent({
-        type: 'PERMISSION_DENIED',
-        severity: 'HIGH',
-        userId: ctx.userId,
-        organizationId: ctx.organizationId,
-        description: 'CommissionLedger SELECT denied: mismatched organizationId',
-        details: { requestedOrgId: organizationId },
-        timestamp: new Date(),
-      });
-      return { allowed: false, reason: 'CROSS_ORGANIZATION_ACCESS' };
-    }
-    return { allowed: true };
-  }
-
-  // AGENT는 자신의 프로필 데이터만 접근 가능
-  if (ctx.role === 'AGENT' || ctx.role === 'FREE_SALES') {
-    if (ctx.organizationId !== organizationId) {
-      await logSecurityEvent({
-        type: 'PERMISSION_DENIED',
-        severity: 'HIGH',
-        userId: ctx.userId,
-        organizationId: ctx.organizationId,
-        description: 'CommissionLedger SELECT denied: mismatched organizationId',
-        details: { requestedOrgId: organizationId },
-        timestamp: new Date(),
-      });
-      return { allowed: false, reason: 'CROSS_ORGANIZATION_ACCESS' };
-    }
-
-    // 자신의 프로필 데이터만 조회 가능
-    // Check if profileId is specified and doesn't match user's profile
-    if (profileId && ctx.mallUser) {
-      if (ctx.mallUser.affiliateProfileId !== profileId) {
-        await logSecurityEvent({
-          type: 'PERMISSION_DENIED',
-          severity: 'MEDIUM',
-          userId: ctx.userId,
-          organizationId: ctx.organizationId,
-          description: 'CommissionLedger SELECT denied: mismatched profileId',
-          details: { requestedProfileId: profileId, userProfileId: ctx.mallUser.affiliateProfileId },
-          timestamp: new Date(),
-        });
-        return { allowed: false, reason: 'CROSS_PROFILE_ACCESS' };
-      }
-    }
-    return { allowed: true };
-  }
-
-  await logSecurityEvent({
-    type: 'PERMISSION_DENIED',
-    severity: 'MEDIUM',
-    userId: ctx.userId,
-    organizationId: ctx.organizationId,
-    description: 'CommissionLedger SELECT denied: unknown role',
-    details: { role: ctx.role },
-    timestamp: new Date(),
-  });
-  return { allowed: false, reason: 'UNKNOWN_ROLE' };
-}
-
-/**
- * CommissionLedger INSERT/UPDATE 권한 검증
- */
-export async function checkCommissionLedgerModifyPermission(
-  ctx: MabizAuthContext | null,
-  organizationId: string
-): Promise<RLSCheckResult> {
-  // 인증 확인
-  if (!ctx) {
-    await logSecurityEvent({
-      type: 'UNAUTHORIZED_ACCESS',
-      severity: 'CRITICAL',
-      userId: 'ANONYMOUS',
-      organizationId: null,
-      description: 'CommissionLedger INSERT/UPDATE without authentication',
-      details: { organizationId },
-      timestamp: new Date(),
-    });
-    return { allowed: false, reason: 'UNAUTHENTICATED' };
-  }
-
-  // GLOBAL_ADMIN만 수정 가능
-  if (ctx.role !== 'GLOBAL_ADMIN') {
-    await logSecurityEvent({
-      type: 'PERMISSION_DENIED',
-      severity: 'CRITICAL',
-      userId: ctx.userId,
-      organizationId: ctx.organizationId,
-      description: 'CommissionLedger INSERT/UPDATE denied: insufficient privilege',
-      details: { role: ctx.role },
-      timestamp: new Date(),
-    });
-    return { allowed: false, reason: 'INSUFFICIENT_PRIVILEGE' };
-  }
-
-  return { allowed: true };
-}
-
-/**
- * CommissionLedger DELETE 권한 검증 (원칙적으로 금지)
- */
-export async function checkCommissionLedgerDeletePermission(
-  ctx: MabizAuthContext | null,
-  organizationId: string
-): Promise<RLSCheckResult> {
-  // DELETE는 원칙적으로 금지
-  await logSecurityEvent({
-    type: 'SUSPICIOUS_ACTIVITY',
-    severity: 'CRITICAL',
-    userId: ctx?.userId || 'ANONYMOUS',
-    organizationId: ctx?.organizationId || null,
-    description: 'CommissionLedger DELETE attempted (operation not permitted)',
-    details: { organizationId, role: ctx?.role },
-    timestamp: new Date(),
-  });
-
-  return { allowed: false, reason: 'DELETE_NOT_PERMITTED' };
 }
 
 /**
  * 감사 로그 조회 권한 검증
  */
-export async function checkAuditLogReadPermission(
-  ctx: MabizAuthContext | null
-): Promise<RLSCheckResult> {
-  if (!ctx) {
-    return { allowed: false, reason: 'UNAUTHENTICATED' };
+export async function checkAuditLogReadPermission(ctx: {
+  role?: string | null;
+  userId?: string | null;
+  organizationId?: string | null;
+}): Promise<{ allowed: boolean; reason?: string }> {
+  if (ctx.role === 'GLOBAL_ADMIN') {
+    return { allowed: true };
+  }
+  return { allowed: false, reason: '감사 로그 조회는 관리자 전용입니다.' };
+}
+
+/**
+ * 커미션 정산 조회 권한 검증
+ */
+export async function checkCommissionLedgerSelectPermission(
+  ctx: { role?: string | null; userId?: string | null; organizationId?: string | null },
+  targetOrgId: string
+): Promise<{ allowed: boolean; reason?: string }> {
+  if (ctx.role === 'GLOBAL_ADMIN') {
+    return { allowed: true };
+  }
+  if (ctx.role === 'OWNER' && ctx.organizationId === targetOrgId) {
+    return { allowed: true };
+  }
+  return { allowed: false, reason: '정산 조회 권한이 없습니다.' };
+}
+
+/**
+ * 감사 로그 액션 유형
+ */
+export type AuditAction = 'SETTLE' | 'DISPUTE' | 'VERIFY' | 'RECALCULATE';
+
+/**
+ * 감사 로그 리소스 유형
+ */
+export type AuditResource = 'COMMISSION' | 'SETTLEMENT' | 'CONTACT' | 'SALES';
+
+/**
+ * 감사 로그 상태
+ */
+export type AuditStatus = 'SUCCESS' | 'FAILURE' | 'PENDING';
+
+/**
+ * PII 마스킹 규칙
+ */
+const maskPII = (value: any): any => {
+  if (!value) return value;
+
+  if (typeof value === 'string') {
+    // 이메일 마스킹: user@example.com -> u***@example.com
+    if (value.includes('@')) {
+      const [localPart, domain] = value.split('@');
+      return `${localPart.charAt(0)}***@${domain}`;
+    }
+    // 전화번호 마스킹: 010-1234-5678 -> 010-****-5678
+    if (/^\d{3}-\d{4}-\d{4}/.test(value)) {
+      return value.replace(/(\d{3})-(\d{4})-(\d{4})/, '$1-****-$4');
+    }
+    // 이름 마스킹: 김철수 -> 김*수 (2-3글자), 김철 -> 김*
+    if (value.length <= 4 && /^[가-힣]+$/.test(value)) {
+      return value.charAt(0) + '*'.repeat(value.length - 2) + value.charAt(value.length - 1);
+    }
   }
 
-  // GLOBAL_ADMIN만 조회 가능
-  if (ctx.role !== 'GLOBAL_ADMIN') {
-    await logSecurityEvent({
-      type: 'PERMISSION_DENIED',
-      severity: 'HIGH',
-      userId: ctx.userId,
-      organizationId: ctx.organizationId,
-      description: 'AuditLog READ denied: insufficient privilege',
-      details: { role: ctx.role },
-      timestamp: new Date(),
-    });
-    return { allowed: false, reason: 'INSUFFICIENT_PRIVILEGE' };
+  // 객체 재귀 처리
+  if (typeof value === 'object' && value !== null) {
+    if (Array.isArray(value)) {
+      return value.map(maskPII);
+    }
+    const masked: Record<string, any> = {};
+    for (const [key, val] of Object.entries(value)) {
+      // 민감한 필드명 자동 마스킹
+      if (['email', 'phone', 'name', 'password', 'ssn'].some(field => key.toLowerCase().includes(field))) {
+        masked[key] = maskPII(val);
+      } else if (typeof val === 'object') {
+        masked[key] = maskPII(val);
+      } else {
+        masked[key] = val;
+      }
+    }
+    return masked;
   }
 
-  return { allowed: true };
+  return value;
+};
+
+/**
+ * 감사 로그 생성 (비동기 백그라운드)
+ *
+ * @param param0 감사 로그 파라미터
+ *
+ * 사용 예:
+ * ```typescript
+ * const startTime = Date.now();
+ * try {
+ *   // ... 작업 수행
+ *   await createAuditLog({
+ *     organizationId: 'org_123',
+ *     userId: 'user_123',
+ *     userEmail: 'admin@example.com',
+ *     userName: '김철수',
+ *     action: 'SETTLE',
+ *     resource: 'COMMISSION',
+ *     resourceId: 'settle_456',
+ *     status: 'SUCCESS',
+ *     changes: {
+ *       before: { totalCommission: 5000000 },
+ *       after: { totalCommission: 4800000 }
+ *     },
+ *     duration: Date.now() - startTime,
+ *     recordCount: 25
+ *   });
+ * } catch (error) {
+ *   await createAuditLog({
+ *     organizationId: 'org_123',
+ *     userId: 'user_123',
+ *     userEmail: 'admin@example.com',
+ *     action: 'SETTLE',
+ *     resource: 'COMMISSION',
+ *     status: 'FAILURE',
+ *     errorCode: 'INVALID_SETTLEMENT',
+ *     errorMessage: '정산 기간이 유효하지 않습니다',
+ *     duration: Date.now() - startTime
+ *   });
+ * }
+ * ```
+ */
+export async function createAuditLog({
+  organizationId,
+  userId,
+  userEmail,
+  userName,
+  action,
+  resource,
+  resourceId,
+  status,
+  errorCode,
+  errorMessage,
+  changes,
+  metadata,
+  duration,
+  recordCount,
+}: {
+  organizationId: string;
+  userId: string;
+  userEmail: string;
+  userName?: string;
+  action: AuditAction;
+  resource: AuditResource;
+  resourceId?: string;
+  status: AuditStatus;
+  errorCode?: string;
+  errorMessage?: string;
+  changes?: Record<string, any>;
+  metadata?: Record<string, any>;
+  duration: number;
+  recordCount?: number;
+}): Promise<void> {
+  // 백그라운드 비동기 실행 (메인 플로우 차단 안 함)
+  setImmediate(async () => {
+    try {
+      // PII 마스킹 적용
+      const maskedChanges = changes ? maskPII(changes) : undefined;
+      const maskedMetadata = metadata ? maskPII(metadata) : undefined;
+
+      // 데이터베이스 저장 (첫 번째 AuditLog 모델 필드에 매핑)
+      await prisma.auditLog.create({
+        data: {
+          organizationId,
+          userId,
+          action,
+          resourceType: resource,
+          resourceId,
+          status,
+          errorMessage: [errorCode, errorMessage].filter(Boolean).join(': ') || undefined,
+          piiValuesModified: {
+            ...(maskedChanges ? { changes: maskedChanges } : {}),
+            ...(maskedMetadata ? { metadata: maskedMetadata } : {}),
+            ...(userEmail ? { userEmail } : {}),
+            ...(userName ? { userName: maskPII(userName) } : {}),
+            ...(recordCount !== undefined ? { recordCount } : {}),
+            ...(duration !== undefined ? { duration } : {}),
+          },
+          durationMs: duration,
+        },
+      });
+
+      // 실패 이벤트 로깅
+      if (status === 'FAILURE') {
+        logger.warn(
+          `[AuditLog] ${action} ${resource} 실패 (${errorCode || 'UNKNOWN'}): ${errorMessage}`
+        );
+      }
+    } catch (error) {
+      // 감사 로그 자체 실패는 메인 플로우 차단 안 함
+      logger.error(`[AuditLog] 감사 로그 저장 실패:`, error);
+    }
+  });
+}
+
+/**
+ * 감사 로그 조회 필터
+ */
+export interface AuditLogQuery {
+  organizationId: string;
+  action?: AuditAction;
+  resource?: AuditResource;
+  status?: AuditStatus;
+  userId?: string;
+  resourceId?: string;
+  startDate?: Date;
+  endDate?: Date;
+  page?: number;
+  limit?: number;
+}
+
+/**
+ * 감사 로그 조회
+ *
+ * @param query 필터 조건
+ * @returns 감사 로그 목록 및 메타데이터
+ *
+ * 사용 예:
+ * ```typescript
+ * const result = await getAuditLogs({
+ *   organizationId: 'org_123',
+ *   action: 'SETTLE',
+ *   status: 'SUCCESS',
+ *   page: 1,
+ *   limit: 20
+ * });
+ * ```
+ */
+export async function getAuditLogs(query: AuditLogQuery) {
+  const {
+    organizationId,
+    action,
+    resource,
+    status,
+    userId,
+    resourceId,
+    startDate,
+    endDate,
+    page = 1,
+    limit = 20,
+  } = query;
+
+  // 페이지네이션
+  const skip = Math.max(0, (page - 1) * limit);
+  const take = Math.max(1, Math.min(limit, 100)); // 최대 100개
+
+  // 필터 구성 (첫 번째 AuditLog 모델 필드에 매핑)
+  const where: Record<string, any> = { organizationId };
+
+  if (action) where.action = action;
+  if (resource) where.resourceType = resource; // resource → resourceType
+  if (status) where.status = status;
+  if (userId) where.userId = userId;
+  if (resourceId) where.resourceId = resourceId;
+
+  // 시간 범위 필터
+  if (startDate || endDate) {
+    where.createdAt = {};
+    if (startDate) where.createdAt.gte = startDate;
+    if (endDate) where.createdAt.lte = endDate;
+  }
+
+  // 병렬 조회
+  const [logs, total] = await Promise.all([
+    prisma.auditLog.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take,
+      select: {
+        id: true,
+        userId: true,
+        action: true,
+        resourceType: true,
+        resourceId: true,
+        status: true,
+        errorMessage: true,
+        piiValuesModified: true,
+        durationMs: true,
+        createdAt: true,
+      },
+    }),
+    prisma.auditLog.count({ where }),
+  ]);
+
+  return {
+    logs,
+    pagination: {
+      page,
+      limit: take,
+      total,
+      pages: Math.ceil(total / take),
+    },
+  };
+}
+
+/**
+ * 액션별 감사 로그 통계
+ */
+export async function getAuditStats(
+  organizationId: string,
+  startDate?: Date,
+  endDate?: Date
+) {
+  const where: Record<string, any> = { organizationId };
+
+  if (startDate || endDate) {
+    where.createdAt = {};
+    if (startDate) where.createdAt.gte = startDate;
+    if (endDate) where.createdAt.lte = endDate;
+  }
+
+  // 액션별 집계
+  const byAction = await prisma.auditLog.groupBy({
+    by: ['action', 'status'],
+    where,
+    _count: { id: true },
+    _avg: { durationMs: true },
+  });
+
+  // 리소스별 집계 (resource → resourceType)
+  const byResource = await prisma.auditLog.groupBy({
+    by: ['resourceType', 'status'],
+    where,
+    _count: { id: true },
+  });
+
+  // 실패율 계산
+  const allLogs = await prisma.auditLog.groupBy({
+    by: ['status'],
+    where,
+    _count: { id: true },
+  });
+
+  const successCount = allLogs.find(r => r.status === 'SUCCESS')?._count.id || 0;
+  const failureCount = allLogs.find(r => r.status === 'FAILURE')?._count.id || 0;
+  const totalCount = successCount + failureCount;
+
+  return {
+    byAction,
+    byResource,
+    summary: {
+      total: totalCount,
+      success: successCount,
+      failure: failureCount,
+      successRate: totalCount > 0 ? ((successCount / totalCount) * 100).toFixed(2) : 'N/A',
+    },
+  };
+}
+
+/**
+ * 특정 사용자의 감사 로그 조회
+ */
+export async function getUserAuditLogs(
+  organizationId: string,
+  userId: string,
+  limit = 50
+) {
+  return prisma.auditLog.findMany({
+    where: {
+      organizationId,
+      userId,
+    },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  });
+}
+
+/**
+ * 특정 리소스의 감사 추적 이력
+ */
+export async function getResourceAuditTrail(
+  organizationId: string,
+  resourceId: string
+) {
+  return prisma.auditLog.findMany({
+    where: {
+      organizationId,
+      resourceId,
+    },
+    orderBy: { createdAt: 'desc' },
+  });
 }

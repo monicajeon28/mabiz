@@ -420,13 +420,15 @@ export default function GoldMembersPage() {
       ) : members.length === 0 ? (
         <div className="text-center py-16 text-gray-600">
           <Star className="w-10 h-10 mx-auto mb-3 opacity-30" />
-          <p>골드회원이 없습니다.</p>
-          <button
-            onClick={() => setDrawerOpen(true)}
-            className="mt-4 px-4 py-2 text-sm bg-navy-900 text-white rounded-lg hover:opacity-90"
-          >
-            첫 골드회원 등록
-          </button>
+          <p>{isAgent ? "배정된 골드회원이 없습니다." : "골드회원이 없습니다."}</p>
+          {(isAdmin || isOwner) && (
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className="mt-4 px-4 py-2 text-sm bg-navy-900 text-white rounded-lg hover:opacity-90"
+            >
+              첫 골드회원 등록
+            </button>
+          )}
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">

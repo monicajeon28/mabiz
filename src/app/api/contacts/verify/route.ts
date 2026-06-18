@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
+import { createAuditLog } from "@/lib/audit-logger";
 
 /**
  * GET /api/contacts/verify
@@ -20,6 +21,8 @@ import { logger } from "@/lib/logger";
  * - status: 데이터 상태 메시지
  */
 export async function GET(req: Request) {
+  const startTime = Date.now();
+
   try {
     const ctx = await getAuthContext();
     const { searchParams } = new URL(req.url);
@@ -160,6 +163,30 @@ export async function GET(req: Request) {
 
     logger.info(`[Verify] 검증 완료: total=${allContacts.length}, nullOrg=${nullOrgCount}, noEmail=${noEmailCount}`);
 
+    // 감사 로그 기록 (성공)
+    const duration = Date.now() - startTime;
+    const user = await prisma.organizationMember.findFirst({
+      where: { id: ctx.userId || '' },
+      select: { id: true, organizationId: true, email: true },
+    });
+
+    if (user) {
+      await createAuditLog({
+        organizationId: user.organizationId || '',
+        userId: user.id,
+        userEmail: user.email || 'unknown@example.com',
+        action: 'VERIFY',
+        resource: 'CONTACT',
+        status: 'SUCCESS',
+        changes: {
+          before: {},
+          after: { total: allContacts.length, nullOrgCount, noEmailCount },
+        },
+        recordCount: allContacts.length,
+        duration,
+      });
+    }
+
     return NextResponse.json(
       {
         timestamp: new Date().toISOString(),
@@ -190,6 +217,34 @@ export async function GET(req: Request) {
     );
   } catch (error) {
     logger.error("[Verify] 검증 중 오류:", { error });
+
+    // 감사 로그 기록 (실패)
+    const duration = Date.now() - startTime;
+    try {
+      const ctx2 = await getAuthContext();
+      const user = await prisma.organizationMember.findFirst({
+        where: { id: ctx2.userId || '' },
+        select: { id: true, organizationId: true, email: true },
+      });
+
+      if (user) {
+        const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+        await createAuditLog({
+          organizationId: user.organizationId || '',
+          userId: user.id,
+          userEmail: user.email || 'unknown@example.com',
+          action: 'VERIFY',
+          resource: 'CONTACT',
+          status: 'FAILURE',
+          errorCode: 'VERIFY_ERROR',
+          errorMessage: errorMessage,
+          duration,
+        });
+      }
+    } catch (auditError) {
+      logger.error('감사 로그 기록 실패:', auditError);
+    }
+
     return NextResponse.json(
       { error: "검증 중 오류가 발생했습니다" },
       { status: 500 }

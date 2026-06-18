@@ -7590,3 +7590,6 @@ model UserEmailConfig {
   @@index([organizationId])
   @@map("UserEmailConfig")
 }
+
+// Phase 4: AuditLog 모델은 줄 6589 (Compliance & Monitoring Models)에 정의됨
+// 중복 정의 제거 (2026-06-19)

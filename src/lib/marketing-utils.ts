@@ -1,5 +1,6 @@
 export function formatAmount(n: number): string {
-  return n.toLocaleString() + "원";
+  if (!isFinite(n)) return '0원';
+  return n.toLocaleString('ko-KR') + '원';
 }
 
 export function formatDate(iso: string | null): string {
