@@ -35,6 +35,7 @@ type GoldMemberDetail = {
   paidCount: number;
   maxPaymentCount: number | null; // B2 수정
   agentId: number | null;         // B2 수정
+  agentName: string | null;
   managerId: number | null;
   status: string;
   memo: string | null;
@@ -388,14 +389,12 @@ export default function GoldMemberDetailPage() {
             </dt>
             <dd className="text-sm text-gray-900">
               {member.agentId ? (
-                <span className="inline-flex items-center gap-1">
-                  <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">
-                    {String(member.agentId).slice(-2)}
-                  </span>
-                  담당자 #{member.agentId}
+                <span className="inline-flex items-center gap-1.5">
+                  <UserCheck className="w-3.5 h-3.5 text-blue-500" />
+                  {member.agentName ?? `담당자 #${member.agentId}`}
                 </span>
               ) : (
-                <span className="text-gray-400">직접 배정</span>
+                <span className="text-gray-400">미배정</span>
               )}
             </dd>
           </div>

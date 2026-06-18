@@ -52,14 +52,14 @@ export async function GET(req: NextRequest) {
     type CountRow = { total: number | bigint };
     const countRows: CountRow[] = orgId
       ? await prisma.$queryRaw<CountRow[]>`
-          SELECT COUNT(*)::int AS total
+          SELECT COUNT(*)::bigint AS total
           FROM "CrmPayAppPayment" pp
           INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
           WHERE af."organizationId" = ${orgId}::uuid
             AND pp."createdAt" >= ${sixMonthsAgo}
         `
       : await prisma.$queryRaw<CountRow[]>`
-          SELECT COUNT(*)::int AS total
+          SELECT COUNT(*)::bigint AS total
           FROM "CrmPayAppPayment" pp
           INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
           WHERE pp."createdAt" >= ${sixMonthsAgo}
@@ -112,7 +112,7 @@ export async function GET(req: NextRequest) {
       ? await prisma.$queryRaw<RawMonthly[]>`
           SELECT DATE_TRUNC('month', pp."createdAt") AS month,
                  SUM(pp."amount")::float AS revenue,
-                 COUNT(*)::int AS count
+                 COUNT(*)::bigint AS count
           FROM "CrmPayAppPayment" pp
           INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
           WHERE af."organizationId" = ${orgId}::uuid
@@ -124,7 +124,7 @@ export async function GET(req: NextRequest) {
       : await prisma.$queryRaw<RawMonthly[]>`
           SELECT DATE_TRUNC('month', pp."createdAt") AS month,
                  SUM(pp."amount")::float AS revenue,
-                 COUNT(*)::int AS count
+                 COUNT(*)::bigint AS count
           FROM "CrmPayAppPayment" pp
           INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
           WHERE pp."status" = 'paid'
@@ -202,7 +202,7 @@ export async function GET(req: NextRequest) {
       ? await prisma.$queryRaw<RawByLanding[]>`
           SELECT pp."landingPageId",
                  SUM(pp."amount")::float AS revenue,
-                 COUNT(*)::int AS count
+                 COUNT(*)::bigint AS count
           FROM "CrmPayAppPayment" pp
           INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
           WHERE af."organizationId" = ${orgId}::uuid
@@ -213,7 +213,7 @@ export async function GET(req: NextRequest) {
       : await prisma.$queryRaw<RawByLanding[]>`
           SELECT pp."landingPageId",
                  SUM(pp."amount")::float AS revenue,
-                 COUNT(*)::int AS count
+                 COUNT(*)::bigint AS count
           FROM "CrmPayAppPayment" pp
           INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
           WHERE pp."status" = 'paid'
@@ -286,7 +286,7 @@ export async function GET(req: NextRequest) {
       const orgRevRows: OrgRevRow[] = await prisma.$queryRaw<OrgRevRow[]>`
         SELECT af."organizationId",
                COALESCE(SUM(CASE WHEN pp."status" = 'paid' THEN pp."amount" ELSE 0 END), 0)::float AS revenue,
-               COUNT(CASE WHEN pp."status" = 'paid' THEN 1 END)::int AS count
+               COUNT(CASE WHEN pp."status" = 'paid' THEN 1 END)::bigint AS count
         FROM "CrmPayAppPayment" pp
         INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
         WHERE pp."createdAt" >= ${thisMonthStart}
@@ -333,7 +333,7 @@ export async function GET(req: NextRequest) {
       // (직접 결제/웹훅 미처리 건 제외, 어필리에이트 연결 결제만 집계)
       const adminSalesRows: AdminSalesSumRow[] = await prisma.$queryRaw<AdminSalesSumRow[]>`
         SELECT COALESCE(SUM(pp."amount"), 0)::float AS revenue,
-               COUNT(*)::int AS count
+               COUNT(*)::bigint AS count
         FROM "CrmPayAppPayment" pp
         INNER JOIN "CrmLandingPage" lp ON lp."id" = pp."landingPageId"
         INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"

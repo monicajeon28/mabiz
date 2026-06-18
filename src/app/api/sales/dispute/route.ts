@@ -34,6 +34,7 @@
 import { getServerSession } from 'next-auth/next';
 import { canDispute, validatePermission } from '@/lib/sales-permissions';
 import prisma from '@/lib/prisma';
+import { createAuditLog } from '@/lib/audit-logger';
 
 export async function GET(request: Request) {
   const startTime = Date.now();
@@ -54,7 +55,7 @@ export async function GET(request: Request) {
 
     const user = await prisma.organizationMember.findFirst({
       where: { email: session.user.email },
-      select: { id: true, email: true, role: true, managerId: true },
+      select: { id: true, email: true, role: true, managerId: true, organizationId: true, displayName: true },
     });
 
     if (!user) {
@@ -195,7 +196,7 @@ export async function POST(request: Request) {
 
     const user = await prisma.organizationMember.findFirst({
       where: { email: session.user.email },
-      select: { id: true, email: true, role: true, managerId: true },
+      select: { id: true, email: true, role: true, managerId: true, organizationId: true, displayName: true },
     });
 
     if (!user) {
@@ -300,14 +301,33 @@ export async function POST(request: Request) {
       }
     );
 
-    // 📌 Step 7: 응답 반환
+    // 📌 Step 7: 감사 로그 기록 (성공)
+    const duration = Date.now() - startTime;
+    const userOrgId = user.organizationId || user.id || '';
+    await createAuditLog({
+      organizationId: userOrgId,
+      userId: user.id,
+      userEmail: user.email || 'unknown@example.com',
+      userName: user.displayName || undefined,
+      action: 'DISPUTE',
+      resource: 'SETTLEMENT',
+      resourceId: disputeId,
+      status: 'SUCCESS',
+      changes: {
+        before: {},
+        after: { status: 'PENDING', reason },
+      },
+      duration,
+    });
+
+    // 📌 Step 8: 응답 반환
     const responseData = {
       success: true,
       data: newDispute,
       metadata: {
         createdBy: user.email,
         timestamp: new Date().toISOString(),
-        executionTime: `${Date.now() - startTime}ms`,
+        executionTime: `${duration}ms`,
       },
     };
 
@@ -320,6 +340,33 @@ export async function POST(request: Request) {
 
     const errorMessage =
       error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다';
+
+    // 감사 로그 기록 (실패)
+    const duration = Date.now() - startTime;
+    try {
+      const session = await getServerSession();
+      const user = await prisma.organizationMember.findFirst({
+        where: { email: session?.user?.email },
+        select: { id: true, email: true, organizationId: true },
+      });
+
+      if (user) {
+        const userOrgId = user.organizationId || user.id || '';
+        await createAuditLog({
+          organizationId: userOrgId,
+          userId: user.id,
+          userEmail: user.email || 'unknown@example.com',
+          action: 'DISPUTE',
+          resource: 'SETTLEMENT',
+          status: 'FAILURE',
+          errorCode: 'DISPUTE_ERROR',
+          errorMessage: errorMessage,
+          duration,
+        });
+      }
+    } catch (auditError) {
+      console.error('감사 로그 기록 실패:', auditError);
+    }
 
     return new Response(
       JSON.stringify({

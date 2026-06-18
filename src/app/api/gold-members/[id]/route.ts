@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
@@ -48,10 +49,36 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
       }
     }
 
+    // agentId → agentName 조회 (있을 때만)
+    let agentName: string | null = null;
+    if (member.agentId != null) {
+      try {
+        type UserNameRow = { id: number; name: string | null; phone: string | null };
+        const rows = await prisma.$queryRaw<UserNameRow[]>(
+          Prisma.sql`SELECT id, name, phone FROM "User" WHERE id = ${member.agentId}`,
+        );
+        if (rows.length > 0) {
+          const u = rows[0];
+          if (u.phone) {
+            const om = await prisma.organizationMember.findFirst({
+              where: { phone: u.phone, isActive: true },
+              select: { displayName: true },
+            });
+            agentName = om?.displayName ?? u.name ?? null;
+          } else {
+            agentName = u.name ?? null;
+          }
+        }
+      } catch {
+        // agentName 조회 실패 시 무시
+      }
+    }
+
     // NEW-2(P2): 전화번호 마스킹 — GLOBAL_ADMIN만 원본 반환, 나머지는 마스킹
     const safeMember = {
       ...member,
       phone: ctx.role !== 'GLOBAL_ADMIN' ? maskPhone(member.phone) : member.phone,
+      agentName,
     };
 
     return NextResponse.json({ ok: true, member: safeMember });
@@ -120,10 +147,14 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     // P0: organizationId 격리 — 다른 조직의 골드회원 수정 방지
     const existing = await prisma.goldMember.findUnique({
       where: { id },
-      select: { organizationId: true },
+      select: { organizationId: true, deletedAt: true },
     });
     if (!existing) {
       return NextResponse.json({ ok: false, error: '없음' }, { status: 404 });
+    }
+    // NEW-A(P1): 소프트삭제된 회원 수정 차단
+    if (existing.deletedAt !== null) {
+      return NextResponse.json({ ok: false, error: '이미 삭제된 회원입니다.' }, { status: 404 });
     }
     if (ctx.role !== 'GLOBAL_ADMIN') {
       if (!ctx.organizationId || existing.organizationId !== ctx.organizationId) {
@@ -131,18 +162,34 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       }
     }
 
-    const updated = await prisma.goldMember.updateMany({
-      where: { id, ...(ctx.role !== 'GLOBAL_ADMIN' ? { organizationId: ctx.organizationId ?? '__IMPOSSIBLE__' } : {}) },
-      data,
-    });
-    if (updated.count === 0) {
-      return NextResponse.json({ ok: false, error: '없음' }, { status: 404 });
+    // NEW-C(P2): updateMany + findUnique 두 단계를 단일 update+include 쿼리로 합침.
+    // 두 쿼리 사이에 다른 요청이 소프트삭제해도 경쟁 조건 없이 일관된 결과 반환.
+    const orgFilter = ctx.role !== 'GLOBAL_ADMIN'
+      ? { organizationId: ctx.organizationId ?? '__IMPOSSIBLE__', deletedAt: null }
+      : { deletedAt: null };
+    let updatedMember: Awaited<ReturnType<typeof prisma.goldMember.update>>;
+    try {
+      updatedMember = await prisma.goldMember.update({
+        where: { id, ...orgFilter },
+        data,
+        include: { consultations: { orderBy: { createdAt: 'desc' } } },
+      });
+    } catch (updateErr: unknown) {
+      // Prisma P2025 = 조건에 맞는 레코드 없음 (삭제됐거나 권한 불일치)
+      if (
+        typeof updateErr === 'object' &&
+        updateErr !== null &&
+        'code' in updateErr &&
+        (updateErr as { code: string }).code === 'P2025'
+      ) {
+        return NextResponse.json({ ok: false, error: '없음' }, { status: 404 });
+      }
+      throw updateErr;
     }
-    // B3: 업데이트된 최신 데이터를 조회해 반환 (로컬 상태 갱신 보장)
-    const updatedMember = await prisma.goldMember.findUnique({
-      where: { id },
-      include: { consultations: { orderBy: { createdAt: 'desc' } } },
-    });
+    // 업데이트 직후 deletedAt 이중 확인 (극단적 동시 삭제 대비)
+    if (updatedMember.deletedAt !== null) {
+      return NextResponse.json({ ok: false, error: '이미 삭제된 회원입니다.' }, { status: 409 });
+    }
     return NextResponse.json({ ok: true, member: updatedMember });
   } catch (err) {
     logger.error('[PATCH /api/gold-members/[id]]', { err });

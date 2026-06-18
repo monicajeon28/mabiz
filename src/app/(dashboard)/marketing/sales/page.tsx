@@ -234,7 +234,12 @@ function OrgBreakdownSection({ orgBreakdown }: { orgBreakdown: OrgBreakdown[] })
               <td className="px-6 py-4 text-base font-bold text-blue-900">전체 합계</td>
               <td className="px-6 py-4 text-right text-base font-bold text-blue-900">{formatAmount(totalRevenue)}</td>
               <td className="px-6 py-4 text-right text-base font-bold text-blue-900">{totalCount}건</td>
-              <td className="px-6 py-4 text-right text-base font-bold text-red-700">{formatAmount(orgBreakdown.reduce((s, o) => s + o.totalRefund, 0))}</td>
+              <td className="px-6 py-4 text-right text-base font-bold text-red-700">
+                {(() => {
+                  const totalRef = orgBreakdown.reduce((s, o) => s + o.totalRefund, 0);
+                  return totalRef > 0 ? formatAmount(totalRef) : '-';
+                })()}
+              </td>
               <td className="px-6 py-4 text-right text-base font-bold text-green-800">{formatAmount(totalNet)}</td>
             </tr>
           </tfoot>
@@ -279,7 +284,6 @@ export default function MarketingSalesPage() {
         // UI-SALES-001: 403 응답 시 명확한 접근 거부 UI 표시
         if (res.status === 403) {
           setForbidden(true);
-          setLoading(false);
           return null;
         }
         return res.json();
@@ -406,8 +410,8 @@ export default function MarketingSalesPage() {
       {/* 월별 막대 그래프 */}
       {!loading && monthly.length > 0 && <SalesBarChart monthly={monthly} />}
 
-      {/* UI-SALES-010: GLOBAL_ADMIN 전용 — 로딩 중 스켈레톤으로 CLS 방지 */}
-      {loading && sessionRole === 'GLOBAL_ADMIN' && (
+      {/* UI-SALES-010: GLOBAL_ADMIN 전용 — 로딩 중 스켈레톤으로 CLS 방지 (sessionRole undefined 포함: 세션 로드 전 CLS 방지) */}
+      {loading && (sessionRole === 'GLOBAL_ADMIN' || sessionRole === undefined) && (
         <div className="space-y-4">
           {/* 관리자 개인 링크 매출 스켈레톤 */}
           <div className="bg-purple-50 rounded-xl border border-purple-200 p-6">

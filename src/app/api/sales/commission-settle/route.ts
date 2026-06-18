@@ -44,6 +44,7 @@
 import { getServerSession } from 'next-auth/next';
 import { canSettleCommission, validateSettlementPermission } from '@/lib/sales-permissions';
 import prisma from '@/lib/prisma';
+import { createAuditLog } from '@/lib/audit-logger';
 
 export async function GET(request: Request) {
   const startTime = Date.now();
@@ -64,7 +65,7 @@ export async function GET(request: Request) {
 
     const user = await prisma.organizationMember.findFirst({
       where: { email: session.user.email },
-      select: { id: true, email: true, role: true },
+      select: { id: true, email: true, role: true, organizationId: true, displayName: true },
     });
 
     if (!user) {
@@ -247,7 +248,7 @@ export async function POST(request: Request) {
 
     const user = await prisma.organizationMember.findFirst({
       where: { email: session.user.email },
-      select: { id: true, email: true, role: true },
+      select: { id: true, email: true, role: true, organizationId: true, displayName: true },
     });
 
     if (!user) {
@@ -339,12 +340,31 @@ export async function POST(request: Request) {
       );
     }
 
-    // 📌 Step 5: 응답 반환
+    // 📌 Step 5: 감사 로그 기록 (성공)
+    const duration = Date.now() - startTime;
+    const userOrgId = user.organizationId || user.id || '';
+    await createAuditLog({
+      organizationId: userOrgId,
+      userId: user.id,
+      userEmail: user.email || 'unknown@example.com',
+      userName: user.displayName || undefined,
+      action: 'SETTLE',
+      resource: 'COMMISSION',
+      resourceId: `settle_${month}`,
+      status: 'SUCCESS',
+      changes: {
+        before: { status: 'PENDING' },
+        after: { status: result.status },
+      },
+      duration,
+    });
+
+    // 📌 Step 6: 응답 반환
     const responseData = {
       success: true,
       data: {
         ...result,
-        executionTime: `${Date.now() - startTime}ms`,
+        executionTime: `${duration}ms`,
       },
       metadata: {
         processedBy: user.email,
@@ -361,6 +381,33 @@ export async function POST(request: Request) {
 
     const errorMessage =
       error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다';
+
+    // 감사 로그 기록 (실패)
+    const duration = Date.now() - startTime;
+    try {
+      const session = await getServerSession();
+      const user = await prisma.organizationMember.findFirst({
+        where: { email: session?.user?.email },
+        select: { id: true, email: true, organizationId: true },
+      });
+
+      if (user) {
+        const userOrgId = user.organizationId || user.id || '';
+        await createAuditLog({
+          organizationId: userOrgId,
+          userId: user.id,
+          userEmail: user.email || 'unknown@example.com',
+          action: 'SETTLE',
+          resource: 'COMMISSION',
+          status: 'FAILURE',
+          errorCode: 'SETTLE_ERROR',
+          errorMessage: errorMessage,
+          duration,
+        });
+      }
+    } catch (auditError) {
+      console.error('감사 로그 기록 실패:', auditError);
+    }
 
     return new Response(
       JSON.stringify({

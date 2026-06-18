@@ -41,16 +41,27 @@ export async function GET(req: NextRequest) {
     const skip  = (page - 1) * limit;
 
     const where: Prisma.GoldMemberDeleteRequestWhereInput = {};
-    if (statusFilter)       where.status       = statusFilter;
-    if (goldMemberIdParam)  where.goldMemberId = goldMemberIdParam;
+    if (statusFilter) where.status = statusFilter;
 
     // OWNER: 자기 조직 골드회원의 삭제요청만 조회
     if (isOwner) {
       if (!ctx.organizationId) {
         return NextResponse.json({ ok: false, error: '조직 정보가 없습니다.' }, { status: 403 });
       }
+      // goldMemberId 파라미터가 있으면 해당 골드회원이 자기 조직 소속인지 먼저 검증 (Oracle 방지)
+      if (goldMemberIdParam) {
+        const target = await prisma.goldMember.findUnique({
+          where: { id: goldMemberIdParam },
+          select: { organizationId: true },
+        });
+        if (!target || target.organizationId !== ctx.organizationId) {
+          return NextResponse.json({ ok: false, error: '접근 권한이 없습니다.' }, { status: 403 });
+        }
+      }
       where.goldMember = { is: { organizationId: ctx.organizationId } };
     }
+
+    if (goldMemberIdParam) where.goldMemberId = goldMemberIdParam;
 
     type DeleteRequestWithMember = Prisma.GoldMemberDeleteRequestGetPayload<{
       include: {
