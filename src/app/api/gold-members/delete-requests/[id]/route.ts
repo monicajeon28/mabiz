@@ -54,8 +54,14 @@ export async function PATCH(
     const now = new Date();
 
     if (action === 'approve') {
+      if (deleteRequest.goldMember.deletedAt !== null) {
+        return NextResponse.json(
+          { ok: false, error: '이미 삭제된 회원입니다.' },
+          { status: 409 },
+        );
+      }
       // 트랜잭션: GoldMember 소프트삭제 + 요청 상태 APPROVED 동시 처리
-      const [updatedRequest] = await prisma.$transaction([
+      const [updatedRequest, updatedMember] = await prisma.$transaction([
         prisma.goldMemberDeleteRequest.update({
           where: { id },
           data: {
@@ -76,7 +82,11 @@ export async function PATCH(
         reviewerId: ctx.userId,
       });
 
-      return NextResponse.json({ ok: true, request: updatedRequest });
+      return NextResponse.json({
+        ok: true,
+        request: updatedRequest,
+        member: { id: updatedMember.id, deletedAt: updatedMember.deletedAt },
+      });
     } else {
       // reject: 요청 상태만 REJECTED로 변경, 실제 삭제 없음
       const updatedRequest = await prisma.goldMemberDeleteRequest.update({

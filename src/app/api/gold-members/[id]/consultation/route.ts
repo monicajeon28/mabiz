@@ -30,7 +30,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       // AGENT는 자기 담당 고객만 상담 등록 가능
       if (ctx.role === 'AGENT') {
         const numericId = parseInt(ctx.userId, 10);
-        if (!isNaN(numericId) && member.agentId !== numericId) {
+        if (isNaN(numericId)) {
+          return NextResponse.json({ ok: false, error: '사용자 ID 오류' }, { status: 403 });
+        }
+        if (member.agentId !== numericId) {
           return NextResponse.json({ ok: false, error: '접근 권한이 없습니다.' }, { status: 403 });
         }
       }

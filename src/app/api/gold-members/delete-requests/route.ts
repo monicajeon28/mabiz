@@ -5,8 +5,9 @@ import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 
-// GET: GLOBAL_ADMIN + OWNER — 삭제요청 목록 (goldMember 이름/코드 포함)
-// 쿼리 파라미터: status(PENDING|APPROVED|REJECTED), goldMemberId
+// GET: GLOBAL_ADMIN(전체) + OWNER(자기 조직만) — 삭제요청 목록 (goldMember 이름/코드 포함)
+// OWNER는 자신이 등록한 삭제 요청의 처리 상태를 확인할 수 있어야 하므로 조회 허용 (자기 조직 필터 적용)
+// 쿼리 파라미터: status(PENDING|APPROVED|REJECTED), goldMemberId, page, limit
 export async function GET(req: NextRequest) {
   try {
     const ctx = await getMabizSession();
@@ -15,13 +16,18 @@ export async function GET(req: NextRequest) {
     const isAdmin = ctx.role === 'GLOBAL_ADMIN';
     const isOwner = ctx.role === 'OWNER';
 
+    // OWNER: 자기 조직 삭제요청 조회 허용 (본인 요청 상태 확인 목적)
+    // GLOBAL_ADMIN: 전체 조회
+    // AGENT 이하: 접근 불가
     if (!isAdmin && !isOwner) {
       return NextResponse.json({ ok: false, error: '대리점장 또는 관리자만 접근할 수 있습니다.' }, { status: 403 });
     }
 
     const { searchParams } = new URL(req.url);
-    const statusParam      = searchParams.get('status');
+    const statusParam       = searchParams.get('status');
     const goldMemberIdParam = searchParams.get('goldMemberId');
+    const pageParam         = searchParams.get('page');
+    const limitParam        = searchParams.get('limit');
 
     type DeleteRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
     const validStatuses: DeleteRequestStatus[] = ['PENDING', 'APPROVED', 'REJECTED'];
@@ -29,6 +35,10 @@ export async function GET(req: NextRequest) {
       statusParam && (validStatuses as string[]).includes(statusParam)
         ? (statusParam as DeleteRequestStatus)
         : undefined;
+
+    const page  = Math.max(1, parseInt(pageParam  ?? '1',  10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(limitParam ?? '20', 10) || 20));
+    const skip  = (page - 1) * limit;
 
     const where: Prisma.GoldMemberDeleteRequestWhereInput = {};
     if (statusFilter)       where.status       = statusFilter;
@@ -42,26 +52,65 @@ export async function GET(req: NextRequest) {
       where.goldMember = { is: { organizationId: ctx.organizationId } };
     }
 
-    const requests = await prisma.goldMemberDeleteRequest.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
+    type DeleteRequestWithMember = Prisma.GoldMemberDeleteRequestGetPayload<{
       include: {
         goldMember: {
           select: {
-            id: true,
-            name: true,
-            memberCode: true,
-            courseType: true,
-            status: true,
-            organizationId: true,
+            id: true;
+            name: true;
+            memberCode: true;
+            courseType: true;
+            status: true;
+            organizationId: true;
+          };
+        };
+      };
+    }>;
+
+    const TIMEOUT_MS = 8000;
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('TIMEOUT')), TIMEOUT_MS),
+    );
+
+    const queryPromise: Promise<[number, DeleteRequestWithMember[]]> = Promise.all([
+      prisma.goldMemberDeleteRequest.count({ where }),
+      prisma.goldMemberDeleteRequest.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          goldMember: {
+            select: {
+              id: true,
+              name: true,
+              memberCode: true,
+              courseType: true,
+              status: true,
+              organizationId: true,
+            },
           },
         },
-      },
-    });
+      }),
+    ]);
+
+    let total: number;
+    let requests: DeleteRequestWithMember[];
+    try {
+      [total, requests] = await Promise.race([queryPromise, timeoutPromise]);
+    } catch (e) {
+      if (e instanceof Error && e.message === 'TIMEOUT') {
+        return NextResponse.json({ ok: false, error: '요청 시간이 초과되었습니다.' }, { status: 504 });
+      }
+      throw e;
+    }
 
     return NextResponse.json({
       ok: true,
-      total: requests.length,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
       requests: requests.map((r) => ({
         id:           r.id,
         goldMemberId: r.goldMemberId,
