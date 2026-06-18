@@ -60,9 +60,9 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  ACTIVE:    "유지",
-  SUSPENDED: "정지",
-  CANCELLED: "해지",
+  ACTIVE:    "유지 중",
+  SUSPENDED: "일시정지",
+  CANCELLED: "해지됨",
 };
 
 export default function GoldMemberDetailPage() {
@@ -494,7 +494,7 @@ export default function GoldMemberDetailPage() {
               } disabled:opacity-50`}
             >
               {statusUpdating === "ACTIVE" ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-              유지 (정상)
+              유지 중
             </button>
 
             <button
@@ -507,7 +507,7 @@ export default function GoldMemberDetailPage() {
               } disabled:opacity-50`}
             >
               {statusUpdating === "SUSPENDED" ? <Loader2 className="w-4 h-4 animate-spin" /> : <PauseCircle className="w-4 h-4" />}
-              일시 정지
+              일시정지
             </button>
 
             <button
