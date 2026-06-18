@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,7 @@ export default function CampaignDetailPage() {
   const [refreshInterval, setRefreshInterval] = useState<number | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const retryCtrlRef = useRef<AbortController | null>(null);
 
   const fetchCampaignData = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -44,7 +45,7 @@ export default function CampaignDetailPage() {
       logger.error('[fetchCampaignData]', { err });
       setFetchError('데이터를 불러올 수 없습니다.');
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, [campaignId]);
 
@@ -108,7 +109,16 @@ export default function CampaignDetailPage() {
     return (
       <div className="text-center p-8">
         <p className="text-red-500 mb-4">{fetchError}</p>
-        <Button onClick={() => fetchCampaignData()} variant="outline">다시 시도</Button>
+        <Button
+          onClick={() => {
+            retryCtrlRef.current?.abort();
+            retryCtrlRef.current = new AbortController();
+            fetchCampaignData(retryCtrlRef.current.signal);
+          }}
+          variant="outline"
+        >
+          다시 시도
+        </Button>
       </div>
     );
   }

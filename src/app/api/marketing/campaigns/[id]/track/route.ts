@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
@@ -90,22 +89,17 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       return NextResponse.json({ ok: false, message: '지원하지 않는 액션입니다.' }, { status: 400 });
     }
 
-    try {
-      await prisma.crmMarketingCampaign.update({
-        where: { id, organizationId: ctx.organizationId ?? undefined },
-        data: { [field]: { increment: 1 } },
-      });
-    } catch (updateErr) {
-      if (
-        updateErr instanceof Prisma.PrismaClientKnownRequestError &&
-        updateErr.code === 'P2025'
-      ) {
-        return NextResponse.json(
-          { ok: false, message: '캠페인을 찾을 수 없습니다.' },
-          { status: 404 }
-        );
-      }
-      throw updateErr;
+    // update()는 @id/@unique 필드만 where에서 실제로 동작하므로 organizationId 조건이 무시됨
+    // updateMany()로 교체하여 복합 where 조건이 실제로 적용되도록 수정
+    const result = await prisma.crmMarketingCampaign.updateMany({
+      where: { id, organizationId: ctx.organizationId ?? undefined },
+      data: { [field]: { increment: 1 } },
+    });
+    if (result.count === 0) {
+      return NextResponse.json(
+        { ok: false, message: '캠페인을 찾을 수 없습니다.' },
+        { status: 404 }
+      );
     }
 
     logger.info('[POST /api/marketing/campaigns/[id]/track] Track event recorded', {

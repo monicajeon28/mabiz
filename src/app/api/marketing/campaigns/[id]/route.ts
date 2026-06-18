@@ -32,6 +32,15 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
       );
     }
 
+    // [API-CAMPAIGNS-009] GLOBAL_ADMIN cross-org 읽기 감사 로그
+    if (ctx.role === 'GLOBAL_ADMIN') {
+      logger.info('[GET campaign] GLOBAL_ADMIN cross-org read', {
+        actorId: ctx.userId,
+        campaignId: id,
+        targetOrgId: campaign.organizationId,
+      });
+    }
+
     return NextResponse.json({ ok: true, campaign });
   } catch (err) {
     logger.error('[GET /api/marketing/campaigns/[id]]', { err });
@@ -145,6 +154,15 @@ export async function DELETE(_req: NextRequest, context: { params: Promise<{ id:
         { ok: false, message: '캠페인을 찾을 수 없습니다.' },
         { status: 404 }
       );
+    }
+
+    // [API-CAMPAIGNS-009] GLOBAL_ADMIN cross-org 삭제 감사 로그
+    if (ctx.role === 'GLOBAL_ADMIN') {
+      logger.info('[DELETE campaign] GLOBAL_ADMIN cross-org delete', {
+        actorId: ctx.userId,
+        campaignId: id,
+        targetOrgId: existing.organizationId,
+      });
     }
 
     // 메시지는 onDelete: Cascade로 자동 삭제

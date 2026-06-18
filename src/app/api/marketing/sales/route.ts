@@ -3,17 +3,24 @@ import prisma from "@/lib/prisma";
 import { getMabizSession } from "@/lib/auth";
 import { resolveOrgIdOrNull } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
+import { maskPhone } from "@/lib/marketing-utils";
+
+/** 이름 마스킹: 첫 글자만 유지, 나머지 최대 3자리 * 처리 */
+function maskCustomerName(name: string | null | undefined): string {
+  if (!name) return '-';
+  if (name.length <= 1) return name;
+  return name[0] + '*'.repeat(Math.min(name.length - 1, 3));
+}
 
 // GET /api/marketing/sales?page=1&limit=20
 export async function GET(req: NextRequest) {
   try {
     const ctx = await getMabizSession();
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
-    const orgId = resolveOrgIdOrNull(ctx);
-
     if (ctx.role === 'FREE_SALES') {
       return NextResponse.json({ ok: false }, { status: 403 });
     }
+    const orgId = resolveOrgIdOrNull(ctx);
 
     // 페이지네이션 파라미터
     const page  = Math.max(1, parseInt(req.nextUrl.searchParams.get('page') ?? '1', 10));
@@ -49,6 +56,7 @@ export async function GET(req: NextRequest) {
       where: {
         orderId: { in: orderIds },
         createdAt: { gte: sixMonthsAgo },
+        ...(orgId ? { organizationId: orgId } : {}),
       },
       orderBy: { createdAt: "desc" },
       take: 10000, // 메모리 상한: 10000건 초과 시 집계 부정확 경고
@@ -56,23 +64,34 @@ export async function GET(req: NextRequest) {
     const paymentsTruncated = payments.length >= 10000;
 
     // DB 레벨 페이지네이션 — recent 목록 전용
-    const [recentPayments, totalCount] = await Promise.all([
-      prisma.payAppPayment.findMany({
-        where: {
-          orderId: { in: orderIds },
-          createdAt: { gte: sixMonthsAgo },
-        },
-        orderBy: { createdAt: "desc" },
-        skip,
-        take: limit,
-      }),
-      prisma.payAppPayment.count({
-        where: {
-          orderId: { in: orderIds },
-          createdAt: { gte: sixMonthsAgo },
-        },
-      }),
-    ]);
+    // payments 배열이 전체를 포함하는 경우(paymentsTruncated 아님)엔 메모리 slice 사용 → DB 재조회 방지
+    let recentPayments: typeof payments;
+    let totalCount: number;
+
+    if (!paymentsTruncated) {
+      totalCount = payments.length;
+      recentPayments = payments.slice(skip, skip + limit);
+    } else {
+      [recentPayments, totalCount] = await Promise.all([
+        prisma.payAppPayment.findMany({
+          where: {
+            orderId: { in: orderIds },
+            createdAt: { gte: sixMonthsAgo },
+            ...(orgId ? { organizationId: orgId } : {}),
+          },
+          orderBy: { createdAt: "desc" },
+          skip,
+          take: limit,
+        }),
+        prisma.payAppPayment.count({
+          where: {
+            orderId: { in: orderIds },
+            createdAt: { gte: sixMonthsAgo },
+            ...(orgId ? { organizationId: orgId } : {}),
+          },
+        }),
+      ]);
+    }
 
     // ─── 이번 달 요약 ────────────────────────────────────────
     const thisMonthPayments = payments.filter((p) => {
@@ -175,8 +194,8 @@ export async function GET(req: NextRequest) {
       orderId:       p.orderId,
       amount:        p.amount,
       status:        p.status,
-      buyerName:     p.customerName,
-      buyerTel:      p.customerPhone ?? '',
+      buyerName:     ctx.role === 'GLOBAL_ADMIN' ? (p.customerName ?? '') : maskCustomerName(p.customerName),
+      buyerTel:      ctx.role === 'GLOBAL_ADMIN' ? (p.customerPhone ?? '') : maskPhone(p.customerPhone ?? ''),
       paidAt:        p.paidAt?.toISOString() ?? null,
       landingPageId: p.landingPageId ?? null,
     }));

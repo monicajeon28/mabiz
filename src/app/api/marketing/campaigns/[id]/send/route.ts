@@ -34,6 +34,18 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
     const { id } = await context.params;
 
+    // stale SENDING 캠페인 복구: 30분 이상 SENDING 상태면 FAILED로 전환
+    // 서버리스 재시작 또는 타임아웃으로 인한 영구 고착 방지 (SEND-010)
+    const staleThreshold = new Date(Date.now() - 30 * 60 * 1000);
+    await prisma.crmMarketingCampaign.updateMany({
+      where: {
+        status: 'SENDING',
+        updatedAt: { lt: staleThreshold },
+        ...(ctx.organizationId ? { organizationId: ctx.organizationId } : {}),
+      },
+      data: { status: 'FAILED' },
+    });
+
     // 캠페인 조회
     const campaign = await prisma.crmMarketingCampaign.findFirst({
       where: {
@@ -46,6 +58,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       return NextResponse.json(
         { ok: false, message: '캠페인을 찾을 수 없습니다.' },
         { status: 404 }
+      );
+    }
+
+    // organizationId 유효성 검증: 빈 문자열이면 getOrgSmsConfig('') 호출 방지 (LIB-TYPES-013)
+    if (!campaign.organizationId) {
+      return NextResponse.json(
+        { ok: false, message: '캠페인의 조직 정보가 없습니다.' },
+        { status: 400 }
       );
     }
 

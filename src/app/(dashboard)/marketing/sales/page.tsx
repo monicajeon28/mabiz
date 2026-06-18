@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { RefreshCw } from "lucide-react";
 import { logger } from "@/lib/logger";
-import { formatAmount, formatDate, maskPhone } from "@/lib/marketing-utils";
+import { formatAmount, formatDate } from "@/lib/marketing-utils";
 import { SkeletonRow } from "@/components/marketing/SkeletonRow";
 import { StatusBadge } from "@/components/marketing/StatusBadge";
 import { SalesBarChart } from "@/components/marketing/SalesBarChart";
@@ -70,7 +70,7 @@ function RecentPaymentTable({ recent, loading }: { recent: RecentRow[], loading:
                 <td className="px-4 py-3 text-gray-500 font-mono text-sm">{row.orderId}</td>
                 <td className="px-4 py-3 text-gray-700">
                   {row.buyerName}{" "}
-                  <span className="text-gray-600 text-sm">{maskPhone(row.buyerTel)}</span>
+                  <span className="text-gray-600 text-sm">{row.buyerTel}</span>
                 </td>
                 <td className="px-4 py-3 text-right font-semibold text-gray-900">
                   {formatAmount(row.amount)}
@@ -112,7 +112,7 @@ function RecentPaymentCard({ recent, loading }: { recent: RecentRow[], loading: 
           </div>
           <p className="text-base font-bold text-gray-900">{formatAmount(row.amount)}</p>
           <p className="text-sm text-gray-600 mt-1">
-            {maskPhone(row.buyerTel)} · {row.paidAt ? formatDate(row.paidAt) : '-'}
+            {row.buyerTel} · {row.paidAt ? formatDate(row.paidAt) : '-'}
           </p>
         </div>
       ))}
@@ -254,7 +254,7 @@ export default function MarketingSalesPage() {
               )}
               {!loading &&
                 byLanding.map((row, i) => (
-                  <tr key={i} className="hover:bg-gray-50 transition-colors">
+                  <tr key={row.landingPageId ?? row.landingPageTitle ?? String(i)} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 text-gray-700">{row.landingPageTitle}</td>
                     <td className="px-4 py-3 text-right font-semibold text-gray-900">
                       {formatAmount(row.revenue)}
@@ -285,7 +285,8 @@ export default function MarketingSalesPage() {
 
         {/* 페이지네이션 */}
         {!loading && data?.pagination && data.pagination.totalPages > 1 && (() => {
-          const paging = data.pagination!;
+          const paging = data.pagination;
+          if (!paging) return null;
           return (
             <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-center gap-2">
               <button
