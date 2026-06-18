@@ -322,7 +322,7 @@ export default function GoldInquiriesPage() {
                       ) : inq.agentName ? (
                         <span className="text-xs text-gray-600">{inq.agentName}</span>
                       ) : (
-                        <span className="text-xs text-gray-400">담당 없음</span>
+                        <span className="text-xs text-gray-400">-</span>
                       )}
                     </div>
                   </div>
