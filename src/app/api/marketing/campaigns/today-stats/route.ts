@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
     });
 
     const inProgress = campaigns.filter(
-      c => c.sentCount > 0 && c.sentCount < c.totalCount
+      c => c.sentCount < c.totalCount
     ).length;
 
     // 3. 오늘 완료한 캠페인 — status: SENT 기준으로 정확히 계산

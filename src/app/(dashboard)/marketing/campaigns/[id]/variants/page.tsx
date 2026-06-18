@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { VariantCard } from '@/components/campaigns/VariantCard';
 import { VariantStats } from '@/components/campaigns/VariantStats';
 import { logger } from '@/lib/logger';
 import { useToast } from '@/lib/api/use-toast';
+import type { CampaignDetail } from '@/types/marketing';
 
 interface Variant {
   id: string;
@@ -27,12 +28,7 @@ interface VariantContent {
   trafficSplit?: number;
 }
 
-interface Campaign {
-  id: string;
-  title: string;
-  status: 'DRAFT' | 'PENDING' | 'SENDING' | 'SENT' | 'FAILED' | 'CANCELLED';
-}
-
+// TODO: StatsData/VariantContent 인터페이스를 src/types/marketing.ts로 이동 예정 (LIB-TYPES-012)
 interface StatsData {
   variants: Record<string, {
     sent: number;
@@ -56,12 +52,23 @@ interface StatsData {
   };
 }
 
+const STATUS_LABEL: Record<CampaignDetail['status'], string> = {
+  DRAFT: '임시저장',
+  PENDING: '대기 중',
+  SENDING: '발송 중',
+  SENT: '발송 완료',
+  FAILED: '실패',
+  CANCELLED: '취소됨',
+};
+
 export default function VariantPage() {
   const params = useParams();
   const campaignId = params.id as string;
   const { toast } = useToast();
 
-  const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const mountedRef = useRef(true);
+
+  const [campaign, setCampaign] = useState<CampaignDetail | null>(null);
   const [variants, setVariants] = useState<Variant[]>([]);
   const [stats, setStats] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -109,6 +116,11 @@ export default function VariantPage() {
   }, [campaignId]);
 
   useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  useEffect(() => {
     const controller = new AbortController();
     loadData(controller.signal);
     return () => controller.abort();
@@ -133,7 +145,7 @@ export default function VariantPage() {
 
       setVariants([...variants, data.variant]);
       toast({ title: `Variant ${variantKey} 생성 완료` });
-      await loadData();
+      if (mountedRef.current) await loadData();
     } catch (error) {
       logger.error('[handleCreateVariant]', { error });
       toast({ title: '오류 발생', description: 'Variant 생성 중 문제가 발생했습니다.', variant: 'destructive' });
@@ -161,7 +173,7 @@ export default function VariantPage() {
 
       setVariants(variants.map(v => (v.variantKey === variantKey ? data.variant : v)));
       toast({ title: `Variant ${variantKey} 수정 완료` });
-      await loadData();
+      if (mountedRef.current) await loadData();
     } catch (error) {
       logger.error('[handleUpdateVariant]', { error });
       toast({ title: '오류 발생', description: 'Variant 수정 중 문제가 발생했습니다.', variant: 'destructive' });
@@ -187,7 +199,7 @@ export default function VariantPage() {
 
       setVariants(variants.filter(v => v.variantKey !== variantKey));
       toast({ title: `Variant ${variantKey} 삭제 완료` });
-      await loadData();
+      if (mountedRef.current) await loadData();
     } catch (error) {
       logger.error('[handleDeleteVariant]', { error });
       toast({ title: '오류 발생', description: 'Variant 삭제 중 문제가 발생했습니다.', variant: 'destructive' });
@@ -213,7 +225,7 @@ export default function VariantPage() {
       <div>
         <h1 className="text-3xl font-bold">🔬 A/B 테스트 관리</h1>
         <p className="text-gray-600 mt-2">
-          {campaign?.title} — <span className="font-semibold">{campaign?.status}</span>
+          {campaign?.title} — <span className="font-semibold">{campaign ? STATUS_LABEL[campaign.status] : ''}</span>
         </p>
       </div>
 

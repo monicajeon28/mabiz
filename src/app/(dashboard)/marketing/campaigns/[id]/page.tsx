@@ -20,6 +20,8 @@ export default function CampaignDetailPage() {
   const [conversionRates, setConversionRates] = useState<CampaignConversionRates | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState<number | null>(null);
+  const [isSending, setIsSending] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchCampaignData = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -40,6 +42,7 @@ export default function CampaignDetailPage() {
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return;
       logger.error('[fetchCampaignData]', { err });
+      setFetchError('데이터를 불러올 수 없습니다.');
     } finally {
       setLoading(false);
     }
@@ -64,6 +67,8 @@ export default function CampaignDetailPage() {
   }, [refreshInterval, fetchCampaignData]);
 
   const handleSend = async () => {
+    if (isSending) return;
+    setIsSending(true);
     try {
       const res = await fetch(`/api/marketing/campaigns/${campaignId}/send`, {
         method: 'POST',
@@ -86,6 +91,8 @@ export default function CampaignDetailPage() {
     } catch (err) {
       logger.error('[handleSend]', { err });
       toast({ title: '발송 실패', description: '네트워크 오류가 발생했습니다.', variant: 'destructive' });
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -93,6 +100,15 @@ export default function CampaignDetailPage() {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-gray-500">로딩 중...</div>
+      </div>
+    );
+  }
+
+  if (fetchError && !campaign) {
+    return (
+      <div className="text-center p-8">
+        <p className="text-red-500 mb-4">{fetchError}</p>
+        <Button onClick={() => fetchCampaignData()} variant="outline">다시 시도</Button>
       </div>
     );
   }
@@ -143,8 +159,12 @@ export default function CampaignDetailPage() {
             🔬 A/B 테스트
           </Button>
           {['PENDING', 'DRAFT'].includes(campaign.status) && (
-            <Button onClick={handleSend} className="bg-green-600 hover:bg-green-700">
-              지금 발송
+            <Button
+              onClick={handleSend}
+              disabled={isSending}
+              className="bg-green-600 hover:bg-green-700 disabled:opacity-50"
+            >
+              {isSending ? '발송 중...' : '지금 발송'}
             </Button>
           )}
         </div>
@@ -210,7 +230,7 @@ export default function CampaignDetailPage() {
                 <div
                   className={`${item.color} h-full flex items-center justify-center text-white text-xs font-medium`}
                   style={{
-                    width: stats.total > 0 ? `${(item.count / stats.total) * 100}%` : '0%',
+                    width: stats.total > 0 ? `${Math.min(100, (item.count / stats.total) * 100)}%` : '0%',
                   }}
                 >
                   {stats.total > 0 && `${((item.count / stats.total) * 100).toFixed(1)}%`}

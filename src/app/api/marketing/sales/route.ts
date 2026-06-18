@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, resolveOrgIdOrNull } from "@/lib/rbac";
+import { getMabizSession } from "@/lib/auth";
+import { resolveOrgIdOrNull } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 // GET /api/marketing/sales?page=1&limit=20
 export async function GET(req: NextRequest) {
   try {
-    const ctx   = await getAuthContext();
+    const ctx = await getMabizSession();
+    if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
     const orgId = resolveOrgIdOrNull(ctx);
 
     if (ctx.role === 'FREE_SALES') {
@@ -49,8 +51,9 @@ export async function GET(req: NextRequest) {
         createdAt: { gte: sixMonthsAgo },
       },
       orderBy: { createdAt: "desc" },
-      // take 제한 제거: 정확한 집계를 위해 전체 조회
+      take: 10000, // 메모리 상한: 10000건 초과 시 집계 부정확 경고
     });
+    const paymentsTruncated = payments.length >= 10000;
 
     // DB 레벨 페이지네이션 — recent 목록 전용
     const [recentPayments, totalCount] = await Promise.all([
@@ -178,7 +181,7 @@ export async function GET(req: NextRequest) {
       landingPageId: p.landingPageId ?? null,
     }));
 
-    logger.log("[GET /api/marketing/sales] 조회", { orgId, page, limit, totalCount, orderCount: payments.length, truncated });
+    logger.log("[GET /api/marketing/sales] 조회", { orgId, page, limit, totalCount, orderCount: payments.length, truncated, paymentsTruncated });
 
     return NextResponse.json({
       ok: true,
@@ -187,7 +190,7 @@ export async function GET(req: NextRequest) {
       byLanding,
       recent,
       pagination: { page, limit, totalCount, totalPages },
-      ...(truncated ? { warning: '데이터가 많아 일부 통계가 불완전할 수 있습니다.' } : {}),
+      ...((truncated || paymentsTruncated) ? { warning: '데이터가 많아 일부 통계가 불완전할 수 있습니다.' } : {}),
     });
   } catch (err: unknown) {
     if (err instanceof Error && err.message === "UNAUTHORIZED") {

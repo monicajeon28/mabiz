@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
@@ -54,7 +55,6 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
       },
       stats,
       conversionRates,
-      messages: [],
     });
   } catch (err) {
     logger.error('[GET /api/marketing/campaigns/[id]/track]', { err });
@@ -80,40 +80,32 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       );
     }
 
-    const campaign = await prisma.crmMarketingCampaign.findFirst({
-      where: { id, organizationId: ctx.organizationId ?? undefined },
-    });
-    if (!campaign) {
-      return NextResponse.json(
-        { ok: false, message: '캠페인을 찾을 수 없습니다.' },
-        { status: 404 }
-      );
+    const fieldMap: Record<string, 'openCount' | 'clickCount' | 'registeredCount'> = {
+      email_opened: 'openCount',
+      link_clicked: 'clickCount',
+      registered: 'registeredCount',
+    };
+    const field = fieldMap[action];
+    if (!field) {
+      return NextResponse.json({ ok: false, message: '지원하지 않는 액션입니다.' }, { status: 400 });
     }
 
-    switch (action) {
-      case 'email_opened':
-        await prisma.crmMarketingCampaign.update({
-          where: { id },
-          data: { openCount: { increment: 1 } },
-        });
-        break;
-      case 'link_clicked':
-        await prisma.crmMarketingCampaign.update({
-          where: { id },
-          data: { clickCount: { increment: 1 } },
-        });
-        break;
-      case 'registered':
-        await prisma.crmMarketingCampaign.update({
-          where: { id },
-          data: { registeredCount: { increment: 1 } },
-        });
-        break;
-      default:
+    try {
+      await prisma.crmMarketingCampaign.update({
+        where: { id, organizationId: ctx.organizationId ?? undefined },
+        data: { [field]: { increment: 1 } },
+      });
+    } catch (updateErr) {
+      if (
+        updateErr instanceof Prisma.PrismaClientKnownRequestError &&
+        updateErr.code === 'P2025'
+      ) {
         return NextResponse.json(
-          { ok: false, message: '지원하지 않는 액션입니다.' },
-          { status: 400 }
+          { ok: false, message: '캠페인을 찾을 수 없습니다.' },
+          { status: 404 }
         );
+      }
+      throw updateErr;
     }
 
     logger.info('[POST /api/marketing/campaigns/[id]/track] Track event recorded', {

@@ -144,7 +144,7 @@ export default function MarketingSalesPage() {
         if (err instanceof Error && err.name === 'AbortError') return;
         setError("네트워크 오류가 발생했습니다.");
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!signal?.aborted) setLoading(false); });
   }, []);
 
   useEffect(() => {
