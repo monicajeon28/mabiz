@@ -162,14 +162,14 @@ export default function GoldMembersPage() {
       .catch(() => {});
   }, []);
 
-  // 관리자: 삭제 요청 대기 건수 로드
+  // 관리자/대리점장: 삭제 요청 대기 건수 로드
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdmin && !isOwner) return;
     fetch('/api/gold-members/delete-requests?status=PENDING')
       .then((r) => r.json())
       .then((d) => { if (d.ok) setPendingCount(d.total ?? 0); })
       .catch(() => {});
-  }, [isAdmin]);
+  }, [isAdmin, isOwner]);
 
   // 삭제 요청 제출 (대리점장)
   const handleDeleteRequest = useCallback(async () => {
@@ -339,12 +339,14 @@ export default function GoldMembersPage() {
         )}
       </div>
 
-      {/* 관리자 전용: 삭제 요청 대기 배너 */}
-      {isAdmin && pendingCount > 0 && (
+      {/* 관리자/대리점장: 삭제 요청 대기 배너 */}
+      {(isAdmin || isOwner) && pendingCount > 0 && (
         <div className="mb-4 flex items-center gap-3 px-4 py-3 rounded-xl border border-red-200" style={{ backgroundColor: '#FADBD8' }}>
           <AlertTriangle className="w-5 h-5 flex-shrink-0" style={{ color: '#E74C3C' }} />
           <span className="text-base font-medium flex-1" style={{ color: '#E74C3C' }}>
-            삭제 요청 대기 {pendingCount}건이 있습니다.
+            {isAdmin
+              ? `삭제 요청 대기 ${pendingCount}건이 있습니다.`
+              : `내 조직 삭제 요청 대기 ${pendingCount}건이 있습니다.`}
           </span>
           <button
             onClick={() => router.push('/gold-members/delete-requests')}

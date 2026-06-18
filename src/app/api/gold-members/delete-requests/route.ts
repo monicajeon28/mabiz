@@ -180,21 +180,40 @@ export async function POST(req: NextRequest) {
     }
 
     // 이미 PENDING 요청이 있으면 409
-    const existing = await prisma.goldMemberDeleteRequest.findFirst({
-      where: { goldMemberId, status: 'PENDING' },
-    });
-    if (existing) {
-      return NextResponse.json({ ok: false, error: '이미 처리 대기 중인 삭제 요청이 있습니다.' }, { status: 409 });
+    // $transaction(Serializable)으로 findFirst + create를 원자적으로 묶어
+    // 동시 요청 시 TOCTOU 경쟁 조건을 방지한다.
+    let request: Prisma.GoldMemberDeleteRequestGetPayload<Record<string, never>>;
+    try {
+      request = await prisma.$transaction(
+        async (tx) => {
+          const existing = await tx.goldMemberDeleteRequest.findFirst({
+            where: { goldMemberId, status: 'PENDING' },
+          });
+          if (existing) {
+            throw Object.assign(new Error('DUPLICATE_PENDING'), { code: 'DUPLICATE_PENDING' });
+          }
+          return tx.goldMemberDeleteRequest.create({
+            data: {
+              goldMemberId,
+              requesterId: ctx.userId,
+              reason:      reason?.trim() || null,
+              status:      'PENDING',
+            },
+          });
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } catch (txErr) {
+      // 트랜잭션 내부에서 던진 중복 에러
+      if (txErr instanceof Error && txErr.message === 'DUPLICATE_PENDING') {
+        return NextResponse.json({ ok: false, error: '이미 처리 대기 중인 삭제 요청이 있습니다.' }, { status: 409 });
+      }
+      // DB 레벨 unique constraint 위반 (partial index 추가 후 발생 가능)
+      if (txErr instanceof Prisma.PrismaClientKnownRequestError && txErr.code === 'P2002') {
+        return NextResponse.json({ ok: false, error: '이미 처리 대기 중인 삭제 요청이 있습니다.' }, { status: 409 });
+      }
+      throw txErr;
     }
-
-    const request = await prisma.goldMemberDeleteRequest.create({
-      data: {
-        goldMemberId,
-        requesterId: ctx.userId,
-        reason:      reason?.trim() || null,
-        status:      'PENDING',
-      },
-    });
 
     logger.info('[POST /api/gold-members/delete-requests] 삭제 요청 등록', {
       requestId: request.id,

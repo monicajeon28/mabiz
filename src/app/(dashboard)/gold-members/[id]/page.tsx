@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { useSession } from "@/hooks/useSession";
 import { ArrowLeft, Star, Loader2, CheckCircle, PauseCircle, XCircle, Trash2, Clock, UserCheck } from "lucide-react";
 
 type Consultation = {
@@ -70,14 +71,13 @@ export default function GoldMemberDetailPage() {
   const id = params.id as string;
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // 세션에서 역할/ID 즉시 읽기 (layout의 SessionProvider가 서버에서 주입)
+  const { role: userRole, userId, isAdmin: sessionIsAdmin } = useSession();
+
   const [member, setMember]         = useState<GoldMemberDetail | null>(null);
   const [loading, setLoading]       = useState(true);
   const [loadError, setLoadError]   = useState("");
   const [actionError, setActionError] = useState("");
-
-  // 현재 세션 역할/ID
-  const [userRole, setUserRole]     = useState<string>("");
-  const [userId, setUserId]         = useState<string>("");
 
   // 상태 관리
   const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
@@ -94,17 +94,6 @@ export default function GoldMemberDetailPage() {
   const [deleteReason, setDeleteReason]                 = useState("");
   const [deleteReqError, setDeleteReqError]             = useState("");
   const [reviewProcessing, setReviewProcessing]         = useState<string | null>(null); // 'approve' | 'reject'
-
-  // 세션 역할 조회
-  useEffect(() => {
-    fetch("/api/auth/me")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.ok && d.role) setUserRole(d.role);
-        if (d.ok && d.userId) setUserId(String(d.userId));
-      })
-      .catch(() => {});
-  }, []);
 
   const load = useCallback(() => {
     if (abortControllerRef.current) {
@@ -265,10 +254,25 @@ export default function GoldMemberDetailPage() {
     }
   };
 
-  if (loading) {
+  // 세션 또는 멤버 데이터 로딩 중 — 스켈레톤으로 깜빡임 방지
+  if (loading || userRole === undefined) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+      <div className="p-4 md:p-6 max-w-3xl mx-auto animate-pulse">
+        <div className="h-6 w-32 bg-gray-200 rounded mb-5" />
+        <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-gray-200" />
+            <div className="space-y-2">
+              <div className="h-5 w-40 bg-gray-200 rounded" />
+              <div className="h-4 w-24 bg-gray-100 rounded" />
+            </div>
+          </div>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4 space-y-3">
+          <div className="h-4 w-20 bg-gray-200 rounded" />
+          <div className="h-4 w-48 bg-gray-100 rounded" />
+          <div className="h-4 w-36 bg-gray-100 rounded" />
+        </div>
       </div>
     );
   }
@@ -289,7 +293,7 @@ export default function GoldMemberDetailPage() {
     : 0;
 
   const isOwner       = userRole === "OWNER";
-  const isGlobalAdmin = userRole === "GLOBAL_ADMIN";
+  const isGlobalAdmin = sessionIsAdmin || userRole === "GLOBAL_ADMIN";
   const canRequestDelete = isOwner || isGlobalAdmin;
 
   return (
@@ -527,7 +531,7 @@ export default function GoldMemberDetailPage() {
         <h2 className="text-base font-semibold text-gray-700 mb-4">상담내역</h2>
 
         {/* 새 상담 입력 — AGENT는 본인 담당 고객만 작성 가능 */}
-        {(userRole !== "AGENT" || member.agentId === parseInt(userId, 10)) && (
+        {(userRole !== "AGENT" || (userId !== undefined && member.agentId === parseInt(userId, 10))) && (
         <form onSubmit={handleConsultSubmit} className="mb-5">
           {consultError && (
             <div className="mb-2 px-3 py-2 bg-red-50 text-red-600 text-xs rounded-lg border border-red-100">

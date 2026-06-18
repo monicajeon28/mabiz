@@ -139,7 +139,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     if (ctx.role === 'OWNER') {
       // body에 agentId/managerId가 포함돼 있으면 거부
       if (body.agentId !== undefined || body.managerId !== undefined) {
-        return NextResponse.json({ ok: false, error: '대리점장은 등록 시에만 담당 판매원을 지정할 수 있습니다.' }, { status: 403 });
+        return NextResponse.json({ ok: false, error: '담당 판매원은 등록 시에만 지정 가능합니다. 변경이 필요하면 관리자에게 문의하세요.' }, { status: 403 });
       }
     } else {
       if (body.agentId !== undefined) {
