@@ -36,9 +36,9 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  ACTIVE:    "유지",
-  SUSPENDED: "정지",
-  CANCELLED: "해지",
+  ACTIVE:    "유지 중",
+  SUSPENDED: "일시정지",
+  CANCELLED: "해지됨",
 };
 
 const COURSE_BADGE: Record<string, string> = {
@@ -364,9 +364,9 @@ export default function GoldMembersPage() {
         <div className="flex gap-1.5">
           {[
             { val: "",           label: "전체" },
-            { val: "ACTIVE",     label: "활성" },
-            { val: "SUSPENDED",  label: "정지" },
-            { val: "CANCELLED",  label: "해지" },
+            { val: "ACTIVE",     label: "유지 중" },
+            { val: "SUSPENDED",  label: "일시정지" },
+            { val: "CANCELLED",  label: "해지됨" },
           ].map(({ val, label }) => (
             <button
               key={val}
