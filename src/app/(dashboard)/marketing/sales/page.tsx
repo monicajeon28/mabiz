@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { RefreshCw, Lock, ShoppingCart, Building2, FileText } from "lucide-react";
+import { RefreshCw, Lock, ShoppingCart, Building2, FileText, User } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { formatAmount, formatDate } from "@/lib/marketing-utils";
 import { SkeletonRow } from "@/components/marketing/SkeletonRow";
@@ -9,7 +9,7 @@ import { StatusBadge } from "@/components/marketing/StatusBadge";
 import { SalesBarChart } from "@/components/marketing/SalesBarChart";
 import { KpiCard } from "@/components/marketing/KpiCard";
 import { cn } from "@/lib/utils";
-import type { RecentRow, SalesApiData, SalesSummary, OrgBreakdown } from "@/types/marketing";
+import type { RecentRow, SalesApiData, SalesSummary, OrgBreakdown, AdminPersonalSales } from "@/types/marketing";
 
 
 // ─── 최근 결제 테이블 (PC) ─────────────────────────────────────
@@ -50,15 +50,15 @@ function RecentPaymentTable({ recent, loading }: { recent: RecentRow[], loading:
           {!loading &&
             recent.map((row) => (
               <tr key={row.orderId} className="hover:bg-gray-50 transition-colors">
-                <td className="px-4 py-4 text-gray-500 font-mono text-sm">{row.orderId}</td>
+                <td className="px-4 py-4 text-gray-500 font-mono text-base">{row.orderId}</td>
                 <td className="px-4 py-4 text-base text-gray-700">
                   {row.buyerName}{" "}
                   {row.masked ? (
                     <span
-                      className="inline-flex items-center gap-0.5 text-gray-400 italic text-sm"
+                      className="inline-flex items-center gap-0.5 text-gray-400 italic text-base"
                       title="개인정보 보호를 위해 마스킹된 번호입니다"
                     >
-                      <Lock className="w-3 h-3 shrink-0" />
+                      <Lock className="w-4 h-4 shrink-0" />
                       {row.buyerTel}
                     </span>
                   ) : (
@@ -108,17 +108,17 @@ function RecentPaymentCard({ recent, loading }: { recent: RecentRow[], loading: 
             <StatusBadge status={row.status} />
           </div>
           <p className="text-base font-bold text-gray-900">{formatAmount(row.amount)}</p>
-          <p className="text-sm mt-1">
+          <p className="text-base mt-1">
             {row.masked ? (
               <span
-                className="inline-flex items-center gap-0.5 text-gray-400 italic text-sm"
+                className="inline-flex items-center gap-0.5 text-gray-400 italic text-base"
                 title="개인정보 보호를 위해 마스킹된 번호입니다"
               >
-                <Lock className="w-3 h-3 shrink-0" />
+                <Lock className="w-4 h-4 shrink-0" />
                 {row.buyerTel}
               </span>
             ) : (
-              <span className="text-gray-600">{row.buyerTel}</span>
+              <span className="text-gray-600 text-base">{row.buyerTel}</span>
             )}{" "}
             · {row.paidAt ? formatDate(row.paidAt) : '-'}
           </p>
@@ -128,9 +128,64 @@ function RecentPaymentCard({ recent, loading }: { recent: RecentRow[], loading: 
   );
 }
 
+// ─── 관리자 개인 링크 매출 (GLOBAL_ADMIN 전용) ─────────────────
+function AdminPersonalSalesSection({ sales }: { sales: AdminPersonalSales }) {
+  return (
+    <div className="bg-purple-50 rounded-xl border border-purple-200">
+      <div className="px-6 py-4 border-b border-purple-100 flex items-center gap-3">
+        <User className="w-5 h-5 text-purple-600 shrink-0" />
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">내 링크 이번 달 매출</h2>
+          <p className="text-sm text-gray-500 mt-0.5">관리자 본인이 직접 만든 랜딩페이지에서 발생한 매출입니다</p>
+        </div>
+      </div>
+      <div className="px-6 py-5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-white rounded-xl border border-purple-100 p-4">
+            <p className="text-sm text-gray-500 mb-1">이번 달 매출</p>
+            <p className="text-2xl font-bold text-gray-900">{formatAmount(sales.totalRevenue)}</p>
+            <p className="text-sm text-gray-400 mt-1">결제완료 {sales.paidCount}건</p>
+          </div>
+          <div className="bg-white rounded-xl border border-purple-100 p-4">
+            <p className="text-sm text-gray-500 mb-1">결제 건수</p>
+            <p className="text-2xl font-bold text-gray-900">{sales.paidCount}건</p>
+            {sales.totalRefund > 0 && (
+              <p className="text-sm text-red-400 mt-1">환불 {formatAmount(sales.totalRefund)}</p>
+            )}
+          </div>
+          <div className="bg-white rounded-xl border border-purple-100 p-4">
+            <p className="text-sm text-gray-500 mb-1">순매출</p>
+            <p className="text-2xl font-bold text-green-700">{formatAmount(sales.netRevenue)}</p>
+            {sales.totalRefund > 0 && (
+              <p className="text-sm text-gray-400 mt-1">환불 차감 후</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── 대리점별 매출 breakdown (GLOBAL_ADMIN 전용) ────────────────
 function OrgBreakdownSection({ orgBreakdown }: { orgBreakdown: OrgBreakdown[] }) {
-  if (orgBreakdown.length === 0) return null;
+  if (orgBreakdown.length === 0) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+          <Building2 className="w-5 h-5 text-blue-600 shrink-0" />
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">대리점별 이번 달 매출</h2>
+            <p className="text-sm text-gray-500 mt-0.5">각 대리점이 이번 달 얼마나 판매했는지 확인하세요</p>
+          </div>
+        </div>
+        <div className="flex flex-col items-center gap-3 py-12">
+          <Building2 className="w-10 h-10 text-gray-300" />
+          <p className="text-base font-medium text-gray-500">이번 달 대리점 실적이 없어요</p>
+          <p className="text-sm text-gray-400">대리점에서 결제가 발생하면 여기에 표시됩니다</p>
+        </div>
+      </div>
+    );
+  }
 
   const totalRevenue = orgBreakdown.reduce((sum, o) => sum + o.totalRevenue, 0);
   const totalCount   = orgBreakdown.reduce((sum, o) => sum + o.paidCount,    0);
@@ -138,11 +193,11 @@ function OrgBreakdownSection({ orgBreakdown }: { orgBreakdown: OrgBreakdown[] })
 
   return (
     <div className="bg-white rounded-xl border border-gray-200">
-      <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
-        <Building2 className="w-5 h-5 text-blue-600" />
+      <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+        <Building2 className="w-5 h-5 text-blue-600 shrink-0" />
         <div>
           <h2 className="text-xl font-bold text-gray-900">대리점별 이번 달 매출</h2>
-          <p className="text-sm text-gray-500 mt-0.5">각 대리점(조직)이 이번 달 얼마나 판매했는지 확인하세요</p>
+          <p className="text-sm text-gray-500 mt-0.5">각 대리점이 이번 달 얼마나 판매했는지 확인하세요</p>
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -182,11 +237,11 @@ function OrgBreakdownSection({ orgBreakdown }: { orgBreakdown: OrgBreakdown[] })
 
 // ─── 메인 페이지 ──────────────────────────────────────────────
 export default function MarketingSalesPage() {
-  const [data,    setData]    = useState<SalesApiData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
+  const [data,      setData]      = useState<SalesApiData | null>(null);
+  const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState<string | null>(null);
   const [forbidden, setForbidden] = useState(false);
-  const [page,    setPage]    = useState(1);
+  const [page,      setPage]      = useState(1);
   const refreshCtrlRef = useRef<AbortController | null>(null);
 
   const load = useCallback((pageNum: number = 1, signal?: AbortSignal) => {
@@ -245,16 +300,19 @@ export default function MarketingSalesPage() {
   const monthly      = data?.monthly      ?? [];
   const byLanding    = data?.byLanding    ?? [];
   const recent       = data?.recent       ?? [];
-  // UI-SALES-002: orgBreakdown 존재 여부로 GLOBAL_ADMIN 판별
   const orgBreakdown = data?.orgBreakdown ?? [];
-  const isGlobalAdmin = orgBreakdown.length > 0;
+  const adminPersonalSales: AdminPersonalSales | null = data?.adminPersonalSales ?? null;
+  // UI-SALES-002: 서버가 명시적으로 내려주는 isGlobalAdmin 플래그 사용 (실적 0인 경우 오판 방지)
+  const isGlobalAdmin = data?.isGlobalAdmin === true;
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6 leading-relaxed">
       {/* 제목 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">💰 랜딩페이지 매출관리</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {isGlobalAdmin ? '전체 랜딩페이지 매출 관리' : '랜딩페이지 매출 관리'}
+          </h1>
           {summary && (
             <p className="text-base text-gray-600 mt-1">{summary.month} 기준 매출 현황입니다</p>
           )}
@@ -267,10 +325,11 @@ export default function MarketingSalesPage() {
           }}
           disabled={loading}
           aria-busy={loading}
-          className="p-3 min-w-[48px] min-h-[48px] hover:bg-gray-100 rounded-lg transition-colors focus:ring-2 focus:ring-offset-1 focus:ring-blue-600 flex items-center justify-center"
+          className="p-3 min-w-[48px] min-h-[48px] hover:bg-gray-100 rounded-lg transition-colors focus:ring-2 focus:ring-offset-1 focus:ring-blue-600 flex items-center justify-center gap-2"
           aria-label="새로고침"
         >
           <RefreshCw className={cn("w-5 h-5 text-gray-500", loading && "animate-spin")} />
+          <span className="hidden sm:inline text-base text-gray-600">새로고침</span>
         </button>
       </div>
 
@@ -291,7 +350,7 @@ export default function MarketingSalesPage() {
         </div>
       )}
 
-      {/* KPI 카드 3개 */}
+      {/* KPI 카드 3개 (전체 합계) */}
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[0, 1, 2].map((i) => (
@@ -304,7 +363,7 @@ export default function MarketingSalesPage() {
       ) : summary ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <KpiCard
-            label="이번 달 매출"
+            label={isGlobalAdmin ? '전체 이번 달 매출' : '이번 달 매출'}
             value={formatAmount(summary.totalRevenue)}
             sub={`결제완료 ${summary.paidCount}건`}
             color="bg-white border-gray-200"
@@ -326,7 +385,12 @@ export default function MarketingSalesPage() {
       {/* 월별 막대 그래프 */}
       {!loading && monthly.length > 0 && <SalesBarChart monthly={monthly} />}
 
-      {/* UI-SALES-002: GLOBAL_ADMIN 전용 대리점별 매출 breakdown */}
+      {/* UI-SALES-003: GLOBAL_ADMIN 전용 - 관리자 개인 링크 매출 */}
+      {!loading && isGlobalAdmin && adminPersonalSales !== null && (
+        <AdminPersonalSalesSection sales={adminPersonalSales} />
+      )}
+
+      {/* UI-SALES-002: GLOBAL_ADMIN 전용 - 대리점별 매출 breakdown */}
       {!loading && isGlobalAdmin && (
         <OrgBreakdownSection orgBreakdown={orgBreakdown} />
       )}
@@ -334,7 +398,7 @@ export default function MarketingSalesPage() {
       {/* 랜딩페이지별 매출 기여 */}
       <div className="bg-white rounded-xl border border-gray-200">
         <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="text-xl font-bold text-gray-900">📊 랜딩페이지별 매출 기여</h2>
+          <h2 className="text-xl font-bold text-gray-900">랜딩페이지별 매출 기여</h2>
           <p className="text-sm text-gray-500 mt-1">어떤 랜딩페이지에서 매출이 발생했는지 확인하세요</p>
         </div>
         <div className="overflow-x-auto">
@@ -383,7 +447,7 @@ export default function MarketingSalesPage() {
       {/* 최근 결제 내역 */}
       <div className="bg-white rounded-xl border border-gray-200">
         <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="text-xl font-bold text-gray-900">🧾 최근 결제 내역</h2>
+          <h2 className="text-xl font-bold text-gray-900">최근 결제 내역</h2>
           <p className="text-sm text-gray-500 mt-1">최근 6개월간 결제 내역을 확인하세요</p>
         </div>
 
@@ -399,7 +463,7 @@ export default function MarketingSalesPage() {
 
         {/* 페이지네이션 */}
         {!loading && data?.pagination && data.pagination.totalPages > 1 && (() => {
-          const paging = data.pagination!;
+          const paging = data.pagination;
           return (
             <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-center gap-2 flex-wrap">
               <button
@@ -436,7 +500,7 @@ export default function MarketingSalesPage() {
                       className={cn(
                         "px-4 py-3 min-h-[48px] rounded-lg text-base font-medium",
                         pageNum === page
-                          ? "bg-navy-900 text-white"
+                          ? "bg-gray-900 text-white"
                           : "border border-gray-300 hover:bg-gray-50"
                       )}
                     >

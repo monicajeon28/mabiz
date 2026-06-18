@@ -111,6 +111,14 @@ export interface OrgBreakdown {
   netRevenue: number;
 }
 
+// LIB-TYPES-002: GLOBAL_ADMIN 본인 링크(개인 랜딩페이지) 이번 달 매출 타입
+export interface AdminPersonalSales {
+  totalRevenue: number;
+  paidCount:    number;
+  totalRefund:  number;
+  netRevenue:   number;
+}
+
 export interface SalesApiData {
   ok: boolean;
   summary: SalesSummary;
@@ -121,6 +129,10 @@ export interface SalesApiData {
   pagination: { page: number; limit: number; totalCount: number; totalPages: number };
   // LIB-TYPES-001: GLOBAL_ADMIN만 데이터 포함, OWNER는 빈 배열
   orgBreakdown: OrgBreakdown[];
+  // LIB-TYPES-002: GLOBAL_ADMIN 본인 링크 매출 (없으면 null)
+  adminPersonalSales: AdminPersonalSales | null;
+  // LIB-TYPES-003: GLOBAL_ADMIN 판별용 (서버가 명시적으로 내려주는 플래그)
+  isGlobalAdmin: boolean;
   warning?: string;
 }
 
