@@ -8,6 +8,21 @@ import { logger } from '@/lib/logger';
 // GMcruise ProductInquiry 실제 status 값 (소문자)
 const VALID_STATUSES = new Set(['pending', 'unavailable', 'passport_waiting', 'confirmed', 'refund']);
 
+function buildAssigneeLabel(
+  affiliateCode: string | null,
+  agentId: number | null,
+  agentDisplayName: string | null,
+  agentType: string | null
+): string {
+  if (!affiliateCode && !agentId) return '본사';
+  if (!agentDisplayName) return affiliateCode ? '(' + affiliateCode + ')' : '본사';
+  const rolePrefix =
+    agentType === 'OWNER' ? '대리점장' :
+    agentType === 'AGENT' ? '판매원' :
+    agentType === 'FREE_SALES' ? '프리세일즈' : '';
+  return rolePrefix ? rolePrefix + ' ' + agentDisplayName : agentDisplayName;
+}
+
 function maskPhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');
   if (digits.length >= 10) {
@@ -27,6 +42,9 @@ type RawInquiry = {
   userId: number | null;
   agentId: number | null;
   managerId: number | null;
+  agentDisplayName: string | null;
+  agentType: string | null;
+  affiliateCode: string | null;
 };
 
 /**
@@ -112,8 +130,13 @@ export async function GET(req: NextRequest) {
           pi."createdAt",
           pi."userId",
           pi."agentId",
-          pi."managerId"
+          pi."managerId",
+          pi."affiliateCode",
+          COALESCE(ap."displayName", agent.name, '') AS "agentDisplayName",
+          ap.type AS "agentType"
         FROM "CruiseProductInquiry" pi
+        LEFT JOIN "User" agent ON agent.id = pi."agentId"
+        LEFT JOIN "AffiliateProfile" ap ON ap."userId" = pi."agentId"
         WHERE pi."productCode" LIKE 'GOLD_MEMBERSHIP%'
           ${statusCondition}
           ${searchCondition}
@@ -143,7 +166,7 @@ export async function GET(req: NextRequest) {
       submittedAt: new Date(r.createdAt).toISOString(), // $queryRaw는 문자열 반환 가능 → 방어적 처리
       createdAt:   new Date(r.createdAt).toISOString(),
       tier:        null,
-      agentName:   null,     // GMcruise GmUser JOIN 불가 → null 유지
+      agentName:   buildAssigneeLabel(r.affiliateCode, r.agentId, r.agentDisplayName, r.agentType),
       agentId:     r.agentId ?? null,
       managerId:   r.managerId ?? null,
     }));
