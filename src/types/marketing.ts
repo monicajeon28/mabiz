@@ -102,6 +102,15 @@ export interface CampaignConversionRates {
   registrationRate: string;
 }
 
+// LIB-TYPES-001: GLOBAL_ADMIN 전용 대리점별 매출 breakdown 타입
+export interface OrgBreakdown {
+  orgId: string;
+  orgName: string;
+  totalRevenue: number;
+  paidCount: number;
+  netRevenue: number;
+}
+
 export interface SalesApiData {
   ok: boolean;
   summary: SalesSummary;
@@ -110,6 +119,8 @@ export interface SalesApiData {
   recent: RecentRow[];
   // LIB-TYPES-014: API는 항상 pagination을 반환하므로 필수 필드로 변경
   pagination: { page: number; limit: number; totalCount: number; totalPages: number };
+  // LIB-TYPES-001: GLOBAL_ADMIN만 데이터 포함, OWNER는 빈 배열
+  orgBreakdown: OrgBreakdown[];
   warning?: string;
 }
 
