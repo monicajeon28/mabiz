@@ -10,7 +10,7 @@ interface SessionContextType {
 
 const SessionContext = createContext<SessionContextType>({ isAdmin: false });
 
-export function useSession() {
+export function useSession(): SessionContextType {
   return useContext(SessionContext);
 }
 

@@ -1,17 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getMabizSession } from "@/lib/auth";
 import { resolveOrgIdOrNull } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
-import { maskPhone } from "@/lib/marketing-utils";
+import { maskPhone, maskCustomerName } from "@/lib/marketing-utils";
 import type { OrgBreakdown, AdminPersonalSales } from "@/types/marketing";
-
-/** 이름 마스킹: 첫 글자만 유지, 나머지 최대 3자리 * 처리 */
-function maskCustomerName(name: string | null | undefined): string {
-  if (!name) return '-';
-  if (name.length <= 1) return name;
-  return name[0] + '*'.repeat(Math.min(name.length - 1, 3));
-}
 
 // GET /api/marketing/sales?page=1&limit=20
 export async function GET(req: NextRequest) {
@@ -40,10 +33,16 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(100, Math.max(1, parseInt(req.nextUrl.searchParams.get('limit') ?? '20', 10)));
     const skip  = (page - 1) * limit;
 
-    const now             = new Date();
-    const thisMonthStart  = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-    const thisMonthEnd    = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
-    const sixMonthsAgo    = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1));
+    // [API-SALES-007] KST(UTC+9) 기준 날짜 계산 — UTC 기준으로 하면 한국 달력과 9시간 불일치 발생
+    const KST_OFFSET     = 9 * 60 * 60 * 1000;  // 9시간을 ms로
+    const nowUTC         = new Date();
+    const nowKST         = new Date(nowUTC.getTime() + KST_OFFSET);  // KST 현재 시각
+    // KST 기준 이번 달 1일 00:00:00 KST → UTC로 역산
+    const thisMonthStart = new Date(Date.UTC(nowKST.getUTCFullYear(), nowKST.getUTCMonth(), 1) - KST_OFFSET);
+    const thisMonthEnd   = new Date(Date.UTC(nowKST.getUTCFullYear(), nowKST.getUTCMonth() + 1, 1) - KST_OFFSET);
+    const sixMonthsAgo   = new Date(Date.UTC(nowKST.getUTCFullYear(), nowKST.getUTCMonth() - 5, 1) - KST_OFFSET);
+    // 월 키 계산도 KST 기준으로
+    const now = nowKST;  // 이후 monthKey 계산 등에 now 대신 nowKST 사용
 
     // ─── (A) COUNT 쿼리: DB 레벨 전체 건수 ──────────────────────
     // DB-SALES-INMEMORY-PAGINATION-001 / API-SALES-007: in-memory slice 제거
@@ -228,7 +227,7 @@ export async function GET(req: NextRequest) {
       .filter((id): id is string => !!id);
     const landingPages = landingIds.length > 0
       ? await prisma.crmLandingPage.findMany({
-          where: { id: { in: landingIds }, ...(orgId ? { organizationId: orgId } : {}) },
+          where: { id: { in: landingIds } },
           select: { id: true, title: true },
         })
       : [];
@@ -267,6 +266,10 @@ export async function GET(req: NextRequest) {
     }));
 
     // ─── (F) GLOBAL_ADMIN 전용: 대리점별 매출 breakdown ──────────
+    // [API-SALES-006] orgBreakdown 귀속 기준: af.organizationId = 판매원 소속 대리점 기준
+    // 즉 A대리점 소속 판매원이 B대리점 랜딩페이지를 통해 결제를 완료해도 매출은 A대리점으로 귀속됨
+    // 이는 어필리에이트 수당 계산 SSoT와 일치하는 의도된 설계임
+    // 랜딩페이지 소유 기준으로 변경하려면 af.organizationId → lp.organizationId로 GROUP BY 교체 필요
     // API-SALES-002: OWNER는 빈 배열, GLOBAL_ADMIN만 조직별 집계 실행
     let orgBreakdown: OrgBreakdown[] = [];
     let adminPersonalSales: AdminPersonalSales | null = null;
@@ -312,7 +315,8 @@ export async function GET(req: NextRequest) {
           orgId:        org.id,
           orgName:      org.name ?? '알 수 없는 대리점',
           totalRevenue: revMap.get(org.id)?.revenue ?? 0,
-          paidCount:    revMap.get(org.id)?.count   ?? 0,
+          paidCount:    Number(revMap.get(org.id)?.count   ?? 0),  // [API-SALES-007] Number() 래핑으로 bigint 방어
+          totalRefund:  refundMap.get(org.id) ?? 0,               // [LIB-TYPES-005] 환불 금액 별도 노출
           netRevenue:   (revMap.get(org.id)?.revenue ?? 0) - (refundMap.get(org.id) ?? 0),
         }))
         // [API-SALES-004] 환불만 있는 조직도 포함 (순매출 음수 조직 누락 방지)
@@ -325,11 +329,14 @@ export async function GET(req: NextRequest) {
       type AdminSalesSumRow = { revenue: number | bigint; count: number | bigint };
       type AdminRefundSumRow = { refund: number | bigint };
 
+      // API-SALES-007: CrmAffiliateSale INNER JOIN 추가 → orgBreakdown과 동일한 집계 방법론 적용
+      // (직접 결제/웹훅 미처리 건 제외, 어필리에이트 연결 결제만 집계)
       const adminSalesRows: AdminSalesSumRow[] = await prisma.$queryRaw<AdminSalesSumRow[]>`
         SELECT COALESCE(SUM(pp."amount"), 0)::float AS revenue,
                COUNT(*)::int AS count
         FROM "CrmPayAppPayment" pp
         INNER JOIN "CrmLandingPage" lp ON lp."id" = pp."landingPageId"
+        INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
         WHERE lp."createdByUserId" = ${ctx.userId}
           AND pp."status" = 'paid'
           AND pp."createdAt" >= ${thisMonthStart}
@@ -340,6 +347,7 @@ export async function GET(req: NextRequest) {
         SELECT COALESCE(SUM(pp."amount"), 0)::float AS refund
         FROM "CrmPayAppPayment" pp
         INNER JOIN "CrmLandingPage" lp ON lp."id" = pp."landingPageId"
+        INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
         WHERE lp."createdByUserId" = ${ctx.userId}
           AND pp."status" = 'cancelled'
           AND pp."createdAt" >= ${thisMonthStart}
@@ -368,6 +376,7 @@ export async function GET(req: NextRequest) {
       orgBreakdown,
       adminPersonalSales,
       isGlobalAdmin: ctx.role === 'GLOBAL_ADMIN',
+      orgBreakdownBasis: 'affiliate',  // [API-SALES-006] 귀속 기준 명시: 판매원 소속 대리점 기준
       pagination: { page, limit, totalCount, totalPages },
     });
   } catch (err: unknown) {

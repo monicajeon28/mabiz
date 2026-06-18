@@ -39,3 +39,9 @@ export function maskPhone(tel: string | null | undefined): string {
   const prefixLen = digits.length <= 9 ? 2 : 3;
   return digits.substring(0, prefixLen) + "-****-" + digits.slice(-4);
 }
+
+export function maskCustomerName(name: string | null | undefined): string {
+  if (!name) return '-';
+  if (name.length <= 1) return name;
+  return name[0] + '*'.repeat(Math.min(name.length - 1, 3));
+}

@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useSession } from "next-auth/react";
 import { RefreshCw, Lock, ShoppingCart, Building2, FileText, User } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { formatAmount, formatDate, formatMonth } from "@/lib/marketing-utils";
@@ -42,7 +43,7 @@ function RecentPaymentTable({ recent, loading }: { recent: RecentRow[], loading:
                 <div className="flex flex-col items-center gap-3">
                   <ShoppingCart className="w-10 h-10 text-gray-300" />
                   <p className="text-base font-medium text-gray-500">아직 결제 내역이 없어요</p>
-                  <p className="text-sm text-gray-400">랜딩페이지를 통해 고객이 결제하면 여기에 표시됩니다</p>
+                  <p className="text-base text-gray-500">랜딩페이지를 통해 고객이 결제하면 여기에 표시됩니다</p>
                 </div>
               </td>
             </tr>
@@ -98,7 +99,7 @@ function RecentPaymentCard({ recent, loading }: { recent: RecentRow[], loading: 
         <div className="flex flex-col items-center gap-3 py-10">
           <ShoppingCart className="w-10 h-10 text-gray-300" />
           <p className="text-base font-medium text-gray-500 text-center">아직 결제 내역이 없어요</p>
-          <p className="text-sm text-gray-400 text-center">랜딩페이지를 통해 고객이 결제하면 여기에 표시됩니다</p>
+          <p className="text-base text-gray-500 text-center">랜딩페이지를 통해 고객이 결제하면 여기에 표시됩니다</p>
         </div>
       )}
       {!loading && recent.map((row) => (
@@ -149,7 +150,7 @@ function AdminPersonalSalesSection({ sales }: { sales: AdminPersonalSales }) {
             <p className="text-2xl font-bold text-gray-900">{formatAmount(sales.totalRevenue)}</p>
             <p className="text-sm text-gray-400 mt-1">결제 완료 {sales.paidCount}건</p>
           </div>
-          {/* 카드 2: 환불 금액 (중복 제거 — 결제 건수 대신 환불 정보) */}
+          {/* 카드 2: 환불 금액 */}
           <div className="bg-white rounded-xl border border-purple-100 p-4">
             <p className="text-base text-gray-500 mb-1">환불 금액</p>
             <p className="text-2xl font-bold text-red-600">
@@ -180,13 +181,13 @@ function OrgBreakdownSection({ orgBreakdown }: { orgBreakdown: OrgBreakdown[] })
           <Building2 className="w-5 h-5 text-blue-600 shrink-0" />
           <div>
             <h2 className="text-xl font-bold text-gray-900">대리점별 이번 달 매출</h2>
-            <p className="text-sm text-gray-500 mt-0.5">각 대리점이 이번 달 얼마나 판매했는지 확인하세요</p>
+            <p className="text-base text-gray-500 mt-0.5">각 대리점 소속 판매원이 이번 달 성사시킨 매출을 확인하세요</p>
           </div>
         </div>
         <div className="flex flex-col items-center gap-3 py-12">
           <Building2 className="w-10 h-10 text-gray-300" />
           <p className="text-base font-medium text-gray-500">이번 달 대리점 실적이 없어요</p>
-          <p className="text-sm text-gray-400">대리점에서 결제가 발생하면 여기에 표시됩니다</p>
+          <p className="text-base text-gray-500">대리점에서 결제가 발생하면 여기에 표시됩니다</p>
         </div>
       </div>
     );
@@ -202,7 +203,7 @@ function OrgBreakdownSection({ orgBreakdown }: { orgBreakdown: OrgBreakdown[] })
         <Building2 className="w-5 h-5 text-blue-600 shrink-0" />
         <div>
           <h2 className="text-xl font-bold text-gray-900">대리점별 이번 달 매출</h2>
-          <p className="text-sm text-gray-500 mt-0.5">각 대리점이 이번 달 얼마나 판매했는지 확인하세요</p>
+          <p className="text-base text-gray-500 mt-0.5">각 대리점 소속 판매원이 이번 달 성사시킨 매출을 확인하세요</p>
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -212,6 +213,7 @@ function OrgBreakdownSection({ orgBreakdown }: { orgBreakdown: OrgBreakdown[] })
               <th scope="col" className="text-left px-6 py-3 text-base font-medium text-gray-600">대리점 이름</th>
               <th scope="col" className="text-right px-6 py-3 text-base font-medium text-gray-600">이번 달 매출</th>
               <th scope="col" className="text-right px-6 py-3 text-base font-medium text-gray-600">결제 건수</th>
+              <th scope="col" className="text-right px-6 py-3 text-base font-medium text-gray-600">환불</th>
               <th scope="col" className="text-right px-6 py-3 text-base font-medium text-gray-600">순매출</th>
             </tr>
           </thead>
@@ -221,6 +223,7 @@ function OrgBreakdownSection({ orgBreakdown }: { orgBreakdown: OrgBreakdown[] })
                 <td className="px-6 py-4 text-base font-medium text-gray-900">{org.orgName}</td>
                 <td className="px-6 py-4 text-right text-base text-gray-900">{formatAmount(org.totalRevenue)}</td>
                 <td className="px-6 py-4 text-right text-base text-gray-600">{org.paidCount}건</td>
+                <td className="px-6 py-4 text-right text-base text-red-600">{org.totalRefund > 0 ? formatAmount(org.totalRefund) : '-'}</td>
                 <td className="px-6 py-4 text-right text-base font-semibold text-green-700">{formatAmount(org.netRevenue)}</td>
               </tr>
             ))}
@@ -231,6 +234,7 @@ function OrgBreakdownSection({ orgBreakdown }: { orgBreakdown: OrgBreakdown[] })
               <td className="px-6 py-4 text-base font-bold text-blue-900">전체 합계</td>
               <td className="px-6 py-4 text-right text-base font-bold text-blue-900">{formatAmount(totalRevenue)}</td>
               <td className="px-6 py-4 text-right text-base font-bold text-blue-900">{totalCount}건</td>
+              <td className="px-6 py-4 text-right text-base font-bold text-red-700">{formatAmount(orgBreakdown.reduce((s, o) => s + o.totalRefund, 0))}</td>
               <td className="px-6 py-4 text-right text-base font-bold text-green-800">{formatAmount(totalNet)}</td>
             </tr>
           </tfoot>
@@ -240,8 +244,25 @@ function OrgBreakdownSection({ orgBreakdown }: { orgBreakdown: OrgBreakdown[] })
   );
 }
 
+// ─── 접근 거부 화면 (AGENT / FREE_SALES / 403) ────────────────
+function AccessDeniedView() {
+  return (
+    <div className="p-6 max-w-6xl mx-auto">
+      <div className="flex flex-col items-center justify-center py-24 gap-4">
+        <Lock className="w-16 h-16 text-gray-300" />
+        <h1 className="text-xl font-bold text-gray-700">접근 권한이 없습니다</h1>
+        <p className="text-base text-gray-500 text-center max-w-sm">
+          이 페이지는 대리점장 또는 관리자만 이용할 수 있습니다.<br />
+          권한이 필요하면 관리자에게 문의해 주세요.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ─── 메인 페이지 ──────────────────────────────────────────────
 export default function MarketingSalesPage() {
+  const { data: session } = useSession();
   const [data,      setData]      = useState<SalesApiData | null>(null);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState<string | null>(null);
@@ -285,20 +306,15 @@ export default function MarketingSalesPage() {
     return () => controller.abort();
   }, [load]);
 
+  // [UI-SALES-009] 세션에서 역할을 즉시 읽어 AGENT/FREE_SALES 차단 (fetch 완료 전 조기 차단)
+  const sessionRole = (session?.user as { role?: string } | undefined)?.role;
+  if (sessionRole === 'AGENT' || sessionRole === 'FREE_SALES') {
+    return <AccessDeniedView />;
+  }
+
   // UI-SALES-001: AGENT/FREE_SALES 접근 차단 화면
   if (forbidden) {
-    return (
-      <div className="p-6 max-w-6xl mx-auto">
-        <div className="flex flex-col items-center justify-center py-24 gap-4">
-          <Lock className="w-16 h-16 text-gray-300" />
-          <h1 className="text-xl font-bold text-gray-700">접근 권한이 없습니다</h1>
-          <p className="text-base text-gray-500 text-center max-w-sm">
-            이 페이지는 대리점장 또는 관리자만 이용할 수 있습니다.<br />
-            권한이 필요하면 관리자에게 문의해 주세요.
-          </p>
-        </div>
-      </div>
-    );
+    return <AccessDeniedView />;
   }
 
   const summary: SalesSummary | undefined = data?.summary;
@@ -390,6 +406,31 @@ export default function MarketingSalesPage() {
       {/* 월별 막대 그래프 */}
       {!loading && monthly.length > 0 && <SalesBarChart monthly={monthly} />}
 
+      {/* UI-SALES-010: GLOBAL_ADMIN 전용 — 로딩 중 스켈레톤으로 CLS 방지 */}
+      {loading && sessionRole === 'GLOBAL_ADMIN' && (
+        <div className="space-y-4">
+          {/* 관리자 개인 링크 매출 스켈레톤 */}
+          <div className="bg-purple-50 rounded-xl border border-purple-200 p-6">
+            <div className="h-6 w-48 bg-purple-200 rounded animate-pulse mb-4" />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="bg-white rounded-xl border border-purple-100 p-4">
+                  <div className="h-4 w-20 bg-gray-200 rounded animate-pulse mb-2" />
+                  <div className="h-7 w-32 bg-gray-200 rounded animate-pulse" />
+                </div>
+              ))}
+            </div>
+          </div>
+          {/* 대리점별 매출 breakdown 스켈레톤 */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="h-6 w-40 bg-gray-200 rounded animate-pulse mb-4" />
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-12 bg-gray-100 rounded animate-pulse mb-2" />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* UI-SALES-003: GLOBAL_ADMIN 전용 - 관리자 개인 링크 매출 */}
       {!loading && isGlobalAdmin && adminPersonalSales !== null && (
         <AdminPersonalSalesSection sales={adminPersonalSales} />
@@ -404,7 +445,7 @@ export default function MarketingSalesPage() {
       <div className="bg-white rounded-xl border border-gray-200">
         <div className="px-6 py-4 border-b border-gray-100">
           <h2 className="text-xl font-bold text-gray-900">랜딩페이지별 매출 기여</h2>
-          <p className="text-sm text-gray-500 mt-1">어떤 랜딩페이지에서 매출이 발생했는지 확인하세요</p>
+          <p className="text-base text-gray-500 mt-1">어떤 랜딩페이지에서 매출이 발생했는지 확인하세요</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -429,7 +470,7 @@ export default function MarketingSalesPage() {
                     <div className="flex flex-col items-center gap-3">
                       <FileText className="w-10 h-10 text-gray-300" />
                       <p className="text-base font-medium text-gray-500">아직 랜딩페이지 매출이 없어요</p>
-                      <p className="text-sm text-gray-400">랜딩페이지를 만들고 고객에게 공유해 보세요</p>
+                      <p className="text-base text-gray-500">랜딩페이지를 만들고 고객에게 공유해 보세요</p>
                     </div>
                   </td>
                 </tr>
@@ -453,7 +494,7 @@ export default function MarketingSalesPage() {
       <div className="bg-white rounded-xl border border-gray-200">
         <div className="px-6 py-4 border-b border-gray-100">
           <h2 className="text-xl font-bold text-gray-900">최근 결제 내역</h2>
-          <p className="text-sm text-gray-500 mt-1">최근 6개월간 결제 내역을 확인하세요</p>
+          <p className="text-base text-gray-500 mt-1">최근 6개월간 결제 내역을 확인하세요</p>
         </div>
 
         {/* 모바일 카드 */}
@@ -502,6 +543,8 @@ export default function MarketingSalesPage() {
                         refreshCtrlRef.current = new AbortController();
                         load(pageNum, refreshCtrlRef.current.signal);
                       }}
+                      aria-label={`${pageNum}페이지로 이동`}
+                      aria-current={pageNum === page ? 'page' : undefined}
                       className={cn(
                         "px-4 py-3 min-h-[48px] rounded-lg text-base font-medium",
                         pageNum === page

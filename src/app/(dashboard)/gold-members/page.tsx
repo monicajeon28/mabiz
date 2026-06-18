@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ChevronLeft, ChevronRight, Search, Star, X, Plus, Loader2
+  ChevronLeft, ChevronRight, Search, Star, X, Plus, Loader2, AlertTriangle, Trash2, UserCheck
 } from "lucide-react";
 import { useToast } from "@/lib/api/use-toast";
+import { useSession } from "@/hooks/useSession";
 
 type GoldMember = {
   id: string;
@@ -22,6 +23,8 @@ type GoldMember = {
   memo: string | null;
   consultationCount: number;
   createdAt: string;
+  agentId?: number | null;
+  agentName?: string | null;
 };
 
 const COURSE_LABEL: Record<string, string> = { A: "A코스", B: "B코스", C: "C코스", HEALTH: "건강" };
@@ -47,6 +50,8 @@ const COURSE_BADGE: Record<string, string> = {
 
 type Group = { id: string; name: string; color: string | null };
 
+type AgentOption = { id: string; displayName: string | null };
+
 const INITIAL_FORM = {
   name: "", phone: "", email: "",
   courseType: "A" as "A" | "B" | "C" | "HEALTH",
@@ -54,11 +59,17 @@ const INITIAL_FORM = {
   paymentDay: "",
   totalPayments: "",
   memo: "",
+  agentMemberId: "",
 };
 
 export default function GoldMembersPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { role, isAdmin: sessionIsAdmin } = useSession();
+  const isAdmin = sessionIsAdmin || role === "GLOBAL_ADMIN";
+  const isOwner = role === "OWNER";
+  const isAgent = role === "AGENT";
+
   const abortControllerRef = useRef<AbortController | null>(null);
   const [members, setMembers]     = useState<GoldMember[]>([]);
   const [total, setTotal]         = useState(0);
@@ -71,9 +82,20 @@ export default function GoldMembersPage() {
   const [error, setError]           = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // 삭제 요청 관련 상태
+  const [pendingCount, setPendingCount] = useState(0);
+  const [deleteReqModalOpen, setDeleteReqModalOpen] = useState(false);
+  const [deleteReqTarget, setDeleteReqTarget] = useState<GoldMember | null>(null);
+  const [deleteReqReason, setDeleteReqReason] = useState("");
+  const [deleteReqSubmitting, setDeleteReqSubmitting] = useState(false);
+
   // 그룹 관련 상태
   const [groups, setGroups]       = useState<Group[]>([]);
   const [assigning, setAssigning] = useState<string | null>(null); // memberId
+
+  // 담당 판매원 목록 (OWNER/GLOBAL_ADMIN 등록 시 사용)
+  const [agents, setAgents] = useState<AgentOption[]>([]);
+  const [agentsLoading, setAgentsLoading] = useState(false);
 
   // 등록 폼 상태
   const [form, setForm] = useState(INITIAL_FORM);
@@ -136,6 +158,60 @@ export default function GoldMembersPage() {
       .catch(() => {});
   }, []);
 
+  // 관리자: 삭제 요청 대기 건수 로드
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetch('/api/gold-members/delete-requests?status=PENDING')
+      .then((r) => r.json())
+      .then((d) => { if (d.ok) setPendingCount(d.total ?? 0); })
+      .catch(() => {});
+  }, [isAdmin]);
+
+  // 삭제 요청 제출 (대리점장)
+  const handleDeleteRequest = useCallback(async () => {
+    if (!deleteReqTarget || !deleteReqReason.trim()) return;
+    setDeleteReqSubmitting(true);
+    try {
+      const res = await fetch('/api/gold-members/delete-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ goldMemberId: deleteReqTarget.id, reason: deleteReqReason.trim() }),
+      });
+      const data = await res.json() as { ok?: boolean; error?: string };
+      if (!data.ok) throw new Error(data.error ?? '요청 실패');
+      toast({ title: '삭제 요청이 접수되었습니다.', variant: 'success' });
+      setDeleteReqModalOpen(false);
+      setDeleteReqTarget(null);
+      setDeleteReqReason('');
+    } catch (err) {
+      toast({
+        title: '삭제 요청 실패',
+        description: err instanceof Error ? err.message : '다시 시도해주세요.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeleteReqSubmitting(false);
+    }
+  }, [deleteReqTarget, deleteReqReason, toast]);
+
+  // 관리자 직접 삭제
+  const handleAdminDelete = useCallback(async (memberId: string, memberName: string) => {
+    if (!window.confirm(`"${memberName}" 회원을 삭제하시겠습니까?`)) return;
+    try {
+      const res = await fetch(`/api/gold-members/${memberId}`, { method: 'DELETE' });
+      const data = await res.json() as { ok?: boolean; error?: string };
+      if (!data.ok) throw new Error(data.error ?? '삭제 실패');
+      toast({ title: `"${memberName}" 삭제 완료`, variant: 'success' });
+      load();
+    } catch (err) {
+      toast({
+        title: '삭제 실패',
+        description: err instanceof Error ? err.message : '다시 시도해주세요.',
+        variant: 'destructive',
+      });
+    }
+  }, [toast, load]);
+
   // 골드회원 → phone 기반 그룹 배정
   const quickAssign = useCallback(async (memberId: string, phone: string, name: string, groupId: string) => {
     if (!groupId) return;
@@ -161,6 +237,23 @@ export default function GoldMembersPage() {
       setAssigning(null);
     }
   }, [groups, toast]);
+
+  // 드로어가 열릴 때 판매원 목록 로드 (OWNER/GLOBAL_ADMIN)
+  useEffect(() => {
+    if (!drawerOpen || isAgent) return;
+    if (agents.length > 0) return; // 이미 로드된 경우 재요청 안 함
+    setAgentsLoading(true);
+    fetch('/api/org/agents')
+      .then((r) => r.json())
+      .then((d: { ok?: boolean; sections?: Array<{ label: string; members: AgentOption[] }> }) => {
+        if (d.ok && Array.isArray(d.sections)) {
+          const agentSection = d.sections.find((s) => s.label === '판매원');
+          setAgents(agentSection?.members ?? []);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setAgentsLoading(false));
+  }, [drawerOpen, isAgent, agents.length]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -189,6 +282,7 @@ export default function GoldMembersPage() {
           paymentDay: form.paymentDay ? parseInt(form.paymentDay) : undefined,
           totalPayments: form.totalPayments ? parseInt(form.totalPayments) : undefined,
           memo: form.memo.trim() || undefined,
+          agentId: form.agentMemberId || undefined,
         }),
       });
       const data = await res.json();
@@ -213,18 +307,41 @@ export default function GoldMembersPage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Star className="w-5 h-5 text-yellow-500" />
-            <h1 className="text-xl font-bold text-navy-900">골드회원 관리</h1>
+            <h1 className="text-xl font-bold text-navy-900">
+              {isAgent ? "내 담당 고객 목록" : "골드회원 관리"}
+            </h1>
           </div>
-          <p className="text-sm text-gray-500">CRM 골드회원 수동 등록 및 관리</p>
+          <p className="text-sm text-gray-500">
+            {isAgent ? "나에게 배정된 골드회원만 표시됩니다." : "CRM 골드회원 수동 등록 및 관리"}
+          </p>
         </div>
-        <button
-          onClick={() => setDrawerOpen(true)}
-          className="flex items-center gap-1.5 px-4 py-2 bg-navy-900 text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
-        >
-          <Plus className="w-4 h-4" />
-          골드회원 등록
-        </button>
+        {(isAdmin || isOwner) && (
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="flex items-center gap-1.5 px-4 min-h-[48px] bg-navy-900 text-white text-base font-medium rounded-lg hover:opacity-90 transition-opacity"
+          >
+            <Plus className="w-4 h-4" />
+            골드회원 등록
+          </button>
+        )}
       </div>
+
+      {/* 관리자 전용: 삭제 요청 대기 배너 */}
+      {isAdmin && pendingCount > 0 && (
+        <div className="mb-4 flex items-center gap-3 px-4 py-3 rounded-xl border border-red-200" style={{ backgroundColor: '#FADBD8' }}>
+          <AlertTriangle className="w-5 h-5 flex-shrink-0" style={{ color: '#E74C3C' }} />
+          <span className="text-base font-medium flex-1" style={{ color: '#E74C3C' }}>
+            삭제 요청 대기 {pendingCount}건이 있습니다.
+          </span>
+          <button
+            onClick={() => router.push('/gold-members/delete-requests')}
+            className="px-4 min-h-[48px] text-base font-semibold rounded-lg border-2 transition-colors"
+            style={{ borderColor: '#E74C3C', color: '#E74C3C', backgroundColor: 'white' }}
+          >
+            확인하기
+          </button>
+        </div>
+      )}
 
       {/* 필터 */}
       <div className="flex flex-wrap gap-2 mb-5">
@@ -325,6 +442,11 @@ export default function GoldMembersPage() {
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">상태</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">가입일</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">상담</th>
+                  {(isAdmin || isOwner) && (
+                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">
+                      <span className="flex items-center gap-1"><UserCheck className="w-3.5 h-3.5" />담당자</span>
+                    </th>
+                  )}
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">그룹 배정</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">액션</th>
                 </tr>
@@ -369,6 +491,16 @@ export default function GoldMembersPage() {
                         <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-sm">{m.consultationCount}건</span>
                       ) : "-"}
                     </td>
+                    {(isAdmin || isOwner) && (
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {m.agentName ? (
+                          <span className="flex items-center gap-1">
+                            <UserCheck className="w-3.5 h-3.5 text-blue-500" />
+                            {m.agentName}
+                          </span>
+                        ) : "-"}
+                      </td>
+                    )}
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       {assigning === m.id ? (
                         <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
@@ -388,13 +520,41 @@ export default function GoldMembersPage() {
                         </select>
                       )}
                     </td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); router.push(`/gold-members/${m.id}`); }}
-                        className="text-sm text-blue-600 hover:underline"
-                      >
-                        상세보기
-                      </button>
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); router.push(`/gold-members/${m.id}`); }}
+                          className="text-sm text-blue-600 hover:underline"
+                        >
+                          상세보기
+                        </button>
+                        {isOwner && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteReqTarget(m);
+                              setDeleteReqReason('');
+                              setDeleteReqModalOpen(true);
+                            }}
+                            className="flex items-center gap-1 px-2 min-h-[36px] text-sm text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            삭제 요청
+                          </button>
+                        )}
+                        {isAdmin && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAdminDelete(m.id, m.name);
+                            }}
+                            className="flex items-center gap-1 px-2 min-h-[36px] text-sm text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            삭제
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -424,6 +584,57 @@ export default function GoldMembersPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* 대리점장 전용: 삭제 요청 모달 */}
+      {deleteReqModalOpen && deleteReqTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => { setDeleteReqModalOpen(false); setDeleteReqReason(''); }} />
+          <div className="relative z-10 w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <Trash2 className="w-5 h-5 text-red-500" />
+                <h2 className="text-lg font-bold text-gray-900">삭제 요청</h2>
+              </div>
+              <button onClick={() => { setDeleteReqModalOpen(false); setDeleteReqReason(''); }} className="p-1.5 rounded-lg hover:bg-gray-100">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-base text-gray-700">
+                <span className="font-semibold">{deleteReqTarget.name}</span> 회원에 대한 삭제를 관리자에게 요청합니다.
+              </p>
+              <div>
+                <label className="block text-base font-medium text-gray-700 mb-2">
+                  삭제 사유 <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={deleteReqReason}
+                  onChange={(e) => setDeleteReqReason(e.target.value)}
+                  rows={4}
+                  placeholder="삭제 사유를 입력해주세요."
+                  className="w-full px-3 py-2 text-base border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-200 resize-none"
+                />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={() => { setDeleteReqModalOpen(false); setDeleteReqReason(''); }}
+                  className="flex-1 min-h-[48px] text-base font-medium text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleDeleteRequest}
+                  disabled={deleteReqSubmitting || !deleteReqReason.trim()}
+                  className="flex-1 min-h-[48px] text-base font-semibold text-white bg-red-500 rounded-xl hover:bg-red-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  {deleteReqSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {deleteReqSubmitting ? "요청 중..." : "삭제 요청 보내기"}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -560,6 +771,38 @@ export default function GoldMembersPage() {
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-900/20"
                   />
                   <p className="mt-1 text-sm text-gray-600">비워두면 기본 60회로 설정됩니다.</p>
+                </div>
+              )}
+
+              {/* 담당 판매원 (OWNER/GLOBAL_ADMIN만 표시) */}
+              {(isAdmin || isOwner) && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <span className="flex items-center gap-1">
+                      <UserCheck className="w-3.5 h-3.5 inline" />
+                      담당 판매원
+                    </span>
+                  </label>
+                  {agentsLoading ? (
+                    <div className="flex items-center gap-2 px-3 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg bg-gray-50">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      판매원 목록 불러오는 중...
+                    </div>
+                  ) : (
+                    <select
+                      value={form.agentMemberId}
+                      onChange={(e) => setForm(f => ({ ...f, agentMemberId: e.target.value }))}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-900/20 bg-white min-h-[44px]"
+                    >
+                      <option value="">— 담당자 없음 (나중에 지정) —</option>
+                      {agents.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.displayName ?? a.id}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">이 골드회원을 관리할 판매원을 선택합니다.</p>
                 </div>
               )}
 

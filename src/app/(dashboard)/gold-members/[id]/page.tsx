@@ -2,12 +2,23 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { ArrowLeft, Star, Loader2, CheckCircle, PauseCircle, XCircle } from "lucide-react";
+import { ArrowLeft, Star, Loader2, CheckCircle, PauseCircle, XCircle, Trash2, Clock, UserCheck } from "lucide-react";
 
 type Consultation = {
   id: string;
   content: string;
   authorId: string;
+  createdAt: string;
+};
+
+type DeleteRequest = {
+  id: string;
+  goldMemberId: string;
+  requesterId: string;
+  reason: string | null;
+  status: string; // PENDING | APPROVED | REJECTED
+  reviewerId: string | null;
+  reviewedAt: string | null;
   createdAt: string;
 };
 
@@ -22,6 +33,9 @@ type GoldMemberDetail = {
   paymentDay: number | null;
   totalPayments: number;
   paidCount: number;
+  maxPaymentCount: number | null; // B2 수정
+  agentId: number | null;         // B2 수정
+  managerId: number | null;
   status: string;
   memo: string | null;
   consultations: Consultation[];
@@ -57,8 +71,11 @@ export default function GoldMemberDetailPage() {
 
   const [member, setMember]         = useState<GoldMemberDetail | null>(null);
   const [loading, setLoading]       = useState(true);
-  const [loadError, setLoadError]   = useState("");   // 페이지 로드 오류 (초기 화면 교체)
-  const [actionError, setActionError] = useState(""); // 액션 오류 (인라인 표시)
+  const [loadError, setLoadError]   = useState("");
+  const [actionError, setActionError] = useState("");
+
+  // 현재 세션 역할
+  const [userRole, setUserRole]     = useState<string>("");
 
   // 상태 관리
   const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
@@ -68,8 +85,25 @@ export default function GoldMemberDetailPage() {
   const [consultSaving, setConsultSaving]   = useState(false);
   const [consultError, setConsultError]     = useState("");
 
+  // 삭제 요청
+  const [pendingDeleteRequest, setPendingDeleteRequest] = useState<DeleteRequest | null>(null);
+  const [deleteReqLoading, setDeleteReqLoading]         = useState(false);
+  const [showDeleteModal, setShowDeleteModal]           = useState(false);
+  const [deleteReason, setDeleteReason]                 = useState("");
+  const [deleteReqError, setDeleteReqError]             = useState("");
+  const [reviewProcessing, setReviewProcessing]         = useState<string | null>(null); // 'approve' | 'reject'
+
+  // 세션 역할 조회
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok && d.role) setUserRole(d.role);
+      })
+      .catch(() => {});
+  }, []);
+
   const load = useCallback(() => {
-    // P1: 이전 요청 취소
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -85,14 +119,26 @@ export default function GoldMemberDetailPage() {
         else setLoadError(d.error ?? "불러오기 실패");
       })
       .catch((err) => {
-        if (err.name !== 'AbortError') {
+        if (err.name !== "AbortError") {
           setLoadError("서버 오류");
         }
       })
       .finally(() => setLoading(false));
   }, [id]);
 
-  // P1: 컴포넌트 언마운트 시 AbortController 정리
+  // 삭제 요청 현황 조회
+  const loadDeleteRequests = useCallback(() => {
+    fetch(`/api/gold-members/delete-requests?goldMemberId=${id}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok && Array.isArray(d.requests)) {
+          const pending = d.requests.find((r: DeleteRequest) => r.status === "PENDING") ?? null;
+          setPendingDeleteRequest(pending);
+        }
+      })
+      .catch(() => {});
+  }, [id]);
+
   useEffect(() => {
     return () => {
       if (abortControllerRef.current) {
@@ -102,7 +148,9 @@ export default function GoldMemberDetailPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { loadDeleteRequests(); }, [loadDeleteRequests]);
 
+  // B3 수정: PATCH 응답의 member로 상태 갱신
   const handleStatusChange = async (newStatus: string) => {
     setStatusUpdating(newStatus);
     setActionError("");
@@ -114,7 +162,12 @@ export default function GoldMemberDetailPage() {
       });
       const data = await res.json();
       if (data.ok) {
-        setMember((prev) => prev ? { ...prev, status: newStatus } : prev);
+        // B3 수정: 서버 응답값으로 갱신
+        if (data.member) {
+          setMember(data.member as GoldMemberDetail);
+        } else {
+          setMember((prev) => prev ? { ...prev, status: newStatus } : prev);
+        }
       } else {
         setActionError(data.error ?? "상태 업데이트 실패");
       }
@@ -153,6 +206,58 @@ export default function GoldMemberDetailPage() {
     }
   };
 
+  // 삭제 요청 제출 (OWNER, GLOBAL_ADMIN)
+  const handleDeleteRequest = async () => {
+    setDeleteReqError("");
+    setDeleteReqLoading(true);
+    try {
+      const res = await fetch("/api/gold-members/delete-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ goldMemberId: id, reason: deleteReason.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setShowDeleteModal(false);
+        setDeleteReason("");
+        loadDeleteRequests();
+      } else {
+        setDeleteReqError(data.error ?? "요청 실패");
+      }
+    } catch {
+      setDeleteReqError("서버 오류");
+    } finally {
+      setDeleteReqLoading(false);
+    }
+  };
+
+  // 삭제 요청 승인/거부 (GLOBAL_ADMIN)
+  const handleReview = async (requestId: string, action: "approve" | "reject") => {
+    setReviewProcessing(action);
+    try {
+      const res = await fetch(`/api/gold-members/delete-requests/${requestId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        if (action === "approve") {
+          // 회원이 소프트삭제됐으므로 목록으로 이동
+          router.push("/gold-members");
+        } else {
+          loadDeleteRequests();
+        }
+      } else {
+        setActionError(data.error ?? "처리 실패");
+      }
+    } catch {
+      setActionError("서버 오류");
+    } finally {
+      setReviewProcessing(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -176,6 +281,10 @@ export default function GoldMemberDetailPage() {
     ? Math.min(100, Math.round((member.paidCount / member.totalPayments) * 100))
     : 0;
 
+  const isOwner       = userRole === "OWNER";
+  const isGlobalAdmin = userRole === "GLOBAL_ADMIN";
+  const canRequestDelete = isOwner || isGlobalAdmin;
+
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
       {/* 뒤로가기 */}
@@ -186,6 +295,40 @@ export default function GoldMemberDetailPage() {
         <ArrowLeft className="w-4 h-4" />
         골드회원 목록
       </button>
+
+      {/* 삭제 요청 대기 배지 */}
+      {pendingDeleteRequest && (
+        <div className="mb-4 px-4 py-3 bg-orange-50 border border-orange-200 rounded-xl flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Clock className="w-5 h-5 text-orange-500 flex-shrink-0" />
+            <span className="text-sm font-medium text-orange-700">삭제 요청 대기 중</span>
+            {pendingDeleteRequest.reason && (
+              <span className="text-sm text-orange-600">— {pendingDeleteRequest.reason}</span>
+            )}
+          </div>
+          {/* GLOBAL_ADMIN: 승인/거부 버튼 */}
+          {isGlobalAdmin && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleReview(pendingDeleteRequest.id, "approve")}
+                disabled={reviewProcessing !== null}
+                className="flex items-center gap-1.5 min-h-[48px] px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {reviewProcessing === "approve" ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                승인 (삭제)
+              </button>
+              <button
+                onClick={() => handleReview(pendingDeleteRequest.id, "reject")}
+                disabled={reviewProcessing !== null}
+                className="flex items-center gap-1.5 min-h-[48px] px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              >
+                {reviewProcessing === "reject" ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+                거부
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 상단 카드 */}
       <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
@@ -215,7 +358,7 @@ export default function GoldMemberDetailPage() {
 
       {/* 정보 섹션 */}
       <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">기본 정보</h2>
+        <h2 className="text-base font-semibold text-gray-700 mb-4">기본 정보</h2>
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <dt className="text-xs text-gray-400 mb-0.5">전화번호</dt>
@@ -235,6 +378,32 @@ export default function GoldMemberDetailPage() {
             <div>
               <dt className="text-xs text-gray-400 mb-0.5">매월 납부 예정일</dt>
               <dd className="text-sm text-gray-900">매월 {member.paymentDay}일</dd>
+            </div>
+          )}
+          {/* 담당 판매원 표시 */}
+          <div>
+            <dt className="text-xs text-gray-400 mb-0.5 flex items-center gap-1">
+              <UserCheck className="w-3 h-3" />
+              담당 판매원
+            </dt>
+            <dd className="text-sm text-gray-900">
+              {member.agentId ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">
+                    {String(member.agentId).slice(-2)}
+                  </span>
+                  담당자 #{member.agentId}
+                </span>
+              ) : (
+                <span className="text-gray-400">직접 배정</span>
+              )}
+            </dd>
+          </div>
+          {/* 최대 납입 회차 (B2 수정) */}
+          {member.maxPaymentCount !== null && member.maxPaymentCount !== undefined && (
+            <div>
+              <dt className="text-xs text-gray-400 mb-0.5">최대 납입 회차</dt>
+              <dd className="text-sm text-gray-900">{member.maxPaymentCount}회</dd>
             </div>
           )}
         </dl>
@@ -288,67 +457,69 @@ export default function GoldMemberDetailPage() {
         {member.memo && (
           <div className="mt-4">
             <dt className="text-xs text-gray-400 mb-1">메모</dt>
-            <dd className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 rounded-lg px-3 py-2">
+            <dd className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 rounded-lg px-3 py-2 leading-relaxed">
               {member.memo}
             </dd>
           </div>
         )}
       </div>
 
-      {/* 상태 관리 */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
-        <h2 className="text-sm font-semibold text-gray-700 mb-2">상태 관리</h2>
-        <p className="text-xs text-gray-400 mb-4">납부 회차는 매월 납부일마다 자동으로 증가합니다.</p>
-        {actionError && (
-          <div className="mb-3 px-3 py-2 bg-red-50 text-red-600 text-xs rounded-lg border border-red-100">
-            {actionError}
+      {/* 상태 관리 — OWNER·GLOBAL_ADMIN만 표시 */}
+      {(isGlobalAdmin || isOwner) && (
+        <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
+          <h2 className="text-base font-semibold text-gray-700 mb-2">상태 관리</h2>
+          <p className="text-xs text-gray-400 mb-4">납부 회차는 매월 납부일마다 자동으로 증가합니다.</p>
+          {actionError && (
+            <div className="mb-3 px-3 py-2 bg-red-50 text-red-600 text-xs rounded-lg border border-red-100">
+              {actionError}
+            </div>
+          )}
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => handleStatusChange("ACTIVE")}
+              disabled={member.status === "ACTIVE" || statusUpdating !== null}
+              className={`flex items-center gap-1.5 min-h-[48px] px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                member.status === "ACTIVE"
+                  ? "border-green-400 bg-green-50 text-green-700 cursor-default"
+                  : "border-gray-200 text-gray-600 hover:border-green-400 hover:text-green-700"
+              } disabled:opacity-50`}
+            >
+              {statusUpdating === "ACTIVE" ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+              유지 (정상)
+            </button>
+
+            <button
+              onClick={() => handleStatusChange("SUSPENDED")}
+              disabled={member.status === "SUSPENDED" || statusUpdating !== null}
+              className={`flex items-center gap-1.5 min-h-[48px] px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                member.status === "SUSPENDED"
+                  ? "border-yellow-400 bg-yellow-50 text-yellow-700 cursor-default"
+                  : "border-gray-200 text-gray-600 hover:border-yellow-400 hover:text-yellow-700"
+              } disabled:opacity-50`}
+            >
+              {statusUpdating === "SUSPENDED" ? <Loader2 className="w-4 h-4 animate-spin" /> : <PauseCircle className="w-4 h-4" />}
+              일시 정지
+            </button>
+
+            <button
+              onClick={() => handleStatusChange("CANCELLED")}
+              disabled={member.status === "CANCELLED" || statusUpdating !== null}
+              className={`flex items-center gap-1.5 min-h-[48px] px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                member.status === "CANCELLED"
+                  ? "border-red-400 bg-red-50 text-red-600 cursor-default"
+                  : "border-gray-200 text-gray-600 hover:border-red-400 hover:text-red-600"
+              } disabled:opacity-50`}
+            >
+              {statusUpdating === "CANCELLED" ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+              해지
+            </button>
           </div>
-        )}
-        <div className="flex flex-wrap gap-3">
-          <button
-            onClick={() => handleStatusChange("ACTIVE")}
-            disabled={member.status === "ACTIVE" || statusUpdating !== null}
-            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
-              member.status === "ACTIVE"
-                ? "border-green-400 bg-green-50 text-green-700 cursor-default"
-                : "border-gray-200 text-gray-600 hover:border-green-400 hover:text-green-700"
-            } disabled:opacity-50`}
-          >
-            {statusUpdating === "ACTIVE" ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-            유지(ACTIVE)
-          </button>
-
-          <button
-            onClick={() => handleStatusChange("SUSPENDED")}
-            disabled={member.status === "SUSPENDED" || statusUpdating !== null}
-            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
-              member.status === "SUSPENDED"
-                ? "border-yellow-400 bg-yellow-50 text-yellow-700 cursor-default"
-                : "border-gray-200 text-gray-600 hover:border-yellow-400 hover:text-yellow-700"
-            } disabled:opacity-50`}
-          >
-            {statusUpdating === "SUSPENDED" ? <Loader2 className="w-4 h-4 animate-spin" /> : <PauseCircle className="w-4 h-4" />}
-            정지(SUSPENDED)
-          </button>
-
-          <button
-            onClick={() => handleStatusChange("CANCELLED")}
-            disabled={member.status === "CANCELLED" || statusUpdating !== null}
-            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
-              member.status === "CANCELLED"
-                ? "border-red-400 bg-red-50 text-red-600 cursor-default"
-                : "border-gray-200 text-gray-600 hover:border-red-400 hover:text-red-600"
-            } disabled:opacity-50`}
-          >
-            {statusUpdating === "CANCELLED" ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
-            해지(CANCELLED)
-          </button>
         </div>
-      </div>
+      )}
 
       {/* 상담내역 */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">상담내역</h2>
+      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
+        <h2 className="text-base font-semibold text-gray-700 mb-4">상담내역</h2>
 
         {/* 새 상담 입력 */}
         <form onSubmit={handleConsultSubmit} className="mb-5">
@@ -362,13 +533,13 @@ export default function GoldMemberDetailPage() {
             onChange={(e) => setConsultContent(e.target.value)}
             rows={3}
             placeholder="상담 내용을 입력하세요..."
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-900/20 resize-none mb-2"
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-900/20 resize-none mb-2 leading-relaxed"
           />
           <div className="flex justify-end">
             <button
               type="submit"
               disabled={consultSaving}
-              className="flex items-center gap-1.5 px-4 py-2 bg-navy-900 text-white text-sm font-medium rounded-lg hover:opacity-90 disabled:opacity-50"
+              className="flex items-center gap-1.5 min-h-[48px] px-5 py-2 bg-navy-900 text-white text-sm font-medium rounded-lg hover:opacity-90 disabled:opacity-50"
             >
               {consultSaving && <Loader2 className="w-4 h-4 animate-spin" />}
               저장
@@ -391,12 +562,85 @@ export default function GoldMemberDetailPage() {
                     })}
                   </span>
                 </div>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">{c.content}</p>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{c.content}</p>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* 삭제 요청 섹션 (OWNER + GLOBAL_ADMIN, 아직 PENDING 없을 때) */}
+      {canRequestDelete && !pendingDeleteRequest && (
+        <div className="bg-white border border-red-100 rounded-xl p-5 mb-4">
+          <h2 className="text-base font-semibold text-gray-700 mb-2 flex items-center gap-2">
+            <Trash2 className="w-4 h-4 text-red-500" />
+            회원 삭제 요청
+          </h2>
+          <p className="text-sm text-gray-500 mb-4 leading-relaxed">
+            {isGlobalAdmin
+              ? "관리자는 즉시 삭제 요청을 승인하거나 삭제 요청을 등록할 수 있습니다."
+              : "삭제 요청을 등록하면 관리자가 검토 후 처리합니다. 직접 삭제는 불가합니다."}
+          </p>
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            className="flex items-center gap-2 min-h-[48px] px-5 py-2 border-2 border-red-300 text-red-600 text-sm font-semibold rounded-lg hover:bg-red-50 transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+            삭제 요청하기
+          </button>
+        </div>
+      )}
+
+      {/* 삭제 요청 모달 */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-1 flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-red-500" />
+              삭제 요청
+            </h3>
+            <p className="text-sm text-gray-500 mb-4 leading-relaxed">
+              <span className="font-semibold text-gray-800">{member.name}</span> 회원에 대한 삭제를 요청합니다.
+              관리자 승인 후 처리됩니다.
+            </p>
+
+            {deleteReqError && (
+              <div className="mb-3 px-3 py-2 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
+                {deleteReqError}
+              </div>
+            )}
+
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              삭제 사유 <span className="text-gray-400 font-normal">(선택)</span>
+            </label>
+            <textarea
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              rows={3}
+              placeholder="삭제 사유를 입력하세요..."
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-300/40 resize-none mb-5 leading-relaxed"
+            />
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => { setShowDeleteModal(false); setDeleteReason(""); setDeleteReqError(""); }}
+                disabled={deleteReqLoading}
+                className="min-h-[48px] px-5 py-2 border border-gray-200 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleDeleteRequest}
+                disabled={deleteReqLoading}
+                className="flex items-center gap-1.5 min-h-[48px] px-5 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {deleteReqLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                요청 제출
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

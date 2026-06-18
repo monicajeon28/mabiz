@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
@@ -41,6 +42,15 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ ok: false, error: '조직 정보가 없습니다.' }, { status: 403 });
       }
       where.organizationId = ctx.organizationId;
+      // AGENT는 자기 담당 고객(agentId = 본인 userId)만 조회
+      // NaN이면 agentId 필터 없이 전체가 노출되므로 명시적으로 차단
+      if (ctx.role === 'AGENT') {
+        const numericId = parseInt(ctx.userId, 10);
+        if (isNaN(numericId)) {
+          return NextResponse.json({ ok: false, error: '사용자 ID 오류' }, { status: 403 });
+        }
+        where.agentId = numericId;
+      }
     }
     if (status) where.status = status;
     if (courseType) where.courseType = courseType;
@@ -85,6 +95,35 @@ export async function GET(req: NextRequest) {
       throw err;
     }
 
+    // agentId(Int) → 표시 이름 조회: User.phone → OrganizationMember.displayName 순서로 시도
+    const agentIds = [...new Set(members.map((m) => m.agentId).filter((id): id is number => id != null))];
+    const agentNameMap = new Map<number, string>();
+    if (agentIds.length > 0) {
+      try {
+        type UserNameRow = { id: number; name: string | null; phone: string | null };
+        const userRows = await prisma.$queryRaw<UserNameRow[]>(
+          Prisma.sql`SELECT id, name, phone FROM "User" WHERE id IN (${Prisma.join(agentIds)})`
+        );
+        const phones = userRows.map((u) => u.phone).filter((p): p is string => p != null);
+        const phoneToDisplayName = new Map<string, string | null>();
+        if (phones.length > 0) {
+          const orgMembers = await prisma.organizationMember.findMany({
+            where: { phone: { in: phones }, isActive: true },
+            select: { phone: true, displayName: true },
+          });
+          for (const om of orgMembers) {
+            if (om.phone) phoneToDisplayName.set(om.phone, om.displayName);
+          }
+        }
+        for (const u of userRows) {
+          const displayName = (u.phone ? phoneToDisplayName.get(u.phone) : undefined) ?? u.name;
+          if (displayName) agentNameMap.set(u.id, displayName);
+        }
+      } catch {
+        // agentName 조회 실패 시 무시 (User 테이블 없을 수 있음)
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       goldMembers: members.map((m) => ({
@@ -100,6 +139,8 @@ export async function GET(req: NextRequest) {
         paidCount:      m.paidCount,
         status:         m.status,
         memo:           m.memo,
+        agentId:        m.agentId ?? null,
+        agentName:      m.agentId != null ? (agentNameMap.get(m.agentId) ?? null) : null,
         consultationCount: m._count?.consultations ?? 0,
         createdAt:      m.createdAt?.toISOString() ?? null,
       })),
@@ -131,9 +172,17 @@ export async function POST(req: NextRequest) {
       paymentDay?: number;
       totalPayments?: number;
       memo?: string;
+      agentId?: string | number;
     };
 
-    const { name, phone, email, courseType, joinDate, paymentDay, totalPayments, memo } = body;
+    const { name, phone, email, courseType, joinDate, paymentDay, totalPayments, memo, agentId: agentIdRaw } = body;
+
+    // OWNER가 담당 판매원 지정 시 agentId 처리
+    let agentIdNum: number | undefined;
+    if (agentIdRaw !== undefined && agentIdRaw !== null && agentIdRaw !== '') {
+      const parsed = parseInt(String(agentIdRaw), 10);
+      if (!isNaN(parsed)) agentIdNum = parsed;
+    }
     if (!name || !phone || !courseType || !joinDate) {
       return NextResponse.json({ ok: false, error: '이름, 전화번호, 코스, 가입날짜는 필수입니다.' }, { status: 400 });
     }
@@ -179,6 +228,7 @@ export async function POST(req: NextRequest) {
         totalPayments: courseType === 'HEALTH' ? 0 : (totalPayments ?? defaultTotal),
         paidCount: 0,
         memo: memo || null,
+        ...(agentIdNum !== undefined ? { agentId: agentIdNum } : {}),
       },
     });
 

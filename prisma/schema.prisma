@@ -2083,6 +2083,7 @@ model GoldMember {
   tier            Int                      @default(1)
   organization    Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   consultations   GoldMemberConsultation[]
+  deleteRequests  GoldMemberDeleteRequest[]
 
   @@index([organizationId])
   @@index([memberCode])
@@ -2101,6 +2102,23 @@ model GoldMemberConsultation {
   goldMember   GoldMember @relation(fields: [goldMemberId], references: [id], onDelete: Cascade)
 
   @@index([goldMemberId])
+}
+
+model GoldMemberDeleteRequest {
+  id           String      @id @default(cuid())
+  goldMemberId String
+  goldMember   GoldMember  @relation(fields: [goldMemberId], references: [id], onDelete: Cascade)
+  requesterId  String
+  reason       String?
+  status       String      @default("PENDING")
+  reviewerId   String?
+  reviewedAt   DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([goldMemberId])
+  @@index([status])
+  @@index([requesterId])
 }
 
 model SystemConfig {
