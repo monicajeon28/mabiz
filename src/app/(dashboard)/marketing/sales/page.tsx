@@ -7,30 +7,9 @@ import { formatAmount, formatDate } from "@/lib/marketing-utils";
 import { SkeletonRow } from "@/components/marketing/SkeletonRow";
 import { StatusBadge } from "@/components/marketing/StatusBadge";
 import { SalesBarChart } from "@/components/marketing/SalesBarChart";
+import { KpiCard } from "@/components/marketing/KpiCard";
 import { cn } from "@/lib/utils";
 import type { MonthlyRow, LandingRow, RecentRow, SalesApiData, SalesSummary } from "@/types/marketing";
-
-
-// ─── KPI 카드 (매출 페이지 전용) ──────────────────────────────
-function SalesKpiCard({
-  label,
-  value,
-  sub,
-  color,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  color: string;
-}) {
-  return (
-    <div className={`rounded-xl border p-5 ${color}`}>
-      <p className="text-sm text-gray-500 mb-1">{label}</p>
-      <p className="text-2xl font-bold text-gray-900">{value}</p>
-      {sub && <p className="text-sm text-gray-600 mt-1">{sub}</p>}
-    </div>
-  );
-}
 
 
 // ─── 최근 결제 테이블 (PC) ─────────────────────────────────────
@@ -198,7 +177,8 @@ export default function MarketingSalesPage() {
             load(page, refreshCtrlRef.current.signal);
           }}
           disabled={loading}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          aria-busy={loading}
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors focus:ring-2 focus:ring-offset-1 focus:ring-blue-600"
           aria-label="새로고침"
         >
           <RefreshCw className={cn("w-4 h-4 text-gray-500", loading && "animate-spin")} />
@@ -234,18 +214,18 @@ export default function MarketingSalesPage() {
         </div>
       ) : summary ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <SalesKpiCard
+          <KpiCard
             label="이번 달 매출"
             value={formatAmount(summary.totalRevenue)}
             sub={`결제완료 ${summary.paidCount}건`}
             color="bg-white border-gray-200"
           />
-          <SalesKpiCard
+          <KpiCard
             label="결제 건수"
             value={`${summary.paidCount}건`}
             color="bg-blue-50 border-blue-100"
           />
-          <SalesKpiCard
+          <KpiCard
             label="순매출"
             value={formatAmount(summary.netRevenue)}
             sub={summary.totalRefund > 0 ? `환불 ${formatAmount(summary.totalRefund)}` : undefined}

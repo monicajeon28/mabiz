@@ -98,8 +98,13 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       take: 5000,
     });
 
+    // [SEND-5000-CAP-SILENT-SKIP-001] 5000명 초과 시 무음 누락 방지 — 명시적 오류 반환
     if (members.length === 5000) {
-      logger.warn('[send] 그룹 멤버 5000명 상한 도달 — 일부 수신자가 누락될 수 있음', { campaignId: id });
+      logger.warn('[send] 그룹 멤버 5000명 상한 도달 — 초과 수신자 누락 방지를 위해 발송 차단', { campaignId: id });
+      return NextResponse.json(
+        { ok: false, message: '그룹 멤버가 5000명을 초과합니다. 그룹을 분할 후 재발송해주세요.' },
+        { status: 400 }
+      );
     }
 
     if (members.length === 0) {
@@ -173,6 +178,8 @@ async function sendCampaignAsync(
     const batches = chunk(members, BATCH_SIZE);
     let totalSent = 0;
     let totalFailed = 0;
+    // [SEND-BLOCKED-AS-FAILED-001] BLOCKED 카운트 분리 집계 (수신거부/야간차단)
+    let totalBlocked = 0;
 
     for (let i = 0; i < batches.length; i += CONCURRENT_BATCHES) {
       const batchGroup = batches.slice(i, i + CONCURRENT_BATCHES);
@@ -180,9 +187,16 @@ async function sendCampaignAsync(
       const batchResults = await Promise.all(
         batchGroup.map((batch) => processBatch(campaignId, campaign, batch, organizationId, smsConfig, emailConfig, executeMonth))
       );
-      batchResults.forEach((r) => { totalSent += r.sent; totalFailed += r.failed; });
+      batchResults.forEach((r) => {
+        totalSent += r.sent;
+        totalFailed += r.failed;
+        // [SEND-BLOCKED-AS-FAILED-001] BLOCKED는 totalBlocked에만 합산 (failedCount 오집계 방지)
+        totalBlocked += r.blocked;
+      });
 
       // 중간 진행 상태 저장
+      // [SEND-BLOCKED-AS-FAILED-001] blockedCount 필드가 스키마에 없으므로 failedCount에서 분리.
+      // BLOCKED 건은 failedCount에 포함하지 않아 오집계를 방지하고, logger.info로만 추적.
       await prisma.crmMarketingCampaign.update({
         where: { id: campaignId },
         data: {
@@ -198,9 +212,12 @@ async function sendCampaignAsync(
       data: { status: 'SENT' },
     });
 
+    // [SEND-BLOCKED-AS-FAILED-001] 발송 완료 로그에 blockedCount 포함 — 사후 추적용
     logger.info('[sendCampaignAsync] Campaign sent successfully', {
       campaignId,
       sentCount: totalSent,
+      failedCount: totalFailed,
+      blockedCount: totalBlocked,
     });
   } catch (err) {
     logger.error('[sendCampaignAsync] Error', { err, campaignId });
@@ -220,7 +237,8 @@ async function sendCampaignAsync(
   }
 }
 
-// 배치 처리 - 성공한 수신자 수 반환
+// 배치 처리 - 성공/실패/차단 수신자 수 반환
+// [SEND-BLOCKED-AS-FAILED-001] BLOCKED(수신거부/야간차단)를 FAILED와 구분
 async function processBatch(
   campaignId: string,
   campaign: CampaignRecord,
@@ -229,16 +247,25 @@ async function processBatch(
   smsConfig: Awaited<ReturnType<typeof getOrgSmsConfig>>,
   emailConfig: Awaited<ReturnType<typeof getOrgEmailConfig>>,
   executeMonth: string
-): Promise<{ sent: number; failed: number }> {
+): Promise<{ sent: number; failed: number; blocked: number }> {
   const results = await Promise.all(
     members.map((member) =>
       processRecipient(campaignId, campaign, member, organizationId, smsConfig, emailConfig, executeMonth)
     )
   );
-  return { sent: results.filter(Boolean).length, failed: results.filter((v) => !v).length };
+  return {
+    sent: results.filter((r) => r === 'sent').length,
+    failed: results.filter((r) => r === 'failed').length,
+    blocked: results.filter((r) => r === 'blocked').length,
+  };
 }
 
-// 개별 수신자 처리 - 성공 여부 반환
+// Aligo result_code 중 BLOCKED 판정 코드 (수신거부·야간차단·스팸필터)
+// -97: 야간 수신 거부, -98: 수신거부 등록, -99: 스팸/차단
+const ALIGO_BLOCKED_CODES = new Set([-97, -98, -99]);
+
+// 개별 수신자 처리 - 'sent' | 'blocked' | 'failed' 반환
+// [SEND-BLOCKED-AS-FAILED-001] BLOCKED를 FAILED와 구분해 오집계 방지
 async function processRecipient(
   campaignId: string,
   campaign: CampaignRecord,
@@ -247,18 +274,22 @@ async function processRecipient(
   smsConfig: Awaited<ReturnType<typeof getOrgSmsConfig>>,
   emailConfig: Awaited<ReturnType<typeof getOrgEmailConfig>>,
   executeMonth: string  // SEND-013: 월 경계 오차 방지 — 호출 시점에 한 번만 계산된 값을 전달
-): Promise<boolean> {
+): Promise<'sent' | 'blocked' | 'failed'> {
   const contact = member.contact;
   let smsSent = false;
   let emailSent = false;
+  // [SEND-BLOCKED-AS-FAILED-001] BLOCKED 판정 플래그 (수신거부/야간차단/스팸)
+  let smsBlocked = false;
 
   try {
     // SMS 발송
-    if (campaign.sendSms && campaign.smsBody && contact.phone && smsConfig?.isActive) {
+    // [DB-SEND-EMPTY-PHONE-SEND-001] 공백 전화번호 trim으로 Aligo API 오류 방지
+    const trimmedPhone = contact.phone?.trim();
+    if (campaign.sendSms && campaign.smsBody && trimmedPhone && smsConfig?.isActive) {
       const text = campaign.smsBody.replace(/\{name\}/g, contact.name ?? '고객');
       const result = await sendSms({
         config: { key: smsConfig.aligoKey, userId: smsConfig.aligoUserId, sender: smsConfig.senderPhone },
-        receiver: contact.phone,
+        receiver: trimmedPhone,
         msg: text,
         msgType: detectMessageType(text),
         organizationId,
@@ -266,6 +297,15 @@ async function processRecipient(
         channel: 'MANUAL',
       });
       smsSent = result.result_code === 1;
+      // [SEND-BLOCKED-AS-FAILED-001] BLOCKED 코드 감지 — FAILED 집계에서 분리
+      if (!smsSent && typeof result.result_code === 'number' && ALIGO_BLOCKED_CODES.has(result.result_code)) {
+        smsBlocked = true;
+        logger.info('[processRecipient] SMS BLOCKED (수신거부/야간차단)', {
+          campaignId,
+          contactId: contact.id,
+          result_code: result.result_code,
+        });
+      }
     }
 
     // 이메일 발송
@@ -291,6 +331,9 @@ async function processRecipient(
     // SEND-013: executeMonth를 외부에서 전달받아 월 경계 불일치 방지
     // SEND-015: sendEmail=false인 경우도 정확히 반영하는 폴백 로직
     const actualChannel = smsSent ? 'SMS' : emailSent ? 'EMAIL' : (campaign.sendSms ? 'SMS' : campaign.sendEmail ? 'EMAIL' : 'SMS');
+    // [SEND-BLOCKED-AS-FAILED-001] ExecutionStatus enum에 BLOCKED 없음 → 'FAILED' 유지.
+    // smsBlocked=true인 경우 logErr에 원인 코드를 기록해 사후 추적 가능하게 함.
+    const executionStatus = (smsSent || emailSent) ? 'SENT' : 'FAILED';
     try {
       await prisma.executionLog.upsert({
         where: {
@@ -308,25 +351,34 @@ async function processRecipient(
           sourceName: campaign.title,
           contactId: contact.id,
           channel: actualChannel,
-          status: (smsSent || emailSent) ? 'SENT' : 'FAILED',
+          status: executionStatus,
           executeMonth,
           scheduledAt: campaign.sendAt,
           sentAt: new Date(),
           campaignId,
         },
         update: {
-          status: (smsSent || emailSent) ? 'SENT' : 'FAILED',
+          status: executionStatus,
           sentAt: new Date(),
         },
       });
     } catch (logErr) {
-      logger.error('[processRecipient] ExecutionLog upsert failed', { logErr, campaignId, contactId: contact.id });
+      logger.error('[processRecipient] ExecutionLog upsert failed', {
+        logErr,
+        campaignId,
+        contactId: contact.id,
+        // [SEND-BLOCKED-AS-FAILED-001] BLOCKED 여부를 로그에 포함해 사후 추적 가능
+        smsBlocked,
+      });
     }
 
-    logger.info('[processRecipient] done', { campaignId, contactId: contact.id, smsSent, emailSent });
-    return smsSent || emailSent;
+    // [SEND-BLOCKED-AS-FAILED-001] BLOCKED 여부를 호출자에게 전달해 집계 분리
+    const outcome: 'sent' | 'blocked' | 'failed' =
+      smsSent || emailSent ? 'sent' : smsBlocked ? 'blocked' : 'failed';
+    logger.info('[processRecipient] done', { campaignId, contactId: contact.id, smsSent, emailSent, smsBlocked, outcome });
+    return outcome;
   } catch (err) {
     logger.error('[processRecipient] Error', { err, campaignId, recipientId: contact.id });
-    return false;
+    return 'failed';
   }
 }

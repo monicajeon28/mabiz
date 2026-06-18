@@ -27,6 +27,13 @@ export async function GET(req: NextRequest) {
     }
     const orgId = resolveOrgIdOrNull(ctx);
 
+    // [API-SALES-GLOBALADMIN-AUDIT-001] GLOBAL_ADMIN cross-org 매출 읽기 감사 로그
+    if (ctx.role === 'GLOBAL_ADMIN') {
+      logger.info('[GET /api/marketing/sales] GLOBAL_ADMIN cross-org read', {
+        actorId: ctx.userId,
+      });
+    }
+
     // 페이지네이션 파라미터
     const page  = Math.max(1, parseInt(req.nextUrl.searchParams.get('page') ?? '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt(req.nextUrl.searchParams.get('limit') ?? '20', 10)));
@@ -39,6 +46,9 @@ export async function GET(req: NextRequest) {
 
     // ─── (A) COUNT 쿼리: DB 레벨 전체 건수 ──────────────────────
     // DB-SALES-INMEMORY-PAGINATION-001 / API-SALES-007: in-memory slice 제거
+    // INNER JOIN 의도: AffiliateSale과 연결된 결제만 집계 (직접 결제/웹훅 미처리 건 제외)
+    // 직접 결제 포함이 필요하면 LEFT JOIN으로 변경하고 pp.organizationId 필터를 추가할 것
+    // af.orderId IS NULL인 AffiliateSale은 자동으로 제외됨 (SQL NULL 비교 규칙)
     type CountRow = { total: number | bigint };
     const countRows: CountRow[] = orgId
       ? await prisma.$queryRaw<CountRow[]>`
@@ -58,6 +68,9 @@ export async function GET(req: NextRequest) {
     const totalPages = Math.ceil(totalCount / limit);
 
     // ─── (B) 목록 쿼리: DB LIMIT/OFFSET ─────────────────────────
+    // INNER JOIN 의도: AffiliateSale과 연결된 결제만 집계 (직접 결제/웹훅 미처리 건 제외)
+    // 직접 결제 포함이 필요하면 LEFT JOIN으로 변경하고 pp.organizationId 필터를 추가할 것
+    // af.orderId IS NULL인 AffiliateSale은 자동으로 제외됨 (SQL NULL 비교 규칙)
     type RawPayment = {
       orderId:       string | null;
       amount:        number | bigint;
@@ -91,6 +104,9 @@ export async function GET(req: NextRequest) {
         `;
 
     // ─── (C) 월별 집계: DB GROUP BY ──────────────────────────────
+    // INNER JOIN 의도: AffiliateSale과 연결된 결제만 집계 (직접 결제/웹훅 미처리 건 제외)
+    // 직접 결제 포함이 필요하면 LEFT JOIN으로 변경하고 pp.organizationId 필터를 추가할 것
+    // af.orderId IS NULL인 AffiliateSale은 자동으로 제외됨 (SQL NULL 비교 규칙)
     type RawMonthly = { month: Date; revenue: number | bigint; count: number | bigint };
     const rawMonthly: RawMonthly[] = orgId
       ? await prisma.$queryRaw<RawMonthly[]>`
@@ -139,6 +155,9 @@ export async function GET(req: NextRequest) {
     const monthKey    = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
     const thisMonth   = monthlyMap[monthKey] ?? { revenue: 0, count: 0 };
 
+    // INNER JOIN 의도: AffiliateSale과 연결된 결제만 집계 (직접 결제/웹훅 미처리 건 제외)
+    // 직접 결제 포함이 필요하면 LEFT JOIN으로 변경하고 pp.organizationId 필터를 추가할 것
+    // af.orderId IS NULL인 AffiliateSale은 자동으로 제외됨 (SQL NULL 비교 규칙)
     type SumRow = { total: number | bigint | null };
     const refundRows: SumRow[] = orgId
       ? await prisma.$queryRaw<SumRow[]>`
@@ -171,6 +190,9 @@ export async function GET(req: NextRequest) {
     };
 
     // ─── (E) 랜딩페이지별 집계: DB GROUP BY ──────────────────────
+    // INNER JOIN 의도: AffiliateSale과 연결된 결제만 집계 (직접 결제/웹훅 미처리 건 제외)
+    // 직접 결제 포함이 필요하면 LEFT JOIN으로 변경하고 pp.organizationId 필터를 추가할 것
+    // af.orderId IS NULL인 AffiliateSale은 자동으로 제외됨 (SQL NULL 비교 규칙)
     type RawByLanding = {
       landingPageId: string | null;
       revenue:       number | bigint;
@@ -225,18 +247,22 @@ export async function GET(req: NextRequest) {
 
     // ─── 페이지네이션 최근 결제 내역 ──────────────────────────────
     // API-SALES-ROLE-TYPE-001: masked 플래그를 포함해 UI 소비자가 PII 마스킹 여부를 명확히 인지
+    // [API-SALES-MASKING-NULL-001] 빈 문자열 전화번호는 마스킹 없이 빈 문자열로, masked 플래그도 false
     const isGlobalAdmin = ctx.role === 'GLOBAL_ADMIN';
     const recent = rawPage.map((p) => ({
       orderId:       p.orderId,
       amount:        Number(p.amount),
       status:        p.status,
       buyerName:     isGlobalAdmin ? (p.customerName ?? '') : maskCustomerName(p.customerName),
-      buyerTel:      isGlobalAdmin ? (p.customerPhone ?? '') : maskPhone(p.customerPhone ?? ''),
+      buyerTel:      isGlobalAdmin
+        ? (p.customerPhone ?? '')
+        : (p.customerPhone ? maskPhone(p.customerPhone) : ''),
       paidAt:        p.paidAt
                        ? (p.paidAt instanceof Date ? p.paidAt : new Date(p.paidAt)).toISOString()
                        : null,
       landingPageId: p.landingPageId ?? null,
-      masked:        !isGlobalAdmin,
+      // 전화번호가 실제 존재할 때만 masked=true (빈 문자열은 마스킹 없음으로 표시)
+      masked:        !isGlobalAdmin && !!p.customerPhone,
     }));
 
     logger.log("[GET /api/marketing/sales] 조회", { orgId, page, limit, totalCount, totalPages });

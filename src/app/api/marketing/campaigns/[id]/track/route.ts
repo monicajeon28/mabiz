@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
+import { checkRateLimitAsync } from '@/lib/rate-limit';
 
 // ── GET /api/marketing/campaigns/[id]/track — 추적 데이터 조회 ─────────
 export async function GET(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
@@ -67,8 +68,26 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
-    const body = await req.json();
-    const { action } = body;
+
+    // [API-TRACK-POST-RATELIMIT] IP 기반 rate limit: 동일 campaignId+IP 조합 10회/분
+    // 공개 엔드포인트이므로 Redis 기반 분산 제한 적용 (메모리 폴백 포함)
+    const ip =
+      req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+      req.headers.get('x-real-ip') ??
+      'unknown';
+    const rateLimitKey = `track:${id}:${ip}`;
+    const rl = await checkRateLimitAsync(rateLimitKey, 10, 60_000);
+    if (!rl.allowed) {
+      logger.warn('[POST /api/marketing/campaigns/[id]/track] rate limit exceeded', { campaignId: id, ip });
+      return NextResponse.json({ ok: false, message: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' }, { status: 429 });
+    }
+
+    // [API-TRACK-POST-JSON-PARSE-500] JSON 파싱 실패 시 400 반환 (500 방지)
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ ok: false, message: '잘못된 요청 형식입니다.' }, { status: 400 });
+    }
+    const { action } = body as { action?: string };
 
     if (!action) {
       return NextResponse.json(

@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
     // 그룹 멤버 수를 포함해 조회 (단일 원자 연산)
     const group = await prisma.contactGroup.findFirst({
       where: {
-        id: groupId ?? undefined,
+        id: groupId || undefined, // || undefined: null/undefined/빈문자열 모두 방어 (?? 는 빈문자열을 통과시킴)
         organizationId: writeOrgId,
       },
       select: {

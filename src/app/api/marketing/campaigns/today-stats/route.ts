@@ -73,22 +73,30 @@ export async function GET(req: NextRequest) {
     });
 
     // 2. 발송 진행 중 (ExecutionLog에서 일부는 SENT, 일부는 PENDING)
-    // 캠페인별로 totalCount와 sentCount를 비교
+    // [API-TODAY-STATS-SENDING-FILTER-001] SENDING 쿼리에서 sendAt 범위 필터 제거
+    // — 어제 시작해 자정을 넘긴 캠페인도 inProgress에 포함되어야 함
+    // [DB-TODAY-STATS-INPROGRESS-STUCK-001] totalCount=0 stuck 방지: updatedAt 기준 30분 이내만 포함
+    const staleThreshold = new Date(Date.now() - 30 * 60 * 1000);
+    const sendingWhere = ctx.role === 'GLOBAL_ADMIN'
+      ? { status: { in: ['SENDING'] } }
+      : { status: { in: ['SENDING'] }, organizationId: ctx.organizationId! };
     const campaigns = await prisma.crmMarketingCampaign.findMany({
-      where: {
-        ...campaignWhere,
-        status: { in: ['SENDING'] },
-      },
+      where: sendingWhere,
       select: {
         id: true,
         totalCount: true,
         sentCount: true,
+        updatedAt: true,
       },
     });
 
-    // SENDING 상태이면서 totalCount=0(초기화 미완료)이거나 아직 sentCount < totalCount인 경우
-    const inProgress = campaigns.filter(
-      c => c.totalCount === 0 || c.sentCount < c.totalCount
+    // SENDING 상태이면서:
+    // - totalCount>0인 경우: sentCount < totalCount (정상 진행 중)
+    // - totalCount=0인 경우: updatedAt이 staleThreshold 이내여야 함 (stuck 캠페인 제외)
+    const inProgress = campaigns.filter(c =>
+      c.totalCount > 0
+        ? c.sentCount < c.totalCount
+        : c.updatedAt > staleThreshold
     ).length;
 
     // 3. 오늘 완료한 캠페인 — status: SENT 기준으로 정확히 계산
