@@ -28,15 +28,46 @@ type RawMember = {
 
 type RawCount = { total: bigint };
 
+/**
+ * GET /api/members
+ *
+ * 일반 고객(role='user')만 필터링하여 반환
+ *
+ * 쿼리 파라미터:
+ *   - page: 페이지 번호 (기본값: 1)
+ *   - limit: 페이지당 건수 (기본값: 30, 최대: 100)
+ *   - q: 이름 또는 전화번호 검색
+ *   - provider: 가입 경로 필터 (KAKAO, NAVER, GOOGLE, DIRECT)
+ *   - status: 회원 상태 필터 (잠재고객, 소통, 구매완료, VIP, 수신거부)
+ *   - date: 가입 날짜 필터 (YYYY-MM-DD~YYYY-MM-DD 형식)
+ *
+ * 응답:
+ *   {
+ *     ok: boolean,
+ *     members: RawMember[],
+ *     total: number,
+ *     page: number,
+ *     limit: number,
+ *     error?: string
+ *   }
+ */
 export async function GET(req: Request) {
+  const startTime = Date.now();
+
   try {
     // 권한 확인 — GLOBAL_ADMIN 전용
     const session = await getMabizSession();
     if (!session) {
-      return NextResponse.json({ ok: false, error: '로그인이 필요합니다.' }, { status: 401 });
+      return NextResponse.json(
+        { ok: false, error: '로그인이 필요합니다.' },
+        { status: 401 }
+      );
     }
     if (session.role !== 'GLOBAL_ADMIN') {
-      return NextResponse.json({ ok: false, error: '권한이 없습니다.' }, { status: 403 });
+      return NextResponse.json(
+        { ok: false, error: '권한이 없습니다.' },
+        { status: 403 }
+      );
     }
 
     // Query Parameter 파싱
@@ -50,6 +81,8 @@ export async function GET(req: Request) {
 
     const q = searchParams.get('q')?.trim() ?? '';
     const providerParam = searchParams.get('provider')?.trim().toUpperCase() ?? '';
+    const statusParam = searchParams.get('status')?.trim() ?? '';
+    const dateParam = searchParams.get('date')?.trim() ?? '';
 
     const offset = (page - 1) * limit;
 
@@ -84,6 +117,34 @@ export async function GET(req: Request) {
       providerFilter = Prisma.sql``;
     }
 
+    // 상태 필터 조건
+    const validStatuses = ['잠재고객', '소통', '구매완료', 'VIP', '수신거부'];
+    let statusFilter: Prisma.Sql;
+    if (statusParam && validStatuses.includes(statusParam)) {
+      statusFilter = Prisma.sql`AND u."memberStatus" = ${statusParam}`;
+    } else {
+      statusFilter = Prisma.sql``;
+    }
+
+    // 날짜 범위 필터 조건 (YYYY-MM-DD~YYYY-MM-DD)
+    let dateFilter: Prisma.Sql;
+    if (dateParam && dateParam.includes('~')) {
+      const [startDate, endDate] = dateParam.split('~').map((d) => d.trim());
+      if (startDate && endDate) {
+        try {
+          new Date(startDate);
+          new Date(endDate);
+          dateFilter = Prisma.sql`AND u."createdAt"::date BETWEEN ${startDate}::date AND ${endDate}::date`;
+        } catch {
+          dateFilter = Prisma.sql``;
+        }
+      } else {
+        dateFilter = Prisma.sql``;
+      }
+    } else {
+      dateFilter = Prisma.sql``;
+    }
+
     // 검색 조건 (이름 또는 전화번호 ILIKE)
     let searchFilter: Prisma.Sql;
     if (q) {
@@ -93,7 +154,7 @@ export async function GET(req: Request) {
       searchFilter = Prisma.sql``;
     }
 
-    // 회원 목록 조회
+    // 회원 목록 조회 (일반 고객만: role = 'user')
     const members = await prisma.$queryRaw<RawMember[]>(
       Prisma.sql`
         SELECT
@@ -122,6 +183,8 @@ export async function GET(req: Request) {
         WHERE u.role = 'user'
           ${searchFilter}
           ${providerFilter}
+          ${statusFilter}
+          ${dateFilter}
         ORDER BY u."createdAt" DESC
         LIMIT ${limit} OFFSET ${offset}
       `
@@ -135,10 +198,22 @@ export async function GET(req: Request) {
         WHERE u.role = 'user'
           ${searchFilter}
           ${providerFilter}
+          ${statusFilter}
+          ${dateFilter}
       `
     );
 
     const total = Number(countRows[0]?.total ?? 0);
+    const duration = Date.now() - startTime;
+
+    logger.info('[GET /api/members] 완료', {
+      total,
+      count: members.length,
+      page,
+      limit,
+      durationMs: duration,
+      filters: { q, provider: providerParam, status: statusParam, date: dateParam },
+    });
 
     return NextResponse.json({
       ok: true,
@@ -149,6 +224,9 @@ export async function GET(req: Request) {
     });
   } catch (err) {
     logger.error('[GET /api/members]', { err });
-    return NextResponse.json({ ok: false, error: '서버 오류가 발생했습니다.' }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: '서버 오류가 발생했습니다.' },
+      { status: 500 }
+    );
   }
 }

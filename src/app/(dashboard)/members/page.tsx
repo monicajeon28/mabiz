@@ -85,6 +85,8 @@ export default function MembersPage() {
   const [inputQ, setInputQ]     = useState(""); // 입력창 표시용
   const [q, setQ]               = useState(""); // 실제 검색어 (디바운스 적용)
   const [provider, setProvider] = useState("");
+  const [status, setStatus]     = useState("");
+  const [dateRange, setDateRange] = useState("");
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
 
@@ -124,8 +126,10 @@ export default function MembersPage() {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 10000);
     const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
-    if (q)        params.set("q",        q);
-    if (provider) params.set("provider", provider);
+    if (q)         params.set("q",    q);
+    if (provider)  params.set("provider", provider);
+    if (status)    params.set("status", status);
+    if (dateRange) params.set("date",  dateRange);
 
     fetch(`/api/members?${params}`, { signal: ctrl.signal })
       .then((r) => {
@@ -155,7 +159,7 @@ export default function MembersPage() {
       })
       .finally(() => { clearTimeout(t); setLoading(false); });
     return () => { ctrl.abort(); clearTimeout(t); };
-  }, [page, q, provider]);
+  }, [page, q, provider, status, dateRange]);
 
   useEffect(() => {
     const cleanup = load();
@@ -187,6 +191,16 @@ export default function MembersPage() {
 
   const handleProviderChange = (val: string) => {
     setProvider(val);
+    setPage(1);
+  };
+
+  const handleStatusFilterChange = (val: string) => {
+    setStatus(val);
+    setPage(1);
+  };
+
+  const handleDateRangeChange = (val: string) => {
+    setDateRange(val);
     setPage(1);
   };
 
@@ -501,6 +515,27 @@ export default function MembersPage() {
           <option value="GOOGLE">구글</option>
           <option value="DIRECT">일반가입</option>
         </select>
+
+        <select
+          value={status}
+          onChange={(e) => handleStatusFilterChange(e.target.value)}
+          className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white text-gray-700"
+        >
+          <option value="">전체 상태</option>
+          <option value="잠재고객">잠재고객</option>
+          <option value="소통">소통</option>
+          <option value="구매완료">구매완료</option>
+          <option value="VIP">VIP</option>
+          <option value="수신거부">수신거부</option>
+        </select>
+
+        <input
+          type="text"
+          value={dateRange}
+          onChange={(e) => handleDateRangeChange(e.target.value)}
+          placeholder="YYYY-MM-DD~YYYY-MM-DD"
+          className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 w-48"
+        />
       </div>
 
       {/* 에러 */}
