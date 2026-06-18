@@ -82,9 +82,9 @@ export const ROUTE_RULES: RouteRule[] = [
     redirectTo: '/tools',
   },
 
-  // OWNER 이상 전용 — 판매원(AGENT) 직접 URL 접근 차단
-  { pattern: '/marketing',          requiredRole: 'MEMBER', redirectTo: '/contacts' },
-  { pattern: '/marketing/*',        requiredRole: 'MEMBER', redirectTo: '/contacts' },
+  // OWNER 이상 전용 — 판매원(AGENT) 직접 URL 접근 차단 [API-SALES-004]
+  { pattern: '/marketing',          requiredRole: 'OWNER', redirectTo: '/contacts' },
+  { pattern: '/marketing/*',        requiredRole: 'OWNER', redirectTo: '/contacts' },
   { pattern: '/landing-pages',      requiredRole: 'MEMBER', redirectTo: '/contacts' },
   { pattern: '/landing-pages/*',    requiredRole: 'MEMBER', redirectTo: '/contacts' },
   { pattern: '/funnel-sms',         requiredRole: 'MEMBER', redirectTo: '/messages' },

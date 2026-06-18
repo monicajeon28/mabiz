@@ -8,9 +8,10 @@ export function formatDate(iso: string | null): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** YYYY-MM → 'YYYY년 M월' (50대 친화 한글 포맷) */
 export function formatMonth(ym: string): string {
   const [y, m] = ym.split("-");
-  return `${y}.${m}`;
+  return `${y}년 ${parseInt(m, 10)}월`;
 }
 
 export function maskPhone(tel: string | null | undefined): string {
