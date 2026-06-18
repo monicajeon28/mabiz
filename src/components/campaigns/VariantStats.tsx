@@ -43,7 +43,7 @@ interface VariantStatsProps {
       sampleSizeRecommendation?: string;
     };
   };
-  onRefresh: () => void;
+  onRefresh: () => void | Promise<void>;  // UI-VARIANTS-008: Promise<void> 허용으로 await가 실제로 동작
 }
 
 export function VariantStats({ stats, onRefresh }: VariantStatsProps) {

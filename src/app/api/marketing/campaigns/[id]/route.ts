@@ -76,6 +76,42 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       );
     }
 
+    // API-PATCH-CHANNEL-CONSISTENCY-001: 채널 플래그 변경 시 채널 콘텐츠 유무 검증
+    // sendEmail: true로 PATCH 시 emailSubject/emailBody가 body 또는 기존 DB에 있어야 함
+    const effectiveSendEmail = body.sendEmail !== undefined ? body.sendEmail : existing.sendEmail;
+    const effectiveSendSms   = body.sendSms !== undefined   ? body.sendSms   : existing.sendSms;
+    const effectiveIncludeLanding = body.includeLanding !== undefined ? body.includeLanding : existing.includeLanding;
+
+    if (effectiveSendEmail) {
+      const subject = body.emailSubject ?? existing.emailSubject;
+      const emailBody = body.emailBody ?? existing.emailBody;
+      if (!subject?.trim() || !emailBody?.trim()) {
+        return NextResponse.json(
+          { ok: false, message: '이메일 선택 시 제목과 본문이 필요합니다.' },
+          { status: 400 }
+        );
+      }
+    }
+    if (effectiveSendSms) {
+      const smsBody = body.smsBody ?? existing.smsBody;
+      if (!smsBody?.trim()) {
+        return NextResponse.json(
+          { ok: false, message: '문자 선택 시 본문이 필요합니다.' },
+          { status: 400 }
+        );
+      }
+    }
+    if (effectiveIncludeLanding) {
+      const landingUrl  = body.landingUrl  ?? existing.landingUrl;
+      const landingText = body.landingLinkText ?? existing.landingLinkText;
+      if (!landingUrl?.trim() || !landingText?.trim()) {
+        return NextResponse.json(
+          { ok: false, message: '랜딩 링크 선택 시 URL과 텍스트가 필요합니다.' },
+          { status: 400 }
+        );
+      }
+    }
+
     const data: Prisma.CrmMarketingCampaignUpdateInput = {};
     if (body.title !== undefined) data.title = body.title;
     if (body.sendEmail !== undefined) data.sendEmail = body.sendEmail;

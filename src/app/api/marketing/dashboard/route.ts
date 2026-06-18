@@ -65,16 +65,13 @@ export async function GET() {
             where: { landingPageId: { in: lpIds }, funnelStarted: true },
           });
 
-    const thisMonthStart = new Date();
-    thisMonthStart.setUTCDate(1);
-    thisMonthStart.setUTCHours(0, 0, 0, 0);
-
-    const thisMonthEnd = new Date(thisMonthStart);
-    thisMonthEnd.setUTCMonth(thisMonthEnd.getUTCMonth() + 1); // 다음 달 1일 = 이번 달 마지막 순간의 exclusive 상한
-
-    const lastMonthStart = new Date(thisMonthStart);
-    lastMonthStart.setUTCMonth(lastMonthStart.getUTCMonth() - 1);
-    const lastMonthEnd = new Date(thisMonthStart);
+    // LIB-TYPES-014: sales/route.ts와 동일한 Date.UTC() 방식으로 통일 (setUTC* 방식 → 명시적 UTC 생성)
+    // 서버 타임존에 관계없이 일관된 월 경계 보장
+    const nowForMonth = new Date();
+    const thisMonthStart = new Date(Date.UTC(nowForMonth.getUTCFullYear(), nowForMonth.getUTCMonth(), 1));
+    const thisMonthEnd   = new Date(Date.UTC(nowForMonth.getUTCFullYear(), nowForMonth.getUTCMonth() + 1, 1));
+    const lastMonthStart = new Date(Date.UTC(nowForMonth.getUTCFullYear(), nowForMonth.getUTCMonth() - 1, 1));
+    const lastMonthEnd   = thisMonthStart;
 
     const [thisMonthRegs, lastMonthRegs] = await Promise.all([
       prisma.crmLandingRegistration.count({
@@ -115,6 +112,7 @@ export async function GET() {
     sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 6);
     sevenDaysAgo.setUTCHours(0, 0, 0, 0);
 
+    // DB-26: findMany에 take 상한 추가 + select: { createdAt: true }만 로드하여 메모리 최소화
     const recentRegs =
       lpIds.length === 0
         ? []
@@ -124,6 +122,7 @@ export async function GET() {
               createdAt: { gte: sevenDaysAgo },
             },
             select: { createdAt: true },
+            take: 5000,  // OOM 방지 상한 — 초과 시 최신 5000건만 집계
           });
 
     // UTC+9 기준 날짜별 집계
