@@ -14,6 +14,11 @@ export async function GET() {
       return NextResponse.json({ ok: false, message: "접근 권한이 없습니다." }, { status: 403 });
     }
 
+    // [API-MKT-DASHBOARD-ORG-NULL-500-001] non-GLOBAL_ADMIN인데 organizationId가 없으면 500 대신 403 반환
+    if (ctx.role !== "GLOBAL_ADMIN" && !ctx.organizationId) {
+      return NextResponse.json({ ok: false, message: "조직 정보가 없습니다." }, { status: 403 });
+    }
+
     const orgId = resolveOrgIdOrNull(ctx);
 
     // ── 1. 조직 소유 랜딩페이지 목록 + viewCount 합계
@@ -111,9 +116,12 @@ export async function GET() {
 
     // ── 6. 최근 7일 일별 등록수 trend
     const now = new Date();
+    // [DB-DASHBOARD-TRENDMAP-UTC-KST-MISMATCH-001]
+    // trendMap key는 KST(UTC+9) 기준이므로 DB 쿼리 하한도 KST 자정(= UTC -9h)으로 맞춤.
+    // KST 6일전 00:00:00 = UTC 6일전 -09:00:00 → setUTCHours(-9) = 전날 UTC 15:00
     const sevenDaysAgo = new Date(now);
     sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 6);
-    sevenDaysAgo.setUTCHours(0, 0, 0, 0);
+    sevenDaysAgo.setUTCHours(-9, 0, 0, 0); // KST 자정 = UTC -9시간
 
     // DB-26: findMany에 take 상한 + orderBy 추가
     // [DB-DASHBOARD-RECENTREGS-NO-ORDERBY-001] orderBy 없으면 임의 순서 → 최신 5000건 보장 안 됨
