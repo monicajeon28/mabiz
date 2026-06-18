@@ -66,6 +66,8 @@ export interface RecentRow {
   buyerTel: string;
   paidAt: string | null;
   landingPageId: string | null;
+  /** API-SALES-ROLE-TYPE-001: true이면 buyerName/buyerTel이 마스킹된 값임을 소비자에게 명시 */
+  masked?: boolean;
 }
 
 export interface SalesSummary {

@@ -6,12 +6,29 @@ interface TopPagesTableProps {
   loading: boolean;
 }
 
-function SkeletonLoadingRow() {
+function TopPagesSkeletonLoader() {
   return (
-    <div className="space-y-3">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />
-      ))}
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-gray-600 text-sm border-b border-gray-100">
+            <th scope="col" className="text-left font-medium pb-2 pr-4">페이지명</th>
+            <th scope="col" className="text-right font-medium pb-2 px-3">방문</th>
+            <th scope="col" className="text-right font-medium pb-2 px-3">등록</th>
+            <th scope="col" className="text-right font-medium pb-2 px-3">전환율</th>
+            <th scope="col" className="text-right font-medium pb-2 pl-3"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <tr key={i} className="border-b border-gray-50 last:border-0">
+              <td colSpan={5} className="py-2">
+                <div className="h-8 bg-gray-100 rounded animate-pulse" />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -23,7 +40,7 @@ export function TopPagesTable({ topPages, loading }: TopPagesTableProps) {
         상위 랜딩페이지 {topPages.length ? `TOP ${topPages.length}` : ''}
       </h2>
       {loading ? (
-        <SkeletonLoadingRow />
+        <TopPagesSkeletonLoader />
       ) : topPages.length ? (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

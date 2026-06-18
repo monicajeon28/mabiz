@@ -11,8 +11,8 @@ import { cn } from "@/lib/utils";
 import type { MonthlyRow, LandingRow, RecentRow, SalesApiData, SalesSummary } from "@/types/marketing";
 
 
-// ─── KPI 카드 ─────────────────────────────────────────────────
-function KpiCard({
+// ─── KPI 카드 (매출 페이지 전용) ──────────────────────────────
+function SalesKpiCard({
   label,
   value,
   sub,
@@ -206,18 +206,18 @@ export default function MarketingSalesPage() {
         </div>
       ) : summary ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <KpiCard
+          <SalesKpiCard
             label="이번 달 매출"
             value={formatAmount(summary.totalRevenue)}
             sub={`결제완료 ${summary.paidCount}건`}
             color="bg-white border-gray-200"
           />
-          <KpiCard
+          <SalesKpiCard
             label="결제 건수"
             value={`${summary.paidCount}건`}
             color="bg-blue-50 border-blue-100"
           />
-          <KpiCard
+          <SalesKpiCard
             label="순매출"
             value={formatAmount(summary.netRevenue)}
             sub={summary.totalRefund > 0 ? `환불 ${formatAmount(summary.totalRefund)}` : undefined}

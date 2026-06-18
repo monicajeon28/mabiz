@@ -17,7 +17,9 @@ export async function GET() {
     const orgId = resolveOrgIdOrNull(ctx);
 
     // ── 1. 조직 소유 랜딩페이지 목록 + viewCount 합계
-    // DB-23: GLOBAL_ADMIN 전체 조회 시 OOM 방지를 위해 take:500 상한 적용
+    // DB-25: take:500 제거 — 500개 초과 LP 보유 조직의 funnelEntered·trend 과소보고 수정.
+    // select를 필수 필드(id·title·slug·viewCount·_count)만으로 제한해 행당 메모리 최소화.
+    // orderBy 제거 — 집계 목적이므로 정렬 불필요 (topPages는 메모리 sort로 처리).
     const pages = await prisma.crmLandingPage.findMany({
       where: { ...(orgId ? { organizationId: orgId } : {}) },
       select: {
@@ -27,8 +29,6 @@ export async function GET() {
         viewCount: true,
         _count: { select: { registrations: true } },
       },
-      take: 500,
-      orderBy: { createdAt: "desc" },
     });
 
     const totalViews = pages.reduce((sum, p) => sum + p.viewCount, 0);
