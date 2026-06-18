@@ -23,7 +23,7 @@ interface Variant {
 interface Campaign {
   id: string;
   title: string;
-  status: 'DRAFT' | 'SCHEDULED' | 'SENDING' | 'SENT' | 'CANCELED';
+  status: 'DRAFT' | 'PENDING' | 'SENDING' | 'SENT' | 'FAILED' | 'CANCELLED';
 }
 
 interface StatsData {
@@ -62,22 +62,24 @@ export default function VariantPage() {
   const [activeTab, setActiveTab] = useState('manage');
 
   useEffect(() => {
-    loadData();
+    const controller = new AbortController();
+    loadData(controller.signal);
+    return () => controller.abort();
   }, [campaignId]);
 
-  const loadData = async () => {
+  const loadData = async (signal?: AbortSignal) => {
     try {
       setLoading(true);
 
       // Campaign 정보 조회
-      const campaignRes = await fetch(`/api/marketing/campaigns/${campaignId}`);
+      const campaignRes = await fetch(`/api/marketing/campaigns/${campaignId}`, { signal });
       if (campaignRes.ok) {
         const campaignData = await campaignRes.json();
         setCampaign(campaignData.campaign);
       }
 
       // Variant 목록 조회
-      const variantsRes = await fetch(`/api/campaigns/${campaignId}/variants`);
+      const variantsRes = await fetch(`/api/campaigns/${campaignId}/variants`, { signal });
       if (variantsRes.ok) {
         const variantsData = await variantsRes.json();
         if (variantsData.ok) {
@@ -86,7 +88,7 @@ export default function VariantPage() {
       }
 
       // 통계 조회
-      const statsRes = await fetch(`/api/campaigns/${campaignId}/variants/stats`);
+      const statsRes = await fetch(`/api/campaigns/${campaignId}/variants/stats`, { signal });
       if (statsRes.ok) {
         const statsData = await statsRes.json();
         if (statsData.ok) {
@@ -94,6 +96,7 @@ export default function VariantPage() {
         }
       }
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') return;
       logger.error('[loadData]', { error });
     } finally {
       setLoading(false);
@@ -157,10 +160,6 @@ export default function VariantPage() {
   };
 
   const handleDeleteVariant = async (variantKey: 'A' | 'B') => {
-    if (!window.confirm(`Variant ${variantKey}를 삭제하시겠어요?`)) {
-      return;
-    }
-
     try {
       setSaving(true);
 
@@ -207,8 +206,8 @@ export default function VariantPage() {
         </p>
       </div>
 
-      {/* DRAFT 아님 경고 */}
-      {campaign?.status !== 'DRAFT' && (
+      {/* DRAFT/PENDING 아님 경고 */}
+      {!['DRAFT', 'PENDING'].includes(campaign?.status ?? '') && (
         <div className="border border-yellow-200 bg-yellow-50 text-yellow-800 p-4 rounded">
           발송 중이거나 완료된 캠페인입니다. Variant를 수정할 수 없습니다. 새 캠페인을 만들어주세요.
         </div>
@@ -241,7 +240,7 @@ export default function VariantPage() {
                 onUpdate={(content) => handleUpdateVariant('A', content)}
                 onDelete={() => handleDeleteVariant('A')}
                 isLoading={saving}
-                isDraftOnly={campaign?.status === 'DRAFT'}
+                isDraftOnly={['DRAFT', 'PENDING'].includes(campaign?.status ?? '')}
               />
               <VariantCard
                 variant="B"
@@ -250,7 +249,7 @@ export default function VariantPage() {
                 onUpdate={(content) => handleUpdateVariant('B', content)}
                 onDelete={() => handleDeleteVariant('B')}
                 isLoading={saving}
-                isDraftOnly={campaign?.status === 'DRAFT'}
+                isDraftOnly={['DRAFT', 'PENDING'].includes(campaign?.status ?? '')}
               />
             </div>
           </div>

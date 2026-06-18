@@ -66,10 +66,19 @@ export interface RecentRow {
   landingPageId: string | null;
 }
 
+export interface SalesSummary {
+  totalRevenue: number;
+  totalRefund:  number;
+  netRevenue:   number;
+  paidCount:    number;
+  month:        string;
+}
+
 export interface SalesApiData {
   ok: boolean;
-  summary: Summary;
+  summary: SalesSummary;
   monthly: MonthlyRow[];
   byLanding: LandingRow[];
   recent: RecentRow[];
+  pagination?: { page: number; limit: number; totalCount: number; totalPages: number };
 }

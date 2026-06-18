@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
       .map((s) => s.orderId)
       .filter((id): id is string => id !== null);
 
-    // 전체 결제 내역 (최근 6개월 + 이번 달 집계용, 최대 500건)
+    // 집계용 결제 내역 (최근 6개월, 최대 500건) — summary/monthly/byLanding 공유
     const payments = await prisma.payAppPayment.findMany({
       where: {
         orderId: { in: orderIds },
@@ -45,6 +45,25 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
       take: 500,
     });
+
+    // DB 레벨 페이지네이션 — recent 목록 전용
+    const [recentPayments, totalCount] = await Promise.all([
+      prisma.payAppPayment.findMany({
+        where: {
+          orderId: { in: orderIds },
+          createdAt: { gte: sixMonthsAgo },
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      prisma.payAppPayment.count({
+        where: {
+          orderId: { in: orderIds },
+          createdAt: { gte: sixMonthsAgo },
+        },
+      }),
+    ]);
 
     // ─── 이번 달 요약 ────────────────────────────────────────
     const thisMonthPayments = payments.filter((p) => {
@@ -142,14 +161,13 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => b.revenue - a.revenue);
 
     // ─── 페이지네이션 최근 결제 내역 ──────────────────────────
-    const totalCount = payments.length;
     const totalPages = Math.ceil(totalCount / limit);
-    const recent = payments.slice(skip, skip + limit).map((p) => ({
+    const recent = recentPayments.map((p) => ({
       orderId:       p.orderId,
       amount:        p.amount,
       status:        p.status,
       buyerName:     p.customerName,
-      buyerTel:      (p.customerPhone ?? '').substring(0, 4) + "****",
+      buyerTel:      p.customerPhone ?? '',
       paidAt:        p.paidAt?.toISOString() ?? null,
       landingPageId: p.landingPageId ?? null,
     }));
