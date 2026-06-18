@@ -36,6 +36,7 @@ export default async function DashboardLayout({
     <SessionProvider
       session={{
         role: session?.role,
+        userId: session?.userId ? String(session.userId) : undefined,
         organizationId: session?.organizationId ?? undefined,
         isAdmin: session?.role === "GLOBAL_ADMIN",
       }}

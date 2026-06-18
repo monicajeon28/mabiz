@@ -4,6 +4,7 @@ import React, { createContext, useContext, ReactNode, FC } from 'react';
 
 interface SessionContextType {
   role?: string;
+  userId?: string;
   organizationId?: string;
   isAdmin: boolean;
 }
