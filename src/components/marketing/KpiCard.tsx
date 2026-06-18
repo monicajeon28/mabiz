@@ -38,7 +38,7 @@ export const KpiCard = React.memo(function KpiCard({
         <div className="bg-navy-50 rounded-lg p-2 shrink-0">{icon}</div>
       )}
       <div>
-        <p className="text-sm text-gray-500 font-medium">{heading}</p>
+        <p className="text-base text-gray-500 font-medium">{heading}</p>
         <p className="text-2xl font-bold text-gray-900 mt-0.5">
           {typeof value === "number" ? value.toLocaleString() : value}
         </p>

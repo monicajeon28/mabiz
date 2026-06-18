@@ -67,7 +67,7 @@ export interface RecentRow {
   paidAt: string | null;
   landingPageId: string | null;
   /** API-SALES-ROLE-TYPE-001: true이면 buyerName/buyerTel이 마스킹된 값임을 소비자에게 명시 */
-  masked?: boolean;
+  masked: boolean;
 }
 
 export interface SalesSummary {
@@ -133,7 +133,6 @@ export interface SalesApiData {
   adminPersonalSales: AdminPersonalSales | null;
   // LIB-TYPES-003: GLOBAL_ADMIN 판별용 (서버가 명시적으로 내려주는 플래그)
   isGlobalAdmin: boolean;
-  warning?: string;
 }
 
 // LIB-TYPES-NEW-002: variants/page.tsx 로컬 정의 인터페이스를 이곳으로 이동 (LIB-TYPES-012 완료)

@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
     // 직접 결제 포함이 필요하면 LEFT JOIN으로 변경하고 pp.organizationId 필터를 추가할 것
     // af.orderId IS NULL인 AffiliateSale은 자동으로 제외됨 (SQL NULL 비교 규칙)
     type RawPayment = {
-      orderId:       string | null;
+      orderId:       string;
       amount:        number | bigint;
       status:        string;
       customerName:  string | null;
@@ -315,7 +315,8 @@ export async function GET(req: NextRequest) {
           paidCount:    revMap.get(org.id)?.count   ?? 0,
           netRevenue:   (revMap.get(org.id)?.revenue ?? 0) - (refundMap.get(org.id) ?? 0),
         }))
-        .filter(o => o.totalRevenue > 0 || o.paidCount > 0) // 실적 있는 조직만
+        // [API-SALES-004] 환불만 있는 조직도 포함 (순매출 음수 조직 누락 방지)
+        .filter(o => o.totalRevenue > 0 || o.paidCount > 0 || (refundMap.get(o.orgId) ?? 0) > 0)
         .sort((a, b) => b.totalRevenue - a.totalRevenue);
 
       // ─── (G) GLOBAL_ADMIN 본인 링크(개인 랜딩페이지) 이번 달 매출 ──

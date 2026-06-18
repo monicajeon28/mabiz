@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { RefreshCw, Lock, ShoppingCart, Building2, FileText, User } from "lucide-react";
 import { logger } from "@/lib/logger";
-import { formatAmount, formatDate } from "@/lib/marketing-utils";
+import { formatAmount, formatDate, formatMonth } from "@/lib/marketing-utils";
 import { SkeletonRow } from "@/components/marketing/SkeletonRow";
 import { StatusBadge } from "@/components/marketing/StatusBadge";
 import { SalesBarChart } from "@/components/marketing/SalesBarChart";
@@ -136,29 +136,34 @@ function AdminPersonalSalesSection({ sales }: { sales: AdminPersonalSales }) {
         <User className="w-5 h-5 text-purple-600 shrink-0" />
         <div>
           <h2 className="text-xl font-bold text-gray-900">내 링크 이번 달 매출</h2>
-          <p className="text-sm text-gray-500 mt-0.5">관리자 본인이 직접 만든 랜딩페이지에서 발생한 매출입니다</p>
+          <p className="text-base text-gray-500 mt-0.5">관리자 본인이 직접 만든 랜딩페이지에서 발생한 매출입니다</p>
+          {/* [API-SALES-005] 이중 집계 안내: 관리자 링크 매출은 대리점 합계와 별도로 집계됩니다 */}
+          <p className="text-sm text-purple-600 mt-0.5">※ 아래 대리점별 합계와 별도로 집계되는 금액입니다</p>
         </div>
       </div>
       <div className="px-6 py-5">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* 카드 1: 이번 달 매출 */}
           <div className="bg-white rounded-xl border border-purple-100 p-4">
-            <p className="text-sm text-gray-500 mb-1">이번 달 매출</p>
+            <p className="text-base text-gray-500 mb-1">이번 달 매출</p>
             <p className="text-2xl font-bold text-gray-900">{formatAmount(sales.totalRevenue)}</p>
-            <p className="text-sm text-gray-400 mt-1">결제완료 {sales.paidCount}건</p>
+            <p className="text-sm text-gray-400 mt-1">결제 완료 {sales.paidCount}건</p>
           </div>
+          {/* 카드 2: 환불 금액 (중복 제거 — 결제 건수 대신 환불 정보) */}
           <div className="bg-white rounded-xl border border-purple-100 p-4">
-            <p className="text-sm text-gray-500 mb-1">결제 건수</p>
-            <p className="text-2xl font-bold text-gray-900">{sales.paidCount}건</p>
+            <p className="text-base text-gray-500 mb-1">환불 금액</p>
+            <p className="text-2xl font-bold text-red-600">
+              {sales.totalRefund > 0 ? formatAmount(sales.totalRefund) : '없음'}
+            </p>
             {sales.totalRefund > 0 && (
-              <p className="text-sm text-red-400 mt-1">환불 {formatAmount(sales.totalRefund)}</p>
+              <p className="text-sm text-red-400 mt-1">이번 달 환불 처리된 금액</p>
             )}
           </div>
+          {/* 카드 3: 순매출 */}
           <div className="bg-white rounded-xl border border-purple-100 p-4">
-            <p className="text-sm text-gray-500 mb-1">순매출</p>
+            <p className="text-base text-gray-500 mb-1">순매출</p>
             <p className="text-2xl font-bold text-green-700">{formatAmount(sales.netRevenue)}</p>
-            {sales.totalRefund > 0 && (
-              <p className="text-sm text-gray-400 mt-1">환불 차감 후</p>
-            )}
+            <p className="text-sm text-gray-400 mt-1">환불 차감 후 실제 매출</p>
           </div>
         </div>
       </div>
@@ -314,7 +319,7 @@ export default function MarketingSalesPage() {
             {isGlobalAdmin ? '전체 랜딩페이지 매출 관리' : '랜딩페이지 매출 관리'}
           </h1>
           {summary && (
-            <p className="text-base text-gray-600 mt-1">{summary.month} 기준 매출 현황입니다</p>
+            <p className="text-base text-gray-600 mt-1">{formatMonth(summary.month)} 기준 매출 현황입니다</p>
           )}
         </div>
         <button
