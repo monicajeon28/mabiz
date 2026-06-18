@@ -115,7 +115,8 @@ export async function GET() {
     sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 6);
     sevenDaysAgo.setUTCHours(0, 0, 0, 0);
 
-    // DB-26: findMany에 take 상한 추가 + select: { createdAt: true }만 로드하여 메모리 최소화
+    // DB-26: findMany에 take 상한 + orderBy 추가
+    // [DB-DASHBOARD-RECENTREGS-NO-ORDERBY-001] orderBy 없으면 임의 순서 → 최신 5000건 보장 안 됨
     const recentRegs =
       lpIds.length === 0
         ? []
@@ -125,6 +126,7 @@ export async function GET() {
               createdAt: { gte: sevenDaysAgo },
             },
             select: { createdAt: true },
+            orderBy: { createdAt: 'desc' },
             take: 5000,  // OOM 방지 상한 — 초과 시 최신 5000건만 집계
           });
 

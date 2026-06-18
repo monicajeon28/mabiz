@@ -26,16 +26,19 @@ export default function CampaignDetailPage() {
   const [pollError, setPollError] = useState<string | null>(null);  // UI-CAMPAIGNS-005: 폴링 실패는 별도 상태
   const retryCtrlRef = useRef<AbortController | null>(null);
   const pollErrorCountRef = useRef(0);  // UI-CAMPAIGNS-006: 연속 폴링 실패 횟수 추적
+  const isPollingRef = useRef(false);  // UI-CAMPAIGNS-POLL-OVERLAP-001: in-flight 가드 (중첩 호출 차단)
 
   // UI-CAMPAIGNS-006: 언마운트 시 진행 중인 retry fetch 취소 (메모리 누수 방지)
   useEffect(() => () => { retryCtrlRef.current?.abort(); }, []);
 
   const fetchCampaignData = useCallback(async (signal?: AbortSignal) => {
+    isPollingRef.current = true;  // UI-CAMPAIGNS-POLL-OVERLAP-001: in-flight 진입 표시
     try {
       const res = await fetch(`/api/marketing/campaigns/${campaignId}/track`, { signal });
       if (!res.ok) throw new Error('데이터를 불러올 수 없습니다.');
 
       const data = await res.json();
+      if (!data.ok) throw new Error(data.message ?? '데이터를 불러올 수 없습니다.');
       setCampaign(data.campaign);
       campaignLoadedRef.current = true;
       pollErrorCountRef.current = 0;  // UI-CAMPAIGNS-006: 성공 시 연속 실패 카운터 리셋
@@ -67,6 +70,7 @@ export default function CampaignDetailPage() {
         }
       }
     } finally {
+      isPollingRef.current = false;  // UI-CAMPAIGNS-POLL-OVERLAP-001: in-flight 해제
       if (!signal?.aborted) setLoading(false);
     }
   }, [campaignId]);
@@ -82,7 +86,9 @@ export default function CampaignDetailPage() {
     if (!refreshInterval) return;
 
     const controller = new AbortController();
-    const timer = setInterval(() => fetchCampaignData(controller.signal), refreshInterval);
+    const timer = setInterval(() => {
+      if (!isPollingRef.current) fetchCampaignData(controller.signal);  // UI-CAMPAIGNS-POLL-OVERLAP-001: in-flight 중이면 건너뜀
+    }, refreshInterval);
     return () => {
       clearInterval(timer);
       controller.abort();

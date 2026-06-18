@@ -17,7 +17,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
 
     const campaign = await prisma.crmMarketingCampaign.findFirst({
       where: {
-        id: id ?? undefined,
+        id: id || undefined, // || undefined: null/undefined/빈문자열 모두 방어 (?? 는 빈문자열을 통과시킴)
         organizationId: ctx.organizationId ?? undefined,
       },
       include: {
@@ -64,7 +64,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     // 이는 의도적 설계: GLOBAL_ADMIN은 모든 조직의 캠페인을 수정할 수 있음 (운영 지원 목적)
     const existing = await prisma.crmMarketingCampaign.findFirst({
       where: {
-        id: id ?? undefined,
+        id: id || undefined, // || undefined: null/undefined/빈문자열 모두 방어 (?? 는 빈문자열을 통과시킴)
         organizationId: ctx.organizationId ?? undefined,
       },
     });
@@ -127,8 +127,21 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     if (body.sendEmail !== undefined) data.sendEmail = body.sendEmail;
     if (body.sendSms !== undefined) data.sendSms = body.sendSms;
     if (body.includeLanding !== undefined) data.includeLanding = body.includeLanding;
-    if (body.sendAt !== undefined) data.sendAt = new Date(body.sendAt);
+    // [API-CAMPAIGNS-PATCH-SENDAT-INVALID-DATE-001] Invalid Date 저장 방지
+    if (body.sendAt !== undefined) {
+      const parsed = new Date(body.sendAt);
+      if (isNaN(parsed.getTime())) {
+        return NextResponse.json({ ok: false, message: '유효하지 않은 sendAt 날짜입니다.' }, { status: 400 });
+      }
+      data.sendAt = parsed;
+    }
     if (body.repeatRule !== undefined) data.repeatRule = body.repeatRule || null;
+    // [API-CAMPAIGNS-PATCH-CONTENT-FIELDS-001] 채널 콘텐츠 필드 — 검증만 하고 저장 안 하는 버그 수정
+    if (body.emailSubject !== undefined) data.emailSubject = body.emailSubject || null;
+    if (body.emailBody !== undefined) data.emailBody = body.emailBody || null;
+    if (body.smsBody !== undefined) data.smsBody = body.smsBody || null;
+    if (body.landingUrl !== undefined) data.landingUrl = body.landingUrl || null;
+    if (body.landingLinkText !== undefined) data.landingLinkText = body.landingLinkText || null;
 
     if (body.status !== undefined) {
       const PATCHABLE_STATUSES = ['DRAFT', 'PENDING'];
@@ -185,7 +198,7 @@ export async function DELETE(_req: NextRequest, context: { params: Promise<{ id:
     // ctx.organizationId가 null인 GLOBAL_ADMIN은 org 필터 없이 모든 조직의 캠페인 삭제 가능
     const existing = await prisma.crmMarketingCampaign.findFirst({
       where: {
-        id: id ?? undefined,
+        id: id || undefined, // || undefined: null/undefined/빈문자열 모두 방어 (?? 는 빈문자열을 통과시킴)
         organizationId: ctx.organizationId ?? undefined,
       },
     });

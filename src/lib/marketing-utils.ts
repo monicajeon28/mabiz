@@ -24,5 +24,17 @@ export function maskPhone(tel: string | null | undefined): string {
     return countryCode + "-****-" + localDigits.slice(-4);
   }
 
-  return digits.substring(0, 3) + "-****-" + digits.slice(-4);
+  // [LIB-TYPES-MASKPHONE-INTL-001] 국내 지역번호(02/031 등) 처리
+  // 11자리: 010-xxxx-xxxx → 010-****-1234
+  // 10자리: 02-xxx-xxxx 또는 031-xxx-xxxx → 02-****-1234 또는 031-****-1234
+  // 9자리:  02-xx-xxxx → 02-****-1234
+  // 그 외:  앞 자리는 유지하고 중간을 ****로 마스킹
+  if (digits.length >= 10) {
+    // 11자리(010): 3자리 + ****
+    // 10자리(031 등): 3자리 + ****
+    return digits.substring(0, 3) + "-****-" + digits.slice(-4);
+  }
+  // 9자리 이하(02 지역번호: 실제 번호 앞 2자리 유지)
+  const prefixLen = digits.length <= 9 ? 2 : 3;
+  return digits.substring(0, prefixLen) + "-****-" + digits.slice(-4);
 }
