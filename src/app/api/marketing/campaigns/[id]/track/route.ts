@@ -71,7 +71,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
     const { id } = await context.params;
     const body = await req.json();
-    const { action, timestamp } = body;
+    const { action } = body;
 
     if (!action) {
       return NextResponse.json(
@@ -80,16 +80,34 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       );
     }
 
-    const data: Record<string, unknown> = {};
+    const campaign = await prisma.crmMarketingCampaign.findFirst({
+      where: { id, organizationId: ctx.organizationId ?? undefined },
+    });
+    if (!campaign) {
+      return NextResponse.json(
+        { ok: false, message: '캠페인을 찾을 수 없습니다.' },
+        { status: 404 }
+      );
+    }
+
     switch (action) {
       case 'email_opened':
-        data.openCount = { increment: 1 };
+        await prisma.crmMarketingCampaign.update({
+          where: { id },
+          data: { openCount: { increment: 1 } },
+        });
         break;
       case 'link_clicked':
-        data.clickCount = { increment: 1 };
+        await prisma.crmMarketingCampaign.update({
+          where: { id },
+          data: { clickCount: { increment: 1 } },
+        });
         break;
       case 'registered':
-        data.registeredCount = { increment: 1 };
+        await prisma.crmMarketingCampaign.update({
+          where: { id },
+          data: { registeredCount: { increment: 1 } },
+        });
         break;
       default:
         return NextResponse.json(
@@ -98,23 +116,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         );
     }
 
-    const campaign = await prisma.crmMarketingCampaign.findFirst({ where: { id } });
-    if (!campaign) {
-      return NextResponse.json(
-        { ok: false, message: '캠페인을 찾을 수 없습니다.' },
-        { status: 404 }
-      );
-    }
-
-    await prisma.crmMarketingCampaign.update({
-      where: { id },
-      data,
-    });
-
     logger.info('[POST /api/marketing/campaigns/[id]/track] Track event recorded', {
       campaignId: id,
       action,
-      timestamp,
     });
 
     return NextResponse.json({ ok: true });

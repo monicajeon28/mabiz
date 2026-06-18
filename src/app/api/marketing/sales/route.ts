@@ -24,26 +24,32 @@ export async function GET(req: NextRequest) {
     const sixMonthsAgo   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1));
 
     // 이 조직의 AffiliateSale(orderId 있는 것)을 기준으로 PayAppPayment를 조인
+    // 주의: 조직에 orderId가 있는 AffiliateSale 전체 로드 (성능 리스크)
+    // 추후 PayAppPayment와 직접 JOIN 쿼리로 교체 권장
     const sales = await prisma.affiliateSale.findMany({
       where: {
         ...(orgId ? { organizationId: orgId } : {}),
         orderId: { not: null },
       },
       select: { orderId: true },
+      take: 5000, // 임시 상한: 5000건 초과 조직은 별도 최적화 필요
     });
 
     const orderIds = sales
       .map((s) => s.orderId)
       .filter((id): id is string => id !== null);
 
-    // 집계용 결제 내역 (최근 6개월, 최대 500건) — summary/monthly/byLanding 공유
+    const truncated = sales.length >= 5000;
+
+    // 집계용 결제 내역 (최근 6개월, 전체 조회 — summary/monthly/byLanding 공유)
+    // 주의: orderIds 배열이 매우 크면 IN 절 성능 저하 가능. 추후 DB 직접 JOIN으로 개선 필요.
     const payments = await prisma.payAppPayment.findMany({
       where: {
         orderId: { in: orderIds },
         createdAt: { gte: sixMonthsAgo },
       },
       orderBy: { createdAt: "desc" },
-      take: 500,
+      // take 제한 제거: 정확한 집계를 위해 전체 조회
     });
 
     // DB 레벨 페이지네이션 — recent 목록 전용
@@ -172,7 +178,7 @@ export async function GET(req: NextRequest) {
       landingPageId: p.landingPageId ?? null,
     }));
 
-    logger.log("[GET /api/marketing/sales] 조회", { orgId, page, limit, totalCount, orderCount: payments.length });
+    logger.log("[GET /api/marketing/sales] 조회", { orgId, page, limit, totalCount, orderCount: payments.length, truncated });
 
     return NextResponse.json({
       ok: true,
@@ -180,7 +186,8 @@ export async function GET(req: NextRequest) {
       monthly,
       byLanding,
       recent,
-      pagination: { page, limit, totalCount, totalPages }
+      pagination: { page, limit, totalCount, totalPages },
+      ...(truncated ? { warning: '데이터가 많아 일부 통계가 불완전할 수 있습니다.' } : {}),
     });
   } catch (err: unknown) {
     if (err instanceof Error && err.message === "UNAUTHORIZED") {

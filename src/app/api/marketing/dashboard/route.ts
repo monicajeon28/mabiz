@@ -61,13 +61,19 @@ export async function GET() {
     thisMonthStart.setUTCDate(1);
     thisMonthStart.setUTCHours(0, 0, 0, 0);
 
+    const thisMonthEnd = new Date(thisMonthStart);
+    thisMonthEnd.setUTCMonth(thisMonthEnd.getUTCMonth() + 1); // 다음 달 1일 = 이번 달 마지막 순간의 exclusive 상한
+
     const lastMonthStart = new Date(thisMonthStart);
     lastMonthStart.setUTCMonth(lastMonthStart.getUTCMonth() - 1);
     const lastMonthEnd = new Date(thisMonthStart);
 
     const [thisMonthRegs, lastMonthRegs] = await Promise.all([
       prisma.crmLandingRegistration.count({
-        where: { landingPageId: { in: lpIds }, createdAt: { gte: thisMonthStart } },
+        where: {
+          landingPageId: { in: lpIds },
+          createdAt: { gte: thisMonthStart, lt: thisMonthEnd },
+        },
       }),
       prisma.crmLandingRegistration.count({
         where: { landingPageId: { in: lpIds }, createdAt: { gte: lastMonthStart, lt: lastMonthEnd } },

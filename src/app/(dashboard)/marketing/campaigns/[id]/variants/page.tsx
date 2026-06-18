@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,13 @@ interface Variant {
   trafficSplit: number;
   isActive: boolean;
   createdAt: string;
+}
+
+interface VariantContent {
+  smsBody?: string;
+  emailSubject?: string;
+  emailBody?: string;
+  trafficSplit?: number;
 }
 
 interface Campaign {
@@ -61,13 +68,11 @@ export default function VariantPage() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('manage');
 
-  useEffect(() => {
-    const controller = new AbortController();
-    loadData(controller.signal);
-    return () => controller.abort();
-  }, [campaignId]);
-
-  const loadData = async (signal?: AbortSignal) => {
+  // 의도적 경로 분리:
+  // - 캠페인 상세: /api/marketing/campaigns/${campaignId} (마케팅 모듈)
+  // - Variant CRUD + 통계: /api/campaigns/${campaignId}/variants (캠페인 공용 모듈)
+  // 미래 리팩토링 시 /api/marketing/ 하위로 통합 고려
+  const loadData = useCallback(async (signal?: AbortSignal) => {
     try {
       setLoading(true);
 
@@ -101,9 +106,15 @@ export default function VariantPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [campaignId]);
 
-  const handleCreateVariant = async (variantKey: 'A' | 'B', content: any) => {
+  useEffect(() => {
+    const controller = new AbortController();
+    loadData(controller.signal);
+    return () => controller.abort();
+  }, [loadData]);
+
+  const handleCreateVariant = async (variantKey: 'A' | 'B', content: VariantContent) => {
     try {
       setSaving(true);
 
@@ -131,7 +142,7 @@ export default function VariantPage() {
     }
   };
 
-  const handleUpdateVariant = async (variantKey: 'A' | 'B', content: any) => {
+  const handleUpdateVariant = async (variantKey: 'A' | 'B', content: VariantContent) => {
     try {
       setSaving(true);
 

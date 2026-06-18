@@ -8,9 +8,9 @@ import { ExecutionStatus } from '@prisma/client';
 /**
  * GET /api/marketing/campaigns/today-stats
  * 오늘 캠페인 발송 현황 조회
- * - 예정: 오늘 sendAt 시간인 DRAFT/SCHEDULED 캠페인
- * - 진행중: 현재 발송 중인 캠페인 (sentCount < totalCount)
- * - 완료: 오늘 발송 완료한 캠페인 (sentCount >= totalCount 또는 COMPLETED)
+ * - 예정: 오늘 sendAt 시간인 DRAFT 또는 PENDING 캠페인 (SCHEDULED 상태는 스키마에 없음)
+ * - 진행중: 현재 발송 중인 캠페인 (SENDING 상태, sentCount < totalCount)
+ * - 완료: 오늘 발송 완료한 캠페인 (SENT 상태)
  */
 export async function GET(req: NextRequest) {
   try {
@@ -18,6 +18,14 @@ export async function GET(req: NextRequest) {
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
     if (ctx.role === 'FREE_SALES') {
       return NextResponse.json({ ok: false, message: '접근 권한이 없습니다.' }, { status: 403 });
+    }
+
+    // non-GLOBAL_ADMIN인데 organizationId가 없으면 (onboarding 미완료 계정 등) 403 반환
+    if (ctx.role !== 'GLOBAL_ADMIN' && !ctx.organizationId) {
+      return NextResponse.json(
+        { ok: false, message: '조직 정보가 없습니다.' },
+        { status: 403 }
+      );
     }
 
     const today = new Date();
@@ -35,7 +43,7 @@ export async function GET(req: NextRequest) {
     // OWNER/AGENT: 소속 조직 캠페인만 조회
     const campaignWhere = ctx.role === 'GLOBAL_ADMIN'
       ? baseWhere
-      : { ...baseWhere, organizationId: ctx.organizationId ?? undefined };
+      : { ...baseWhere, organizationId: ctx.organizationId! };
 
     const logWhere = ctx.role === 'GLOBAL_ADMIN'
       ? {
@@ -45,7 +53,7 @@ export async function GET(req: NextRequest) {
           },
         }
       : {
-          organizationId: ctx.organizationId ?? undefined,
+          organizationId: ctx.organizationId!,
           scheduledAt: {
             gte: todayStart,
             lte: todayEnd,
@@ -56,7 +64,7 @@ export async function GET(req: NextRequest) {
     const scheduledToday = await prisma.crmMarketingCampaign.count({
       where: {
         ...campaignWhere,
-        status: { in: ['DRAFT'] },
+        status: { in: ['DRAFT', 'PENDING'] },
       },
     });
 

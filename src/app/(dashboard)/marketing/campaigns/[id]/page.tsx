@@ -6,29 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { logger } from '@/lib/logger';
 import { useToast } from '@/lib/api/use-toast';
-
-interface Campaign {
-  id: string;
-  title: string;
-  status: string;
-  sendAt: string;
-  createdAt: string;
-}
-
-interface Stats {
-  total: number;
-  sent: number;
-  opened: number;
-  clicked: number;
-  registered: number;
-}
-
-interface ConversionRates {
-  sentRate: string;
-  openRate: string;
-  clickRate: string;
-  registrationRate: string;
-}
+import type { CampaignDetail, CampaignStats, CampaignConversionRates } from '@/types/marketing';
 
 export default function CampaignDetailPage() {
   const params = useParams();
@@ -37,9 +15,9 @@ export default function CampaignDetailPage() {
 
   const { toast } = useToast();
 
-  const [campaign, setCampaign] = useState<Campaign | null>(null);
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [conversionRates, setConversionRates] = useState<ConversionRates | null>(null);
+  const [campaign, setCampaign] = useState<CampaignDetail | null>(null);
+  const [stats, setStats] = useState<CampaignStats | null>(null);
+  const [conversionRates, setConversionRates] = useState<CampaignConversionRates | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState<number | null>(null);
 
@@ -91,14 +69,23 @@ export default function CampaignDetailPage() {
         method: 'POST',
       });
 
-      if (!res.ok) throw new Error('발송 실패');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        toast({
+          title: '발송 실패',
+          description: (errData as { message?: string }).message ?? '다시 시도해주세요.',
+          variant: 'destructive',
+        });
+        return;
+      }
 
       toast({ title: '캠페인 발송이 시작되었습니다!' });
+      // setRefreshInterval(2000) 설정 후 useEffect 폴링이 즉시 시작되므로 별도 fetchCampaignData() 호출 불필요
+      // AbortSignal 없는 직접 호출은 언마운트 후 setState 경고를 유발하므로 제거
       setRefreshInterval(2000);
-      fetchCampaignData();
     } catch (err) {
       logger.error('[handleSend]', { err });
-      toast({ title: '발송 실패', description: '다시 시도해주세요.', variant: 'destructive' });
+      toast({ title: '발송 실패', description: '네트워크 오류가 발생했습니다.', variant: 'destructive' });
     }
   };
 
@@ -118,8 +105,8 @@ export default function CampaignDetailPage() {
     );
   }
 
-  const getStatusColor = (status: string) => {
-    const colors = {
+  const getStatusColor = (status: CampaignDetail['status']) => {
+    const colors: Record<CampaignDetail['status'], string> = {
       DRAFT: 'text-gray-700 bg-gray-50',
       PENDING: 'text-yellow-700 bg-yellow-50',
       SENDING: 'text-blue-700 bg-blue-50',
@@ -127,7 +114,7 @@ export default function CampaignDetailPage() {
       FAILED: 'text-red-700 bg-red-50',
       CANCELLED: 'text-gray-500 bg-gray-50',
     };
-    return colors[status as keyof typeof colors] || colors.PENDING;
+    return colors[status] ?? colors.PENDING;
   };
 
   return (

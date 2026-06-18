@@ -79,8 +79,13 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       );
     }
 
+    // SENDING 상태를 동기적으로 설정 (레이스 컨디션 방지)
+    await prisma.crmMarketingCampaign.update({
+      where: { id },
+      data: { status: 'SENDING', totalCount: members.length },
+    });
+
     // 배경 작업으로 발송 시작 (비동기 처리)
-    // 상태 업데이트는 sendCampaignAsync 내부에서 관리하여 레이스 컨디션 방지
     sendCampaignAsync(id, campaign, members, campaign.organizationId).catch((err) => {
       logger.error('[sendCampaignAsync]', { err, campaignId: id });
     });
@@ -102,6 +107,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 }
 
 // 비동기 발송 처리
+// 상태는 POST 핸들러에서 동기적으로 SENDING으로 설정됨. 여기서는 발송 처리만 담당.
 async function sendCampaignAsync(
   campaignId: string,
   campaign: CampaignRecord,
@@ -109,20 +115,14 @@ async function sendCampaignAsync(
   organizationId: string
 ) {
   try {
-    // 상태를 SENDING으로 업데이트 (발송 시작)
-    await prisma.crmMarketingCampaign.update({
-      where: { id: campaignId },
-      data: { status: 'SENDING', totalCount: members.length },
-    });
-
     // 발송 설정 미리 로드 (배치마다 재조회 방지)
     const [smsConfig, emailConfig] = await Promise.all([
       campaign.sendSms ? getOrgSmsConfig(organizationId) : Promise.resolve(null),
       campaign.sendEmail ? getOrgEmailConfig(organizationId) : Promise.resolve(null),
     ]);
 
-    const BATCH_SIZE = 50;
-    const CONCURRENT_BATCHES = 3;
+    const BATCH_SIZE = 10;
+    const CONCURRENT_BATCHES = 1;
 
     const batches = chunk(members, BATCH_SIZE);
     let totalSent = 0;
@@ -135,15 +135,21 @@ async function sendCampaignAsync(
         batchGroup.map((batch) => processBatch(campaignId, campaign, batch, organizationId, smsConfig, emailConfig))
       );
       batchResults.forEach((r) => { totalSent += r.sent; totalFailed += r.failed; });
+
+      // 중간 진행 상태 저장
+      await prisma.crmMarketingCampaign.update({
+        where: { id: campaignId },
+        data: {
+          sentCount: { increment: batchResults.reduce((s, r) => s + r.sent, 0) },
+          failedCount: { increment: batchResults.reduce((s, r) => s + r.failed, 0) },
+        },
+      });
     }
 
+    // 발송 완료 - sentCount/failedCount는 increment로 이미 저장됐으므로 status만 업데이트
     await prisma.crmMarketingCampaign.update({
       where: { id: campaignId },
-      data: {
-        status: 'SENT',
-        sentCount: totalSent,
-        failedCount: totalFailed,
-      },
+      data: { status: 'SENT' },
     });
 
     logger.info('[sendCampaignAsync] Campaign sent successfully', {
