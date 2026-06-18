@@ -64,7 +64,7 @@ model Organization {
   contractInstances          ContractInstance[]
   contractTemplateAuditLogs  ContractTemplateAuditLog[]  @relation("ContractTemplateAuditLogs")
   contractApplicableEntities ContractApplicableEntity[]  @relation("ContractApplicableEntities")
-  partnerContracts           PartnerContract[]          @relation("PartnerContracts")
+  partnerContracts           PartnerContract[]           @relation("PartnerContracts")
   l1PriceObjections          L1PriceObjectionAttempt[]
   l1ABTestVariants           L1ABTestVariant[]
   l1OptimizationScores       L1OptimizationScore[]
@@ -95,8 +95,8 @@ model Organization {
   // Unsubscribed
   unsubscribed               Unsubscribed[]
   // Google Drive Backup (Contact 데이터 백업)
-  googleDriveAccessToken     String?        // OAuth 액세스 토큰 (암호화됨)
-  googleDriveFolderId        String?        // 백업 폴더 ID (root folder: 마비즈CRM-Backup)
+  googleDriveAccessToken     String? // OAuth 액세스 토큰 (암호화됨)
+  googleDriveFolderId        String? // 백업 폴더 ID (root folder: 마비즈CRM-Backup)
   contactBackups             ContactBackup[]
   // Email Funnel (Group별 SMTP 설정 + Day 0-3 자동화)
   groupEmailConfigs          GroupEmailConfig[]
@@ -171,29 +171,29 @@ model KakaoConfig {
 }
 
 model OrganizationMember {
-  id                String       @id @default(cuid())
+  id                String               @id @default(cuid())
   organizationId    String
   userId            String
   phone             String?
   passwordHash      String?
-  passwordExpiresAt DateTime?    // 임시비밀번호 만료일 (null = 정상비밀번호)
-  role              String       @default("AGENT")
+  passwordExpiresAt DateTime? // 임시비밀번호 만료일 (null = 정상비밀번호)
+  role              String               @default("AGENT")
   displayName       String?
-  isActive          Boolean      @default(true)
+  isActive          Boolean              @default(true)
   email             String?
   emailSenderName   String?
-  emailVerified     Boolean      @default(false)
+  emailVerified     Boolean              @default(false)
   // 계약서 디지털 서명
   contractSignature String?
   contractSignedAt  DateTime?
   // 역할 계층 구조 (대리점장 → 판매원/프리세일즈)
-  managerId         String?      // 상위 대리점장 OrganizationMember.id
+  managerId         String? // 상위 대리점장 OrganizationMember.id
   manager           OrganizationMember?  @relation("MemberHierarchy", fields: [managerId], references: [id], onDelete: SetNull)
   subordinates      OrganizationMember[] @relation("MemberHierarchy")
-  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization      Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   // Contact 공유 관계
-  sharedContactsBy  ContactSharing[] @relation("SharedBy")  // 이 사용자가 공유한 Contact
-  sharedContactsTo  ContactSharing[] @relation("SharedTo")  // 이 사용자가 받은 Contact
+  sharedContactsBy  ContactSharing[]     @relation("SharedBy") // 이 사용자가 공유한 Contact
+  sharedContactsTo  ContactSharing[]     @relation("SharedTo") // 이 사용자가 받은 Contact
 
   @@unique([organizationId, userId])
   @@index([organizationId])
@@ -259,8 +259,8 @@ model Contact {
   type                             String    @default("INQUIRY")
   utmSource                        String?
   deletedAt                        DateTime?
-  deletedBy                        String?   // 삭제한 사용자 ID (휴지통 "삭제자" 표시용)
-  deletedByName                    String?   // 삭제 시점 삭제자 표시명 (스냅샷)
+  deletedBy                        String? // 삭제한 사용자 ID (휴지통 "삭제자" 표시용)
+  deletedByName                    String? // 삭제 시점 삭제자 표시명 (스냅샷)
   partnerId                        String?
   status                           String?   @db.VarChar(20) // "ACTIVE", "INACTIVE", "PENDING_DELETION" 등
   phoneEncrypted                   String?
@@ -478,18 +478,18 @@ model Contact {
   inquiryProductCode String? @db.VarChar(50) // CruiseProductInquiry.productCode
 
   // 엑셀 가져오기: 유입날짜 + 설문 응답
-  inflowDate         DateTime? // DB 원본 유입일 (엑셀 가져오기 시 유입날짜 컬럼)
-  surveyData         Json?     // 설문 응답 { q1: "...", q2: "...", q3: "..." }
+  inflowDate DateTime? // DB 원본 유입일 (엑셀 가져오기 시 유입날짜 컬럼)
+  surveyData Json? // 설문 응답 { q1: "...", q2: "...", q3: "..." }
 
   // Contact 신청 이력 추적 (2026-06-15)
-  signupCount        Int     @default(1) // 총 신청 횟수 (1부터 시작, 재신청 시 +1)
-  signupHistory      Json?   @default("[]") // [{index, landingPageId, landingPageTitle, groupId, groupName, createdAt, email, phone}, ...]
+  signupCount   Int   @default(1) // 총 신청 횟수 (1부터 시작, 재신청 시 +1)
+  signupHistory Json? @default("[]") // [{index, landingPageId, landingPageTitle, groupId, groupName, createdAt, email, phone}, ...]
 
   // Contact 접근 권한 분류 (2026-06-15)
-  visibility         ContactVisibility @default(SHARED) // Contact 공유 범위 설정
-  createdBy          String? // 판매원 ID (Contact 작성자)
-  managerId          String? // 대리점장 ID (Contact 관리자)
-  sharedWith         ContactSharing[] @relation("contactSharedWith")
+  visibility ContactVisibility @default(SHARED) // Contact 공유 범위 설정
+  createdBy  String? // 판매원 ID (Contact 작성자)
+  managerId  String? // 대리점장 ID (Contact 관리자)
+  sharedWith ContactSharing[]  @relation("contactSharedWith")
 
   @@unique([phone, organizationId])
   @@unique([bookingRef, organizationId], map: "uq_contact_booking_org") // P0-ISS-02: UPSERT 멱등성
@@ -570,17 +570,17 @@ model Contact {
 }
 
 model ContactBackup {
-  id              String   @id @default(cuid())
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   // 백업 메타데이터
-  backupAt        DateTime @default(now())
-  contactCount    Int      @default(0) // 백업된 Contact 수
-  driveSheetId    String?  // Google Sheets ID
-  backupType      String   @default("MANUAL") // MANUAL, AUTO, API
-  status          String   @default("PENDING") // PENDING, SUCCESS, FAILED
-  errorMessage    String?  // 실패 시 에러메시지
+  backupAt     DateTime @default(now())
+  contactCount Int      @default(0) // 백업된 Contact 수
+  driveSheetId String? // Google Sheets ID
+  backupType   String   @default("MANUAL") // MANUAL, AUTO, API
+  status       String   @default("PENDING") // PENDING, SUCCESS, FAILED
+  errorMessage String? // 실패 시 에러메시지
 
   // 인덱스
   @@index([organizationId, backupAt(sort: Desc)])
@@ -589,15 +589,15 @@ model ContactBackup {
 }
 
 model ContactSharing {
-  id          String   @id @default(cuid())
-  contactId   String
-  contact     Contact  @relation("contactSharedWith", fields: [contactId], references: [id], onDelete: Cascade)
-  sharedBy    String   // User ID (Contact 공유자)
+  id           String              @id @default(cuid())
+  contactId    String
+  contact      Contact             @relation("contactSharedWith", fields: [contactId], references: [id], onDelete: Cascade)
+  sharedBy     String // User ID (Contact 공유자)
   sharedByUser OrganizationMember? @relation("SharedBy", fields: [sharedBy], references: [id], onDelete: SetNull)
-  sharedTo    String   // User ID (Contact 수신자)
+  sharedTo     String // User ID (Contact 수신자)
   sharedToUser OrganizationMember? @relation("SharedTo", fields: [sharedTo], references: [id], onDelete: SetNull)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
 
   @@unique([contactId, sharedBy, sharedTo])
   @@index([contactId])
@@ -605,21 +605,20 @@ model ContactSharing {
   @@index([sharedBy])
 }
 
-
 model ContactAuditLog {
-  id              String   @id @default(cuid())
-  contactId       String
-  organizationId  String
-  userId          String?  // 누가 변경했는가
-  action          String   // "CREATE", "UPDATE", "DELETE", "IMPORT"
-  fieldChanged    String?  // "name", "phone", "status", "tags", "anxietyScore" 등
-  oldValue        String?  // JSON 문자열
-  newValue        String?  // JSON 문자열
-  reason          String?  // "이사 요청", "이의 대응" 등
-  createdAt       DateTime @default(now())
+  id             String   @id @default(cuid())
+  contactId      String
+  organizationId String
+  userId         String? // 누가 변경했는가
+  action         String // "CREATE", "UPDATE", "DELETE", "IMPORT"
+  fieldChanged   String? // "name", "phone", "status", "tags", "anxietyScore" 등
+  oldValue       String? // JSON 문자열
+  newValue       String? // JSON 문자열
+  reason         String? // "이사 요청", "이의 대응" 등
+  createdAt      DateTime @default(now())
 
-  contact         Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact      Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([contactId])
   @@index([organizationId])
@@ -929,13 +928,13 @@ model CrmLandingPage {
   smsL6Day2Enabled Boolean @default(true)
 
   // Phase 1: Russell Brunson 8가지 형식 + SMS 자동화 (2026-06-15)
-  pageFormat        String    @default("hybrid") @db.VarChar(30)  // squeeze|vsl|webinar|funnel|tripwire|downsell|launch|hybrid
-  ctaType           String    @default("default") @db.VarChar(20) // default|urgent|explore|reserve
-  imageFieldConfig  Json?     // [{fieldId, required, category, ...}]
-  smsDayRange       String?   // SMS 자동화 범위 예: "0-3" | null
+  pageFormat       String  @default("hybrid") @db.VarChar(30) // squeeze|vsl|webinar|funnel|tripwire|downsell|launch|hybrid
+  ctaType          String  @default("default") @db.VarChar(20) // default|urgent|explore|reserve
+  imageFieldConfig Json? // [{fieldId, required, category, ...}]
+  smsDayRange      String? // SMS 자동화 범위 예: "0-3" | null
 
   // Phase C: 블록 기반 에디터 설정 (2026-06-15)
-  blocksConfig      Json?     // {blocks: Block[], selectedFeatures: {video, timer, testimonial, faq}}
+  blocksConfig Json? // {blocks: Block[], selectedFeatures: {video, timer, testimonial, faq}}
 
   comments      CrmLandingComment[]
   group         ContactGroup?            @relation(fields: [groupId], references: [id])
@@ -1116,16 +1115,16 @@ model SmsOptOut {
 }
 
 model Unsubscribed {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  phone          String   // 필수: 010-1234-5678 또는 01012345678 (정규화됨)
-  name           String?  // 선택: 이름
+  phone String // 필수: 010-1234-5678 또는 01012345678 (정규화됨)
+  name  String? // 선택: 이름
 
-  reason         String?  // 선택: 수신거부 사유
-  createdAt      DateTime @default(now())
-  createdBy      String   // 누가 신청: "SELF" (자가) 또는 사용자 ID (관리자)
+  reason    String? // 선택: 수신거부 사유
+  createdAt DateTime @default(now())
+  createdBy String // 누가 신청: "SELF" (자가) 또는 사용자 ID (관리자)
 
   // 중복 방지: 조직 + 전화번호 조합은 유니크 (이름은 다를 수 있음)
   @@unique([organizationId, phone])
@@ -1135,32 +1134,32 @@ model Unsubscribed {
 }
 
 model SmsLog {
-  id                  String    @id @default(cuid())
-  organizationId      String
-  contactId           String?
-  passportRequestId   String?   // 여권 요청 ID (여권 독촉 SMS 추적용)
-  phone               String
-  contentPreview      String
-  msg                 String    @default("") // 실제 메시지 내용 (배송 추적용)
-  status              String    @default("SENT")
-  blockReason         String?
-  resultCode          String?
-  msgId               String? // Aligo 메시지 ID (배송 상태 추적용)
-  channel             String    @default("FUNNEL")
-  sentAt              DateTime  @default(now())
+  id                String    @id @default(cuid())
+  organizationId    String
+  contactId         String?
+  passportRequestId String? // 여권 요청 ID (여권 독촉 SMS 추적용)
+  phone             String
+  contentPreview    String
+  msg               String    @default("") // 실제 메시지 내용 (배송 추적용)
+  status            String    @default("SENT")
+  blockReason       String?
+  resultCode        String?
+  msgId             String? // Aligo 메시지 ID (배송 상태 추적용)
+  channel           String    @default("FUNNEL")
+  sentAt            DateTime  @default(now())
   // A/B Test Tracking
-  abTestId            String? // Link to SmsABTest
-  abTestGroup         String? // "A" | "B" | null
-  openedAt            DateTime?
-  clickedAt           DateTime?
-  convertedAt         DateTime?
-  responseAt          DateTime?
-  segmentCode         String? // e.g., "L0_INACTIVE", "L1_PRICE", "L6_TIMING"
-  psychologyLens      String? // e.g., "LOSS_AVERSION", "SCARCITY", "URGENCY"
-  trackingId          String?   @unique // SMS 추적 ID (메시지 수신/오픈/클릭 추적용)
-  trackingUrl         String? // SMS 내 클릭 추적 URL
-  createdAt           DateTime  @default(now()) // SMS 생성 시간
-  cost                Int? // SMS 비용 (센트 단위)
+  abTestId          String? // Link to SmsABTest
+  abTestGroup       String? // "A" | "B" | null
+  openedAt          DateTime?
+  clickedAt         DateTime?
+  convertedAt       DateTime?
+  responseAt        DateTime?
+  segmentCode       String? // e.g., "L0_INACTIVE", "L1_PRICE", "L6_TIMING"
+  psychologyLens    String? // e.g., "LOSS_AVERSION", "SCARCITY", "URGENCY"
+  trackingId        String?   @unique // SMS 추적 ID (메시지 수신/오픈/클릭 추적용)
+  trackingUrl       String? // SMS 내 클릭 추적 URL
+  createdAt         DateTime  @default(now()) // SMS 생성 시간
+  cost              Int? // SMS 비용 (센트 단위)
 
   @@index([organizationId, sentAt])
   @@index([contactId, sentAt])
@@ -1524,29 +1523,29 @@ model PayAppSubscription {
 }
 
 model ScheduledSms {
-  id              String       @id @default(cuid())
-  organizationId  String
-  contactId       String?
-  groupId         String?
-  message         String
-  scheduledAt     DateTime
-  status          String       @default("PENDING")
-  sentAt          DateTime?
-  sentCount       Int          @default(0)
-  failedCount     Int          @default(0)
-  createdByUserId String?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  pausedAt        DateTime?
-  pausedBy        String?
-  failureReason   String?
-  channel         String       @default("GENERAL") @db.VarChar(100)
-  senderPhone     String?      @db.VarChar(20) // 퍼널문자용 발신번호 (없으면 org 기본값 사용)
+  id                 String       @id @default(cuid())
+  organizationId     String
+  contactId          String?
+  groupId            String?
+  message            String
+  scheduledAt        DateTime
+  status             String       @default("PENDING")
+  sentAt             DateTime?
+  sentCount          Int          @default(0)
+  failedCount        Int          @default(0)
+  createdByUserId    String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  pausedAt           DateTime?
+  pausedBy           String?
+  failureReason      String?
+  channel            String       @default("GENERAL") @db.VarChar(100)
+  senderPhone        String?      @db.VarChar(20) // 퍼널문자용 발신번호 (없으면 org 기본값 사용)
   // 퍼널문자 회차 추적 (사람별 "몇 회차 발송됐는지" 영속 스냅샷) — 모두 nullable, FK 미연결(plain)
-  funnelSmsId        String?   // 퍼널문자 단위 집계용
-  funnelSmsMessageId String?   // 회차 역조인 후보키 (스냅샷 우선)
-  round              Int?      // 발송 당시 FunnelSmsMessage.daysAfter 스냅샷 (UI: round+1 = "N일차")
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  funnelSmsId        String? // 퍼널문자 단위 집계용
+  funnelSmsMessageId String? // 회차 역조인 후보키 (스냅샷 우선)
+  round              Int? // 발송 당시 FunnelSmsMessage.daysAfter 스냅샷 (UI: round+1 = "N일차")
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, status, scheduledAt])
   @@index([scheduledAt, status])
@@ -1794,8 +1793,8 @@ model AiCallLog {
   durationSec    Int?
   analysisStatus String          @default("PENDING")
   productCode    String          @default("ALL")
-  driveFileId    String?         // Drive 업로드 파일 ID (RAG 연결용)
-  agentLastName  String?         // 판매원 성 (성만 표시: "김", "박")
+  driveFileId    String? // Drive 업로드 파일 ID (RAG 연결용)
+  agentLastName  String? // 판매원 성 (성만 표시: "김", "박")
   uploadedAt     DateTime        @default(now())
   createdAt      DateTime        @default(now()) // 콜로그 생성 시간
   analysis       AiCallAnalysis?
@@ -1806,21 +1805,21 @@ model AiCallLog {
 }
 
 model AiCallAnalysis {
-  id                     String    @id @default(cuid())
-  callLogId              String    @unique
-  personaDetected        String
-  personaConfidence      Float     @default(0)
-  scores                 Json
-  keyPhrases             Json
-  strengths              Json
-  weaknesses             Json
-  objectionTypes         Json
-  goldValueScore         Float?
+  id                      String    @id @default(cuid())
+  callLogId               String    @unique
+  personaDetected         String
+  personaConfidence       Float     @default(0)
+  scores                  Json
+  keyPhrases              Json
+  strengths               Json
+  weaknesses              Json
+  objectionTypes          Json
+  goldValueScore          Float?
   customerSegmentDetected String?
-  spinActionsPerSegment  Json?
-  relatedSuccessCases    Json?
-  analyzedAt             DateTime  @default(now())
-  callLog                AiCallLog @relation(fields: [callLogId], references: [id], onDelete: Cascade)
+  spinActionsPerSegment   Json?
+  relatedSuccessCases     Json?
+  analyzedAt              DateTime  @default(now())
+  callLog                 AiCallLog @relation(fields: [callLogId], references: [id], onDelete: Cascade)
 
   @@map("AiCallAnalysis")
 }
@@ -1847,24 +1846,24 @@ model ScriptPattern {
 }
 
 model ShortLink {
-  id             String           @id @default(cuid())
+  id             String                @id @default(cuid())
   organizationId String
   createdBy      String? // OrganizationMember.userId — 생성자 본인 링크만 조회
-  code           String           @unique
+  code           String                @unique
   targetUrl      String
   title          String?
   contactId      String?
   category       String?
   autoGroupId    String?
   // [P0 FIX #5] clickCount 필드 삭제: ShortLinkClick 테이블로부터 동적 계산
-  isActive       Boolean          @default(true)
-  createdAt      DateTime         @default(now())
-  contact        Contact?         @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  organization   Organization     @relation(fields: [organizationId], references: [id])
+  isActive       Boolean               @default(true)
+  createdAt      DateTime              @default(now())
+  contact        Contact?              @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  organization   Organization          @relation(fields: [organizationId], references: [id])
   clicks         ShortLinkClick[]
   impressions    ShortLinkImpression[] @relation("Impressions")
-  testVariantA   ShortLinkABTest[] @relation("TestVariantA")
-  testVariantB   ShortLinkABTest[] @relation("TestVariantB")
+  testVariantA   ShortLinkABTest[]     @relation("TestVariantA")
+  testVariantB   ShortLinkABTest[]     @relation("TestVariantB")
 
   @@index([organizationId, createdBy])
   @@map("ShortLink")
@@ -1874,7 +1873,7 @@ model ShortLinkClick {
   id        String    @id @default(cuid())
   linkId    String
   contactId String?
-  variant   String?   // "A", "B", null (일반 링크)
+  variant   String? // "A", "B", null (일반 링크)
   clickedAt DateTime  @default(now()) @db.Timestamptz(6)
   userAgent String?
   contact   Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
@@ -1892,28 +1891,28 @@ model ShortLinkABTest {
   id String @id @default(cuid())
 
   // 기본 정보
-  testName String
+  testName       String
   organizationId String
-  createdBy String
+  createdBy      String
 
   // 링크 참조 (이미 생성된 ShortLink 2개)
   variantA_id String
   variantB_id String
 
   // 통계 (미리 계산해서 저장)
-  clicksA Int @default(0)
-  clicksB Int @default(0)
+  clicksA      Int @default(0)
+  clicksB      Int @default(0)
   impressionsA Int @default(0)
   impressionsB Int @default(0)
 
   // 결과
-  status String @default("ACTIVE")  // ACTIVE, WINNER_A, WINNER_B, PAUSED
-  winner String?  // "A", "B"
-  pValue Float?
-  confidenceLevel Float?  // 95.0, 99.0
+  status          String  @default("ACTIVE") // ACTIVE, WINNER_A, WINNER_B, PAUSED
+  winner          String? // "A", "B"
+  pValue          Float?
+  confidenceLevel Float? // 95.0, 99.0
 
   // 타임스탐프
-  createdAt DateTime @default(now())
+  createdAt   DateTime  @default(now())
   completedAt DateTime?
 
   // 관계 (P1-10: CASCADE delete)
@@ -1934,7 +1933,7 @@ model ShortLinkImpression {
   shortLinkId String
 
   // 어떤 채널인가
-  channel String  // "sms", "email", "manual"
+  channel String // "sms", "email", "manual"
 
   // 누가 받았는가 (선택사항)
   contactId String?
@@ -2055,33 +2054,33 @@ model MemberDocument {
 }
 
 model GoldMember {
-  id              String                   @id @default(cuid())
+  id              String                    @id @default(cuid())
   organizationId  String
   name            String
   phone           String
   email           String?
-  memberCode      String                   @unique
+  memberCode      String                    @unique
   courseType      String
   joinDate        DateTime
   paymentDay      Int?
-  totalPayments   Int                      @default(0)
-  paidCount       Int                      @default(0)
-  status          String                   @default("ACTIVE")
+  totalPayments   Int                       @default(0)
+  paidCount       Int                       @default(0)
+  status          String                    @default("ACTIVE")
   memo            String?
-  createdAt       DateTime                 @default(now())
-  updatedAt       DateTime                 @updatedAt
-  userId          Int?                     @unique
-  membershipCode  String?                  @unique @db.VarChar(255)
-  deletedAt       DateTime?                @db.Timestamptz(6)
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  userId          Int?                      @unique
+  membershipCode  String?                   @unique @db.VarChar(255)
+  deletedAt       DateTime?                 @db.Timestamptz(6)
   productType     String?
   maxPaymentCount Int?
   agentId         Int?
   managerId       Int?
   startDate       DateTime?
-  paymentCount    Int                      @default(0)
+  paymentCount    Int                       @default(0)
   referredBy      String?
-  tier            Int                      @default(1)
-  organization    Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tier            Int                       @default(1)
+  organization    Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   consultations   GoldMemberConsultation[]
   deleteRequests  GoldMemberDeleteRequest[]
 
@@ -2106,16 +2105,16 @@ model GoldMemberConsultation {
 }
 
 model GoldMemberDeleteRequest {
-  id           String      @id @default(cuid())
+  id           String     @id @default(cuid())
   goldMemberId String
-  goldMember   GoldMember  @relation(fields: [goldMemberId], references: [id], onDelete: Cascade)
+  goldMember   GoldMember @relation(fields: [goldMemberId], references: [id], onDelete: Cascade)
   requesterId  String
   reason       String?
-  status       String      @default("PENDING")
+  status       String     @default("PENDING")
   reviewerId   String?
   reviewedAt   DateTime?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   @@index([goldMemberId])
   @@index([status])
@@ -2259,18 +2258,18 @@ model Partner {
   churnRiskDetectedAt DateTime? @db.Timestamptz(6) // Churn 신호 감지 시각
   externalProfileId   Int?      @unique // GMcruise AffiliateProfile.id (Int) — 브릿지 보조키
 
-  contacts           Contact[]
-  organization       Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  metrics            PartnerMetrics[]
-  onboardingProgress OnboardingProgress?
-  performances       PartnerPerformance[]
-  riskFlags          PartnerRiskFlags?
-  onboardingLogs     PartnerOnboardingLog[]
-  smsLogs            PartnerSmsLog[]
-  riskScoreChanges   PartnerRiskScoreChange[]
-  settlementLedger   SettlementLedger[]
+  contacts            Contact[]
+  organization        Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  metrics             PartnerMetrics[]
+  onboardingProgress  OnboardingProgress?
+  performances        PartnerPerformance[]
+  riskFlags           PartnerRiskFlags?
+  onboardingLogs      PartnerOnboardingLog[]
+  smsLogs             PartnerSmsLog[]
+  riskScoreChanges    PartnerRiskScoreChange[]
+  settlementLedger    SettlementLedger[]
   // 계약서
-  contracts          PartnerContract[] @relation("Contracts")
+  contracts           PartnerContract[]          @relation("Contracts")
   applicableTemplates ContractApplicableEntity[] @relation("ApplicableContracts")
 
   @@unique([organizationId, name])
@@ -2523,25 +2522,25 @@ model ContactFunnelState {
 }
 
 model ImageAsset {
-  id               String       @id @default(dbgenerated("gen_random_uuid()"))
-  organizationId   String
-  originalFileName String
-  driveFileId      String
-  drivePath        String?
-  mimeType         String?
-  fileSize         BigInt?
-  width            Int?
-  height           Int?
-  tags             String[]
-  category         String?
-  uploadedBy       String
-  uploadedAt       DateTime     @default(now()) @db.Timestamptz(6)
-  lastAccessedAt   DateTime?    @db.Timestamptz(6)
-  webpDriveFileId  String?
-  processedAt      DateTime?    @db.Timestamptz(6)
-  processingStatus String       @default("PENDING")
-  orientation      Int          @default(1)
-  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id                   String                @id @default(dbgenerated("gen_random_uuid()"))
+  organizationId       String
+  originalFileName     String
+  driveFileId          String
+  drivePath            String?
+  mimeType             String?
+  fileSize             BigInt?
+  width                Int?
+  height               Int?
+  tags                 String[]
+  category             String?
+  uploadedBy           String
+  uploadedAt           DateTime              @default(now()) @db.Timestamptz(6)
+  lastAccessedAt       DateTime?             @db.Timestamptz(6)
+  webpDriveFileId      String?
+  processedAt          DateTime?             @db.Timestamptz(6)
+  processingStatus     String                @default("PENDING")
+  orientation          Int                   @default(1)
+  organization         Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   crmLandingPageImages CrmLandingPageImage[]
 
   @@unique([organizationId, driveFileId])
@@ -2822,17 +2821,17 @@ model GmTraveler {
   passportDriveUrl String?
   // 협업 편집 기반: 저장 시 자동 갱신(낙관적 잠금 기준값) + 수정자 추적
   updatedAt        DateTime @updatedAt
-  version          Int      @default(0)  // 낙관적 잠금: 저장 시 +1, 불일치하면 충돌(409)
-  updatedBy        Int?                  // 마지막 수정자 (OrganizationMember/GlobalAdmin userId)
+  version          Int      @default(0) // 낙관적 잠금: 저장 시 +1, 불일치하면 충돌(409)
+  updatedBy        Int? // 마지막 수정자 (OrganizationMember/GlobalAdmin userId)
+  // ⚠️ raw 부분 UNIQUE 인덱스 "Traveler_reservation_passport_partial_uq" 존재:
+  //    UNIQUE(reservationId, passportNo) WHERE passportNo IS NOT NULL AND passportNo <> ''
+  //    (Prisma @@unique로 표현 불가 — migrations/20260606120000_traveler_passport_partial_uq)
+  //    migrate 시 임의 삭제 금지.
 
   @@index([reservationId])
   @@index([userId])
   @@index([residentNum])
   @@map("Traveler")
-  // ⚠️ raw 부분 UNIQUE 인덱스 "Traveler_reservation_passport_partial_uq" 존재:
-  //    UNIQUE(reservationId, passportNo) WHERE passportNo IS NOT NULL AND passportNo <> ''
-  //    (Prisma @@unique로 표현 불가 — migrations/20260606120000_traveler_passport_partial_uq)
-  //    migrate 시 임의 삭제 금지.
 }
 
 model GmAffiliateLead {
@@ -3128,17 +3127,17 @@ model GmPassportSubmissionGuest {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @default(now()) @updatedAt
   // 감사: 누가/어디서/언제 채웠나 (서버측 도출값만 기록, 클라이언트 신뢰값 금지)
-  submittedBy        Int?      // 세션 userId 또는 토큰 소유자(submission.userId)
-  source             String?   // 'public_submit' | 'admin_ocr' | 'partner_ocr' | 'admin_manual'
+  submittedBy        Int? // 세션 userId 또는 토큰 소유자(submission.userId)
+  source             String? // 'public_submit' | 'admin_ocr' | 'partner_ocr' | 'admin_manual'
   submittedAt        DateTime?
-
-  @@index([name])
-  @@index([submissionId, groupNumber])
-  @@map("PassportSubmissionGuest")
   // ⚠️ raw 부분 UNIQUE 인덱스 "guest_submission_passport_partial_uq" 존재:
   //    UNIQUE(submissionId, passportNumber) WHERE passportNumber IS NOT NULL AND passportNumber <> ''
   //    (Prisma @@unique로 표현 불가 — migrations/20260606120001_guest_passport_partial_uq)
   //    migrate 시 임의 삭제 금지.
+
+  @@index([name])
+  @@index([submissionId, groupNumber])
+  @@map("PassportSubmissionGuest")
 }
 
 model GmPassportRequestLog {
@@ -3547,59 +3546,59 @@ model AffiliateProduct {
 }
 
 model public_AffiliateSale {
-  id                      Int       @id @default(autoincrement())
-  externalOrderCode       String?   @unique
-  linkId                  Int?
-  leadId                  Int?
-  affiliateProductId      Int?
-  managerId               Int?
-  agentId                 Int?
-  productCode             String?
-  cabinType               String?
-  fareCategory            String?
-  headcount               Int?
-  saleAmount              Int
-  costAmount              Int?
-  netRevenue              Int?
-  branchCommission        Int?
-  salesCommission         Int?
-  overrideCommission      Int?
-  withholdingAmount       Int?
-  status                  String    @default("PENDING")
-  saleDate                DateTime?
-  confirmedAt             DateTime?
-  paidAt                  DateTime?
-  refundedAt              DateTime?
-  refundReason            String?
-  refundedBy              Int?
-  pgCancelFailed          Boolean   @default(false)
-  cancellationReason      String?
-  audioFileGoogleDriveId  String?
-  audioFileGoogleDriveUrl String?
-  audioFileName           String?
-  audioFileType           String?
-  submittedById           Int?
-  submittedAt             DateTime?
-  approvedById            Int?
-  approvedAt              DateTime?
-  rejectedById            Int?
-  rejectedAt              DateTime?
-  rejectionReason         String?
-  metadata                Json?
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @default(now())
-  audioFileServerPath     String?
-  commissionRate          Int?
-  commissionRateSnapshot  Json?
-  settledAt               DateTime?
-  sourceAgentId           Int?
-  yearMonth               String?   @db.Char(7)
-  buyerUserId             Int?
+  id                       Int       @id @default(autoincrement())
+  externalOrderCode        String?   @unique
+  linkId                   Int?
+  leadId                   Int?
+  affiliateProductId       Int?
+  managerId                Int?
+  agentId                  Int?
+  productCode              String?
+  cabinType                String?
+  fareCategory             String?
+  headcount                Int?
+  saleAmount               Int
+  costAmount               Int?
+  netRevenue               Int?
+  branchCommission         Int?
+  salesCommission          Int?
+  overrideCommission       Int?
+  withholdingAmount        Int?
+  status                   String    @default("PENDING")
+  saleDate                 DateTime?
+  confirmedAt              DateTime?
+  paidAt                   DateTime?
+  refundedAt               DateTime?
+  refundReason             String?
+  refundedBy               Int?
+  pgCancelFailed           Boolean   @default(false)
+  cancellationReason       String?
+  audioFileGoogleDriveId   String?
+  audioFileGoogleDriveUrl  String?
+  audioFileName            String?
+  audioFileType            String?
+  submittedById            Int?
+  submittedAt              DateTime?
+  approvedById             Int?
+  approvedAt               DateTime?
+  rejectedById             Int?
+  rejectedAt               DateTime?
+  rejectionReason          String?
+  metadata                 Json?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @default(now())
+  audioFileServerPath      String?
+  commissionRate           Int?
+  commissionRateSnapshot   Json?
+  settledAt                DateTime?
+  sourceAgentId            Int?
+  yearMonth                String?   @db.Char(7)
+  buyerUserId              Int?
   // 대리점장 구매확인(귀속 확정) 신호 — CRM이 결제관리에서 2택 확정 → 몰로 발신용.
   // 몰=수당귀속 SSoT, CRM은 자기 UI 상태 + 발신 멱등 가드용으로만 보관.
-  commissionOwnerType      String?   // 'PRESALES' | 'BRANCH_MANAGER'
+  commissionOwnerType      String? // 'PRESALES' | 'BRANCH_MANAGER'
   commissionOwnerConfirmed Boolean   @default(false) // 확정 1회 전이 가드(중복차감 방지)
-  confirmedOwnerById       Int?      // 확정자 (User.id)
+  confirmedOwnerById       Int? // 확정자 (User.id)
   confirmedOwnerAt         DateTime? // 확정 시각(감사)
 
   @@index([agentId, createdAt])
@@ -6179,11 +6178,11 @@ model ContractTemplate {
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
   // 관계
-  organization Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  instances    ContractInstance[]         @relation("TemplateInstances")
-  auditLogs    ContractTemplateAuditLog[] @relation("AuditLogs")
+  organization       Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  instances          ContractInstance[]         @relation("TemplateInstances")
+  auditLogs          ContractTemplateAuditLog[] @relation("AuditLogs")
   applicableEntities ContractApplicableEntity[] @relation("ApplicableEntities")
-  usedByPartners PartnerContract[] @relation("UsedByPartners")
+  usedByPartners     PartnerContract[]          @relation("UsedByPartners")
 
   @@index([organizationId])
   @@index([status])
@@ -6221,8 +6220,8 @@ model ContractInstance {
   smsDay3SentAt DateTime?
 
   // Phase 4: 재전송 자동화 추적 (Day 7+ Follow-up)
-  retryCount       Int       @default(0) // 전체 재시도 횟수
-  reminderCount    Int       @default(0) // 재전송 횟수 (최대 3회)
+  retryCount         Int       @default(0) // 전체 재시도 횟수
+  reminderCount      Int       @default(0) // 재전송 횟수 (최대 3회)
   lastReminderSentAt DateTime? @db.Timestamptz(6) // 마지막 재전송 시각
 
   // 유효기한 (L10 긴박감)
@@ -6236,9 +6235,9 @@ model ContractInstance {
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
   // 관계
-  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  template     ContractTemplate @relation("TemplateInstances", fields: [templateId], references: [id], onDelete: Restrict)
-  auditLogs    ContractAuditLog[]
+  organization         Organization                  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  template             ContractTemplate              @relation("TemplateInstances", fields: [templateId], references: [id], onDelete: Restrict)
+  auditLogs            ContractAuditLog[]
   // Phase 5: 계약 수정요청
   modificationRequests ContractModificationRequest[]
 
@@ -6252,18 +6251,18 @@ model ContractInstance {
 }
 
 model ContractAuditLog {
-  id             String   @id @default(cuid())
+  id             String           @id @default(cuid())
   contractId     String
-  organizationId String  // P1-3: 조직별 감사 로그 조회 성능 최적화
+  organizationId String // P1-3: 조직별 감사 로그 조회 성능 최적화
   contract       ContractInstance @relation(fields: [contractId], references: [id], onDelete: Cascade)
 
-  action      String   // "signed", "viewed", "downloaded", "emailed", "resent", "modification_requested", "modification_approved", "modification_rejected", "modification_alternative_proposed"
-  timestamp   DateTime @default(now())
+  action    String // "signed", "viewed", "downloaded", "emailed", "resent", "modification_requested", "modification_approved", "modification_rejected", "modification_alternative_proposed"
+  timestamp DateTime @default(now())
 
-  userId      String?
-  ipAddress   String?
-  userAgent   String?
-  details     String?
+  userId    String?
+  ipAddress String?
+  userAgent String?
+  details   String?
 
   @@index([contractId])
   @@index([timestamp])
@@ -6274,66 +6273,66 @@ model ContractAuditLog {
 
 // Phase 5: Russell Brunson 심리학 기반 계약 수정요청 시스템
 model ContractModificationRequest {
-  id                    String   @id @default(cuid())
-  contractId            String
-  contract              ContractInstance @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  id         String           @id @default(cuid())
+  contractId String
+  contract   ContractInstance @relation(fields: [contractId], references: [id], onDelete: Cascade)
 
   // 요청자 정보 (파트너/에이전트)
-  requestedByUserId     String?  // UserId (내부 에이전트) 또는 contactId (외부 고객)
-  requestedByType       String   @default("AGENT") // "AGENT"|"CONTACT"|"PARTNER"
-  requestedByName       String?  // 요청자명 (비회원용 또는 캐시)
-  requestedByEmail      String?  // 연락처
+  requestedByUserId String? // UserId (내부 에이전트) 또는 contactId (외부 고객)
+  requestedByType   String  @default("AGENT") // "AGENT"|"CONTACT"|"PARTNER"
+  requestedByName   String? // 요청자명 (비회원용 또는 캐시)
+  requestedByEmail  String? // 연락처
 
   // 수정 내용 (JSON 배열)
-  fieldModifications    Json     // Array<{fieldName: string, oldValue: string, newValue: string, reason: string, detectedLens: string?}>
-  additionalNotes       String?  @db.Text // 추가 설명
+  fieldModifications Json // Array<{fieldName: string, oldValue: string, newValue: string, reason: string, detectedLens: string?}>
+  additionalNotes    String? @db.Text // 추가 설명
 
   // 상태 관리
-  status                String   @default("REQUESTED") // "REQUESTED"|"APPROVED"|"REJECTED"|"ALTERNATIVE_PROPOSED"|"COMPLETED"|"EXPIRED"
+  status String @default("REQUESTED") // "REQUESTED"|"APPROVED"|"REJECTED"|"ALTERNATIVE_PROPOSED"|"COMPLETED"|"EXPIRED"
 
   // 관리자 응답 (승인/거절/대안)
-  approvedByUserId      String?  // 응답한 관리자 ID
-  responseMessage       String?  @db.Text // 승인/거절/대안 메시지 (심리학 렌즈 기반 자동생성)
-  alternativeProposal   Json?    // Array<{fieldName: string, proposedValue: string, reason: string}>
-  respondedAt           DateTime?
-  responseIpAddress     String?
+  approvedByUserId    String? // 응답한 관리자 ID
+  responseMessage     String?   @db.Text // 승인/거절/대안 메시지 (심리학 렌즈 기반 자동생성)
+  alternativeProposal Json? // Array<{fieldName: string, proposedValue: string, reason: string}>
+  respondedAt         DateTime?
+  responseIpAddress   String?
 
   // 5단계 중재 검증 (L2 렌즈)
-  complexityScore       Int      @default(0) // 0-100 (높을수록 복잡)
-  mediation5Steps       Json?    // Array<{step: 1-5, question: string, answer: string?, validationPass: boolean}>
+  complexityScore Int   @default(0) // 0-100 (높을수록 복잡)
+  mediation5Steps Json? // Array<{step: 1-5, question: string, answer: string?, validationPass: boolean}>
 
   // 손실회피 추적 (L6 렌즈)
-  dealRiskFlag          Boolean  @default(false) // 거래손실 경고 플래그
-  dealRiskReason        String?  // 왜 손실위험인가
+  dealRiskFlag            Boolean @default(false) // 거래손실 경고 플래그
+  dealRiskReason          String? // 왜 손실위험인가
   dealRiskSuggestedAction String? // 권장대응
 
   // 심리학 렌즈 자동감지
-  lensApplied           String[] @default(["L2", "L6", "L7", "L10"]) // 적용된 렌즈
-  lensDetectionDetails  Json?    // {L2: {complexity: 45, reason: "..."},  L6: {riskScore: 8, ...}, ...}
+  lensApplied          String[] @default(["L2", "L6", "L7", "L10"]) // 적용된 렌즈
+  lensDetectionDetails Json? // {L2: {complexity: 45, reason: "..."},  L6: {riskScore: 8, ...}, ...}
 
   // 가족설득 감지 (L7 렌즈)
-  familyMentionDetected Boolean  @default(false)
-  familySuggestion      String?  @db.Text // "배우자 설득" 추천메시지
+  familyMentionDetected Boolean @default(false)
+  familySuggestion      String? @db.Text // "배우자 설득" 추천메시지
 
   // 긴박감 관리 (L10 렌즈)
-  expiresAt             DateTime // 요청 생성일 + 7일
-  alternativeExpiresAt  DateTime? // 대안제시 시 +3일 추가
-  urgencyMessageGenerated String? @db.Text // L10 긴박감 메시지 (자동)
+  expiresAt               DateTime // 요청 생성일 + 7일
+  alternativeExpiresAt    DateTime? // 대안제시 시 +3일 추가
+  urgencyMessageGenerated String?   @db.Text // L10 긴박감 메시지 (자동)
 
   // 타임스탬프
-  requestedAt           DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt             DateTime @updatedAt @db.Timestamptz(6)
-  completedAt           DateTime? // 승인/거절/만료 시점
+  requestedAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
+  completedAt DateTime? // 승인/거절/만료 시점
 
   // 감사 및 추적
-  ipAddress             String?
-  userAgent             String?
-  auditLog              Json?    // 상태변화 타임라인
+  ipAddress String?
+  userAgent String?
+  auditLog  Json? // 상태변화 타임라인
 
   // 자동화 연계
   smsDay0ResendTriggered Boolean @default(false) // SMS Day 0 재발송 여부
-  contactLensUpdated    Boolean @default(false)  // Contact.appliedLenses 업데이트 여부
-  riskScoreUpdated      Boolean @default(false)  // Risk Score 업데이트 여부
+  contactLensUpdated     Boolean @default(false) // Contact.appliedLenses 업데이트 여부
+  riskScoreUpdated       Boolean @default(false) // Risk Score 업데이트 여부
 
   @@index([contractId])
   @@index([status])
@@ -6375,24 +6374,24 @@ model ContractTemplateAuditLog {
 
 // 계약서 템플릿 적용 대상 정의 (어디에 쓸 수 있는지)
 model ContractApplicableEntity {
-  id            String @id @default(cuid())
-  templateId    String
+  id             String @id @default(cuid())
+  templateId     String
   organizationId String
 
   // 적용 대상 유형
-  entityType    String  // "partner" | "department" | "employee" | "customer"
+  entityType String // "partner" | "department" | "employee" | "customer"
 
   // 적용 대상 (null = 모두에게 적용 가능)
-  partnerId     String?
+  partnerId String?
 
   // 타임스탬프
-  createdAt     DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt     DateTime @updatedAt @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
   // 관계
-  template      ContractTemplate @relation("ApplicableEntities", fields: [templateId], references: [id], onDelete: Cascade)
-  organization  Organization @relation("ContractApplicableEntities", fields: [organizationId], references: [id], onDelete: Cascade)
-  partner       Partner? @relation("ApplicableContracts", fields: [partnerId], references: [id], onDelete: SetNull)
+  template     ContractTemplate @relation("ApplicableEntities", fields: [templateId], references: [id], onDelete: Cascade)
+  organization Organization     @relation("ContractApplicableEntities", fields: [organizationId], references: [id], onDelete: Cascade)
+  partner      Partner?         @relation("ApplicableContracts", fields: [partnerId], references: [id], onDelete: SetNull)
 
   @@unique([templateId, entityType, partnerId])
   @@index([organizationId])
@@ -6402,45 +6401,45 @@ model ContractApplicableEntity {
 
 // 대리점별 적용된 계약서 (실제 사용)
 model PartnerContract {
-  id            String @id @default(cuid())
+  id             String @id @default(cuid())
   organizationId String
-  partnerId     String
-  templateId    String
+  partnerId      String
+  templateId     String
 
   // 커스터마이즈된 본문 (템플릿에서 복사 후 수정 가능)
-  htmlContent   String? @db.Text
-  jsonContent   Json?
+  htmlContent String? @db.Text
+  jsonContent Json?
 
   // 필드 매핑
-  fieldMapping  Json @default("{}")
+  fieldMapping Json @default("{}")
 
   // 섹션 정보 (템플릿 섹션을 복사)
-  sections      PartnerContractSection[]
+  sections PartnerContractSection[]
 
   // 상태
-  status        String @default("active") // "draft" | "active" | "archived"
+  status String @default("active") // "draft" | "active" | "archived"
 
   // 심리학 렌즈
   psychologyLenses String[] @default([])
 
   // 계약서 PDF 저장 (파트너 수동 등록 시 추가됨)
-  contractDocumentUrl    String?   // PDF 다운로드 링크 (Google Drive)
-  contractDriveFileId    String?   // Google Drive 파일 ID
-  contractDriveFolderId  String?   // Google Drive 폴더 ID (파트너별)
-  contractSignedAt       DateTime? @db.Timestamptz(6) // 서명 완료 시각
-  signatureImageUrl      String?   // 서명 이미지 URL (Google Drive)
-  contractSignatureFileId String?  // 서명 이미지 파일 ID
-  contractStatus         String    @default("DRAFT") // "DRAFT" | "PENDING" | "SIGNED" | "APPROVED"
+  contractDocumentUrl     String? // PDF 다운로드 링크 (Google Drive)
+  contractDriveFileId     String? // Google Drive 파일 ID
+  contractDriveFolderId   String? // Google Drive 폴더 ID (파트너별)
+  contractSignedAt        DateTime? @db.Timestamptz(6) // 서명 완료 시각
+  signatureImageUrl       String? // 서명 이미지 URL (Google Drive)
+  contractSignatureFileId String? // 서명 이미지 파일 ID
+  contractStatus          String    @default("DRAFT") // "DRAFT" | "PENDING" | "SIGNED" | "APPROVED"
 
   // 타임스탬프
-  appliedAt     DateTime @default(now()) @db.Timestamptz(6)
-  createdAt     DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt     DateTime @updatedAt @db.Timestamptz(6)
+  appliedAt DateTime @default(now()) @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
   // 관계
-  organization  Organization @relation("PartnerContracts", fields: [organizationId], references: [id], onDelete: Cascade)
-  partner       Partner @relation("Contracts", fields: [partnerId], references: [id], onDelete: Cascade)
-  template      ContractTemplate @relation("UsedByPartners", fields: [templateId], references: [id], onDelete: Restrict)
+  organization Organization     @relation("PartnerContracts", fields: [organizationId], references: [id], onDelete: Cascade)
+  partner      Partner          @relation("Contracts", fields: [partnerId], references: [id], onDelete: Cascade)
+  template     ContractTemplate @relation("UsedByPartners", fields: [templateId], references: [id], onDelete: Restrict)
 
   @@unique([partnerId, templateId])
   @@index([organizationId])
@@ -6451,20 +6450,20 @@ model PartnerContract {
 
 // 대리점별 계약서의 섹션
 model PartnerContractSection {
-  id            String @id @default(cuid())
-  contractId    String
+  id         String @id @default(cuid())
+  contractId String
 
   // 섹션 정보
-  title         String
-  content       String? @db.Text
-  order         Int @default(0)
+  title   String
+  content String? @db.Text
+  order   Int     @default(0)
 
   // 타임스탐프
-  createdAt     DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt     DateTime @updatedAt @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
   // 관계
-  contract      PartnerContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  contract PartnerContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
 
   @@index([contractId])
 }
@@ -6489,7 +6488,7 @@ model CrmMarketingMessage {
   scheduledTime DateTime
   sentTime      DateTime?
   status        String // "pending" | "sent" | "failed" | "opened" | "clicked" | "converted"
-  channel       String   @default("SMS") // "SMS" | "EMAIL" | "KAKAO" — 채널별 성과 집계용(기존행 SMS 백필)
+  channel       String    @default("SMS") // "SMS" | "EMAIL" | "KAKAO" — 채널별 성과 집계용(기존행 SMS 백필)
 
   // 콘텐츠
   content          String   @db.Text
@@ -7199,24 +7198,24 @@ model ProfitCalculation {
 
 // SMS 테스트 발송 로그 (테스트 메시지 추적용)
 model SmsTestLog {
-  id            String   @id @default(cuid())
+  id             String @id @default(cuid())
   organizationId String
-  userId        String
+  userId         String
 
   // 테스트 발송 정보
-  phoneNumber   String   // 테스트 수신자 번호
-  message       String   @db.Text
-  variables     Json?    // 사용된 변수값 (추적용)
-  lens          String?  // L0/L1/L2/L6/L10 (어떤 렌즈인지)
-  day           Int?     // Day 0-3 (어떤 날인지)
+  phoneNumber String // 테스트 수신자 번호
+  message     String  @db.Text
+  variables   Json? // 사용된 변수값 (추적용)
+  lens        String? // L0/L1/L2/L6/L10 (어떤 렌즈인지)
+  day         Int? // Day 0-3 (어떤 날인지)
 
   // 발송 결과
-  sentAt        DateTime? // 발송 시간 (null이면 대기)
-  status        String   @default("PENDING") // PENDING/SENT/FAILED
-  errorMessage  String?  // 발송 실패 시 에러
+  sentAt       DateTime? // 발송 시간 (null이면 대기)
+  status       String    @default("PENDING") // PENDING/SENT/FAILED
+  errorMessage String? // 발송 실패 시 에러
 
   // 메타
-  createdAt     DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([organizationId, createdAt(sort: Desc)])
   @@index([userId, createdAt(sort: Desc)])
@@ -7224,21 +7223,21 @@ model SmsTestLog {
 
 // SMS 미리보기 로그 (분석용)
 model SmsPreviewLog {
-  id            String   @id @default(cuid())
+  id             String @id @default(cuid())
   organizationId String
-  userId        String
+  userId         String
 
   // 미리보기 정보
-  message       String   @db.Text
-  variables     Json?    // 사용된 변수값
-  lens          String?
-  day           Int?
+  message   String  @db.Text
+  variables Json? // 사용된 변수값
+  lens      String?
+  day       Int?
 
   // 마케터 피드백
-  feedback      String?  // "완벽함", "문자 자동 생략", 등
-  approved      Boolean @default(false) // 승인했나?
+  feedback String? // "완벽함", "문자 자동 생략", 등
+  approved Boolean @default(false) // 승인했나?
 
-  createdAt     DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([organizationId, approved, createdAt(sort: Desc)])
 }
@@ -7249,43 +7248,43 @@ model SmsPreviewLog {
 
 // Email Day 0-3 스케줄 메시지
 model ScheduledEmailMessage {
-  id             String   @id @default(cuid())
+  id             String  @id @default(cuid())
   organizationId String
   contactId      String
   groupId        String?
-  day            Int      // 0, 1, 2, 3
+  day            Int // 0, 1, 2, 3
 
   // 발신자 (resolveUserEmailConfig에서 사용)
-  senderUserId   String?  // GroupEmailFunnel.createdByUserId 복사
+  senderUserId String? // GroupEmailFunnel.createdByUserId 복사
 
   // Email 콘텐츠
-  subject        String
-  htmlContent    String   @db.Text
-  textContent    String?  @db.Text
-  variables      Json?    // { "name": "김철수", "productName": "크루즈" }
+  subject     String
+  htmlContent String  @db.Text
+  textContent String? @db.Text
+  variables   Json? // { "name": "김철수", "productName": "크루즈" }
 
   // 발송 상태
-  status         String   @default("PENDING") // "PENDING", "SENT", "FAILED", "BOUNCED"
-  scheduledAt    DateTime // 발송 예정시간
-  sentAt         DateTime?
-  failureReason  String?
+  status        String    @default("PENDING") // "PENDING", "SENT", "FAILED", "BOUNCED"
+  scheduledAt   DateTime // 발송 예정시간
+  sentAt        DateTime?
+  failureReason String?
 
   // 외부 제공자 추적
-  provider       String   @default("GMAIL") // "GMAIL", "SMTP", "SENDGRID"
-  messageId      String?  @db.VarChar(256) // 외부 provider 메시지 ID
-  trackingId     String?  @db.VarChar(256) // Email tracking ID (open/click)
+  provider   String  @default("GMAIL") // "GMAIL", "SMTP", "SENDGRID"
+  messageId  String? @db.VarChar(256) // 외부 provider 메시지 ID
+  trackingId String? @db.VarChar(256) // Email tracking ID (open/click)
 
   // 이벤트 추적
-  openedAt       DateTime?
-  clickedAt      DateTime?
-  bounceType     String?  // "SOFT", "HARD"
+  openedAt   DateTime?
+  clickedAt  DateTime?
+  bounceType String? // "SOFT", "HARD"
 
   // 메타데이터
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // 관계
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   // 인덱스: cron 배치용 빠른 쿼리
   @@index([organizationId, day, status, scheduledAt])
@@ -7297,33 +7296,33 @@ model ScheduledEmailMessage {
 
 // 배치 실행 로그 (성능 모니터링)
 model BatchExecutionLog {
-  id            String   @id @default(cuid())
+  id             String @id @default(cuid())
   organizationId String
-  batchType     String   // "SMS_DAY0", "EMAIL_DAY1", "SMS_DAY2", "EMAIL_DAY3", etc.
+  batchType      String // "SMS_DAY0", "EMAIL_DAY1", "SMS_DAY2", "EMAIL_DAY3", etc.
 
   // 처리 통계
-  totalCount    Int      // 총 메시지 수
-  successCount  Int      // 성공한 메시지 수
-  failCount     Int      // 실패한 메시지 수
+  totalCount   Int // 총 메시지 수
+  successCount Int // 성공한 메시지 수
+  failCount    Int // 실패한 메시지 수
 
   // 타이밍
-  startedAt     DateTime
-  completedAt   DateTime
-  duration      Int      // 밀리초 (startedAt ~ completedAt)
+  startedAt   DateTime
+  completedAt DateTime
+  duration    Int // 밀리초 (startedAt ~ completedAt)
 
   // 성능 메트릭
-  averageLatency Float?   // 메시지당 평균 처리시간 (ms)
-  peakQueueSize Int?      // 동시 처리 최대 개수
-  errorRate     Float?    // 실패율 (failCount / totalCount)
+  averageLatency Float? // 메시지당 평균 처리시간 (ms)
+  peakQueueSize  Int? // 동시 처리 최대 개수
+  errorRate      Float? // 실패율 (failCount / totalCount)
 
   // 디버깅
-  errorSummary  String?   @db.Text // 에러 요약 (JSON)
-  logUrl        String?   // 상세 로그 저장 위치
+  errorSummary String? @db.Text // 에러 요약 (JSON)
+  logUrl       String? // 상세 로그 저장 위치
 
-  createdAt     DateTime @default(now())
+  createdAt DateTime @default(now())
 
   // 관계
-  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   // 인덱스
   @@index([organizationId, batchType, startedAt])
@@ -7333,22 +7332,22 @@ model BatchExecutionLog {
 
 // SMS 배치 실행 로그 (ScheduledSms와의 연결용)
 model SmsBatchExecution {
-  id                String   @id @default(cuid())
-  organizationId    String
-  batchExecutionId  String   // BatchExecutionLog ID 참조
-  day               Int      // 0, 1, 2, 3
+  id               String @id @default(cuid())
+  organizationId   String
+  batchExecutionId String // BatchExecutionLog ID 참조
+  day              Int // 0, 1, 2, 3
 
   // 처리된 메시지들
-  scheduledSmsIds   String[] // ScheduledSms ID 배열
+  scheduledSmsIds String[] // ScheduledSms ID 배열
 
   // 상태
-  status            String   @default("PENDING") // "PENDING", "PROCESSING", "COMPLETED", "FAILED"
+  status String @default("PENDING") // "PENDING", "PROCESSING", "COMPLETED", "FAILED"
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // 관계
-  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, day, status])
   @@map("SmsBatchExecution")
@@ -7359,50 +7358,50 @@ model SmsBatchExecution {
 // ============================================================================
 
 model GroupEmailConfig {
-  id                     String    @id @default(cuid())
-  organizationId         String
-  groupId                String    @unique // 각 Group은 1개의 이메일 설정만
+  id             String @id @default(cuid())
+  organizationId String
+  groupId        String @unique // 각 Group은 1개의 이메일 설정만
 
   // Email 공급자 선택
-  emailProvider          String    // "GMAIL" | "SMTP" | "SENDGRID" | "MAILGUN"
+  emailProvider String // "GMAIL" | "SMTP" | "SENDGRID" | "MAILGUN"
 
   // Gmail OAuth (GMAIL일 때)
-  gmailAccessToken       String?   @db.Text // 암호화됨 (KMS)
-  gmailRefreshToken      String?   @db.Text // 암호화됨 (KMS)
-  gmailExpireAt          DateTime?
+  gmailAccessToken  String?   @db.Text // 암호화됨 (KMS)
+  gmailRefreshToken String?   @db.Text // 암호화됨 (KMS)
+  gmailExpireAt     DateTime?
 
   // 커스텀 SMTP (SMTP일 때)
-  smtpHost               String?
-  smtpPort               Int?
-  smtpUsername           String?
-  smtpPasswordEncrypted  String?   @db.Text // 암호화됨 (KMS)
-  smtpSecure             Boolean?  // true: TLS(587), false: SSL(465)
+  smtpHost              String?
+  smtpPort              Int?
+  smtpUsername          String?
+  smtpPasswordEncrypted String?  @db.Text // 암호화됨 (KMS)
+  smtpSecure            Boolean? // true: TLS(587), false: SSL(465)
 
   // SendGrid API (SENDGRID일 때)
-  sendGridApiKeyEncrypted String?  @db.Text // 암호화됨 (KMS)
+  sendGridApiKeyEncrypted String? @db.Text // 암호화됨 (KMS)
 
   // Mailgun API (MAILGUN일 때)
-  mailgunApiKeyEncrypted String?   @db.Text // 암호화됨 (KMS)
+  mailgunApiKeyEncrypted String? @db.Text // 암호화됨 (KMS)
   mailgunDomain          String?
 
   // 발신자 정보
-  senderName             String    @default("마비즈")
-  senderEmail            String    // 실제 발송 이메일 (marketing@company.com)
-  replyToEmail           String?
+  senderName   String  @default("마비즈")
+  senderEmail  String // 실제 발송 이메일 (marketing@company.com)
+  replyToEmail String?
 
   // 설정 상태
-  isActive               Boolean   @default(false)
-  isVerified             Boolean   @default(false)
-  testedAt               DateTime?
-  testResult             String?   // "SUCCESS" | "FAILED"
-  testErrorMessage       String?
+  isActive         Boolean   @default(false)
+  isVerified       Boolean   @default(false)
+  testedAt         DateTime?
+  testResult       String? // "SUCCESS" | "FAILED"
+  testErrorMessage String?
 
   // 메타
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
-  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  emailFunnels           GroupEmailFunnel[]
-  auditLogs              EmailAuditLog[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  emailFunnels GroupEmailFunnel[]
+  auditLogs    EmailAuditLog[]
 
   @@index([organizationId])
   @@index([groupId])
@@ -7410,31 +7409,31 @@ model GroupEmailConfig {
 }
 
 model GroupEmailFunnel {
-  id                     String    @id @default(cuid())
-  organizationId         String
-  groupId                String
-  emailConfigId          String
+  id             String @id @default(cuid())
+  organizationId String
+  groupId        String
+  emailConfigId  String
 
   // 퍼널 기본 정보
-  title                  String    @default("기본 이메일 퍼널")
-  description            String?   @db.Text
+  title       String  @default("기본 이메일 퍼널")
+  description String? @db.Text
 
   // PASONA 프레임워크
-  isPasonaBased          Boolean   @default(true)
-  lensTypes              String[]  @default(["L0", "L1", "L3", "L6", "L10"]) // 이 렌즈들에 발송
+  isPasonaBased Boolean  @default(true)
+  lensTypes     String[] @default(["L0", "L1", "L3", "L6", "L10"]) // 이 렌즈들에 발송
 
   // 상태
-  isActive               Boolean   @default(false)
-  createdByUserId        String
+  isActive        Boolean @default(false)
+  createdByUserId String
 
   // 메타
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  messages               GroupEmailFunnelMessage[]
+  messages GroupEmailFunnelMessage[]
 
-  emailConfig            GroupEmailConfig @relation(fields: [emailConfigId], references: [id], onDelete: Cascade)
-  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  emailConfig  GroupEmailConfig @relation(fields: [emailConfigId], references: [id], onDelete: Cascade)
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([groupId, organizationId]) // 각 Group은 1개 활성 퍼널
   @@index([organizationId])
@@ -7443,35 +7442,35 @@ model GroupEmailFunnel {
 }
 
 model GroupEmailFunnelMessage {
-  id                     String    @id @default(cuid())
-  organizationId         String
-  emailFunnelId          String
+  id             String @id @default(cuid())
+  organizationId String
+  emailFunnelId  String
 
   // Day별 메시지 (PASONA)
-  day                    Int       // 0 = P+A, 1 = S, 2 = O, 3 = N+A
-  order                  Int       @default(0) // Day 내 순서 (여러 메시지 가능)
+  day   Int // 0 = P+A, 1 = S, 2 = O, 3 = N+A
+  order Int @default(0) // Day 내 순서 (여러 메시지 가능)
 
   // PASONA 단계
-  pasonaStage            String    // "PROBLEM", "SOLUTION", "OFFER", "ACTION"
+  pasonaStage String // "PROBLEM", "SOLUTION", "OFFER", "ACTION"
 
   // 메시지 콘텐츠 (HTML)
-  subject                String    // {{name}}, {{email}}, {{product}} 등 지원
-  bodyHtml               String    @db.Text // HTML 형식, 동적변수 지원
-  previewText            String?   @default("") // 이메일 프리뷰 (선택)
+  subject     String // {{name}}, {{email}}, {{product}} 등 지원
+  bodyHtml    String  @db.Text // HTML 형식, 동적변수 지원
+  previewText String? @default("") // 이메일 프리뷰 (선택)
 
   // 동적변수 목록 (미리보기용)
   // 지원: name, email, phone, product, price, lensType, daysSinceJoined, joinedDate, groupName, urgencyTone
-  dynamicVariables       String[]  @default(["name", "email", "phone", "product", "price", "lensType", "daysSinceJoined", "joinedDate", "groupName", "urgencyTone"])
+  dynamicVariables String[] @default(["name", "email", "phone", "product", "price", "lensType", "daysSinceJoined", "joinedDate", "groupName", "urgencyTone"])
 
   // 발송 조건
-  targetLensTypes        String[]  @default([]) // 공백 = 모든 렌즈
+  targetLensTypes String[] @default([]) // 공백 = 모든 렌즈
 
   // 메타
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  emailFunnel            GroupEmailFunnel @relation(fields: [emailFunnelId], references: [id], onDelete: Cascade)
-  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  emailFunnel  GroupEmailFunnel @relation(fields: [emailFunnelId], references: [id], onDelete: Cascade)
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([emailFunnelId, day, order])
   @@index([organizationId])
@@ -7480,43 +7479,43 @@ model GroupEmailFunnelMessage {
 }
 
 model EmailSentLog {
-  id                     String    @id @default(cuid())
-  organizationId         String
-  groupId                String
-  emailFunnelId          String?
-  contactId              String?
+  id             String  @id @default(cuid())
+  organizationId String
+  groupId        String
+  emailFunnelId  String?
+  contactId      String?
 
   // 발송 대상
-  toEmail                String
+  toEmail String
 
   // 메시지 정보
-  day                    Int       // 0, 1, 2, 3
-  subject                String
-  pasonaStage            String?   // PROBLEM, SOLUTION, OFFER, ACTION
+  day         Int // 0, 1, 2, 3
+  subject     String
+  pasonaStage String? // PROBLEM, SOLUTION, OFFER, ACTION
 
   // 사용된 변수값 (추적용)
-  renderedVariables      Json?     // { name: "김철수", email: "...", lensType: "L6" }
+  renderedVariables Json? // { name: "김철수", email: "...", lensType: "L6" }
 
   // 발송 상태
-  status                 String    @default("PENDING") // PENDING | SENT | FAILED | BOUNCED | COMPLAINED
-  sentAt                 DateTime?
-  failureReason          String?   @db.Text
+  status        String    @default("PENDING") // PENDING | SENT | FAILED | BOUNCED | COMPLAINED
+  sentAt        DateTime?
+  failureReason String?   @db.Text
 
   // 외부 제공자 추적
-  provider               String    // GMAIL | SMTP | SENDGRID | MAILGUN
-  externalMessageId      String?   // 외부 provider message ID
+  provider          String // GMAIL | SMTP | SENDGRID | MAILGUN
+  externalMessageId String? // 외부 provider message ID
 
   // 이벤트 추적 (이메일 마케팅용)
-  openedAt               DateTime?
-  clickedAt              DateTime?
-  openCount              Int       @default(0)
-  clickCount             Int       @default(0)
+  openedAt   DateTime?
+  clickedAt  DateTime?
+  openCount  Int       @default(0)
+  clickCount Int       @default(0)
 
   // 메타
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, groupId, day])
   @@index([contactId, sentAt(sort: Desc)])
@@ -7526,32 +7525,32 @@ model EmailSentLog {
 }
 
 model EmailAuditLog {
-  id                     String    @id @default(cuid())
-  organizationId         String
-  groupId                String
-  emailConfigId          String
+  id             String @id @default(cuid())
+  organizationId String
+  groupId        String
+  emailConfigId  String
 
   // 감사 대상
-  userId                 String    // 누가 작업했는가
-  action                 String    // CREATE_CONFIG | UPDATE_SMTP | TEST_EMAIL | VERIFY_SMTP | DELETE_CONFIG | SEND_EMAIL
+  userId String // 누가 작업했는가
+  action String // CREATE_CONFIG | UPDATE_SMTP | TEST_EMAIL | VERIFY_SMTP | DELETE_CONFIG | SEND_EMAIL
 
   // 변경 내용 (민감정보 제외)
-  beforeValue            Json?     // { provider: "GMAIL", senderName: "마비즈" }
-  afterValue             Json?     // { provider: "SMTP", senderName: "마비즈" }
+  beforeValue Json? // { provider: "GMAIL", senderName: "마비즈" }
+  afterValue  Json? // { provider: "SMTP", senderName: "마비즈" }
 
   // 결과
-  status                 String    @default("SUCCESS") // SUCCESS | FAILED
-  errorMessage           String?
+  status       String  @default("SUCCESS") // SUCCESS | FAILED
+  errorMessage String?
 
   // 네트워크 정보
-  ipAddress              String?
-  userAgent              String?   @db.Text
+  ipAddress String?
+  userAgent String? @db.Text
 
   // 메타
-  createdAt              DateTime  @default(now())
+  createdAt DateTime @default(now())
 
-  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  emailConfig            GroupEmailConfig @relation(fields: [emailConfigId], references: [id], onDelete: Cascade)
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  emailConfig  GroupEmailConfig @relation(fields: [emailConfigId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, createdAt(sort: Desc)])
   @@index([groupId, createdAt(sort: Desc)])
@@ -7565,34 +7564,34 @@ model EmailAuditLog {
 // 알리고 UserSmsConfig 패턴과 동일 — 개인 > 그룹 > 조직 순서 폴백
 // ============================================================================
 model UserEmailConfig {
-  id                     String    @id @default(cuid())
-  organizationId         String
-  userId                 String    // OrganizationMember.userId
+  id             String @id @default(cuid())
+  organizationId String
+  userId         String // OrganizationMember.userId
 
-  emailProvider          String    @default("SMTP") // "SMTP" | "GMAIL" | "SENDGRID"
+  emailProvider String @default("SMTP") // "SMTP" | "GMAIL" | "SENDGRID"
 
   // 발신자 정보
-  senderName             String    @default("")
-  senderEmail            String    @default("")
+  senderName  String @default("")
+  senderEmail String @default("")
 
   // SMTP 설정
-  smtpHost               String?
-  smtpPort               Int?      @default(587)
-  smtpUsername           String?
-  smtpPasswordEncrypted  String?   @db.Text // 암호화됨
-  smtpSecure             Boolean?  @default(false) // true: TLS, false: STARTTLS
+  smtpHost              String?
+  smtpPort              Int?     @default(587)
+  smtpUsername          String?
+  smtpPasswordEncrypted String?  @db.Text // 암호화됨
+  smtpSecure            Boolean? @default(false) // true: TLS, false: STARTTLS
 
   // 상태
-  isActive               Boolean   @default(false)
-  isVerified             Boolean   @default(false)
-  testedAt               DateTime?
-  testResult             String?   // "SUCCESS" | "FAILED"
-  testErrorMessage       String?
+  isActive         Boolean   @default(false)
+  isVerified       Boolean   @default(false)
+  testedAt         DateTime?
+  testResult       String? // "SUCCESS" | "FAILED"
+  testErrorMessage String?
 
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([userId, organizationId])
   @@index([organizationId])
@@ -7601,3 +7600,93 @@ model UserEmailConfig {
 
 // Phase 4: AuditLog 모델은 줄 6589 (Compliance & Monitoring Models)에 정의됨
 // 중복 정의 제거 (2026-06-19)
+
+// ============================================================================
+// 신뢰도 시스템 (Trust Score System) - 2026-06-19
+// ============================================================================
+
+/// 신뢰도 점수 (판매원/파트너 신뢰도 추적)
+model TrustScore {
+  id              String    @id @default(cuid())
+  userId          String    @unique // OrganizationMember.userId
+
+  // 환불 통계
+  totalSales      Int       @default(0)        /// 총 판매건수
+  totalRefunds    Int       @default(0)        /// 총 환불건수
+  refundRate      Float     @default(0)        /// 환불율 (%)
+
+  // 신뢰도 점수
+  trustScore      Int       @default(100)      /// 0-100 점수
+  status          String    @default("GOOD")   /// GOOD / WARNING / RESTRICTED / SUSPENDED
+
+  // 임계값 추적
+  nextThreshold   Int       @default(35)       /// 다음 상태까지 남은 환불율
+  warningCount    Int       @default(0)        /// 경고 받은 횟수
+
+  // 타임스탬프
+  lastCalculatedAt DateTime @updatedAt
+  statusChangedAt DateTime? /// 상태가 마지막으로 변경된 시간
+
+  // 관계
+  appeals         TrustAppeal[]
+  auditLogs       TrustAuditLog[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("TrustScore")
+}
+
+/// 신뢰도 이의 제기
+model TrustAppeal {
+  id              String    @id @default(cuid())
+  trustScoreId    String
+  trustScore      TrustScore @relation(fields: [trustScoreId], references: [id], onDelete: Cascade)
+
+  // 이의 내용
+  reason          String              /// "상품 하자", "고객 요청" 등
+  evidenceUrls    String[]  @default([]) /// 증거 URL 배열
+
+  // 상태
+  status          String    @default("PENDING") /// PENDING / APPROVED / REJECTED
+  adminReview     String?   /// 관리자 검토 의견
+
+  // 결과
+  requestedAction String?   /// "RESTORE" 등 원하는 조치
+  appliedAction   String?   /// 실제 적용된 조치
+
+  // 타임스탬프
+  createdAt       DateTime  @default(now())
+  reviewedAt      DateTime?
+  reviewedBy      String?   /// 관리자 ID
+
+  @@index([status])
+  @@index([trustScoreId])
+  @@map("TrustAppeal")
+}
+
+/// 신뢰도 감사 로그
+model TrustAuditLog {
+  id              String    @id @default(cuid())
+  userId          String
+  trustScoreId    String?   /// 어느 신뢰도? (삭제된 경우 null 가능)
+  trustScore      TrustScore? @relation(fields: [trustScoreId], references: [id], onDelete: SetNull)
+
+  // 변경 내용
+  eventType       String    /// "REFUND", "STATUS_CHANGE", "APPEAL", "ADMIN_ACTION"
+  previousValue   Json?     /// 이전 값
+  newValue        Json?     /// 새로운 값
+
+  // 설명
+  description     String    /// "환불 1건 처리됨" 등
+
+  // 누가 했는가
+  triggeredBy     String?   /// 시스템 또는 사용자 ID
+
+  // 타임스탬프
+  createdAt       DateTime  @default(now())
+
+  @@index([userId])
+  @@index([eventType])
+  @@index([trustScoreId])
+  @@map("TrustAuditLog")
+}
