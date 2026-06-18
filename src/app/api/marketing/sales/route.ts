@@ -4,6 +4,7 @@ import { getMabizSession } from "@/lib/auth";
 import { resolveOrgIdOrNull } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { maskPhone } from "@/lib/marketing-utils";
+import type { OrgBreakdown } from "@/types/marketing";
 
 /** 이름 마스킹: 첫 글자만 유지, 나머지 최대 3자리 * 처리 */
 function maskCustomerName(name: string | null | undefined): string {
@@ -17,10 +18,10 @@ export async function GET(req: NextRequest) {
   try {
     const ctx = await getMabizSession();
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
-    if (ctx.role === 'FREE_SALES') {
-      return NextResponse.json({ ok: false }, { status: 403 });
+    // API-SALES-001: OWNER + GLOBAL_ADMIN만 허용. FREE_SALES·AGENT 완전 차단
+    if (ctx.role === 'FREE_SALES' || ctx.role === 'AGENT') {
+      return NextResponse.json({ ok: false, message: '접근 권한이 없습니다.' }, { status: 403 });
     }
-    // API-SALES-AGENT-ORG-MISSING-CHECK-001: today-stats와 동일한 명시적 가드 패턴으로 통일
     // GLOBAL_ADMIN은 organizationId가 null이어도 전체 조회 허용
     if (ctx.role !== 'GLOBAL_ADMIN' && !ctx.organizationId) {
       return NextResponse.json({ ok: false, message: '조직 정보가 없습니다.' }, { status: 403 });
@@ -265,6 +266,57 @@ export async function GET(req: NextRequest) {
       masked:        !isGlobalAdmin && !!p.customerPhone,
     }));
 
+    // ─── (F) GLOBAL_ADMIN 전용: 대리점별 매출 breakdown ──────────
+    // API-SALES-002: OWNER는 빈 배열, GLOBAL_ADMIN만 조직별 집계 실행
+    let orgBreakdown: OrgBreakdown[] = [];
+    if (ctx.role === 'GLOBAL_ADMIN') {
+      // 1. 모든 조직 목록 조회
+      const orgs = await prisma.organization.findMany({
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+      });
+
+      // 2. 이번 달 조직별 매출(paid) 집계
+      type OrgRevRow = { organizationId: string; revenue: number | bigint; count: number | bigint };
+      const orgRevRows: OrgRevRow[] = await prisma.$queryRaw<OrgRevRow[]>`
+        SELECT af."organizationId",
+               COALESCE(SUM(CASE WHEN pp."status" = 'paid' THEN pp."amount" ELSE 0 END), 0)::float AS revenue,
+               COUNT(CASE WHEN pp."status" = 'paid' THEN 1 END)::int AS count
+        FROM "CrmPayAppPayment" pp
+        INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
+        WHERE pp."createdAt" >= ${thisMonthStart}
+          AND pp."createdAt" < ${thisMonthEnd}
+        GROUP BY af."organizationId"
+      `;
+
+      // 3. 이번 달 조직별 환불(cancelled) 집계
+      type OrgRefundRow = { organizationId: string; refund: number | bigint };
+      const orgRefundRows: OrgRefundRow[] = await prisma.$queryRaw<OrgRefundRow[]>`
+        SELECT af."organizationId",
+               COALESCE(SUM(pp."amount"), 0)::float AS refund
+        FROM "CrmPayAppPayment" pp
+        INNER JOIN "CrmAffiliateSale" af ON af."orderId" = pp."orderId"
+        WHERE pp."status" = 'cancelled'
+          AND pp."createdAt" >= ${thisMonthStart}
+          AND pp."createdAt" < ${thisMonthEnd}
+        GROUP BY af."organizationId"
+      `;
+
+      const revMap    = new Map(orgRevRows.map(r => [r.organizationId, { revenue: Number(r.revenue), count: Number(r.count) }]));
+      const refundMap = new Map(orgRefundRows.map(r => [r.organizationId, Number(r.refund)]));
+
+      orgBreakdown = orgs
+        .map(org => ({
+          orgId:        org.id,
+          orgName:      org.name ?? '알 수 없는 대리점',
+          totalRevenue: revMap.get(org.id)?.revenue ?? 0,
+          paidCount:    revMap.get(org.id)?.count   ?? 0,
+          netRevenue:   (revMap.get(org.id)?.revenue ?? 0) - (refundMap.get(org.id) ?? 0),
+        }))
+        .filter(o => o.totalRevenue > 0 || o.paidCount > 0) // 실적 있는 조직만
+        .sort((a, b) => b.totalRevenue - a.totalRevenue);
+    }
+
     logger.log("[GET /api/marketing/sales] 조회", { orgId, page, limit, totalCount, totalPages });
 
     return NextResponse.json({
@@ -273,6 +325,7 @@ export async function GET(req: NextRequest) {
       monthly,
       byLanding,
       recent,
+      orgBreakdown,
       pagination: { page, limit, totalCount, totalPages },
     });
   } catch (err: unknown) {
