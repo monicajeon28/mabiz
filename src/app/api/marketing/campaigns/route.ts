@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
     const campaign = await prisma.crmMarketingCampaign.create({
       data: {
         organizationId: writeOrgId,
-        groupId: groupId ?? '',
+        groupId: groupId as string,  // API-CAMPAIGNS-DEADCODE-001: line 72에서 이미 non-null 검증됨
         title,
         sendEmail: sendEmail === true,
         emailSubject: emailSubject || null,

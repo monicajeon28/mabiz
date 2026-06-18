@@ -78,7 +78,12 @@ export default function MarketingDashboardPage() {
         <div className="text-center py-16" role="alert">
           <p className="text-red-500 text-sm mb-3">{error}</p>
           <button
-            onClick={() => fetchData()}
+            onClick={() => {
+              // UI-MARKETING-006: 에러 재시도도 AbortController로 취소 가능하게 처리
+              refreshCtrlRef.current?.abort();
+              refreshCtrlRef.current = new AbortController();
+              fetchData(refreshCtrlRef.current.signal);
+            }}
             className="px-4 py-2 bg-navy-900 text-white rounded-lg text-sm hover:bg-navy-800"
           >
             다시 시도

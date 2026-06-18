@@ -20,6 +20,11 @@ export async function GET(req: NextRequest) {
     if (ctx.role === 'FREE_SALES') {
       return NextResponse.json({ ok: false }, { status: 403 });
     }
+    // API-SALES-AGENT-ORG-MISSING-CHECK-001: today-stats와 동일한 명시적 가드 패턴으로 통일
+    // GLOBAL_ADMIN은 organizationId가 null이어도 전체 조회 허용
+    if (ctx.role !== 'GLOBAL_ADMIN' && !ctx.organizationId) {
+      return NextResponse.json({ ok: false, message: '조직 정보가 없습니다.' }, { status: 403 });
+    }
     const orgId = resolveOrgIdOrNull(ctx);
 
     // 페이지네이션 파라미터

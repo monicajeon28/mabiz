@@ -66,7 +66,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   try {
     const ctx = await getMabizSession();
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
-    if (ctx.role === 'FREE_SALES') return NextResponse.json({ ok: false }, { status: 403 });
+    if (ctx.role === 'FREE_SALES') return NextResponse.json({ ok: false, message: '접근 권한이 없습니다.' }, { status: 403 });
 
     const { id } = await context.params;
     const body = await req.json();

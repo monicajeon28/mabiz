@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { RefreshCw } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { formatAmount, formatDate } from "@/lib/marketing-utils";
@@ -126,6 +126,7 @@ export default function MarketingSalesPage() {
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
   const [page,    setPage]    = useState(1);
+  const refreshCtrlRef = useRef<AbortController | null>(null);  // UI-SALES-005: 수동 새로고침 취소 ref
 
   const load = useCallback((pageNum: number = 1, signal?: AbortSignal) => {
     setLoading(true);
@@ -169,7 +170,12 @@ export default function MarketingSalesPage() {
           )}
         </div>
         <button
-          onClick={() => load(page)}
+          onClick={() => {
+            // UI-SALES-005: 이전 요청 취소 후 새 AbortController로 fetch
+            refreshCtrlRef.current?.abort();
+            refreshCtrlRef.current = new AbortController();
+            load(page, refreshCtrlRef.current.signal);
+          }}
           disabled={loading}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           aria-label="새로고침"
@@ -285,8 +291,8 @@ export default function MarketingSalesPage() {
 
         {/* 페이지네이션 */}
         {!loading && data?.pagination && data.pagination.totalPages > 1 && (() => {
-          const paging = data.pagination;
-          if (!paging) return null;
+          // UI-SALES-006/UI-SALES-DEADCODE-001: 외부 조건에서 이미 data.pagination non-null 보장됨
+          const paging = data.pagination!;
           return (
             <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-center gap-2">
               <button

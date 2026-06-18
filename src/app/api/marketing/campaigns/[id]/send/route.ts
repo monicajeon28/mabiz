@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
@@ -34,14 +34,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
     const { id } = await context.params;
 
-    // stale SENDING 캠페인 복구: 30분 이상 SENDING 상태면 FAILED로 전환
-    // 서버리스 재시작 또는 타임아웃으로 인한 영구 고착 방지 (SEND-010)
+    // stale SENDING 복구: 해당 캠페인 ID만 대상으로 한정 (API-SEND-STALE-SWEEP-001)
+    // 전체 조직 스윕 금지 — GLOBAL_ADMIN이 다른 조직 캠페인을 FAILED 전환하는 것 방지
     const staleThreshold = new Date(Date.now() - 30 * 60 * 1000);
     await prisma.crmMarketingCampaign.updateMany({
       where: {
+        id,
         status: 'SENDING',
         updatedAt: { lt: staleThreshold },
-        ...(ctx.organizationId ? { organizationId: ctx.organizationId } : {}),
       },
       data: { status: 'FAILED' },
     });
@@ -110,10 +110,13 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       );
     }
 
-    // 배경 작업으로 발송 시작 (비동기 처리)
-    sendCampaignAsync(id, campaign, members, campaign.organizationId).catch((err) => {
-      logger.error('[sendCampaignAsync]', { err, campaignId: id });
-    });
+    // after(): 응답 반환 후에도 서버리스 런타임을 유지시켜 발송 완료 보장 (SEND-011)
+    // fire-and-forget .catch()만으로는 Vercel이 응답 직후 실행 컨텍스트를 종료할 수 있음
+    after(
+      sendCampaignAsync(id, campaign, members, campaign.organizationId).catch((err) => {
+        logger.error('[sendCampaignAsync]', { err, campaignId: id });
+      })
+    );
 
     return NextResponse.json({
       ok: true,
@@ -146,6 +149,9 @@ async function sendCampaignAsync(
       campaign.sendEmail ? getOrgEmailConfig(organizationId) : Promise.resolve(null),
     ]);
 
+    // SEND-013: executeMonth를 함수 진입 시 한 번만 계산 (배치 처리 중 월 경계 이슈 방지)
+    const executeMonth = new Date().toISOString().slice(0, 7);
+
     const BATCH_SIZE = 10;
     const CONCURRENT_BATCHES = 1;
 
@@ -157,7 +163,7 @@ async function sendCampaignAsync(
       const batchGroup = batches.slice(i, i + CONCURRENT_BATCHES);
 
       const batchResults = await Promise.all(
-        batchGroup.map((batch) => processBatch(campaignId, campaign, batch, organizationId, smsConfig, emailConfig))
+        batchGroup.map((batch) => processBatch(campaignId, campaign, batch, organizationId, smsConfig, emailConfig, executeMonth))
       );
       batchResults.forEach((r) => { totalSent += r.sent; totalFailed += r.failed; });
 
@@ -184,9 +190,17 @@ async function sendCampaignAsync(
   } catch (err) {
     logger.error('[sendCampaignAsync] Error', { err, campaignId });
 
+    // DB-30: 실패 시 ExecutionLog 기준으로 sentCount 재동기화 (increment 누적 오차 방지)
+    const actualSentCount = await prisma.executionLog.count({
+      where: { campaignId, status: 'SENT' },
+    }).catch(() => undefined);
+
     await prisma.crmMarketingCampaign.update({
       where: { id: campaignId },
-      data: { status: 'FAILED' },
+      data: {
+        status: 'FAILED',
+        ...(actualSentCount !== undefined ? { sentCount: actualSentCount } : {}),
+      },
     });
   }
 }
@@ -198,11 +212,12 @@ async function processBatch(
   members: MemberWithContact[],
   organizationId: string,
   smsConfig: Awaited<ReturnType<typeof getOrgSmsConfig>>,
-  emailConfig: Awaited<ReturnType<typeof getOrgEmailConfig>>
+  emailConfig: Awaited<ReturnType<typeof getOrgEmailConfig>>,
+  executeMonth: string
 ): Promise<{ sent: number; failed: number }> {
   const results = await Promise.all(
     members.map((member) =>
-      processRecipient(campaignId, campaign, member, organizationId, smsConfig, emailConfig)
+      processRecipient(campaignId, campaign, member, organizationId, smsConfig, emailConfig, executeMonth)
     )
   );
   return { sent: results.filter(Boolean).length, failed: results.filter((v) => !v).length };
@@ -215,7 +230,8 @@ async function processRecipient(
   member: MemberWithContact,
   organizationId: string,
   smsConfig: Awaited<ReturnType<typeof getOrgSmsConfig>>,
-  emailConfig: Awaited<ReturnType<typeof getOrgEmailConfig>>
+  emailConfig: Awaited<ReturnType<typeof getOrgEmailConfig>>,
+  executeMonth: string  // SEND-013: 월 경계 오차 방지 — 호출 시점에 한 번만 계산된 값을 전달
 ): Promise<boolean> {
   const contact = member.contact;
   let smsSent = false;
@@ -256,6 +272,9 @@ async function processRecipient(
     // 발송 기록은 SmsLog (sendSms 내부에서 자동 기록) 및 EmailLog에서 처리
 
     // ExecutionLog upsert: 캠페인 발송 이력 기록 (월별 중복 방지)
+    // SEND-012: channel을 발송 결과 기반으로 결정 (캠페인 플래그 기반 → 실제 발송 채널 기반)
+    // SEND-013: executeMonth를 외부에서 전달받아 월 경계 불일치 방지
+    const actualChannel = smsSent ? 'SMS' : emailSent ? 'EMAIL' : (campaign.sendSms ? 'SMS' : 'EMAIL');
     try {
       await prisma.executionLog.upsert({
         where: {
@@ -263,7 +282,7 @@ async function processRecipient(
             sourceType: 'CAMPAIGN',
             sourceId: campaignId,
             contactId: contact.id,
-            executeMonth: new Date().toISOString().slice(0, 7),
+            executeMonth,
           },
         },
         create: {
@@ -272,9 +291,9 @@ async function processRecipient(
           sourceId: campaignId,
           sourceName: campaign.title,
           contactId: contact.id,
-          channel: campaign.sendSms ? 'SMS' : 'EMAIL',
+          channel: actualChannel,
           status: (smsSent || emailSent) ? 'SENT' : 'FAILED',
-          executeMonth: new Date().toISOString().slice(0, 7),
+          executeMonth,
           scheduledAt: campaign.sendAt,
           sentAt: new Date(),
           campaignId,

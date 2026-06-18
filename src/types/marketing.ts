@@ -4,6 +4,7 @@ export interface Campaign {
   status: 'DRAFT' | 'PENDING' | 'SENDING' | 'SENT' | 'FAILED' | 'CANCELLED';
   totalCount: number;
   sentCount: number;
+  failedCount: number;  // LIB-TYPES-NEW-001: send/route.ts에서 increment되는 필드 추가
   openCount: number;
   clickCount: number;
   registeredCount: number;
@@ -81,6 +82,7 @@ export interface CampaignDetail {
   status: 'DRAFT' | 'PENDING' | 'SENDING' | 'SENT' | 'FAILED' | 'CANCELLED';
   sendAt: string | null;
   createdAt: string;
+  failedCount?: number;  // LIB-TYPES-NEW-001: track GET 응답에 포함될 수 있는 failedCount
 }
 
 export interface CampaignStats {
@@ -104,5 +106,49 @@ export interface SalesApiData {
   monthly: MonthlyRow[];
   byLanding: LandingRow[];
   recent: RecentRow[];
-  pagination?: { page: number; limit: number; totalCount: number; totalPages: number };
+  // LIB-TYPES-014: API는 항상 pagination을 반환하므로 필수 필드로 변경
+  pagination: { page: number; limit: number; totalCount: number; totalPages: number };
+  warning?: string;
+}
+
+// LIB-TYPES-NEW-002: variants/page.tsx 로컬 정의 인터페이스를 이곳으로 이동 (LIB-TYPES-012 완료)
+export interface VariantContent {
+  smsBody?: string;
+  emailSubject?: string;
+  emailBody?: string;
+  trafficSplit?: number;
+}
+
+export interface Variant {
+  id: string;
+  variantKey: 'A' | 'B';
+  smsBody?: string;
+  emailSubject?: string;
+  emailBody?: string;
+  trafficSplit: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface StatsData {
+  variants: Record<string, {
+    sent: number;
+    success: number;
+    failure: number;
+    successRate: number;
+  }>;
+  analysis: {
+    chiSquare?: {
+      chi2: number;
+      pValue: number;
+      isSignificant: boolean;
+    };
+    cramersV: number;
+    recommendation?: string;
+    confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+    interpretation: string;
+  };
+  metadata: {
+    sampleSizeRecommendation?: string;
+  };
 }

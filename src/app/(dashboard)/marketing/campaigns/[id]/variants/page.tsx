@@ -8,49 +8,7 @@ import { VariantCard } from '@/components/campaigns/VariantCard';
 import { VariantStats } from '@/components/campaigns/VariantStats';
 import { logger } from '@/lib/logger';
 import { useToast } from '@/lib/api/use-toast';
-import type { CampaignDetail } from '@/types/marketing';
-
-interface Variant {
-  id: string;
-  variantKey: 'A' | 'B';
-  smsBody?: string;
-  emailSubject?: string;
-  emailBody?: string;
-  trafficSplit: number;
-  isActive: boolean;
-  createdAt: string;
-}
-
-interface VariantContent {
-  smsBody?: string;
-  emailSubject?: string;
-  emailBody?: string;
-  trafficSplit?: number;
-}
-
-// TODO: StatsData/VariantContent 인터페이스를 src/types/marketing.ts로 이동 예정 (LIB-TYPES-012)
-interface StatsData {
-  variants: Record<string, {
-    sent: number;
-    success: number;
-    failure: number;
-    successRate: number;
-  }>;
-  analysis: {
-    chiSquare?: {
-      chi2: number;
-      pValue: number;
-      isSignificant: boolean;
-    };
-    cramersV: number;
-    recommendation?: string;
-    confidence: 'HIGH' | 'MEDIUM' | 'LOW';
-    interpretation: string;
-  };
-  metadata: {
-    sampleSizeRecommendation?: string;
-  };
-}
+import type { CampaignDetail, Variant, VariantContent, StatsData } from '@/types/marketing';
 
 const STATUS_LABEL: Record<CampaignDetail['status'], string> = {
   DRAFT: '임시저장',
@@ -67,6 +25,7 @@ export default function VariantPage() {
   const { toast } = useToast();
 
   const mountedRef = useRef(true);
+  const mutationCtrlRef = useRef<AbortController | null>(null);  // UI-VARIANTS-009: mutation 후 refetch 취소 가능
 
   const [campaign, setCampaign] = useState<CampaignDetail | null>(null);
   const [variants, setVariants] = useState<Variant[]>([]);
@@ -87,7 +46,7 @@ export default function VariantPage() {
       const campaignRes = await fetch(`/api/marketing/campaigns/${campaignId}`, { signal });
       if (campaignRes.ok) {
         const campaignData = await campaignRes.json();
-        setCampaign(campaignData.campaign);
+        if (mountedRef.current) setCampaign(campaignData.campaign);
       }
 
       // Variant 목록 조회
@@ -95,7 +54,7 @@ export default function VariantPage() {
       if (variantsRes.ok) {
         const variantsData = await variantsRes.json();
         if (variantsData.ok) {
-          setVariants(variantsData.variants);
+          if (mountedRef.current) setVariants(variantsData.variants);
         }
       }
 
@@ -104,20 +63,23 @@ export default function VariantPage() {
       if (statsRes.ok) {
         const statsData = await statsRes.json();
         if (statsData.ok) {
-          setStats(statsData);
+          if (mountedRef.current) setStats(statsData);
         }
       }
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') return;
       logger.error('[loadData]', { error });
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [campaignId]);
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    return () => {
+      mountedRef.current = false;
+      mutationCtrlRef.current?.abort();  // UI-VARIANTS-009: 언마운트 시 진행 중인 refetch 취소
+    };
   }, []);
 
   useEffect(() => {
@@ -145,7 +107,12 @@ export default function VariantPage() {
 
       setVariants([...variants, data.variant]);
       toast({ title: `Variant ${variantKey} 생성 완료` });
-      if (mountedRef.current) await loadData();
+      // UI-VARIANTS-009: AbortController로 refetch 취소 가능하게 변경
+      if (mountedRef.current) {
+        mutationCtrlRef.current?.abort();
+        mutationCtrlRef.current = new AbortController();
+        await loadData(mutationCtrlRef.current.signal);
+      }
     } catch (error) {
       logger.error('[handleCreateVariant]', { error });
       toast({ title: '오류 발생', description: 'Variant 생성 중 문제가 발생했습니다.', variant: 'destructive' });
@@ -173,7 +140,11 @@ export default function VariantPage() {
 
       setVariants(variants.map(v => (v.variantKey === variantKey ? data.variant : v)));
       toast({ title: `Variant ${variantKey} 수정 완료` });
-      if (mountedRef.current) await loadData();
+      if (mountedRef.current) {
+        mutationCtrlRef.current?.abort();
+        mutationCtrlRef.current = new AbortController();
+        await loadData(mutationCtrlRef.current.signal);
+      }
     } catch (error) {
       logger.error('[handleUpdateVariant]', { error });
       toast({ title: '오류 발생', description: 'Variant 수정 중 문제가 발생했습니다.', variant: 'destructive' });
@@ -199,7 +170,11 @@ export default function VariantPage() {
 
       setVariants(variants.filter(v => v.variantKey !== variantKey));
       toast({ title: `Variant ${variantKey} 삭제 완료` });
-      if (mountedRef.current) await loadData();
+      if (mountedRef.current) {
+        mutationCtrlRef.current?.abort();
+        mutationCtrlRef.current = new AbortController();
+        await loadData(mutationCtrlRef.current.signal);
+      }
     } catch (error) {
       logger.error('[handleDeleteVariant]', { error });
       toast({ title: '오류 발생', description: 'Variant 삭제 중 문제가 발생했습니다.', variant: 'destructive' });
@@ -229,8 +204,8 @@ export default function VariantPage() {
         </p>
       </div>
 
-      {/* DRAFT/PENDING 아님 경고 */}
-      {!['DRAFT', 'PENDING'].includes(campaign?.status ?? '') && (
+      {/* DRAFT 아님 경고 — API와 일치: DRAFT만 Variant 수정 가능 */}
+      {campaign?.status !== 'DRAFT' && (
         <div className="border border-yellow-200 bg-yellow-50 text-yellow-800 p-4 rounded">
           발송 중이거나 완료된 캠페인입니다. Variant를 수정할 수 없습니다. 새 캠페인을 만들어주세요.
         </div>
@@ -263,7 +238,7 @@ export default function VariantPage() {
                 onUpdate={(content) => handleUpdateVariant('A', content)}
                 onDelete={() => handleDeleteVariant('A')}
                 isLoading={saving}
-                isDraftOnly={['DRAFT', 'PENDING'].includes(campaign?.status ?? '')}
+                isDraftOnly={campaign?.status === 'DRAFT'}
               />
               <VariantCard
                 variant="B"
@@ -272,7 +247,7 @@ export default function VariantPage() {
                 onUpdate={(content) => handleUpdateVariant('B', content)}
                 onDelete={() => handleDeleteVariant('B')}
                 isLoading={saving}
-                isDraftOnly={['DRAFT', 'PENDING'].includes(campaign?.status ?? '')}
+                isDraftOnly={campaign?.status === 'DRAFT'}
               />
             </div>
           </div>

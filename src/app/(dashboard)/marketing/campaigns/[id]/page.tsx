@@ -16,12 +16,14 @@ export default function CampaignDetailPage() {
   const { toast } = useToast();
 
   const [campaign, setCampaign] = useState<CampaignDetail | null>(null);
+  const campaignLoadedRef = useRef(false);  // UI-CAMPAIGNS-005: stale closure 없이 초기 로드 여부 추적
   const [stats, setStats] = useState<CampaignStats | null>(null);
   const [conversionRates, setConversionRates] = useState<CampaignConversionRates | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState<number | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [pollError, setPollError] = useState<string | null>(null);  // UI-CAMPAIGNS-005: 폴링 실패는 별도 상태
   const retryCtrlRef = useRef<AbortController | null>(null);
 
   const fetchCampaignData = useCallback(async (signal?: AbortSignal) => {
@@ -31,8 +33,10 @@ export default function CampaignDetailPage() {
 
       const data = await res.json();
       setCampaign(data.campaign);
+      campaignLoadedRef.current = true;
       setStats(data.stats);
       setConversionRates(data.conversionRates);
+      setPollError(null);  // 성공 시 이전 폴링 에러 클리어
 
       // 발송 중이면 자동으로 새로고침
       setRefreshInterval((prev) => {
@@ -43,7 +47,13 @@ export default function CampaignDetailPage() {
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return;
       logger.error('[fetchCampaignData]', { err });
-      setFetchError('데이터를 불러올 수 없습니다.');
+      // UI-CAMPAIGNS-005: 초기 로드 실패는 fetchError, 폴링 실패는 pollError로 분리
+      // campaignLoadedRef로 stale closure 없이 초기 로드 여부를 판단
+      if (!campaignLoadedRef.current) {
+        setFetchError('데이터를 불러올 수 없습니다.');
+      } else {
+        setPollError('데이터 갱신에 실패했습니다. 잠시 후 다시 시도됩니다.');
+      }
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -145,6 +155,13 @@ export default function CampaignDetailPage() {
 
   return (
     <div className="space-y-6">
+      {/* UI-CAMPAIGNS-005: 폴링 실패 배너 — campaign이 있어도 표시 */}
+      {pollError && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-yellow-700 text-sm">
+          ⚠️ {pollError}
+        </div>
+      )}
+
       {/* 헤더 */}
       <div className="flex items-start justify-between">
         <div>
