@@ -43,8 +43,8 @@ export function CampaignRow({
         </span>
       </td>
       <td className="px-6 py-4 text-sm text-gray-600">
-        발송 {campaign.sentCount}/{campaign.totalCount} • 열람 {campaign.openedCount} •
-        클릭 {campaign.clickedCount}
+        발송 {campaign.sentCount}/{campaign.totalCount} • 열람 {campaign.openCount} •
+        클릭 {campaign.clickCount}
       </td>
       <td className="px-6 py-4 text-sm space-x-2">
         <Link href={`/marketing/campaigns/${campaign.id}`}>

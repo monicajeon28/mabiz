@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
@@ -50,6 +51,8 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     const { id } = await context.params;
     const body = await req.json();
 
+    // GLOBAL_ADMIN: ctx.organizationId가 null이므로 undefined로 평가되어 Prisma가 org 필터를 무시함.
+    // 이는 의도적 설계: GLOBAL_ADMIN은 모든 조직의 캠페인을 수정할 수 있음 (운영 지원 목적)
     const existing = await prisma.crmMarketingCampaign.findFirst({
       where: {
         id: id ?? undefined,
@@ -64,7 +67,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       );
     }
 
-    const data: Record<string, unknown> = {};
+    const data: Prisma.CrmMarketingCampaignUpdateInput = {};
     if (body.title !== undefined) data.title = body.title;
     if (body.sendEmail !== undefined) data.sendEmail = body.sendEmail;
     if (body.sendSms !== undefined) data.sendSms = body.sendSms;
@@ -109,6 +112,8 @@ export async function DELETE(_req: NextRequest, context: { params: Promise<{ id:
 
     const { id } = await context.params;
 
+    // GLOBAL_ADMIN: cross-org 삭제 허용 (line 106에서 GLOBAL_ADMIN 삭제 권한 명시적 부여됨)
+    // ctx.organizationId가 null인 GLOBAL_ADMIN은 org 필터 없이 모든 조직의 캠페인 삭제 가능
     const existing = await prisma.crmMarketingCampaign.findFirst({
       where: {
         id: id ?? undefined,

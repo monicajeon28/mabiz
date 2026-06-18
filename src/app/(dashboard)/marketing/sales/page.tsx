@@ -7,12 +7,8 @@ import { formatAmount, formatDate, maskPhone } from "@/lib/marketing-utils";
 import { SkeletonRow } from "@/components/marketing/SkeletonRow";
 import { StatusBadge } from "@/components/marketing/StatusBadge";
 import { SalesBarChart } from "@/components/marketing/SalesBarChart";
+import { cn } from "@/lib/utils";
 import type { MonthlyRow, LandingRow, RecentRow, SalesApiData, SalesSummary } from "@/types/marketing";
-
-function cn(...classes: (string | boolean | undefined | null)[]) {
-  return classes.filter(Boolean).join(' ');
-}
-
 
 
 // ─── KPI 카드 ─────────────────────────────────────────────────
@@ -131,11 +127,11 @@ export default function MarketingSalesPage() {
   const [error,   setError]   = useState<string | null>(null);
   const [page,    setPage]    = useState(1);
 
-  const load = useCallback((pageNum: number = 1) => {
+  const load = useCallback((pageNum: number = 1, signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     setPage(pageNum);
-    fetch(`/api/marketing/sales?page=${pageNum}&limit=20`)
+    fetch(`/api/marketing/sales?page=${pageNum}&limit=20`, { signal })
       .then((res) => res.json())
       .then((json: SalesApiData) => {
         if (json.ok) {
@@ -144,12 +140,17 @@ export default function MarketingSalesPage() {
           setError("데이터를 불러오지 못했습니다.");
         }
       })
-      .catch(() => setError("네트워크 오류가 발생했습니다."))
+      .catch((err) => {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        setError("네트워크 오류가 발생했습니다.");
+      })
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
-    load(1);
+    const controller = new AbortController();
+    load(1, controller.signal);
+    return () => controller.abort();
   }, [load]);
 
   const summary: SalesSummary | undefined = data?.summary;

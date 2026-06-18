@@ -1,11 +1,11 @@
 export interface Campaign {
   id: string;
   title: string;
-  status: string;
+  status: 'DRAFT' | 'PENDING' | 'SENDING' | 'SENT' | 'FAILED' | 'CANCELLED';
   totalCount: number;
   sentCount: number;
-  openedCount: number;
-  clickedCount: number;
+  openCount: number;
+  clickCount: number;
   registeredCount: number;
   group: { id: string; name: string };
   createdAt: string;
@@ -38,6 +38,7 @@ export interface TrendDay {
 }
 
 export interface DashboardData {
+  ok: boolean;
   summary: Summary;
   topPages: TopPage[];
   trend: TrendDay[];
@@ -72,6 +73,29 @@ export interface SalesSummary {
   netRevenue:   number;
   paidCount:    number;
   month:        string;
+}
+
+export interface CampaignDetail {
+  id: string;
+  title: string;
+  status: 'DRAFT' | 'PENDING' | 'SENDING' | 'SENT' | 'FAILED' | 'CANCELLED';
+  sendAt: string | null;
+  createdAt: string;
+}
+
+export interface CampaignStats {
+  total: number;
+  sent: number;
+  opened: number;
+  clicked: number;
+  registered: number;
+}
+
+export interface CampaignConversionRates {
+  sentRate: string;
+  openRate: string;
+  clickRate: string;
+  registrationRate: string;
 }
 
 export interface SalesApiData {
