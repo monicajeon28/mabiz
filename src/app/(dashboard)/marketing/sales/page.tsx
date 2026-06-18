@@ -9,7 +9,7 @@ import { StatusBadge } from "@/components/marketing/StatusBadge";
 import { SalesBarChart } from "@/components/marketing/SalesBarChart";
 import { KpiCard } from "@/components/marketing/KpiCard";
 import { cn } from "@/lib/utils";
-import type { MonthlyRow, LandingRow, RecentRow, SalesApiData, SalesSummary, OrgBreakdown } from "@/types/marketing";
+import type { RecentRow, SalesApiData, SalesSummary, OrgBreakdown } from "@/types/marketing";
 
 
 // ─── 최근 결제 테이블 (PC) ─────────────────────────────────────
