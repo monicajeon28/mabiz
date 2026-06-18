@@ -61,11 +61,22 @@ const LIMIT = 20;
 
 // 객실 타입 설정 (단일 원본)
 const CABIN_TYPE_CONFIG = [
-  { key: "inside",    label: "내측",    longLabel: "내측 (Inside)" },
-  { key: "oceanview", label: "오션뷰",  longLabel: "오션뷰 (Ocean View)" },
-  { key: "balcony",   label: "발코니",  longLabel: "발코니 (Balcony)" },
-  { key: "suite",     label: "스위트",  longLabel: "스위트 (Suite)" },
+  { key: "inside",    label: "인사이드", longLabel: "인사이드 (Inside)" },
+  { key: "oceanview", label: "오션뷰",   longLabel: "오션뷰 (Ocean View)" },
+  { key: "balcony",   label: "발코니",   longLabel: "발코니 (Balcony)" },
+  { key: "suite",     label: "스위트",   longLabel: "스위트 (Suite)" },
 ] as const;
+
+// 객실 타입 한글 변환 (UI 표시용)
+const CABIN_TYPE_KO: Record<string, string> = {
+  inside:    "인사이드",
+  oceanview: "오션뷰",
+  balcony:   "발코니",
+  suite:     "스위트",
+};
+function cabinTypeLabel(type: string): string {
+  return CABIN_TYPE_KO[type] ?? type;
+}
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -140,9 +151,9 @@ function CabinSummaryCell({ summary, productCode, onRegister }: {
     return (
       <button
         onClick={() => onRegister(productCode)}
-        className="flex items-center gap-1 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+        className="flex items-center gap-1 text-base text-gray-600 hover:text-blue-600 transition-colors min-h-[48px]"
       >
-        <PlusCircle className="w-3.5 h-3.5" />
+        <PlusCircle className="w-4 h-4" />
         객실 등록
       </button>
     );
@@ -151,41 +162,53 @@ function CabinSummaryCell({ summary, productCode, onRegister }: {
   const known = CABIN_TYPE_CONFIG.filter(({ key }) => key in summary);
   const extra = Object.keys(summary).filter((k) => !CABIN_TYPE_CONFIG.some((l) => l.key === k));
   const all = [
-    ...known.map(({ key, label }) => ({ key, label, entry: summary[key]! })),
-    ...extra.map((key) => ({ key, label: key, entry: summary[key]! })),
+    ...known.map(({ key }) => ({ key, label: cabinTypeLabel(key), entry: summary[key]! })),
+    ...extra.map((key) => ({ key, label: cabinTypeLabel(key), entry: summary[key]! })),
   ];
 
   return (
-    <div className="space-y-0.5 min-w-[110px] min-h-[100px]">
+    <div className="space-y-1 min-w-[120px]">
       {all.map(({ key, label, entry }) => {
         // ★ status 필드 우선, 없으면 remaining 기반 판단 (하위호환)
-        const isSoldOut = entry.status === 'SOLD_OUT' || entry.remaining <= 0;
+        const isSoldOut = entry.status === "SOLD_OUT" || entry.remaining <= 0;
+        const isLowStock = !isSoldOut && entry.remaining > 0 && entry.remaining <= 3;
         return (
-          <div key={key} className="flex items-center gap-1.5 text-sm">
-            <span className="text-gray-500 w-[40px] shrink-0 font-medium">{label}</span>
-            {isSoldOut ? (
-              <span className="font-bold text-red-600">
-                {entry.status === 'SOLD_OUT' ? '솔드아웃' : '마감'}({entry.total})
-              </span>
-            ) : (
-              <span className="tabular-nums">
-                <span className="font-bold text-red-500">{entry.booked}</span>
-                <span className="text-gray-600 mx-0.5">/</span>
-                <span className="font-bold text-blue-500">{entry.total}</span>
-                {entry.remaining <= 3 && entry.remaining > 0 && (
-                  <span className="text-orange-500 ml-1 font-medium">({entry.remaining}남)</span>
-                )}
-              </span>
-            )}
+          <div key={key} className="flex items-center gap-2 text-base">
+            <span className="text-gray-600 w-[52px] shrink-0 font-medium">{label}</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {isSoldOut ? (
+                <>
+                  <span className="tabular-nums text-gray-500 text-sm">
+                    {entry.booked}/{entry.total}
+                  </span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-600">
+                    매진
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="tabular-nums">
+                    <span className="font-bold text-red-500">{entry.booked}</span>
+                    <span className="text-gray-500 mx-0.5">/</span>
+                    <span className="font-bold text-blue-500">{entry.total}</span>
+                  </span>
+                  {isLowStock && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-600">
+                      잔여 {entry.remaining}개
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         );
       })}
       {/* 수정 버튼 */}
       <button
         onClick={() => onRegister(productCode)}
-        className="flex items-center gap-0.5 text-[10px] text-gray-600 hover:text-blue-600 transition-colors mt-0.5"
+        className="flex items-center gap-0.5 text-sm text-gray-500 hover:text-blue-600 transition-colors mt-1"
       >
-        <PlusCircle className="w-3 h-3" />
+        <PlusCircle className="w-3.5 h-3.5" />
         수정
       </button>
     </div>
@@ -1061,18 +1084,18 @@ export default function ProductsPage() {
                         {product.departureDate && (
                           <button
                             onClick={() => setRefundProduct(product)}
-                            className="flex items-center gap-1 px-2.5 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors whitespace-nowrap"
+                            className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors whitespace-nowrap min-h-[48px]"
                           >
-                            <Calculator className="w-3.5 h-3.5" />
+                            <Calculator className="w-4 h-4" />
                             환불기준
                           </button>
                         )}
                         {canDownloadApis && (
                           <button
                             onClick={() => setApisProduct(product)}
-                            className="flex items-center gap-1 px-2.5 py-1.5 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors whitespace-nowrap"
+                            className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors whitespace-nowrap min-h-[48px]"
                           >
-                            <FileSpreadsheet className="w-3.5 h-3.5" />
+                            <FileSpreadsheet className="w-4 h-4" />
                             APIS
                           </button>
                         )}
