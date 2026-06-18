@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, CheckCircle, Loader2, ChevronLeft, ChevronRight, X, Clock } from "lucide-react";
+import { Search, CheckCircle, Loader2, ChevronLeft, ChevronRight, X, Clock, Filter, LogOut } from "lucide-react";
 
 type Member = {
   id: number;
@@ -89,6 +89,7 @@ export default function MembersPage() {
   const [dateRange, setDateRange] = useState("");
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
 
   // 모달 관련 상태
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
@@ -481,177 +482,233 @@ export default function MembersPage() {
   };
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto bg-gradient-to-b from-blue-50 to-white min-h-screen">
       {/* 헤더 */}
-      <div className="mb-5 flex items-center gap-3">
-        <h1 className="text-xl font-bold text-gray-900">크루즈닷 회원관리</h1>
+      <div className="mb-8">
+        <div className="flex items-center gap-4 mb-3">
+          <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center">
+            <span className="text-xl font-bold text-white">👥</span>
+          </div>
+          <div>
+            <h1 className="text-28 font-bold text-gray-900">회원 관리</h1>
+            <p className="text-16 text-gray-600 mt-1">크루즈닷 전체 회원을 한눈에 관리합니다</p>
+          </div>
+        </div>
         {!loading && total > 0 && (
-          <span className="px-2.5 py-0.5 bg-gray-100 text-gray-500 text-sm font-medium rounded-full">
-            총 {total.toLocaleString()}명
-          </span>
+          <div className="mt-4 inline-block px-6 py-3 bg-white border-2 border-blue-200 rounded-xl">
+            <p className="text-18 font-bold text-blue-700">총 <span className="text-blue-600">{total.toLocaleString()}</span>명</p>
+          </div>
         )}
       </div>
 
       {/* 필터 바 */}
-      <div className="flex flex-wrap items-center gap-2 mb-5">
-        <form onSubmit={handleSearch} className="relative flex-shrink-0">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
-          <input
-            value={inputQ}
-            onChange={(e) => handleQChange(e.target.value)}
-            placeholder="이름 / 전화번호"
-            className="pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 w-52"
-          />
-        </form>
+      <div className="mb-6 space-y-4">
+        {/* 검색 및 필터 토글 */}
+        <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
+          <form onSubmit={handleSearch} className="relative flex-1 max-w-lg">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+            <input
+              value={inputQ}
+              onChange={(e) => handleQChange(e.target.value)}
+              placeholder="이름 또는 전화번호를 검색하세요"
+              className="w-full pl-12 pr-4 py-3 text-16 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </form>
 
-        <select
-          value={provider}
-          onChange={(e) => handleProviderChange(e.target.value)}
-          className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white text-gray-700"
-        >
-          <option value="">전체 가입경로</option>
-          <option value="KAKAO">카카오</option>
-          <option value="NAVER">네이버</option>
-          <option value="GOOGLE">구글</option>
-          <option value="DIRECT">일반가입</option>
-        </select>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`flex items-center justify-center gap-2 px-6 py-3 text-16 font-medium rounded-lg border-2 transition-all ${
+              showFilters
+                ? "bg-blue-600 text-white border-blue-600"
+                : "bg-white text-gray-700 border-gray-300 hover:border-blue-600"
+            }`}
+          >
+            <Filter className="w-5 h-5" />
+            필터
+          </button>
+        </div>
 
-        <select
-          value={status}
-          onChange={(e) => handleStatusFilterChange(e.target.value)}
-          className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white text-gray-700"
-        >
-          <option value="">전체 상태</option>
-          <option value="잠재고객">잠재고객</option>
-          <option value="소통">소통</option>
-          <option value="구매완료">구매완료</option>
-          <option value="VIP">VIP</option>
-          <option value="수신거부">수신거부</option>
-        </select>
+        {/* 필터 확장 패널 */}
+        {showFilters && (
+          <div className="bg-white border-2 border-gray-200 rounded-xl p-6 space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {/* 가입경로 */}
+              <div>
+                <label className="block text-16 font-semibold text-gray-900 mb-3">
+                  가입 경로
+                </label>
+                <select
+                  value={provider}
+                  onChange={(e) => handleProviderChange(e.target.value)}
+                  className="w-full px-4 py-3 text-16 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">— 전체 경로 —</option>
+                  <option value="KAKAO">😊 카카오</option>
+                  <option value="NAVER">🔍 네이버</option>
+                  <option value="GOOGLE">🔵 구글</option>
+                  <option value="DIRECT">✏️ 일반가입</option>
+                </select>
+              </div>
 
-        <input
-          type="text"
-          value={dateRange}
-          onChange={(e) => handleDateRangeChange(e.target.value)}
-          placeholder="YYYY-MM-DD~YYYY-MM-DD"
-          className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 w-48"
-        />
+              {/* 회원 상태 */}
+              <div>
+                <label className="block text-16 font-semibold text-gray-900 mb-3">
+                  회원 상태
+                </label>
+                <select
+                  value={status}
+                  onChange={(e) => handleStatusFilterChange(e.target.value)}
+                  className="w-full px-4 py-3 text-16 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">— 전체 상태 —</option>
+                  <option value="잠재고객">💤 잠재고객</option>
+                  <option value="소통">💬 소통 중</option>
+                  <option value="구매완료">✅ 구매 완료</option>
+                  <option value="VIP">👑 VIP</option>
+                  <option value="수신거부">🚫 수신 거부</option>
+                </select>
+              </div>
+
+              {/* 가입 날짜 */}
+              <div>
+                <label className="block text-16 font-semibold text-gray-900 mb-3">
+                  가입 기간
+                </label>
+                <input
+                  type="text"
+                  value={dateRange}
+                  onChange={(e) => handleDateRangeChange(e.target.value)}
+                  placeholder="예: 2026-01-01~2026-06-30"
+                  className="w-full px-4 py-3 text-16 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            {/* 필터 초기화 */}
+            {(q || provider || status || dateRange) && (
+              <div className="flex gap-3 justify-end pt-3 border-t-2 border-gray-200">
+                <button
+                  onClick={() => {
+                    setInputQ("");
+                    setQ("");
+                    setProvider("");
+                    setStatus("");
+                    setDateRange("");
+                    setPage(1);
+                    setShowFilters(false);
+                  }}
+                  className="px-6 py-3 text-16 font-medium text-gray-700 border-2 border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  필터 초기화
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 에러 */}
       {error && (
-        <div className="mb-4 px-4 py-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600">
-          {error}
+        <div className="mb-6 px-6 py-4 bg-red-50 border-2 border-red-300 rounded-xl text-16 text-red-700 font-medium">
+          ⚠️ {error}
         </div>
       )}
 
       {/* 컨텐츠 */}
       {loading ? (
-        <div className="flex items-center justify-center py-20 gap-2 text-gray-600">
-          <Loader2 className="w-5 h-5 animate-spin" />
-          <span className="text-sm">불러오는 중...</span>
+        <div className="flex flex-col items-center justify-center py-32 gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <p className="text-18 text-gray-600 font-medium">회원 목록을 불러오는 중...</p>
         </div>
       ) : !error && members.length === 0 ? (
-        <div className="text-center py-20 text-gray-600 text-sm">
-          검색 결과가 없습니다.
+        <div className="text-center py-32 bg-white border-2 border-gray-200 rounded-xl">
+          <p className="text-20 text-gray-600 font-medium">검색 결과가 없습니다</p>
+          <p className="text-16 text-gray-500 mt-2">다른 조건으로 검색해보세요</p>
         </div>
       ) : !error && (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="bg-white border-2 border-gray-200 rounded-xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
+            <table className="w-full">
+              <thead className="bg-gradient-to-r from-blue-50 to-blue-100 border-b-2 border-blue-200">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">#</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">이름</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">전화번호</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">이메일</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">가입경로</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">상태</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">태그</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">파트너유형</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">카카오채널</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">가입일</th>
+                  <th className="text-left px-6 py-4 font-bold text-16 text-blue-900">#</th>
+                  <th className="text-left px-6 py-4 font-bold text-16 text-blue-900">👤 이름</th>
+                  <th className="text-left px-6 py-4 font-bold text-16 text-blue-900">📱 연락처</th>
+                  <th className="text-left px-6 py-4 font-bold text-16 text-blue-900">📧 이메일</th>
+                  <th className="text-left px-6 py-4 font-bold text-16 text-blue-900">경로</th>
+                  <th className="text-left px-6 py-4 font-bold text-16 text-blue-900">상태</th>
+                  <th className="text-left px-6 py-4 font-bold text-16 text-blue-900">태그</th>
+                  <th className="text-left px-6 py-4 font-bold text-16 text-blue-900">가입일</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-gray-200">
                 {members.map((m, idx) => {
                   const providerBadge  = PROVIDER_BADGE[m.provider] ?? PROVIDER_BADGE.DIRECT;
-                  const affiliateBadge = m.affiliateType ? AFFILIATE_BADGE[m.affiliateType] : null;
                   const rowNum         = (page - 1) * LIMIT + idx + 1;
 
                   return (
                     <tr
                       key={String(m.id)}
                       onClick={() => openDetailModal(m)}
-                      className="hover:bg-blue-50 transition-colors cursor-pointer"
+                      className="hover:bg-blue-50 transition-colors cursor-pointer border-b border-gray-100"
                     >
-                      <td className="px-4 py-3 text-gray-600 text-sm">{rowNum}</td>
-                      <td className="px-4 py-3 font-medium text-gray-900">
-                        {m.name ?? <span className="text-gray-600 font-normal">이름없음</span>}
-                        {m.isLocked && (
-                          <span className="ml-1.5 px-1.5 py-0.5 bg-red-100 text-red-600 text-sm rounded">잠금</span>
-                        )}
+                      <td className="px-6 py-4 text-16 text-gray-600 font-medium">{rowNum}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-14">
+                            {(m.name ?? "?")[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-16 font-bold text-gray-900">
+                              {m.name ?? <span className="text-gray-500">이름없음</span>}
+                            </p>
+                            {m.isLocked && (
+                              <span className="inline-block mt-1 px-2 py-1 bg-red-100 text-red-700 text-12 font-bold rounded">🔒 잠금</span>
+                            )}
+                          </div>
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-gray-500 text-sm font-mono">
+                      <td className="px-6 py-4 text-16 text-gray-700 font-mono">
                         {m.phone ?? "-"}
                       </td>
-                      <td className="px-4 py-3 text-gray-500 text-sm">
+                      <td className="px-6 py-4 text-16 text-gray-700">
                         {m.email ?? "-"}
                       </td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${providerBadge.color}`}>
+                      <td className="px-6 py-4">
+                        <span className={`inline-block px-3 py-2 rounded-full text-14 font-bold ${providerBadge.color}`}>
                           {providerBadge.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-6 py-4">
                         {m.memberStatus && STATUS_BADGE[m.memberStatus] ? (
-                          <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${STATUS_BADGE[m.memberStatus].color}`}>
+                          <span className={`inline-block px-3 py-2 rounded-full text-14 font-bold ${STATUS_BADGE[m.memberStatus].color}`}>
                             {STATUS_BADGE[m.memberStatus].label}
                           </span>
                         ) : (
-                          <span className="text-gray-300 text-sm">-</span>
+                          <span className="text-gray-400 text-16">-</span>
                         )}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-1 flex-wrap">
+                      <td className="px-6 py-4">
+                        <div className="flex gap-2 flex-wrap">
                           {m.memberTags && m.memberTags.length > 0 ? (
                             <>
                               {m.memberTags.slice(0, 2).map((tag) => (
-                                <span key={tag} className="px-1.5 py-0.5 bg-blue-50 text-blue-600 text-sm rounded">
+                                <span key={tag} className="px-2 py-1 bg-blue-100 text-blue-700 text-14 font-medium rounded-full">
                                   #{tag}
                                 </span>
                               ))}
                               {m.memberTags.length > 2 && (
-                                <span className="px-1.5 py-0.5 text-gray-500 text-sm">
-                                  +{m.memberTags.length - 2}
+                                <span className="px-2 py-1 text-gray-600 text-14 font-medium">
+                                  +{m.memberTags.length - 2}개
                                 </span>
                               )}
                             </>
                           ) : (
-                            <span className="text-gray-300 text-sm">-</span>
+                            <span className="text-gray-400 text-16">-</span>
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        {affiliateBadge ? (
-                          <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${affiliateBadge.color}`}>
-                            {affiliateBadge.label}
-                          </span>
-                        ) : (
-                          <span className="text-gray-300 text-sm">-</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-1">
-                          {m.kakaoChannelAdded && <span className="text-yellow-600 text-xs font-medium">카카오✓</span>}
-                          {m.naverChannelAdded && <span className="text-green-600 text-xs font-medium">네이버✓</span>}
-                          {m.googleChannelAdded && <span className="text-blue-600 text-xs font-medium">구글✓</span>}
-                          {!m.kakaoChannelAdded && !m.naverChannelAdded && !m.googleChannelAdded && (
-                            <span className="text-gray-300 text-sm">-</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-gray-600 text-sm">
+                      <td className="px-6 py-4 text-16 text-gray-700 font-medium">
                         {formatDate(m.createdAt)}
                       </td>
                     </tr>
@@ -662,27 +719,29 @@ export default function MembersPage() {
           </div>
 
           {/* 페이지네이션 */}
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-            <p className="text-sm text-gray-600">총 {total.toLocaleString()}명</p>
-            <div className="flex items-center gap-1">
+          <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-5 border-t-2 border-gray-200 bg-gray-50">
+            <p className="text-18 font-medium text-gray-700 mb-4 sm:mb-0">
+              총 <span className="text-blue-600 font-bold">{total.toLocaleString()}</span>명
+            </p>
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
                 aria-label="이전 페이지"
-                className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30"
+                className="p-3 rounded-lg text-gray-700 hover:bg-blue-100 disabled:opacity-30 disabled:cursor-not-allowed border-2 border-gray-300 hover:border-blue-500 transition-all"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="w-5 h-5" />
               </button>
-              <span className="px-3 py-1.5 text-sm text-gray-600">
+              <span className="px-4 py-2 text-16 font-bold text-gray-700 bg-white border-2 border-gray-300 rounded-lg min-w-20 text-center">
                 {page} / {totalPages}
               </span>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
                 aria-label="다음 페이지"
-                className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30"
+                className="p-3 rounded-lg text-gray-700 hover:bg-blue-100 disabled:opacity-30 disabled:cursor-not-allowed border-2 border-gray-300 hover:border-blue-500 transition-all"
               >
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-5 h-5" />
               </button>
             </div>
           </div>
@@ -691,179 +750,205 @@ export default function MembersPage() {
 
       {/* 회원 상세 모달 */}
       {showDetailModal && selectedMember && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-auto">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[95vh] overflow-auto shadow-2xl">
             {/* 헤더 */}
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">
-                  {selectedMember.name || "이름없음"}
-                </h2>
-                <p className="text-sm text-gray-500">{selectedMember.email || "-"}</p>
+            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 border-b-4 border-blue-800 px-8 py-6 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center text-blue-600 font-bold text-20 shadow-lg">
+                  {(selectedMember.name ?? "?")[0].toUpperCase()}
+                </div>
+                <div>
+                  <h2 className="text-24 font-bold text-white">
+                    {selectedMember.name || "이름없음"}
+                  </h2>
+                  <p className="text-16 text-blue-100 mt-1">{selectedMember.email || "-"}</p>
+                </div>
               </div>
               <button
                 onClick={() => setShowDetailModal(false)}
                 aria-label="닫기"
-                className="p-1 rounded-lg hover:bg-gray-100 text-gray-600"
+                className="p-3 rounded-lg hover:bg-blue-500 text-white transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-6 h-6" />
               </button>
             </div>
 
             {detailLoading ? (
-              <div className="flex items-center justify-center py-20 gap-2 text-gray-600">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span className="text-sm">불러오는 중...</span>
+              <div className="flex flex-col items-center justify-center py-32 gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                <p className="text-18 text-gray-600 font-medium">정보를 불러오는 중...</p>
               </div>
             ) : (
-              <div className="p-6 space-y-6">
+              <div className="p-8 space-y-7">
                 {/* 기본 정보 */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">📋 기본 정보</h3>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <p className="text-gray-500">가입경로</p>
-                      <p className="font-medium text-gray-900">
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border-2 border-blue-200">
+                  <h3 className="text-20 font-bold text-blue-900 mb-6">📋 기본 정보</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-white rounded-lg p-5">
+                      <p className="text-14 text-gray-600 font-medium mb-2">가입 경로</p>
+                      <p className="text-18 font-bold text-gray-900">
                         {PROVIDER_BADGE[selectedMember.provider]?.label || "-"}
                       </p>
                     </div>
-                    <div>
-                      <p className="text-gray-500">가입일</p>
-                      <p className="font-medium text-gray-900">{formatDate(selectedMember.createdAt)}</p>
+                    <div className="bg-white rounded-lg p-5">
+                      <p className="text-14 text-gray-600 font-medium mb-2">가입 날짜</p>
+                      <p className="text-18 font-bold text-gray-900">{formatDate(selectedMember.createdAt)}</p>
                     </div>
-                    <div>
-                      <p className="text-gray-500">전화번호</p>
-                      <p className="font-medium text-gray-900 font-mono">{selectedMember.phone || "-"}</p>
+                    <div className="bg-white rounded-lg p-5">
+                      <p className="text-14 text-gray-600 font-medium mb-2">연락처</p>
+                      <p className="text-18 font-bold text-gray-900 font-mono">{selectedMember.phone || "-"}</p>
                     </div>
-                    <div>
-                      <p className="text-gray-500">SNS 채널 연결</p>
-                      <div className="flex gap-3">
-                        <p className="text-sm">
-                          {selectedMember.kakaoChannelAdded ? "✅ 카카오" : "❌ 카카오"}
-                        </p>
-                        <p className="text-sm">
-                          {selectedMember.naverChannelAdded ? "✅ 네이버" : "❌ 네이버"}
-                        </p>
-                        <p className="text-sm">
-                          {selectedMember.googleChannelAdded ? "✅ 구글" : "❌ 구글"}
-                        </p>
+                    <div className="bg-white rounded-lg p-5">
+                      <p className="text-14 text-gray-600 font-medium mb-3">연결된 채널</p>
+                      <div className="flex gap-4">
+                        <div className={`flex items-center gap-2 px-3 py-2 rounded-lg font-bold text-14 ${selectedMember.kakaoChannelAdded ? "bg-yellow-100 text-yellow-700" : "bg-gray-100 text-gray-500"}`}>
+                          {selectedMember.kakaoChannelAdded ? "✅" : "❌"} 카카오
+                        </div>
+                        <div className={`flex items-center gap-2 px-3 py-2 rounded-lg font-bold text-14 ${selectedMember.naverChannelAdded ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                          {selectedMember.naverChannelAdded ? "✅" : "❌"} 네이버
+                        </div>
+                        <div className={`flex items-center gap-2 px-3 py-2 rounded-lg font-bold text-14 ${selectedMember.googleChannelAdded ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-500"}`}>
+                          {selectedMember.googleChannelAdded ? "✅" : "❌"} 구글
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* 상태 */}
-                <div className="bg-white border border-gray-200 rounded-lg p-4">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">📊 상태</h3>
-                  <select
-                    value={memberStatus}
-                    onChange={(e) => handleStatusChange(e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
-                  >
-                    <option value="">— 상태 미설정 —</option>
-                    {STATUS_OPTIONS.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
+                <div className="bg-white border-2 border-purple-200 rounded-xl p-6">
+                  <h3 className="text-20 font-bold text-purple-900 mb-5">📊 회원 상태</h3>
+                  <div>
+                    <label className="block text-16 font-semibold text-gray-800 mb-4">현재 상태를 선택하세요</label>
+                    <select
+                      value={memberStatus}
+                      onChange={(e) => handleStatusChange(e.target.value)}
+                      className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-16 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white font-medium"
+                    >
+                      <option value="">— 상태 미설정 —</option>
+                      {STATUS_OPTIONS.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   {statusUpdateMsg && (
-                    <p className="text-sm text-gray-600 mt-2">{statusUpdateMsg}</p>
+                    <p className="text-16 text-green-700 font-medium mt-4 bg-green-50 px-4 py-3 rounded-lg border-2 border-green-200">
+                      {statusUpdateMsg}
+                    </p>
                   )}
                 </div>
 
                 {/* 태그 */}
-                <div className="bg-white border border-gray-200 rounded-lg p-4">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">🏷️ 태그 (최대 5개)</h3>
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap gap-2">
-                      {memberTags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-sm rounded-full"
-                        >
-                          #{tag}
-                          <button
-                            onClick={() => handleRemoveTag(tag)}
-                            aria-label={`태그 ${tag} 삭제`}
-                            className="hover:text-blue-900 font-bold"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                    {memberTags.length < 5 && (
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={tagInput}
-                          onChange={(e) => setTagInput(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddTag())}
-                          placeholder="태그 입력 후 Enter"
-                          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                        />
-                        <button
-                          onClick={handleAddTag}
-                          disabled={!tagInput.trim()}
-                          className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                        >
-                          추가
-                        </button>
-                      </div>
-                    )}
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {SUGGEST_TAGS.filter((tag) =>
-                        tag.toLowerCase().includes(tagInput.toLowerCase())
-                      ).map((tag) => (
-                        <button
-                          key={tag}
-                          type="button"
-                          disabled={memberTags.includes(tag) || memberTags.length >= 5}
-                          onClick={() => addTagDirectly(tag)}
-                          className={`px-2 py-0.5 text-sm rounded-full border transition-colors ${
-                            memberTags.includes(tag)
-                              ? "border-gray-200 text-gray-300 cursor-not-allowed bg-gray-50"
-                              : "border-blue-200 text-blue-600 hover:bg-blue-50 cursor-pointer"
-                          }`}
-                          title={memberTags.includes(tag) ? "이미 추가됨" : "클릭하여 추가"}
-                        >
-                          #{tag}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 그룹 */}
-                <div className="bg-white border border-gray-200 rounded-lg p-4">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">👥 그룹</h3>
-                  <div className="space-y-3">
-                    {selectedGroups.size > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {Array.from(selectedGroups).map((groupId) => {
-                          const group = groups.find((g) => g.id === groupId);
-                          return group ? (
+                <div className="bg-white border-2 border-orange-200 rounded-xl p-6">
+                  <h3 className="text-20 font-bold text-orange-900 mb-5">🏷️ 태그 (최대 5개)</h3>
+                  <div className="space-y-5">
+                    {memberTags.length > 0 && (
+                      <div className="bg-orange-50 border-2 border-orange-100 rounded-lg p-4">
+                        <p className="text-14 font-semibold text-gray-700 mb-3">추가된 태그 ({memberTags.length}/5)</p>
+                        <div className="flex flex-wrap gap-3">
+                          {memberTags.map((tag) => (
                             <span
-                              key={groupId}
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-sm font-medium text-white"
-                              style={{ backgroundColor: group.color || "#6B7280" }}
+                              key={tag}
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-orange-200 text-orange-800 text-16 rounded-full font-bold"
                             >
-                              {group.name}
+                              #{tag}
                               <button
-                                onClick={() => handleRemoveGroup(groupId)}
-                                aria-label={`그룹 삭제`}
-                                className="opacity-70 hover:opacity-100"
+                                onClick={() => handleRemoveTag(tag)}
+                                aria-label={`태그 ${tag} 삭제`}
+                                className="hover:text-orange-900 font-bold text-18"
                               >
                                 ×
                               </button>
                             </span>
-                          ) : null;
-                        })}
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {memberTags.length < 5 && (
+                      <div>
+                        <label className="block text-16 font-semibold text-gray-800 mb-3">새 태그 추가</label>
+                        <div className="flex gap-3">
+                          <input
+                            type="text"
+                            value={tagInput}
+                            onChange={(e) => setTagInput(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddTag())}
+                            placeholder="태그명 입력 후 Enter"
+                            className="flex-1 border-2 border-gray-300 rounded-lg px-4 py-3 text-16 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                          />
+                          <button
+                            onClick={handleAddTag}
+                            disabled={!tagInput.trim()}
+                            className="px-6 py-3 bg-orange-500 text-white text-16 font-bold rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            추가
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {SUGGEST_TAGS.length > 0 && (
+                      <div>
+                        <p className="text-14 font-semibold text-gray-700 mb-3">추천 태그 (클릭하여 추가)</p>
+                        <div className="flex flex-wrap gap-2">
+                          {SUGGEST_TAGS.filter((tag) =>
+                            tag.toLowerCase().includes(tagInput.toLowerCase())
+                          ).map((tag) => (
+                            <button
+                              key={tag}
+                              type="button"
+                              disabled={memberTags.includes(tag) || memberTags.length >= 5}
+                              onClick={() => addTagDirectly(tag)}
+                              className={`px-4 py-2 text-16 rounded-full border-2 font-medium transition-all ${
+                                memberTags.includes(tag)
+                                  ? "border-gray-300 text-gray-400 cursor-not-allowed bg-gray-50"
+                                  : "border-orange-400 text-orange-600 hover:bg-orange-50 cursor-pointer hover:border-orange-600"
+                              }`}
+                              title={memberTags.includes(tag) ? "이미 추가됨" : "클릭하여 추가"}
+                            >
+                              #{tag}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 그룹 */}
+                <div className="bg-white border-2 border-green-200 rounded-xl p-6">
+                  <h3 className="text-20 font-bold text-green-900 mb-5">👥 그룹 관리</h3>
+                  <div className="space-y-5">
+                    {selectedGroups.size > 0 && (
+                      <div className="bg-green-50 border-2 border-green-100 rounded-lg p-4">
+                        <p className="text-14 font-semibold text-gray-700 mb-3">속한 그룹 ({selectedGroups.size})</p>
+                        <div className="flex flex-wrap gap-3">
+                          {Array.from(selectedGroups).map((groupId) => {
+                            const group = groups.find((g) => g.id === groupId);
+                            return group ? (
+                              <span
+                                key={groupId}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-16 font-bold text-white"
+                                style={{ backgroundColor: group.color || "#16A34A" }}
+                              >
+                                {group.name}
+                                <button
+                                  onClick={() => handleRemoveGroup(groupId)}
+                                  aria-label={`그룹 삭제`}
+                                  className="opacity-80 hover:opacity-100 font-bold text-18"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ) : null;
+                          })}
+                        </div>
                       </div>
                     )}
                     <div>
-                      <label className="text-sm text-gray-600 mb-2 block">그룹 추가</label>
+                      <label className="block text-16 font-semibold text-gray-800 mb-3">그룹 추가하기</label>
                       <select
                         onChange={(e) => {
                           if (e.target.value) {
@@ -871,9 +956,9 @@ export default function MembersPage() {
                             e.target.value = "";
                           }
                         }}
-                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                        className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-16 bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 font-medium"
                       >
-                        <option value="">— 그룹 선택 —</option>
+                        <option value="">— 그룹을 선택하세요 —</option>
                         {groups
                           .filter((g) => !selectedGroups.has(g.id))
                           .map((g) => (
@@ -886,59 +971,62 @@ export default function MembersPage() {
                     {!showNewGroupInput ? (
                       <button
                         onClick={() => setShowNewGroupInput(true)}
-                        className="w-full px-3 py-2 text-sm border border-dashed border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50"
+                        className="w-full px-4 py-3 text-16 font-bold border-2 border-dashed border-green-400 text-green-700 rounded-lg hover:bg-green-50 transition-colors"
                       >
-                        + 새 그룹 만들기
+                        ➕ 새 그룹 만들기
                       </button>
                     ) : (
-                      <div className="flex gap-2">
+                      <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4 space-y-3">
                         <input
                           type="text"
                           value={newGroupName}
                           onChange={(e) => setNewGroupName(e.target.value)}
-                          placeholder="그룹 이름"
-                          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                          placeholder="새 그룹 이름을 입력하세요"
+                          className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-16 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                          autoFocus
                         />
-                        <button
-                          onClick={handleCreateAndAssignGroup}
-                          disabled={!newGroupName.trim() || creatingGroup}
-                          className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                        >
-                          생성
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowNewGroupInput(false);
-                            setNewGroupName("");
-                          }}
-                          className="px-3 py-2 border border-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-50"
-                        >
-                          취소
-                        </button>
+                        <div className="flex gap-3">
+                          <button
+                            onClick={handleCreateAndAssignGroup}
+                            disabled={!newGroupName.trim() || creatingGroup}
+                            className="flex-1 px-4 py-3 bg-green-600 text-white text-16 font-bold rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            {creatingGroup ? "생성 중..." : "그룹 생성"}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowNewGroupInput(false);
+                              setNewGroupName("");
+                            }}
+                            className="px-4 py-3 border-2 border-gray-300 text-gray-700 text-16 font-bold rounded-lg hover:bg-gray-100 transition-colors"
+                          >
+                            취소
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
                 </div>
 
                 {/* 담당자 지정 */}
-                <div className="border border-gray-200 rounded-lg p-4">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">👤 담당자 지정</h3>
-                  <div className="space-y-3">
+                <div className="bg-white border-2 border-indigo-200 rounded-xl p-6">
+                  <h3 className="text-20 font-bold text-indigo-900 mb-5">👤 담당자 지정</h3>
+                  <div className="space-y-5">
                     {staffLoading ? (
-                      <p className="text-sm text-gray-500">담당자 목록을 불러오는 중...</p>
+                      <p className="text-16 text-gray-500 font-medium">담당자 목록을 불러오는 중...</p>
                     ) : (
                       <div>
-                        <label className="text-sm text-gray-600 mb-2 block">담당자 선택</label>
+                        <label className="block text-16 font-semibold text-gray-800 mb-3">담당할 직원을 선택하세요</label>
                         <select
                           value={selectedStaff}
                           onChange={(e) => setSelectedStaff(e.target.value)}
-                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                          className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-16 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
                         >
-                          <option value="">— 담당자 선택 —</option>
+                          <option value="">— 담당자를 선택하세요 —</option>
                           {staffList.length > 0 ? (
                             staffList.map((s) => (
                               <option key={s.id} value={s.id}>
-                                {s.displayName || s.loginId} [{s.id}]
+                                {s.displayName || s.loginId}
                               </option>
                             ))
                           ) : (
@@ -948,13 +1036,13 @@ export default function MembersPage() {
                       </div>
                     )}
                     <div>
-                      <label className="text-sm text-gray-600 mb-2 block">변경 이유 (선택)</label>
+                      <label className="block text-16 font-semibold text-gray-800 mb-3">변경 이유 (선택사항)</label>
                       <textarea
                         value={assignReason}
                         onChange={(e) => setAssignReason(e.target.value)}
                         placeholder="예: 팀 이동, 지역 담당 변경 등"
-                        rows={2}
-                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        rows={3}
+                        className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-16 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
                       />
                     </div>
                   </div>
@@ -962,29 +1050,29 @@ export default function MembersPage() {
 
                 {/* 타임라인 */}
                 {detailData && detailData.changeHistory.length > 0 && (
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
-                      <Clock className="w-4 h-4" />
+                  <div className="bg-gradient-to-br from-amber-50 to-amber-100 border-2 border-amber-200 rounded-xl p-6">
+                    <h3 className="text-20 font-bold text-amber-900 mb-5 flex items-center gap-3">
+                      <Clock className="w-6 h-6" />
                       변경 이력
                     </h3>
-                    <div className="space-y-2">
+                    <div className="space-y-4">
                       {detailData.changeHistory.map((log) => (
                         <div
                           key={log.id}
-                          className="flex items-start gap-3 p-2 rounded-lg hover:bg-white/50 transition-colors"
+                          className="flex items-start gap-4 p-4 bg-white rounded-lg border-2 border-amber-100 hover:shadow-md transition-all"
                         >
-                          <span className="mt-0.5 text-gold-500 shrink-0 text-lg">✨</span>
+                          <span className="mt-1 shrink-0 text-24">✨</span>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm text-gray-900">
-                              <span className="font-medium">{log.newValue}</span>
+                            <p className="text-16 text-gray-900">
+                              <span className="font-bold">{log.newValue}</span>
                               {log.reason && (
                                 <>
                                   <br />
-                                  <span className="text-gray-600">이유: {log.reason}</span>
+                                  <span className="text-14 text-gray-600 font-medium">이유: {log.reason}</span>
                                 </>
                               )}
                             </p>
-                            <p className="text-sm text-gray-600 mt-1">
+                            <p className="text-14 text-gray-600 mt-2 font-medium">
                               {new Date(log.changedAt).toLocaleString("ko-KR")}
                             </p>
                           </div>
@@ -997,10 +1085,10 @@ export default function MembersPage() {
                 {/* 결과 메시지 */}
                 {assignResult && (
                   <div
-                    className={`px-4 py-3 rounded-lg text-sm ${
+                    className={`px-6 py-4 rounded-xl text-16 font-bold border-2 ${
                       assignResult.startsWith("✅")
-                        ? "bg-green-50 text-green-700 border border-green-200"
-                        : "bg-red-50 text-red-600 border border-red-200"
+                        ? "bg-green-50 text-green-700 border-green-300"
+                        : "bg-red-50 text-red-700 border-red-300"
                     }`}
                   >
                     {assignResult}
@@ -1008,19 +1096,19 @@ export default function MembersPage() {
                 )}
 
                 {/* 액션 버튼 */}
-                <div className="flex gap-2 justify-end">
+                <div className="flex gap-4 justify-end pt-6 border-t-2 border-gray-200">
                   <button
                     onClick={() => setShowDetailModal(false)}
-                    className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="px-6 py-4 border-2 border-gray-300 rounded-lg text-16 font-bold text-gray-700 hover:bg-gray-100 transition-colors"
                   >
-                    취소
+                    닫기
                   </button>
                   <button
                     onClick={handleAssignStaff}
                     disabled={!selectedStaff || assigning}
-                    className="px-4 py-2 bg-blue-600 rounded-lg text-sm font-medium text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-8 py-4 bg-blue-600 rounded-lg text-16 font-bold text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {assigning ? "저장 중..." : "저장"}
+                    {assigning ? "저장 중..." : "담당자 저장"}
                   </button>
                 </div>
               </div>

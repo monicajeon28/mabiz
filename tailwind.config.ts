@@ -84,6 +84,14 @@ const config: Config = {
         "body-sm": ["14px", { lineHeight: "1.6" }],
         label: ["13px", { lineHeight: "1.4" }],
         caption: ["12px", { lineHeight: "1.4" }],
+        /* 50대 친화 폰트 크기 (추가) */
+        12: ["12px", { lineHeight: "1.5" }],
+        14: ["14px", { lineHeight: "1.6" }],
+        16: ["16px", { lineHeight: "1.7" }],
+        18: ["18px", { lineHeight: "1.8" }],
+        20: ["20px", { lineHeight: "1.8" }],
+        24: ["24px", { lineHeight: "1.4" }],
+        28: ["28px", { lineHeight: "1.3" }],
       },
       fontWeight: {
         body: 400,
