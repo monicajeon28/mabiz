@@ -4,6 +4,16 @@ import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 
+function maskPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length < 7) return '***-****';
+  // 국제번호(+82) → 0으로 정규화
+  const normalized = digits.startsWith('82') && digits.length >= 11
+    ? '0' + digits.slice(2)
+    : digits;
+  return normalized.slice(0, 3) + '-****-' + normalized.slice(-4);
+}
+
 // GET: 골드회원 상세
 export async function GET(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
@@ -38,7 +48,13 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
       }
     }
 
-    return NextResponse.json({ ok: true, member });
+    // NEW-2(P2): 전화번호 마스킹 — GLOBAL_ADMIN만 원본 반환, 나머지는 마스킹
+    const safeMember = {
+      ...member,
+      phone: ctx.role !== 'GLOBAL_ADMIN' ? maskPhone(member.phone) : member.phone,
+    };
+
+    return NextResponse.json({ ok: true, member: safeMember });
   } catch (err) {
     logger.error('[GET /api/gold-members/[id]]', { err });
     return NextResponse.json({ ok: false, error: '서버 오류' }, { status: 500 });
@@ -64,6 +80,8 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       paidCount: number;
       status: string;
       memo: string;
+      agentId: number | string | null;
+      managerId: number | string | null;
     }>;
 
     const data: Record<string, unknown> = {};
@@ -90,6 +108,14 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     if (body.paidCount   !== undefined) data.paidCount    = body.paidCount;
     if (body.status      !== undefined) data.status       = body.status;
     if (body.memo        !== undefined) data.memo         = body.memo || null;
+    if (body.agentId !== undefined) {
+      const parsed = body.agentId !== null ? parseInt(String(body.agentId), 10) : null;
+      data.agentId = (parsed !== null && !isNaN(parsed)) ? parsed : null;
+    }
+    if (body.managerId !== undefined) {
+      const parsed = body.managerId !== null ? parseInt(String(body.managerId), 10) : null;
+      data.managerId = (parsed !== null && !isNaN(parsed)) ? parsed : null;
+    }
 
     // P0: organizationId 격리 — 다른 조직의 골드회원 수정 방지
     const existing = await prisma.goldMember.findUnique({
