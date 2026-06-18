@@ -37,66 +37,70 @@ export async function GET(req: NextRequest) {
     const thisMonthEnd   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
     const sixMonthsAgo   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1));
 
-    // 이 조직의 AffiliateSale(orderId 있는 것)을 기준으로 PayAppPayment를 조인
-    // 주의: 조직에 orderId가 있는 AffiliateSale 전체 로드 (성능 리스크)
-    // 추후 PayAppPayment와 직접 JOIN 쿼리로 교체 권장
-    const sales = await prisma.affiliateSale.findMany({
-      where: {
-        ...(orgId ? { organizationId: orgId } : {}),
-        orderId: { not: null },
-      },
-      select: { orderId: true },
-      take: 5000, // 임시 상한: 5000건 초과 조직은 별도 최적화 필요
-    });
+    // DB-27/API-SALES-006: AffiliateSale ↔ PayAppPayment DB 레벨 INNER JOIN 단일 쿼리.
+    // 기존 두 단계(AffiliateSale 5000건 IN-메모리 → PayAppPayment IN 쿼리) 방식 제거.
+    // PostgreSQL이 INNER JOIN + index scan으로 처리하므로 왕복 1회로 줄고 IN절 크기 문제 해소.
 
-    const orderIds = sales
-      .map((s) => s.orderId)
-      .filter((id): id is string => id !== null);
+    // 집계용 타입 정의 (Prisma $queryRaw는 snake_case 컬럼명 반환)
+    type RawPayment = {
+      id:              string;
+      order_id:        string | null;
+      organization_id: string | null;
+      amount:          number | bigint;
+      status:          string;
+      customer_name:   string | null;
+      customer_phone:  string | null;
+      landing_page_id: string | null;
+      created_at:      Date;
+      paid_at:         Date | null;
+    };
 
-    const truncated = sales.length >= 5000;
+    // GLOBAL_ADMIN(orgId=null)이면 org 필터 없이 전체 조회
+    const rawPayments: RawPayment[] = orgId
+      ? await prisma.$queryRaw<RawPayment[]>`
+          SELECT pp.id, pp.order_id, pp.organization_id, pp.amount, pp.status,
+                 pp.customer_name, pp.customer_phone, pp.landing_page_id,
+                 pp.created_at, pp.paid_at
+          FROM payapp_payments pp
+          INNER JOIN affiliate_sales af ON af.order_id = pp.order_id
+          WHERE af.organization_id = ${orgId}
+            AND pp.created_at >= ${sixMonthsAgo}
+          ORDER BY pp.created_at DESC
+        `
+      : await prisma.$queryRaw<RawPayment[]>`
+          SELECT pp.id, pp.order_id, pp.organization_id, pp.amount, pp.status,
+                 pp.customer_name, pp.customer_phone, pp.landing_page_id,
+                 pp.created_at, pp.paid_at
+          FROM payapp_payments pp
+          INNER JOIN affiliate_sales af ON af.order_id = pp.order_id
+          WHERE pp.created_at >= ${sixMonthsAgo}
+          ORDER BY pp.created_at DESC
+        `;
 
-    // 집계용 결제 내역 (최근 6개월, 전체 조회 — summary/monthly/byLanding 공유)
-    // 주의: orderIds 배열이 매우 크면 IN 절 성능 저하 가능. 추후 DB 직접 JOIN으로 개선 필요.
-    const payments = await prisma.payAppPayment.findMany({
-      where: {
-        orderId: { in: orderIds },
-        createdAt: { gte: sixMonthsAgo },
-        ...(orgId ? { organizationId: orgId } : {}),
-      },
-      orderBy: { createdAt: "desc" },
-      take: 10000, // 메모리 상한: 10000건 초과 시 집계 부정확 경고
-    });
-    const paymentsTruncated = payments.length >= 10000;
+    // snake_case → camelCase 정규화 + BigInt 방어 (PostgreSQL numeric → JS number)
+    const normalizedPayments = rawPayments.map((p) => ({
+      id:             p.id,
+      orderId:        p.order_id,
+      organizationId: p.organization_id,
+      amount:         Number(p.amount),
+      status:         p.status,
+      customerName:   p.customer_name,
+      customerPhone:  p.customer_phone,
+      landingPageId:  p.landing_page_id,
+      createdAt:      p.created_at instanceof Date ? p.created_at : new Date(p.created_at),
+      paidAt:         p.paid_at
+                        ? (p.paid_at instanceof Date ? p.paid_at : new Date(p.paid_at))
+                        : null,
+    }));
 
-    // DB 레벨 페이지네이션 — recent 목록 전용
-    // payments 배열이 전체를 포함하는 경우(paymentsTruncated 아님)엔 메모리 slice 사용 → DB 재조회 방지
-    let recentPayments: typeof payments;
-    let totalCount: number;
+    // 메모리 페이지네이션 (JOIN 결과는 이미 전체이므로 DB 재조회 불필요)
+    const totalCount    = normalizedPayments.length;
+    const recentPayments = normalizedPayments.slice(skip, skip + limit);
 
-    if (!paymentsTruncated) {
-      totalCount = payments.length;
-      recentPayments = payments.slice(skip, skip + limit);
-    } else {
-      [recentPayments, totalCount] = await Promise.all([
-        prisma.payAppPayment.findMany({
-          where: {
-            orderId: { in: orderIds },
-            createdAt: { gte: sixMonthsAgo },
-            ...(orgId ? { organizationId: orgId } : {}),
-          },
-          orderBy: { createdAt: "desc" },
-          skip,
-          take: limit,
-        }),
-        prisma.payAppPayment.count({
-          where: {
-            orderId: { in: orderIds },
-            createdAt: { gte: sixMonthsAgo },
-            ...(orgId ? { organizationId: orgId } : {}),
-          },
-        }),
-      ]);
-    }
+    // 집계 루프에서 사용할 payments 별칭 (기존 변수명 유지)
+    const payments = normalizedPayments;
+    const truncated = false; // JOIN 방식으로 5000건 상한 제거
+    const paymentsTruncated = false; // 10000건 상한 제거
 
     // ─── 이번 달 요약 ────────────────────────────────────────
     const thisMonthPayments = payments.filter((p) => {
@@ -195,14 +199,17 @@ export async function GET(req: NextRequest) {
 
     // ─── 페이지네이션 최근 결제 내역 ──────────────────────────
     const totalPages = Math.ceil(totalCount / limit);
+    // API-SALES-ROLE-TYPE-001: masked 플래그를 포함해 UI 소비자가 PII 마스킹 여부를 명확히 인지
+    const isGlobalAdmin = ctx.role === 'GLOBAL_ADMIN';
     const recent = recentPayments.map((p) => ({
       orderId:       p.orderId,
       amount:        p.amount,
       status:        p.status,
-      buyerName:     ctx.role === 'GLOBAL_ADMIN' ? (p.customerName ?? '') : maskCustomerName(p.customerName),
-      buyerTel:      ctx.role === 'GLOBAL_ADMIN' ? (p.customerPhone ?? '') : maskPhone(p.customerPhone ?? ''),
+      buyerName:     isGlobalAdmin ? (p.customerName ?? '') : maskCustomerName(p.customerName),
+      buyerTel:      isGlobalAdmin ? (p.customerPhone ?? '') : maskPhone(p.customerPhone ?? ''),
       paidAt:        p.paidAt?.toISOString() ?? null,
       landingPageId: p.landingPageId ?? null,
+      masked:        !isGlobalAdmin,
     }));
 
     logger.log("[GET /api/marketing/sales] 조회", { orgId, page, limit, totalCount, orderCount: payments.length, truncated, paymentsTruncated });
