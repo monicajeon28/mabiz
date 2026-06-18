@@ -75,8 +75,9 @@ export default function GoldMemberDetailPage() {
   const [loadError, setLoadError]   = useState("");
   const [actionError, setActionError] = useState("");
 
-  // 현재 세션 역할
+  // 현재 세션 역할/ID
   const [userRole, setUserRole]     = useState<string>("");
+  const [userId, setUserId]         = useState<string>("");
 
   // 상태 관리
   const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
@@ -100,6 +101,7 @@ export default function GoldMemberDetailPage() {
       .then((r) => r.json())
       .then((d) => {
         if (d.ok && d.role) setUserRole(d.role);
+        if (d.ok && d.userId) setUserId(String(d.userId));
       })
       .catch(() => {});
   }, []);
@@ -149,7 +151,11 @@ export default function GoldMemberDetailPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { loadDeleteRequests(); }, [loadDeleteRequests]);
+  useEffect(() => {
+    if (userRole && userRole !== "AGENT" && userRole !== "FREE_SALES") {
+      loadDeleteRequests();
+    }
+  }, [loadDeleteRequests, userRole]);
 
   // B3 수정: PATCH 응답의 member로 상태 갱신
   const handleStatusChange = async (newStatus: string) => {
@@ -520,7 +526,8 @@ export default function GoldMemberDetailPage() {
       <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
         <h2 className="text-base font-semibold text-gray-700 mb-4">상담내역</h2>
 
-        {/* 새 상담 입력 */}
+        {/* 새 상담 입력 — AGENT는 본인 담당 고객만 작성 가능 */}
+        {(userRole !== "AGENT" || member.agentId === parseInt(userId, 10)) && (
         <form onSubmit={handleConsultSubmit} className="mb-5">
           {consultError && (
             <div className="mb-2 px-3 py-2 bg-red-50 text-red-600 text-xs rounded-lg border border-red-100">
@@ -545,6 +552,7 @@ export default function GoldMemberDetailPage() {
             </button>
           </div>
         </form>
+        )}
 
         {/* 기존 상담 목록 */}
         {member.consultations.length === 0 ? (

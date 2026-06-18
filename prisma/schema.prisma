@@ -2091,6 +2091,7 @@ model GoldMember {
   @@index([startDate])
   @@index([status])
   @@index([userId])
+  @@index([agentId])
 }
 
 model GoldMemberConsultation {

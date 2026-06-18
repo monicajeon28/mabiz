@@ -135,13 +135,21 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     if (body.paidCount   !== undefined) data.paidCount    = body.paidCount;
     if (body.status      !== undefined) data.status       = body.status;
     if (body.memo        !== undefined) data.memo         = body.memo || null;
-    if (body.agentId !== undefined) {
-      const parsed = body.agentId !== null ? parseInt(String(body.agentId), 10) : null;
-      data.agentId = (parsed !== null && !isNaN(parsed)) ? parsed : null;
-    }
-    if (body.managerId !== undefined) {
-      const parsed = body.managerId !== null ? parseInt(String(body.managerId), 10) : null;
-      data.managerId = (parsed !== null && !isNaN(parsed)) ? parsed : null;
+    // OWNER는 등록 시에만 담당자 지정 가능 — PATCH에서 agentId/managerId 변경 차단
+    if (ctx.role === 'OWNER') {
+      // body에 agentId/managerId가 포함돼 있으면 거부
+      if (body.agentId !== undefined || body.managerId !== undefined) {
+        return NextResponse.json({ ok: false, error: '대리점장은 등록 시에만 담당 판매원을 지정할 수 있습니다.' }, { status: 403 });
+      }
+    } else {
+      if (body.agentId !== undefined) {
+        const parsed = body.agentId !== null ? parseInt(String(body.agentId), 10) : null;
+        data.agentId = (parsed !== null && !isNaN(parsed)) ? parsed : null;
+      }
+      if (body.managerId !== undefined) {
+        const parsed = body.managerId !== null ? parseInt(String(body.managerId), 10) : null;
+        data.managerId = (parsed !== null && !isNaN(parsed)) ? parsed : null;
+      }
     }
 
     // P0: organizationId 격리 — 다른 조직의 골드회원 수정 방지

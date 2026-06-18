@@ -89,6 +89,10 @@ export default function GoldMembersPage() {
   const [deleteReqReason, setDeleteReqReason] = useState("");
   const [deleteReqSubmitting, setDeleteReqSubmitting] = useState(false);
 
+  // 관리자 직접 삭제 확인 모달 상태
+  const [adminDeleteTarget, setAdminDeleteTarget] = useState<GoldMember | null>(null);
+  const [adminDeleteSubmitting, setAdminDeleteSubmitting] = useState(false);
+
   // 그룹 관련 상태
   const [groups, setGroups]       = useState<Group[]>([]);
   const [assigning, setAssigning] = useState<string | null>(null); // memberId
@@ -194,14 +198,21 @@ export default function GoldMembersPage() {
     }
   }, [deleteReqTarget, deleteReqReason, toast]);
 
-  // 관리자 직접 삭제
-  const handleAdminDelete = useCallback(async (memberId: string, memberName: string) => {
-    if (!window.confirm(`"${memberName}" 회원을 삭제하시겠습니까?`)) return;
+  // 관리자 직접 삭제 — 모달 오픈 (window.confirm 제거)
+  const handleAdminDelete = useCallback((member: GoldMember) => {
+    setAdminDeleteTarget(member);
+  }, []);
+
+  // 관리자 직접 삭제 — 모달 확인 후 실행
+  const confirmAdminDelete = useCallback(async () => {
+    if (!adminDeleteTarget) return;
+    setAdminDeleteSubmitting(true);
     try {
-      const res = await fetch(`/api/gold-members/${memberId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/gold-members/${adminDeleteTarget.id}`, { method: 'DELETE' });
       const data = await res.json() as { ok?: boolean; error?: string };
       if (!data.ok) throw new Error(data.error ?? '삭제 실패');
-      toast({ title: `"${memberName}" 삭제 완료`, variant: 'success' });
+      toast({ title: `"${adminDeleteTarget.name}" 삭제 완료`, variant: 'success' });
+      setAdminDeleteTarget(null);
       load();
     } catch (err) {
       toast({
@@ -209,8 +220,10 @@ export default function GoldMembersPage() {
         description: err instanceof Error ? err.message : '다시 시도해주세요.',
         variant: 'destructive',
       });
+    } finally {
+      setAdminDeleteSubmitting(false);
     }
-  }, [toast, load]);
+  }, [adminDeleteTarget, toast, load]);
 
   // 골드회원 → phone 기반 그룹 배정
   const quickAssign = useCallback(async (memberId: string, phone: string, name: string, groupId: string) => {
@@ -548,7 +561,7 @@ export default function GoldMembersPage() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleAdminDelete(m.id, m.name);
+                              handleAdminDelete(m);
                             }}
                             className="flex items-center gap-1 px-2 min-h-[36px] text-sm text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors"
                           >
@@ -609,7 +622,7 @@ export default function GoldMembersPage() {
               </p>
               <div>
                 <label className="block text-base font-medium text-gray-700 mb-2">
-                  삭제 사유 <span className="text-red-500">*</span>
+                  삭제 사유 <span className="text-gray-400 font-normal">(선택)</span>
                 </label>
                 <textarea
                   value={deleteReqReason}
@@ -628,11 +641,58 @@ export default function GoldMembersPage() {
                 </button>
                 <button
                   onClick={handleDeleteRequest}
-                  disabled={deleteReqSubmitting || !deleteReqReason.trim()}
+                  disabled={deleteReqSubmitting}
                   className="flex-1 min-h-[48px] text-base font-semibold text-white bg-red-500 rounded-xl hover:bg-red-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                 >
                   {deleteReqSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
                   {deleteReqSubmitting ? "요청 중..." : "삭제 요청 보내기"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 관리자 전용: 직접 삭제 확인 모달 */}
+      {adminDeleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => { if (!adminDeleteSubmitting) setAdminDeleteTarget(null); }} />
+          <div className="relative z-10 w-full max-w-sm mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+                <h2 className="text-lg font-bold text-gray-900">회원 삭제 확인</h2>
+              </div>
+              <button
+                onClick={() => setAdminDeleteTarget(null)}
+                disabled={adminDeleteSubmitting}
+                className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-40"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-base text-gray-700">
+                <span className="font-semibold text-gray-900">{adminDeleteTarget.name}</span> 회원을 삭제합니다.
+              </p>
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                삭제 후 복구할 수 없습니다. 정말 삭제하시겠습니까?
+              </p>
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={() => setAdminDeleteTarget(null)}
+                  disabled={adminDeleteSubmitting}
+                  className="flex-1 min-h-[48px] text-base font-medium text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 disabled:opacity-40 transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={confirmAdminDelete}
+                  disabled={adminDeleteSubmitting}
+                  className="flex-1 min-h-[48px] text-base font-semibold text-white bg-red-600 rounded-xl hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  {adminDeleteSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {adminDeleteSubmitting ? "삭제 중..." : "삭제 확인"}
                 </button>
               </div>
             </div>
