@@ -4,7 +4,7 @@ import { getMabizSession } from "@/lib/auth";
 import { resolveOrgIdOrNull } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { maskPhone } from "@/lib/marketing-utils";
-import type { OrgBreakdown } from "@/types/marketing";
+import type { OrgBreakdown, AdminPersonalSales } from "@/types/marketing";
 
 /** 이름 마스킹: 첫 글자만 유지, 나머지 최대 3자리 * 처리 */
 function maskCustomerName(name: string | null | undefined): string {
@@ -269,6 +269,8 @@ export async function GET(req: NextRequest) {
     // ─── (F) GLOBAL_ADMIN 전용: 대리점별 매출 breakdown ──────────
     // API-SALES-002: OWNER는 빈 배열, GLOBAL_ADMIN만 조직별 집계 실행
     let orgBreakdown: OrgBreakdown[] = [];
+    let adminPersonalSales: AdminPersonalSales | null = null;
+
     if (ctx.role === 'GLOBAL_ADMIN') {
       // 1. 모든 조직 목록 조회
       const orgs = await prisma.organization.findMany({
@@ -315,6 +317,43 @@ export async function GET(req: NextRequest) {
         }))
         .filter(o => o.totalRevenue > 0 || o.paidCount > 0) // 실적 있는 조직만
         .sort((a, b) => b.totalRevenue - a.totalRevenue);
+
+      // ─── (G) GLOBAL_ADMIN 본인 링크(개인 랜딩페이지) 이번 달 매출 ──
+      // API-SALES-003: CrmLandingPage.createdByUserId = ctx.userId 기준으로 별도 집계
+      // OrganizationMember.userId(String) 타입이므로 캐스팅 불필요
+      type AdminSalesSumRow = { revenue: number | bigint; count: number | bigint };
+      type AdminRefundSumRow = { refund: number | bigint };
+
+      const adminSalesRows: AdminSalesSumRow[] = await prisma.$queryRaw<AdminSalesSumRow[]>`
+        SELECT COALESCE(SUM(pp."amount"), 0)::float AS revenue,
+               COUNT(*)::int AS count
+        FROM "CrmPayAppPayment" pp
+        INNER JOIN "CrmLandingPage" lp ON lp."id" = pp."landingPageId"
+        WHERE lp."createdByUserId" = ${ctx.userId}
+          AND pp."status" = 'paid'
+          AND pp."createdAt" >= ${thisMonthStart}
+          AND pp."createdAt" < ${thisMonthEnd}
+      `;
+
+      const adminRefundRows: AdminRefundSumRow[] = await prisma.$queryRaw<AdminRefundSumRow[]>`
+        SELECT COALESCE(SUM(pp."amount"), 0)::float AS refund
+        FROM "CrmPayAppPayment" pp
+        INNER JOIN "CrmLandingPage" lp ON lp."id" = pp."landingPageId"
+        WHERE lp."createdByUserId" = ${ctx.userId}
+          AND pp."status" = 'cancelled'
+          AND pp."createdAt" >= ${thisMonthStart}
+          AND pp."createdAt" < ${thisMonthEnd}
+      `;
+
+      const adminRev    = Number(adminSalesRows[0]?.revenue ?? 0);
+      const adminCount  = Number(adminSalesRows[0]?.count   ?? 0);
+      const adminRefund = Number(adminRefundRows[0]?.refund  ?? 0);
+      adminPersonalSales = {
+        totalRevenue: adminRev,
+        paidCount:    adminCount,
+        totalRefund:  adminRefund,
+        netRevenue:   adminRev - adminRefund,
+      };
     }
 
     logger.log("[GET /api/marketing/sales] 조회", { orgId, page, limit, totalCount, totalPages });
@@ -326,6 +365,8 @@ export async function GET(req: NextRequest) {
       byLanding,
       recent,
       orgBreakdown,
+      adminPersonalSales,
+      isGlobalAdmin: ctx.role === 'GLOBAL_ADMIN',
       pagination: { page, limit, totalCount, totalPages },
     });
   } catch (err: unknown) {
