@@ -21,8 +21,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, message: 'productCode 필수' }, { status: 400 })
     }
 
+    // GAP-2: organizationId 선택적 필터
+    const organizationId = req.nextUrl.searchParams.get('organizationId') ?? undefined
+
     const inventories = await prisma.cabinInventory.findMany({
-      where: { tripCode: productCode },
+      where: {
+        tripCode: productCode,
+        ...(organizationId ? { organizationId } : {}),
+      },
       select: {
         organizationId: true,
         cabinType: true,
@@ -45,11 +51,12 @@ export async function GET(req: NextRequest) {
       snapshot[inv.cabinType].remaining += Math.max(0, inv.totalCount - inv.bookedCount)
     }
 
-    logger.info('[GET /api/integration/inventory]', { productCode, types: Object.keys(snapshot).length })
+    logger.info('[GET /api/integration/inventory]', { productCode, organizationId, types: Object.keys(snapshot).length })
 
     return NextResponse.json({
       ok: true,
       productCode,
+      organizationId: organizationId ?? null,
       snapshot,
       retrievedAt: new Date().toISOString(),
     })
