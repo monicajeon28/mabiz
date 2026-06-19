@@ -188,10 +188,10 @@ export async function sendSms(params: SendSmsParams): Promise<AligoResponse> {
         bytes: encodingResult.bytes,
       });
       if (organizationId) {
-        recordSmsLog({
+        void recordSmsLog({
           organizationId, contactId, phone: receiver, msg,
           status: "FAILED", blockReason: "LMS_BYTE_LIMIT_EXCEEDED", channel,
-        });
+        }).catch((e: unknown) => logger.error("[Aligo] recordSmsLog 실패 (LMS_BYTE_LIMIT)", { e }));
       }
       return { result_code: -97, message: "LMS 메시지 길이 초과 (2000바이트 이하여야 합니다)" };
     }
@@ -207,7 +207,8 @@ export async function sendSms(params: SendSmsParams): Promise<AligoResponse> {
       phone: receiver.substring(0, 4) + "***",
     });
     if (organizationId) {
-      recordSmsLog({ organizationId, contactId, phone: receiver, msg, status: "BLOCKED", blockReason: "OPT_OUT", channel });
+      void recordSmsLog({ organizationId, contactId, phone: receiver, msg, status: "BLOCKED", blockReason: "OPT_OUT", channel })
+        .catch((e: unknown) => logger.error("[Aligo] recordSmsLog 실패 (OPT_OUT)", { e }));
     } else {
       logger.warn("[Aligo] organizationId 미전달 — SmsLog 기록 불가 (수신거부 차단)");
     }
@@ -220,7 +221,8 @@ export async function sendSms(params: SendSmsParams): Promise<AligoResponse> {
       phone: receiver.substring(0, 4) + "***",
     });
     if (organizationId) {
-      recordSmsLog({ organizationId, contactId, phone: receiver, msg, status: "BLOCKED", blockReason: "NIGHT_BLOCK", channel });
+      void recordSmsLog({ organizationId, contactId, phone: receiver, msg, status: "BLOCKED", blockReason: "NIGHT_BLOCK", channel })
+        .catch((e: unknown) => logger.error("[Aligo] recordSmsLog 실패 (NIGHT_BLOCK)", { e }));
     } else {
       logger.warn("[Aligo] organizationId 미전달 — SmsLog 기록 불가 (야간 차단)");
     }
@@ -262,13 +264,13 @@ export async function sendSms(params: SendSmsParams): Promise<AligoResponse> {
     });
 
     if (organizationId) {
-      recordSmsLog({
+      void recordSmsLog({
         organizationId, contactId, phone: receiver, msg,
         status:     Number(data.result_code) === 1 ? "SENT" : "FAILED",
         resultCode: String(data.result_code),
         msgId:      data.msg_id,
         channel,
-      });
+      }).catch((e: unknown) => logger.error("[Aligo] recordSmsLog 실패 (send result)", { e }));
     }
     return data;
   } catch (err) {
@@ -278,7 +280,8 @@ export async function sendSms(params: SendSmsParams): Promise<AligoResponse> {
       type: finalMsgType,
     });
     if (organizationId) {
-      recordSmsLog({ organizationId, contactId, phone: receiver, msg, status: "FAILED", resultCode: "-1", channel });
+      void recordSmsLog({ organizationId, contactId, phone: receiver, msg, status: "FAILED", resultCode: "-1", channel })
+        .catch((e: unknown) => logger.error("[Aligo] recordSmsLog 실패 (catch)", { e }));
     }
     return { result_code: -1, message: "발송 오류" };
   }
@@ -410,7 +413,8 @@ export async function sendKakaoAlimtalk(params: SendKakaoParams): Promise<AligoR
   const optedOut = await isOptedOut(receiver);
   if (optedOut) {
     if (organizationId) {
-      recordSmsLog({ organizationId, contactId, phone: receiver, msg: message, status: "BLOCKED", blockReason: "OPT_OUT", channel });
+      void recordSmsLog({ organizationId, contactId, phone: receiver, msg: message, status: "BLOCKED", blockReason: "OPT_OUT", channel })
+        .catch((e: unknown) => logger.error("[Aligo/Kakao] recordSmsLog 실패 (OPT_OUT)", { e }));
     }
     return { result_code: -99, message: "수신거부 번호" };
   }
@@ -418,7 +422,8 @@ export async function sendKakaoAlimtalk(params: SendKakaoParams): Promise<AligoR
   // 야간 차단
   if (isNightTime()) {
     if (organizationId) {
-      recordSmsLog({ organizationId, contactId, phone: receiver, msg: message, status: "BLOCKED", blockReason: "NIGHT_BLOCK", channel });
+      void recordSmsLog({ organizationId, contactId, phone: receiver, msg: message, status: "BLOCKED", blockReason: "NIGHT_BLOCK", channel })
+        .catch((e: unknown) => logger.error("[Aligo/Kakao] recordSmsLog 실패 (NIGHT_BLOCK)", { e }));
     }
     return { result_code: -98, message: "야간 발송 차단" };
   }
@@ -477,13 +482,13 @@ export async function sendKakaoAlimtalk(params: SendKakaoParams): Promise<AligoR
     });
 
     if (organizationId) {
-      recordSmsLog({
+      void recordSmsLog({
         organizationId, contactId, phone: receiver, msg: message,
         status: Number(data.result_code) === 0 ? "SENT" : "FAILED",
         resultCode: String(data.result_code),
         msgId: data.msg_id,
         channel: channel + "_KAKAO",
-      });
+      }).catch((e: unknown) => logger.error("[Aligo/Kakao] recordSmsLog 실패 (send result)", { e }));
     }
     return data;
   } catch (err) {

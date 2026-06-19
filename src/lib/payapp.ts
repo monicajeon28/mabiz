@@ -44,11 +44,19 @@ function getConfig(): PayAppConfig {
 async function payappApiPost(params: Record<string, string>): Promise<PayAppResponse> {
   const body = new URLSearchParams(params);
 
-  const res = await fetch(PAYAPP_API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-    body: body.toString(),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  let res: Response;
+  try {
+    res = await fetch(PAYAPP_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+      body: body.toString(),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   const text = await res.text();
   const parsed = Object.fromEntries(new URLSearchParams(text));
