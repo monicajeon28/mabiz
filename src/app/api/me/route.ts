@@ -13,7 +13,7 @@ export async function GET() {
       role: ctx.role,
       organizationId: ctx.organizationId,
     });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ ok: false, message: "오류가 발생했습니다." }, { status: 500 });
   }
 }
