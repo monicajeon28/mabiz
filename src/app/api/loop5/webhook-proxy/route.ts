@@ -58,7 +58,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Invalid signature' }, { status: 401 });
     }
 
-    const payload: InquiryPayload = JSON.parse(bodyText);
+    let payload: InquiryPayload;
+    try {
+      payload = JSON.parse(bodyText);
+    } catch {
+      return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
+    }
     const requestIp = extractInquiryIp(req.headers);
     const tracking = buildInquiryTracking({
       source: payload.source,
