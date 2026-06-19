@@ -271,7 +271,6 @@ export async function optimizePassportImage(
     const archiveUrl = `${fileNamePrefix}_archive_${timestamp}.webp`;
 
     // 4. 통계 계산
-    const totalNewSize = fullSize + thumbSize + archiveSize;
     const savingsBytes = originalSize - fullSize; // Full 기준 절약
     const savings = Math.round((savingsBytes / originalSize) * 100);
     const processingTimeMs = Date.now() - startTime;
