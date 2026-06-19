@@ -14,6 +14,7 @@ import {
 } from '@/lib/passport-ocr';
 import { normalizeDateOnlyString } from '@/lib/passport-date';
 import { normalizePassportNo, isPassportDupViolation } from '@/lib/passport-match';
+import { preparePassportForDb } from '@/lib/passport-db-helpers';
 
 const apiKey = process.env.GEMINI_API_KEY || '';
 
@@ -279,8 +280,11 @@ export async function POST(req: NextRequest) {
       }
 
       // PassportSubmissionGuest 동기화: 여권번호 기준 매칭(이름 매칭 금지 — 동명이인 교차오염 방지)
+      // 여권번호 AES-256 암호화
+      const passportData = preparePassportForDb(passportNo);
       const guestUpdate = {
-        passportNumber: passportNo || null,
+        passportNumber: passportData.passportNumber, // 암호화됨
+        passportIV: passportData.passportIV, // 초기화벡터
         nationality: normalizedData.nationality,
         dateOfBirth: travelerData.birthDate ? new Date(travelerData.birthDate) : null,
         passportExpiryDate: travelerData.expiryDate ? new Date(travelerData.expiryDate) : null,

@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import { hashPassword } from '@/lib/password';
 import { normalizePassportNo, isPassportDupViolation } from '@/lib/passport-match';
+import { preparePassportForDb } from '@/lib/passport-db-helpers';
 
 // ── 관리자 SMS 알림 (fire-and-forget) ──────────────────────────────────────
 /**
@@ -205,11 +206,15 @@ export async function POST(
       // 1·2. 게스트 정보 점진 동기화 (전량삭제 제거 — '먼저 낸 사람' 보존)
       //   passportNo 기준 upsert. 없으면 append. 이름 매칭 금지(동명이인 교차오염 방지).
       for (const guest of guestRecords) {
+        // 여권번호 AES-256 암호화 (passportIV 포함)
+        const passportData = preparePassportForDb(guest.passportNumber);
+
         const guestRow = {
           groupNumber: guest.groupNumber,
           name: guest.name,
           phone: guest.phone,
-          passportNumber: guest.passportNumber,
+          passportNumber: passportData.passportNumber, // 암호화됨
+          passportIV: passportData.passportIV, // 초기화벡터
           nationality: guest.nationality,
           dateOfBirth: guest.dateOfBirth,
           passportExpiryDate: guest.passportExpiryDate,
