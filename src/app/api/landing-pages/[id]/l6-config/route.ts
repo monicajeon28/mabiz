@@ -65,7 +65,6 @@ export async function GET(req: Request, { params }: Params) {
         stockConfig: {
           currentStock: landingPage.l6StockCurrent,
           totalStock: landingPage.l6StockTotal,
-          weeklyBurnRate: landingPage.l6WeeklyBurnRate,
           weeksToZero,
           countdownTarget: countdownTarget.toISOString(),
         },

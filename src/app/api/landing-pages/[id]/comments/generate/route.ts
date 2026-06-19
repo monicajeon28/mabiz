@@ -23,7 +23,7 @@ export async function POST(req: Request, { params }: Params) {
     if (!page) return NextResponse.json({ ok: false }, { status: 404 });
 
     const body = await req.json();
-    const count = Math.min(10, Math.max(1, parseInt(body.count ?? "5")));
+    const count = Math.min(10, Math.max(1, parseInt(String(body.count ?? "5"), 10)));
 
     // HTML → 텍스트 추출
     const textContent = (page.htmlContent ?? "")

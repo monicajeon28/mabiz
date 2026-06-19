@@ -98,15 +98,8 @@ export async function POST(req: Request) {
     if (ctx.role === 'FREE_SALES') {
       return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '랜딩페이지 생성 권한이 없습니다' }, { status: 403 });
     }
-    // GLOBAL_ADMIN은 organizationId가 null → DB에서 실제 첫 번째 조직 사용
-    let orgId: string;
-    if (ctx.role === 'GLOBAL_ADMIN' && !ctx.organizationId) {
-      const firstOrg = await prisma.organization.findFirst({ select: { id: true } });
-      if (!firstOrg) return NextResponse.json({ ok: false, message: '조직이 없습니다' }, { status: 500 });
-      orgId = firstOrg.id;
-    } else {
-      orgId = resolveOrgId(ctx);
-    }
+    // GLOBAL_ADMIN은 organizationId가 null → 본사 조직 ID 사용 (non-deterministic findFirst 제거)
+    const orgId = ctx.organizationId ?? BONSA_ORG_ID;
 
     // AGENT는 자기 조직만 생성 가능
     const body = await req.json();

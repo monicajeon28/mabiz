@@ -21,13 +21,14 @@ function verifyWebhookSignature(
   signature: string,
   secret: string
 ): boolean {
-  const hash = createHmac("sha256", secret)
-    .update(payload)
-    .digest("hex");
-  return timingSafeEqual(
-    Buffer.from(hash),
-    Buffer.from(signature)
-  );
+  const hashBuf = createHmac("sha256", secret).update(payload).digest();
+  try {
+    const sigBuf = Buffer.from(signature, "hex");
+    if (hashBuf.length !== sigBuf.length) return false;
+    return timingSafeEqual(hashBuf, sigBuf);
+  } catch {
+    return false;
+  }
 }
 
 export async function POST(request: NextRequest) {

@@ -154,11 +154,11 @@ export async function POST(req: Request) {
       ...(notFound.length > 0 ? { notFound } : {}),
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('401') || msg.includes('Unauthorized')) {
+    const isUnauth = err instanceof Error && err.message === 'UNAUTHORIZED';
+    if (isUnauth) {
       return NextResponse.json({ ok: false }, { status: 401 });
     }
-    logger.error('[LandingBatchStats] 조회 실패', { err });
+    logger.error('[LandingBatchStats] 조회 실패', { err: err instanceof Error ? err.message : String(err) });
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 }

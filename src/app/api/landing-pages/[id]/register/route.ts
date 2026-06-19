@@ -471,7 +471,9 @@ export async function POST(req: Request, { params }: Params) {
             prisma.crmLandingRegistration.update({
               where: { id: regId },
               data: { funnelStarted: true },
-            }).catch(() => {});
+            }).catch((err) => {
+              logger.warn('[LandingRegister] funnelStarted 업데이트 실패', { regId, err: err instanceof Error ? err.message : String(err) });
+            });
           }
           } catch { /* 퍼널 시작 실패해도 등록은 유지 */ }
         }
@@ -522,7 +524,9 @@ export async function POST(req: Request, { params }: Params) {
             prisma.crmLandingRegistration.update({
               where: { id: regId },
               data:  { funnelStarted: true },
-            }).catch(() => {});
+            }).catch((err) => {
+              logger.warn('[LandingRegister] funnelStarted 업데이트 실패', { regId, err: err instanceof Error ? err.message : String(err) });
+            });
           }
         }).catch((err) => {
           logger.error('[LandingRegister] 퍼널 트리거 실패', { err });

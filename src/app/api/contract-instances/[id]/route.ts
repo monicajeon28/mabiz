@@ -238,7 +238,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     // 인스턴스 업데이트
     const updateResult = await prisma.contractInstance.updateMany({
-      where: { id, ...(organizationId ? { organizationId } : {}) },
+      where: { id, ...(role !== "GLOBAL_ADMIN" && organizationId ? { organizationId } : {}) },
       data: {
         ...(status && { status }),
         ...(status === "SIGNED" && { signedAt: new Date() }),
@@ -339,7 +339,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         });
 
         await prisma.contractInstance.update({
-          where: { id: updatedInstance.id },
+          where: { id: updatedInstance.id, organizationId: updatedInstance.organizationId },
           data: {
             status: instance.status,
             signedAt: instance.signedAt,
@@ -452,7 +452,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     await prisma.contractInstance.delete({
-      where: { id },
+      where: { id, ...(role !== "GLOBAL_ADMIN" && organizationId ? { organizationId } : {}) },
     });
 
     logger.log("[DELETE /api/contract-instances/[id]] 영구 삭제 완료", {

@@ -181,10 +181,29 @@ export async function POST(req: Request, { params }: Params) {
 
     const smsContent = L6_DAY0_SMS(customerName, currentPrice, futurePrice, hoursUntilIncrease);
 
-    // SMS 로그 저장 (기존 CrmSmsLog 사용, 위에서 조회한 org 재사용)
+    // 중복 발송 방지: 최근 1시간 내 이미 SENT 로그가 있으면 스킵
+    if (org) {
+      const recentSent = await prisma.smsLog.findFirst({
+        where: {
+          organizationId: org.id,
+          phone: phoneNumber,
+          channel: "L6_LENS",
+          status: "SENT",
+          createdAt: { gte: new Date(Date.now() - 60 * 60 * 1000) },
+        },
+        select: { id: true },
+      });
+      if (recentSent) {
+        logger.info("[L6SmsTrigger] 1시간 내 이미 발송됨 — 중복 발송 건너뜀", { registrationId });
+        return NextResponse.json({ ok: true, smsSent: false, reason: "duplicate" });
+      }
+    }
+
+    // SMS 로그 저장 (ID 캡처하여 정확한 업데이트에 사용)
+    let smsLogId: string | undefined;
     try {
       if (org) {
-        await prisma.smsLog.create({
+        const smsLogRecord = await prisma.smsLog.create({
           data: {
             organizationId: org.id,
             phone: phoneNumber,
@@ -193,6 +212,7 @@ export async function POST(req: Request, { params }: Params) {
             status: "PENDING",
           },
         });
+        smsLogId = smsLogRecord.id;
       }
     } catch (logErr) {
       logger.warn("[L6SmsTrigger] SMS 로그 저장 실패", { err: logErr });
@@ -211,11 +231,11 @@ export async function POST(req: Request, { params }: Params) {
       });
     }
 
-    // SMS 로그 상태 업데이트
-    if (org) {
+    // SMS 로그 상태 업데이트 (캡처한 ID로 정확하게 업데이트)
+    if (smsLogId) {
       try {
-        await prisma.smsLog.updateMany({
-          where: { organizationId: org.id, phone: phoneNumber, status: "PENDING" },
+        await prisma.smsLog.update({
+          where: { id: smsLogId },
           data: { status: smsSent ? "SENT" : "FAILED" },
         });
       } catch (_) { /* 로그 업데이트 실패는 무시 */ }

@@ -17,7 +17,7 @@ function isSafeCompletionUrl(url: string): boolean {
     const parsed = new URL(url);
     if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
     return ALLOWED_COMPLETION_DOMAINS.some(domain =>
-      parsed.hostname.endsWith(domain) || parsed.hostname === domain
+      parsed.hostname === domain || parsed.hostname.endsWith('.' + domain)
     );
   } catch {
     return false;
@@ -47,6 +47,7 @@ const RequestSchema = z.object({
 export async function POST(req: Request) {
   let createdSubscriptionId: string | null = null;
   let createdRebillNo: string | null = null;
+  let orgId: string | undefined;
 
   try {
     const body = await req.json();
@@ -61,7 +62,6 @@ export async function POST(req: Request) {
     const { type, goodname, price, customerName, customerPhone, customerEmail, landingPageId, cycleDay, expireDate } = parsed.data;
 
     // 랜딩페이지로 조직 특정 (인증 대신) — CRM 랜딩 먼저, B2B 랜딩 폴백
-    let orgId: string;
     let landingSlug: string | null = null;
     let b2bMeta: { b2bLandingPageId: string; b2bLandingTitle: string; b2bCreatedBy: string | null } | null = null;
 
@@ -228,9 +228,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, type: 'onetime', orderId, payUrl: result.payUrl });
     } catch (err) {
-      if (createdSubscriptionId) {
+      if (createdSubscriptionId && typeof orgId !== 'undefined') {
         await prisma.payAppSubscription.updateMany({
-          where: { id: createdSubscriptionId },
+          where: { id: createdSubscriptionId, organizationId: orgId },
           data: { status: 'failed' },
         });
       }

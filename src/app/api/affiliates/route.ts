@@ -55,8 +55,8 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
-    const page   = Math.max(1, parseInt(searchParams.get("page")  ?? "1")  || 1);
-    const limit  = Math.min(100, parseInt(searchParams.get("limit") ?? "20") || 20);
+    const page   = Math.max(1, parseInt(searchParams.get("page")  ?? "1",  10) || 1);
+    const limit  = Math.min(100, parseInt(searchParams.get("limit") ?? "20", 10) || 20);
     const offset = (page - 1) * limit;
 
     // 화이트리스트 검증된 필터

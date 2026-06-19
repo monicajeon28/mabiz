@@ -52,7 +52,9 @@ export async function PUT(req: NextRequest) {
 
     const body = await req.json();
     const contractIds: number[] = Array.isArray(body.contractIds)
-      ? body.contractIds.map((id: unknown) => (typeof id === 'number' ? id : parseInt(String(id), 10)))
+      ? body.contractIds
+          .map((id: unknown) => (typeof id === 'number' ? id : parseInt(String(id), 10)))
+          .filter((n: number): n is number => !isNaN(n) && n > 0)
       : [];
     const amount: number | undefined = body.amount;
 
@@ -279,6 +281,11 @@ export async function PUT(req: NextRequest) {
           managerId: provisionResult.manager.gmUserId,
         });
       } catch (err) {
+        // PROCESSING 상태로 잠긴 계약 복구 (무한 잠금 방지)
+        await prisma.gmAffiliateContract.updateMany({
+          where: { id: contractId, status: 'PROCESSING' },
+          data: { status: 'submitted' },
+        }).catch(() => { /* best-effort rollback */ });
         logger.error('[AFFILIATE-BULK-APPROVE] 예상치 못한 오류', {
           contractId,
           error: err instanceof Error ? err.message : String(err),
