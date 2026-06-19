@@ -243,6 +243,62 @@ export async function getHomeDashboardMetrics(params: MetricsParams) {
   const yearMonth = `${year}년 ${month}월`;
 
   // ─────────────────────────────────────────────────────────────
+  // 🔟 월별 비교 (이번달 vs 지난달)
+  // ─────────────────────────────────────────────────────────────
+  // 이번 달 첫날 ~ 마지막날
+  const monthStart = new Date(year, month - 1, 1);
+  const monthEnd = new Date(year, month, 0);
+  monthEnd.setHours(23, 59, 59, 999);
+
+  // 지난 달 첫날 ~ 마지막날
+  const prevMonthStart = new Date(year, month - 2, 1);
+  const prevMonthEnd = new Date(year, month - 1, 0);
+  prevMonthEnd.setHours(23, 59, 59, 999);
+
+  // 이번 달 신청
+  const thisMonthRegistrations = await prisma.crmLandingRegistration.count({
+    where: {
+      createdAt: { gte: monthStart, lte: monthEnd },
+      ...(hasOrgFilter ? { landingPage: { organizationId: organizationId! } } : {}),
+    },
+  });
+
+  // 지난 달 신청
+  const prevMonthRegistrations = await prisma.crmLandingRegistration.count({
+    where: {
+      createdAt: { gte: prevMonthStart, lte: prevMonthEnd },
+      ...(hasOrgFilter ? { landingPage: { organizationId: organizationId! } } : {}),
+    },
+  });
+
+  // 이번 달 계약
+  const thisMonthContracts = await prisma.contractInstance.count({
+    where: {
+      ...(hasOrgFilter ? { organizationId: organizationId! } : {}),
+      updatedAt: { gte: monthStart, lte: monthEnd },
+      status: { in: ['SIGNED', 'COMPLETED'] },
+    },
+  });
+
+  // 지난 달 계약
+  const prevMonthContracts = await prisma.contractInstance.count({
+    where: {
+      ...(hasOrgFilter ? { organizationId: organizationId! } : {}),
+      updatedAt: { gte: prevMonthStart, lte: prevMonthEnd },
+      status: { in: ['SIGNED', 'COMPLETED'] },
+    },
+  });
+
+  // 성장률 계산
+  const registrationGrowth = prevMonthRegistrations > 0
+    ? Math.round(((thisMonthRegistrations - prevMonthRegistrations) / prevMonthRegistrations) * 100)
+    : 0;
+
+  const contractGrowth = prevMonthContracts > 0
+    ? Math.round(((thisMonthContracts - prevMonthContracts) / prevMonthContracts) * 100)
+    : 0;
+
+  // ─────────────────────────────────────────────────────────────
   // 결과 반환
   // ─────────────────────────────────────────────────────────────
   return {
@@ -253,5 +309,19 @@ export async function getHomeDashboardMetrics(params: MetricsParams) {
     funnelStats,
     topPriorityCalls,
     yearMonth,
+    monthlyComparison: {
+      thisMonth: {
+        applications: thisMonthRegistrations,
+        contracts: thisMonthContracts,
+      },
+      previousMonth: {
+        applications: prevMonthRegistrations,
+        contracts: prevMonthContracts,
+      },
+      growth: {
+        applicationGrowth: registrationGrowth,
+        contractGrowth: contractGrowth,
+      },
+    },
   };
 }

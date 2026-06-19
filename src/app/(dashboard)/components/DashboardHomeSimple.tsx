@@ -80,8 +80,8 @@ export function DashboardHomeSimple({ session: _session }: DashboardHomeSimplePr
         <p className="text-gray-600 text-sm mt-1">{stats.yearMonth}</p>
       </div>
 
-      {/* 상단 KPI 카드: 4개 (모바일: 2×2, PC: 1×4) */}
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+      {/* 상단 KPI 카드: 5개 (모바일: 2×2 + 1, PC: 1×5 또는 2×3) */}
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-5">
         {/* 오늘의 신청자 */}
         <div className="bg-white border border-gray-200 rounded-lg p-4">
           <p className="text-sm text-gray-600 font-medium mb-1">오늘의 신청자</p>
@@ -131,6 +131,34 @@ export function DashboardHomeSimple({ session: _session }: DashboardHomeSimplePr
             </span>
           </div>
         </div>
+
+        {/* 월별 비교 - 신청자 */}
+        {stats.monthlyComparison && (
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <p className="text-sm text-gray-600 font-medium mb-1">신청자 수</p>
+            <p
+              className="text-4xl font-bold text-slate-900"
+              style={{ fontFamily: "'Malgun Gothic', sans-serif" }}
+            >
+              {stats.monthlyComparison.thisMonth.applications}
+            </p>
+            <div className="flex items-center gap-2 mt-2">
+              <p className="text-xs text-gray-500">지난달: {stats.monthlyComparison.previousMonth.applications}명</p>
+              <span
+                className={`text-xs font-bold px-2 py-1 rounded ${
+                  stats.monthlyComparison.growth.applicationGrowth > 0
+                    ? 'bg-green-100 text-green-700'
+                    : stats.monthlyComparison.growth.applicationGrowth < 0
+                      ? 'bg-red-100 text-red-700'
+                      : 'bg-gray-100 text-gray-700'
+                }`}
+              >
+                {stats.monthlyComparison.growth.applicationGrowth > 0 ? '+' : ''}
+                {stats.monthlyComparison.growth.applicationGrowth}%
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Russell 퍼널 (3단계) */}
