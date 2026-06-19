@@ -16,6 +16,21 @@ export interface FunnelStats {
   step3: { label: string; count: number; percentage: number }; // 계약
 }
 
+export interface MonthlyComparison {
+  thisMonth: {
+    applications: number;
+    contracts: number;
+  };
+  previousMonth: {
+    applications: number;
+    contracts: number;
+  };
+  growth: {
+    applicationGrowth: number; // 퍼센트
+    contractGrowth: number; // 퍼센트
+  };
+}
+
 export interface DashboardHomeStats {
   todayNewApplications: number; // 오늘의 신청자
   todayCompletedContracts: number; // 계약 완료
@@ -24,4 +39,5 @@ export interface DashboardHomeStats {
   funnelStats: FunnelStats;
   topPriorityCalls: CallItem[]; // TOP 3
   yearMonth: string; // "2026년 6월"
+  monthlyComparison?: MonthlyComparison; // 월별 비교 데이터
 }
