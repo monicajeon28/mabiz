@@ -155,6 +155,10 @@ export async function PATCH(req: Request, { params }: Params) {
         }
       }
     }
+
+    // groupId 업데이트: groupSubName이 정의되거나 groupId가 직접 전달된 경우만
+    const shouldUpdateGroupId = groupSubName !== undefined || groupId !== undefined;
+
     const page = await prisma.crmLandingPage.update({
       where: { id },
       data: {
@@ -163,7 +167,7 @@ export async function PATCH(req: Request, { params }: Params) {
         ...(sanitizedContent  !== undefined ? { htmlContent: sanitizedContent }         : {}),
         ...(isActive          !== undefined ? { isActive }                              : {}),
         ...(isPublic          !== undefined ? { isPublic }                              : {}),
-        ...(resolvedGroupId   !== undefined ? { groupId: resolvedGroupId }      : {}),
+        ...(shouldUpdateGroupId ? { groupId: resolvedGroupId ?? null }                  : {}),
         ...(commentEnabled    !== undefined ? { commentEnabled }                        : {}),
         ...(autoFunnelId      !== undefined ? { autoFunnelId: autoFunnelId ?? null }    : {}),
         ...(editorMode        !== undefined ? { editorMode }                            : {}),
