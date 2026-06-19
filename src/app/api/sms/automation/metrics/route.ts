@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
     // Query parameters
     const searchParams = request.nextUrl.searchParams;
-    const days = searchParams.get('days') ? parseInt(searchParams.get('days')!) : 7; // 기본 7일
+    const days = searchParams.get('days') ? parseInt(searchParams.get('days')!, 10) : 7; // 기본 7일
 
     // 최근 N일간의 메시지 조회
     const startDate = new Date();

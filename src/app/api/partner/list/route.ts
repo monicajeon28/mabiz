@@ -12,8 +12,8 @@ export async function GET(req: Request) {
     const orgId = resolveOrgIdOrNull(ctx);
 
     const { searchParams } = new URL(req.url);
-    const month = parseInt(searchParams.get('month') ?? String(new Date().getMonth() + 1));
-    const year = parseInt(searchParams.get('year') ?? String(new Date().getFullYear()));
+    const month = parseInt(searchParams.get('month') ?? String(new Date().getMonth() + 1), 10);
+    const year = parseInt(searchParams.get('year') ?? String(new Date().getFullYear()), 10);
 
     // N+1 최적화: select로 필요한 필드만 조회, metrics는 join으로 처리
     const partners = await prisma.partner.findMany({

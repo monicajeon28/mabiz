@@ -555,6 +555,7 @@ export function maskPhoneNumber(phone: string | null): string | null {
  * - 전체: < 2초
  */
 export async function benchmarkQueries(tripId: number) {
+  if (process.env.NODE_ENV === 'production') return;
   console.log('=== Passport Query Benchmark ===\n');
 
   const results = {

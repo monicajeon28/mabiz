@@ -70,9 +70,9 @@ export async function POST(request: NextRequest) {
     // 실제 발송 스케줄 (Day 0-3)
     const schedules = generateSchedules(templates);
 
-    // 조직 격리 검증
+    // 조직 격리 검증 + 수신거부 고객 제외 (정보통신망법)
     const contactExists = await prisma.contact.findFirst({
-      where: { id: contactId, organizationId },
+      where: { id: contactId, organizationId, optOutAt: null },
       select: { id: true, tags: true },
     });
     if (!contactExists) {

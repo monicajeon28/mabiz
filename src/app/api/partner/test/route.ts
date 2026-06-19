@@ -10,6 +10,10 @@ import { logger } from '@/lib/logger';
  * GET /api/partner/test - Partner 테이블 존재 여부 및 기본 검증
  */
 export async function GET(req: Request) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+  }
+
   try {
     const ctx = await getAuthContext();
     const orgId = resolveOrgId(ctx);

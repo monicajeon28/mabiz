@@ -24,7 +24,7 @@ export async function GET(
     }
     const { profile } = ctx;
     const { reservationId: reservationIdStr } = await params;
-    const reservationId = parseInt(reservationIdStr);
+    const reservationId = parseInt(reservationIdStr, 10);
 
     if (isNaN(reservationId)) {
       return NextResponse.json(

@@ -20,7 +20,7 @@ export async function GET(
     const { profile } = ctx;
 
     const { paymentId: paymentIdStr } = await params;
-    const paymentId = parseInt(paymentIdStr);
+    const paymentId = parseInt(paymentIdStr, 10);
     if (isNaN(paymentId)) {
       return NextResponse.json(
         { ok: false, error: 'Invalid payment ID' },
