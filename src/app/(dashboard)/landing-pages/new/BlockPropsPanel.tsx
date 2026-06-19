@@ -25,30 +25,25 @@ const PSYCHOLOGY_COLOR_MAP: Record<
   string,
   { emoji: string; label: string; psychology: string }
 > = {
-  blue: {
-    emoji: "🔵",
-    label: "신뢰",
-    psychology: "L9 의료/안전 신뢰도",
+  gray: {
+    emoji: "📝",
+    label: "기본 신청",
+    psychology: "기본 신청 버튼",
   },
   red: {
-    emoji: "🔴",
-    label: "긴급",
-    psychology: "L10 즉시 구매 긴박감",
-  },
-  green: {
-    emoji: "🟢",
-    label: "성공",
-    psychology: "L2 가치 해결책",
+    emoji: "🔥",
+    label: "지금 신청하기",
+    psychology: "L10 긴박감으로 지금 신청 유도",
   },
   yellow: {
-    emoji: "🟡",
-    label: "주의",
-    psychology: "L6 타이밍 손실회피",
+    emoji: "⏰",
+    label: "제한된 자리 예약",
+    psychology: "L3 희소성 - 자리가 제한적",
   },
-  dark: {
-    emoji: "⬛",
-    label: "신중",
-    psychology: "L1 가격 이의 대응",
+  orange: {
+    emoji: "⚠️",
+    label: "마감 전 신청",
+    psychology: "L6 손실회피 - 마감 전 신청",
   },
 };
 
