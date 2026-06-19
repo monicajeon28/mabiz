@@ -9,6 +9,11 @@ import { FunnelChart } from "@/components/marketing/FunnelChart";
 import { TopPagesTable } from "@/components/marketing/TopPagesTable";
 import type { DashboardData } from "@/types/marketing";
 
+interface Organization {
+  id: string;
+  name: string | null;
+}
+
 function SkeletonCard() {
   return <div className="h-24 bg-gray-100 rounded-xl animate-pulse" />;
 }
@@ -17,12 +22,45 @@ export default function MarketingDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [selectedOrgId, setSelectedOrgId] = useState<string>("");
   const refreshCtrlRef = useRef<AbortController | null>(null);
 
-  const fetchData = useCallback((signal?: AbortSignal) => {
+  // 역할과 조직 목록 로드
+  useEffect(() => {
+    const fetchUserRoleAndOrgs = async () => {
+      try {
+        const res = await fetch("/api/me");
+        if (res.ok) {
+          const ctx = await res.json();
+          setRole(ctx.role);
+
+          // GLOBAL_ADMIN이면 조직 목록 로드
+          if (ctx.role === "GLOBAL_ADMIN") {
+            const orgsRes = await fetch("/api/organizations");
+            if (orgsRes.ok) {
+              const orgs = await orgsRes.json();
+              setOrganizations(orgs);
+            }
+          }
+        }
+      } catch (err) {
+        logger.error('[fetchUserRoleAndOrgs]', { err });
+      }
+    };
+
+    fetchUserRoleAndOrgs();
+  }, []);
+
+  const fetchData = useCallback((signal?: AbortSignal, orgId?: string) => {
     setLoading(true);
     setError(null);
-    fetch("/api/marketing/dashboard", { signal })
+    const url = orgId
+      ? `/api/marketing/dashboard?organizationId=${encodeURIComponent(orgId)}`
+      : "/api/marketing/dashboard";
+
+    fetch(url, { signal })
       .then((r) => r.json())
       .then((d) => {
         if (d.ok) {
@@ -46,22 +84,41 @@ export default function MarketingDashboardPage() {
 
   useEffect(() => {
     const ctrl = new AbortController();
-    fetchData(ctrl.signal);
+    fetchData(ctrl.signal, selectedOrgId);
     return () => ctrl.abort();
-  }, [fetchData]);
+  }, [fetchData, selectedOrgId]);
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
       <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold text-navy-900">마케팅 대시보드</h1>
           <p className="text-gray-500 text-sm mt-1">랜딩페이지 성과 및 전환율 분석</p>
+
+          {/* GLOBAL_ADMIN이면 조직 드롭다운 표시 */}
+          {role === "GLOBAL_ADMIN" && organizations.length > 0 && (
+            <div className="mt-4 flex items-center gap-3">
+              <label className="text-sm font-medium text-gray-700">조직 선택:</label>
+              <select
+                value={selectedOrgId}
+                onChange={(e) => setSelectedOrgId(e.target.value)}
+                className="h-10 px-3 border border-gray-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-navy-600 focus:border-transparent transition-colors"
+              >
+                <option value="">전체</option>
+                {organizations.map((org) => (
+                  <option key={org.id} value={org.id}>
+                    {org.name || "이름 없음"}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         <button
           onClick={() => {
             refreshCtrlRef.current?.abort();
             refreshCtrlRef.current = new AbortController();
-            fetchData(refreshCtrlRef.current.signal);
+            fetchData(refreshCtrlRef.current.signal, selectedOrgId);
           }}
           disabled={loading}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed focus:ring-2 focus:ring-offset-1 focus:ring-navy-600"
