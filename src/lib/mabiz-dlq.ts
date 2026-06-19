@@ -83,8 +83,9 @@ export async function failDLQ(id: string, retryCount: number, reason: string): P
     return;
   }
 
-  // 다음 재시도 예약
-  const nextDelay = RETRY_DELAYS_MIN[retryCount];
+  // 다음 재시도 예약 (배열 범위 초과 방지)
+  const delayIndex = Math.min(retryCount, RETRY_DELAYS_MIN.length - 1);
+  const nextDelay = RETRY_DELAYS_MIN[delayIndex];
   await prisma.mabizSyncDLQ.update({
     where: { id },
     data: {

@@ -199,7 +199,7 @@ export async function GET(request: NextRequest) {
     // Verify cron authentication — CRON_SECRET 미설정 시 fail-closed (500)
     const expectedToken = process.env.CRON_SECRET;
     if (!expectedToken) {
-      return NextResponse.json({ error: "CRON_SECRET 환경변수 미설정" }, { status: 500 });
+      return NextResponse.json({ error: "CRON_SECRET 환경변수 미설정" }, { status: 503 });
     }
     const authHeader = request.headers.get("Authorization");
     if (authHeader !== `Bearer ${expectedToken}`) {

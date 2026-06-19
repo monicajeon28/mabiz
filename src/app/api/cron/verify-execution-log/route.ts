@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
       logger.warn("[Cron/VerifyExecutionLog] CRON_SECRET 미설정");
       return NextResponse.json(
         { ok: false, error: "Unauthorized" },
-        { status: 500 }
+        { status: 503 }
       );
     }
 

@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
         logger.warn("[Cron/CostCalculator] CRON_SECRET 미설정");
         return NextResponse.json(
           { ok: false, error: "Unauthorized" },
-          { status: 500 }
+          { status: 503 }
         );
       }
 

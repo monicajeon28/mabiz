@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   // FIX #3: CRON_SECRET 미설정 시 fail-closed (undefined bypass 방지)
   if (!process.env.CRON_SECRET) {
     logger.error('[group-auto-move] CRON_SECRET 환경변수 미설정');
-    return NextResponse.json({ ok: false, error: 'MISCONFIGURED' }, { status: 500 });
+    return NextResponse.json({ ok: false, error: 'MISCONFIGURED' }, { status: 503 });
   }
   const auth = req.headers.get('authorization');
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {

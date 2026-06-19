@@ -30,7 +30,7 @@ export async function GET(req: Request) {
     const expectedToken = process.env.CRON_SECRET;
     if (!expectedToken) {
       logger.error("[Cron/EmailFunnel] CRON_SECRET 환경변수 미설정");
-      return NextResponse.json({ error: "CRON_SECRET 환경변수 미설정" }, { status: 500 });
+      return NextResponse.json({ error: "CRON_SECRET 환경변수 미설정" }, { status: 503 });
     }
     const authHeader = req.headers.get("authorization") ?? "";
     const expectedBearer = `Bearer ${expectedToken}`;

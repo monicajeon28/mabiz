@@ -29,7 +29,7 @@ function isAuthorized(req: Request): boolean {
 
 export async function GET(req: Request) {
   if (!process.env.CRON_SECRET) {
-    return NextResponse.json({ ok: false, message: 'CRON_SECRET 미설정' }, { status: 500 });
+    return NextResponse.json({ ok: false, message: 'CRON_SECRET 미설정' }, { status: 503 });
   }
   if (!isAuthorized(req)) {
     return NextResponse.json({ ok: false, message: '인증 실패' }, { status: 401 });

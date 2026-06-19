@@ -79,6 +79,8 @@ export function buildContactWhere(ctx: AuthContext, extra: Record<string, unknow
   if (ctx.role === "GLOBAL_ADMIN") {
     return { ...extra, deletedAt: null };
   }
+  // OWNER/AGENT는 반드시 organizationId 필요 — null이면 런타임 크래시 방지
+  if (!ctx.organizationId) throw new Error('MISSING_ORG_ID');
   if (ctx.role === "OWNER") {
     return {
       ...extra,
