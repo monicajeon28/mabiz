@@ -143,6 +143,7 @@ export async function exchangeCode(code: string): Promise<GoogleTokenResponse> {
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    signal: AbortSignal.timeout(10_000),
     body: new URLSearchParams({
       code,
       client_id: CLIENT_ID,
@@ -165,6 +166,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<{ access
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    signal: AbortSignal.timeout(10_000),
     body: new URLSearchParams({
       refresh_token: refreshToken,
       client_id: CLIENT_ID,
@@ -232,6 +234,7 @@ export async function getValidAccessToken(userId: string): Promise<string | null
 export async function getGoogleEmail(accessToken: string): Promise<string | null> {
   const res = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
     headers: { Authorization: `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(10_000),
   });
   if (!res.ok) return null;
   const data = await res.json();
@@ -262,6 +265,7 @@ export async function addCalendarEvent(userId: string, event: CalendarEvent): Pr
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
+      signal: AbortSignal.timeout(10_000),
       body: JSON.stringify({
         summary: event.summary,
         description: event.description ?? "",
@@ -322,6 +326,7 @@ export async function updateCalendarEvent(
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
+      signal: AbortSignal.timeout(10_000),
       body: JSON.stringify({
         ...(updates.summary && { summary: updates.summary }),
         ...(updates.description !== undefined && { description: updates.description }),
@@ -353,6 +358,7 @@ export async function deleteCalendarEvent(
     {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(10_000),
     }
   );
 
