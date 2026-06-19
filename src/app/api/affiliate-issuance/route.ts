@@ -16,6 +16,11 @@ import {
 
 export const dynamic = "force-dynamic";
 
+function generateRandomPassword(): string {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  return Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
 /**
  * GET /api/affiliate-issuance
  * GLOBAL_ADMIN 전용 — 발급된 어필리에이트 목록 조회
@@ -186,7 +191,7 @@ export async function POST(req: Request) {
       contractSignature,
       contractVersion,
       landingSlug,
-      initialPassword = "1101",
+      initialPassword = generateRandomPassword(),
     } = body;
 
     if (!type || !name) {

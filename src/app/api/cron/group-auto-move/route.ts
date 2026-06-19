@@ -1,17 +1,23 @@
 // Vercel Cron: 0 16 * * * (매일 01:00 KST = UTC 16:00)
 export const maxDuration = 60;
+import { timingSafeEqual } from 'crypto';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
 export async function POST(req: Request) {
   // FIX #3: CRON_SECRET 미설정 시 fail-closed (undefined bypass 방지)
-  if (!process.env.CRON_SECRET) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
     logger.error('[group-auto-move] CRON_SECRET 환경변수 미설정');
     return NextResponse.json({ ok: false, error: 'MISCONFIGURED' }, { status: 503 });
   }
-  const auth = req.headers.get('authorization');
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  // 타이밍 공격 방지: timingSafeEqual 사용
+  const auth = req.headers.get('authorization') ?? '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  const tokenBuf = Buffer.from(token, 'utf8');
+  const secretBuf = Buffer.from(cronSecret, 'utf8');
+  if (tokenBuf.byteLength !== secretBuf.byteLength || !timingSafeEqual(tokenBuf, secretBuf)) {
     return NextResponse.json({ ok: false, error: 'UNAUTHORIZED' }, { status: 401 });
   }
 

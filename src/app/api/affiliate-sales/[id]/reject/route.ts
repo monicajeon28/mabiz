@@ -22,7 +22,7 @@ export async function POST(
       return NextResponse.json({ ok: false, error: '권한이 없습니다.' }, { status: 403 });
     }
 
-    const saleId = parseInt(params.id);
+    const saleId = parseInt(params.id, 10);
     if (!saleId || isNaN(saleId)) {
       return NextResponse.json({ ok: false, error: '유효하지 않은 ID' }, { status: 400 });
     }
