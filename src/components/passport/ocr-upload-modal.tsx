@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { Upload, X, CheckCircle, AlertCircle, RefreshCw, Eye, EyeOff } from 'lucide-react';
-import { showError, showSuccess } from '@/components/ui/Toast';
+import { showSuccess } from '@/components/ui/Toast';
 
 interface OCRResult {
   korName: string;
@@ -22,10 +22,9 @@ interface OCRResult {
 interface OCRUploadModalProps {
   onClose: () => void;
   onResult: (data: OCRResult) => void;
-  initialData?: Partial<OCRResult>;
 }
 
-export function OCRUploadModal({ onClose, onResult, initialData }: OCRUploadModalProps) {
+export function OCRUploadModal({ onClose, onResult }: OCRUploadModalProps) {
   const [step, setStep] = useState<'upload' | 'preview'>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
