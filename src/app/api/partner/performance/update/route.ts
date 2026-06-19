@@ -53,6 +53,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Only OWNER/ADMIN roles can update partner performance scores
+    if (session.role !== 'OWNER' && session.role !== 'GLOBAL_ADMIN') {
+      return NextResponse.json(
+        { ok: false, error: '권한이 없습니다' },
+        { status: 403 }
+      );
+    }
+
     // 이전 RiskScore 저장 (비교용)
     const previousRiskFlags = await prisma.partnerRiskFlags.findUnique({
       where: { partnerId },

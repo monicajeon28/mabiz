@@ -14,6 +14,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logger } from '@/lib/logger';
 
 let supabaseServer: SupabaseClient | null = null;
 
@@ -47,7 +48,7 @@ export function getSupabaseServerClient(): SupabaseClient {
         if (process.env.NODE_ENV === 'development') {
           const method = (init?.method || 'GET').toUpperCase();
           const urlObj = new URL(url.toString());
-          console.log(`[Supabase] ${method} ${urlObj.pathname}`);
+          logger.info(`[Supabase] ${method} ${urlObj.pathname}`);
         }
 
         const response = await fetch(url, init);
@@ -55,7 +56,7 @@ export function getSupabaseServerClient(): SupabaseClient {
         // 에러 로깅
         if (!response.ok && process.env.NODE_ENV === 'development') {
           const text = await response.clone().text();
-          console.error(`[Supabase Error] ${response.status}:`, text);
+          logger.error(`[Supabase Error] ${response.status}:`, { text });
         }
 
         return response;
@@ -120,7 +121,7 @@ export function validateSupabaseEnv(): void {
   const missing = required.filter((key) => !process.env[key]);
 
   if (missing.length > 0) {
-    console.warn(
+    logger.warn(
       `⚠️  Supabase 환경변수 누락: ${missing.join(', ')}\n` +
       '설정: .env.local (로컬) 또는 Vercel Secret (프로덕션)'
     );
