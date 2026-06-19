@@ -1,0 +1,4 @@
+<claude-code-hint v="1" type="plugin" value="vercel@claude-plugins-official" />
+Vercel CLI 54.11.1 (Node.js 24.16.0)
+Retrieving project…
+Deploying monicajeon28s-projects/mabiz

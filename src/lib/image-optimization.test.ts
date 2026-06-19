@@ -49,10 +49,10 @@ describe('image-optimization', () => {
       const buffer = Buffer.alloc(10 * 1024 * 1024); // 10MB
       // Sharp가 파싱할 수 있는 최소 헤더 추가 (실제로는 sharp가 에러 던질 수 있음)
       // 하지만 크기 검증은 통과해야 함
-      const result = await validateImage(buffer);
+      const _result = await validateImage(buffer);
 
       // 크기 검증만 확인 (Sharp 파싱 에러는 별도)
-      // result.size는 10 * 1024 * 1024여야 함
+      // _result.size는 10 * 1024 * 1024여야 함
     });
 
     test('빈 파일 (0 바이트)', async () => {
