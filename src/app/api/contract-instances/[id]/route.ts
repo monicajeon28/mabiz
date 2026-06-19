@@ -221,12 +221,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             { status: 401 }
           );
         }
-        // timingSafeEqual 비교로 타이밍 공격 방지
+        // timingSafeEqual 비교로 타이밍 공격 방지 (byteLength로 UTF-8 안전)
         const { timingSafeEqual } = await import("crypto");
-        const a = Buffer.from(storedToken);
-        const b = Buffer.from(signToken);
+        const a = Buffer.from(storedToken, 'utf8');
+        const b = Buffer.from(signToken, 'utf8');
         const tokenMatch =
-          a.length === b.length && timingSafeEqual(a, b);
+          a.byteLength === b.byteLength && timingSafeEqual(a, b);
         if (!tokenMatch) {
           return NextResponse.json(
             { ok: false, error: "유효하지 않은 서명 토큰입니다" },

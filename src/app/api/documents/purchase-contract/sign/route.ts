@@ -33,10 +33,12 @@ type InputValue = {
   value: string | number | null;
 };
 
-// P0-2: timingSafeEqual 기반 토큰 비교
+// P0-2: timingSafeEqual 기반 토큰 비교 (byteLength 비교로 UTF-8 안전)
 function safeTokenCompare(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  const bufA = Buffer.from(a, 'utf8');
+  const bufB = Buffer.from(b, 'utf8');
+  if (bufA.byteLength !== bufB.byteLength) return false;
+  return timingSafeEqual(bufA, bufB);
 }
 
 // P2-2: HTML 이스케이프
@@ -183,11 +185,10 @@ export async function GET(req: Request) {
       );
     }
 
-    // 만료 검증 (typeof 가드로 Invalid Date 방지)
-    if (
-      typeof data.signTokenExpiresAt === 'string' &&
-      new Date(data.signTokenExpiresAt) < new Date()
-    ) {
+    // 만료 검증 (fail-closed: 날짜 파싱 실패 시에도 만료 처리)
+    const parsedExpiry = typeof data.signTokenExpiresAt === 'string'
+      ? Date.parse(data.signTokenExpiresAt) : NaN;
+    if (Number.isNaN(parsedExpiry) || new Date(parsedExpiry) < new Date()) {
       return NextResponse.json(
         { ok: false, message: '링크가 만료되었습니다 (7일 경과)' },
         { status: 410 },
@@ -407,10 +408,10 @@ export async function POST(req: Request) {
         return 'INVALID_TOKEN' as const;
       }
 
-      // 만료 검증
-      if (
-        typeof existingData.signTokenExpiresAt === 'string' && new Date(existingData.signTokenExpiresAt) < new Date()
-      ) {
+      // 만료 검증 (fail-closed: 날짜 파싱 실패 시에도 만료 처리)
+      const txParsedExpiry = typeof existingData.signTokenExpiresAt === 'string'
+        ? Date.parse(existingData.signTokenExpiresAt) : NaN;
+      if (Number.isNaN(txParsedExpiry) || new Date(txParsedExpiry) < new Date()) {
         return 'EXPIRED' as const;
       }
 

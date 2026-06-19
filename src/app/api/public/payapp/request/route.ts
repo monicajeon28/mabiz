@@ -19,7 +19,8 @@ function isSafeCompletionUrl(url: string): boolean {
     return ALLOWED_COMPLETION_DOMAINS.some(domain =>
       parsed.hostname === domain || parsed.hostname.endsWith('.' + domain)
     );
-  } catch {
+  } catch (urlErr) {
+    logger.debug('[Public/PayApp] completionUrl 파싱 실패', { url, urlErr });
     return false;
   }
 }
@@ -114,6 +115,10 @@ export async function POST(req: Request) {
           { status: 400 }
         );
       }
+      const expireDateMs = Date.parse(expireDate);
+      if (Number.isNaN(expireDateMs)) {
+        return NextResponse.json({ ok: false, message: '만료일(expireDate) 형식이 올바르지 않습니다.' }, { status: 400 });
+      }
 
       const subscription = await prisma.payAppSubscription.create({
         data: {
@@ -125,7 +130,7 @@ export async function POST(req: Request) {
           customerPhone: normalizedPhone,
           customerEmail: customerEmail ?? null,
           cycleDay,
-          expireDate: new Date(expireDate),
+          expireDate: new Date(expireDateMs),
           status: 'pending',
           payUrl: null,
           landingPageId: landingPageId ?? null,
