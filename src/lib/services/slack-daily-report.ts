@@ -306,6 +306,7 @@ export async function sendDailyReportToSlack(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(message),
+      signal: AbortSignal.timeout(8_000),
     });
 
     if (!response.ok) {
@@ -358,6 +359,7 @@ export async function sendCriticalAlertToSlack(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(8_000),
     });
 
     if (!response.ok) {

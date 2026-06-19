@@ -331,6 +331,7 @@ async function notifySlackRecovery(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(message),
+      signal: AbortSignal.timeout(8_000),
     });
 
     logger.log("[Auto Recovery] Slack 알림 발송", { result });
@@ -374,6 +375,7 @@ async function notifySlackRollback(details: Record<string, any>): Promise<void> 
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(message),
+      signal: AbortSignal.timeout(8_000),
     });
 
     logger.log("[Auto Recovery] 롤백 알림 발송");
