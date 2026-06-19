@@ -62,7 +62,7 @@ export interface ImageValidationResult {
 const CONFIG = {
   // 파일 크기 제한
   maxFileSize: 10 * 1024 * 1024, // 10MB
-  maxResolution: 6000 * 6000, // 6000x6000 픽셀 (약 3MB 미리미터 해상도)
+  maxResolution: 20000 * 20000, // 20000x20000 픽셀 (매우 큰 이미지 지원)
 
   // WebP 품질 설정 (75% 품질 유지하며 80% 크기 절감)
   quality: {
@@ -78,7 +78,7 @@ const CONFIG = {
   },
 
   // 타임아웃
-  timeoutMs: 3000, // 3초
+  timeoutMs: 5000, // 5초
 
   // 지원하는 입력 포맷
   supportedFormats: ['jpeg', 'jpg', 'png', 'webp'] as const,
