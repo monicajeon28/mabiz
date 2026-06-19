@@ -94,11 +94,9 @@ export async function PUT(req: Request) {
       );
     }
 
-    if (!senderEmail.includes("@")) {
-      return NextResponse.json(
-        { ok: false, message: "유효한 이메일 주소를 입력하세요" },
-        { status: 400 }
-      );
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(senderEmail)) {
+      return NextResponse.json({ error: '올바른 이메일 형식이 아닙니다' }, { status: 400 });
     }
 
     const port = parseInt(String(smtpPort), 10);
