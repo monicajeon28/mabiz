@@ -1,5 +1,6 @@
 import { Contact, ContactVisibility, ContactWithSharing } from '@/types/contact';
 import { UserRole } from '@prisma/client';
+import { logger } from '@/lib/logger';
 
 /**
  * 연락처 공유 가능 여부 확인

@@ -58,7 +58,7 @@ export function parseMaritalStatus(rawResponse: string): ParsingResult {
   // 1. 숫자 추출 (1, 2, 3)
   const numberMatch = response.match(/[1-3]/);
   if (numberMatch) {
-    const num = parseInt(numberMatch[0]);
+    const num = parseInt(numberMatch[0], 10);
     if (num === 1) {
       return {
         success: true,
@@ -140,7 +140,7 @@ export function parseMarriageAndChildren(rawResponse: string): ParsingResult {
   // 1. 결혼년수 추출 (예: "5년" → marriageDate = now() - 5년)
   const yearsMatch = response.match(/(\d+)\s*년/);
   if (yearsMatch) {
-    const yearsAgo = parseInt(yearsMatch[1]);
+    const yearsAgo = parseInt(yearsMatch[1], 10);
     if (yearsAgo >= 0 && yearsAgo <= 60) {
       // 0~60년 범위만 유효
       const msPerYear = 365.25 * 24 * 60 * 60 * 1000;
@@ -173,7 +173,7 @@ export function parseMarriageAndChildren(rawResponse: string): ParsingResult {
     result.childrenAges = ageMatches
       .map((match) => {
         const num = match.match(/(\d+)/);
-        return num ? parseInt(num[1]) : null;
+        return num ? parseInt(num[1], 10) : null;
       })
       .filter((n) => n !== null && n >= 0 && n <= 25) as number[]; // 0~25세만 유효
   }
@@ -210,7 +210,7 @@ export function parseAge(rawResponse: string): ParsingResult {
   // 숫자 추출
   const numberMatch = response.match(/(\d{1,3})/);
   if (numberMatch) {
-    const age = parseInt(numberMatch[1]);
+    const age = parseInt(numberMatch[1], 10);
     if (age >= 18 && age <= 100) {
       return {
         success: true,
@@ -248,7 +248,7 @@ export function parseTravelPurpose(rawResponse: string): ParsingResult {
   // 1. 숫자 추출 (1, 2, 3, 4)
   const numberMatch = response.match(/[1-4]/);
   if (numberMatch) {
-    const num = parseInt(numberMatch[0]);
+    const num = parseInt(numberMatch[0], 10);
     const purposes = ["relaxation", "adventure", "family", "culture"];
     return {
       success: true,

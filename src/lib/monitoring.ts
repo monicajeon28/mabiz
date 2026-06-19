@@ -118,7 +118,7 @@ export function recordMiddlewarePerformance(
     threshold,
     pathname: tags?.pathname || '',
     method: tags?.method || 'UNKNOWN',
-    statusCode: tags?.statusCode ? parseInt(tags.statusCode) : undefined,
+    statusCode: tags?.statusCode ? parseInt(tags.statusCode, 10) : undefined,
   };
 
   collector.add(metric);

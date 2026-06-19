@@ -144,6 +144,7 @@ async function callKakaoAPI(
       method: 'POST',
       headers,
       body: JSON.stringify(requestBody),
+      signal: AbortSignal.timeout(10_000),
     });
 
     if (!response.ok) {

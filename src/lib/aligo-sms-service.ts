@@ -97,6 +97,7 @@ async function sendSmsWithAligo(
     const response = await fetch('https://apis.aligo.in/send/', {
       method: 'POST',
       body: formData,
+      signal: AbortSignal.timeout(10_000),
     });
 
     if (!response.ok) {

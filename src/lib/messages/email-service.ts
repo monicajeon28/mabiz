@@ -103,6 +103,7 @@ async function sendViaSendGrid(
         'Content-Type': 'application/json',
         Authorization: `Bearer ${sendgridApiKey}`,
       },
+      signal: AbortSignal.timeout(10_000),
       body: JSON.stringify({
         personalizations: [
           {

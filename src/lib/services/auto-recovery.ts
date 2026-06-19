@@ -84,7 +84,7 @@ export async function autoRecoverExecutionLog(): Promise<{
         };
       }
 
-      const lastRollbackTime = parseInt(lastRollbackStr as string);
+      const lastRollbackTime = parseInt(lastRollbackStr as string, 10);
       const timeSinceRollback = Date.now() - lastRollbackTime;
       const RECOVERY_DELAY = 60 * 60 * 1000; // 1시간
 

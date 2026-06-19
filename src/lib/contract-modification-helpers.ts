@@ -14,6 +14,7 @@ import {
   SPIN_QUESTIONS,
   UrgencyMessage,
 } from "./types/contract-modification";
+import { logger } from '@/lib/logger';
 
 /**
  * 필드 수정가능 여부 검증 (보안)
@@ -309,7 +310,7 @@ export function validateModifiableFields(
     // 수정 가능 필드 목록 (기본적으로 whitelist 기반)
     if (!MODIFIABLE_FIELDS.includes(fm.fieldName)) {
       // 명확하지 않은 필드도 경고하지만 거부하지는 않음
-      console.warn(
+      logger.warn(
         `필드 "${fm.fieldName}"가 표준 목록에 없습니다. 관리자 검토 필요.`
       );
     }

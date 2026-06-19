@@ -240,8 +240,8 @@ export const AUTO_APPROVABLE_FIELDS: Record<string, ModificationFieldConfig> = {
     validator: async (newValue: string, contract: any) => {
       try {
         const boundData = contract.boundData as any;
-        const currentPrice = parseInt(boundData.price) || 0;
-        const newPrice = parseInt(newValue) || 0;
+        const currentPrice = parseInt(boundData.price, 10) || 0;
+        const newPrice = parseInt(newValue, 10) || 0;
 
         if (isNaN(newPrice) || newPrice < 0) {
           return {

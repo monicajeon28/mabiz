@@ -56,7 +56,8 @@ async function sendSmsViaAligo(
         sender: process.env.ALIGO_SENDER_PHONE,
         receiver: phone,
         msg: message
-      })
+      }),
+      signal: AbortSignal.timeout(10_000),
     });
 
     const data = await response.json();
