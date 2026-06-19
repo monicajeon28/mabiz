@@ -125,7 +125,8 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   // Content-Length 사전 체크 (413 전에 명확한 에러)
   const contentLength = req.headers.get('content-length');
-  if (contentLength && parseInt(contentLength) > MAX_IMAGE_UPLOAD_BYTES) {
+  const parsedLen = contentLength ? parseInt(contentLength, 10) : NaN;
+  if (!isNaN(parsedLen) && parsedLen > MAX_IMAGE_UPLOAD_BYTES) {
     return NextResponse.json(
       { ok: false, error: '파일이 너무 큽니다. 100MB 이하 파일을 업로드해주세요.' },
       { status: 413 }
@@ -216,7 +217,12 @@ export async function POST(req: Request) {
     await drive.permissions.create({
       fileId: asset.driveFileId,
       requestBody: { role: "reader", type: "anyone" },
-    }).catch(() => {});
+    }).catch((err: unknown) => {
+      logger.warn("[POST /api/image-library] Drive 공개 권한 설정 실패", {
+        driveFileId: asset.driveFileId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
 
     return NextResponse.json({
       ok: true,

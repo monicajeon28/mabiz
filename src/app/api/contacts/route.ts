@@ -108,7 +108,8 @@ export async function GET(req: Request) {
     })();
     const rawPage = parseInt(searchParams.get("page") ?? "1", 10);
     const page    = Number.isNaN(rawPage) ? 1 : Math.min(Math.max(1, rawPage), 10000);
-    const safeLimit = Math.min(Number(searchParams.get("limit")) || 30, 200); // limit 상한 강제 (200건)
+    const rawLimit = parseInt(searchParams.get("limit") ?? "30", 10);
+    const safeLimit = Number.isNaN(rawLimit) ? 30 : Math.min(Math.max(1, rawLimit), 200); // limit 상한 강제 (200건)
 
     // T-015: OWNER/AGENT는 organizationId 필수 — 세션 손상 시 전체 레코드 반환 방지
     if ((ctx.role === 'OWNER' || ctx.role === 'AGENT') && !ctx.organizationId) {

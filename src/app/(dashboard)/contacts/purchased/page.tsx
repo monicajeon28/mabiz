@@ -72,6 +72,7 @@ export default function PurchasedPage() {
   const [slidePanelLoadingId, setSlidePanelLoadingId] = useState<string | null>(null);
 
   const slidePanelAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => { return () => { slidePanelAbortRef.current?.abort(); }; }, []);
 
   // 행 클릭 시 전체 고객 정보를 받아와 패널 열기
   const openSlidePanel = useCallback(async (contactId: string) => {
@@ -289,7 +290,7 @@ export default function PurchasedPage() {
                   {importResult.skipCount > 0 && ` / ⚠️ ${importResult.skipCount}건 건너뜀`}
                 </p>
                 {importResult.errors.slice(0, 3).map((e, i) => (
-                  <p key={i} className="text-sm opacity-80">{e}</p>
+                  <p key={`import-err-${i}-${e}`} className="text-sm opacity-80">{e}</p>
                 ))}
               </div>
             )}

@@ -59,9 +59,9 @@ export async function POST(req: Request) {
         );
       }
 
-      // 기존 ImageAsset 조회 (driveFileId로)
+      // 기존 ImageAsset 조회 (driveFileId로, 테넌트 격리)
       const asset = await prisma.imageAsset.findFirst({
-        where: { driveFileId },
+        where: { driveFileId, organizationId: orgId },
         select: { id: true, driveFileId: true, originalFileName: true, mimeType: true, width: true, height: true },
       });
       if (!asset) {
@@ -195,7 +195,8 @@ export async function POST(req: Request) {
     });
 
     // 중간 테이블에 순서 기록
-    const sortOrder = sortOrderStr ? parseInt(sortOrderStr) : await getNextSortOrder(landingPageId);
+    const rawSortOrder = parseInt(sortOrderStr ?? '', 10);
+    const sortOrder = (sortOrderStr && !isNaN(rawSortOrder)) ? rawSortOrder : await getNextSortOrder(landingPageId);
 
     // P0-7/8: Prisma 트랜잭션으로 원자성 보장
     const pageImage = await prisma.$transaction(async (tx) => {
@@ -343,7 +344,7 @@ export async function GET(req: Request) {
     const assetIds = images.map((img) => img.imageAssetId);
     const assets = assetIds.length > 0
       ? await prisma.imageAsset.findMany({
-          where: { id: { in: assetIds } },
+          where: { id: { in: assetIds }, organizationId: orgId },
           select: { id: true, driveFileId: true, originalFileName: true, mimeType: true, width: true, height: true, fileSize: true },
         })
       : [];
