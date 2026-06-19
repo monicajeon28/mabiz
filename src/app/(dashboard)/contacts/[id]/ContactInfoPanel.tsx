@@ -566,7 +566,9 @@ function ContactInfoPanelComponent({
             {inquiryTracking.ip && (
               <div className="flex gap-2">
                 <span className="text-gray-400 shrink-0 w-20">IP</span>
-                <span className="text-gray-800 font-mono text-xs">{inquiryTracking.ip}</span>
+                <span className="text-gray-800 font-mono text-xs">
+                  {inquiryTracking.ip.replace(/(\d+\.\d+)\.\d+\.\d+/, '$1.*.*')}
+                </span>
               </div>
             )}
             {inquiryTracking.deviceType && (
@@ -578,7 +580,11 @@ function ContactInfoPanelComponent({
             {inquiryTracking.userAgent && (
               <div className="flex gap-2">
                 <span className="text-gray-400 shrink-0 w-20">브라우저</span>
-                <span className="text-gray-800 break-all">{inquiryTracking.userAgent}</span>
+                <span className="text-gray-800 break-all" title={inquiryTracking.userAgent}>
+                  {inquiryTracking.userAgent.length > 120
+                    ? inquiryTracking.userAgent.slice(0, 120) + '…'
+                    : inquiryTracking.userAgent}
+                </span>
               </div>
             )}
             {typeof inquiryTracking.isGold === "boolean" && (

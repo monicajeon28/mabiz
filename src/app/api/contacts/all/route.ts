@@ -21,18 +21,25 @@ export async function GET(req: Request) {
     const limit = Number.isNaN(rawLimit) ? 30 : Math.min(Math.max(1, rawLimit), 200);
 
     const tagParam = searchParams.get('tags');
-    const tags = tagParam ? tagParam.split(',').map(t => t.trim()).filter(Boolean) : [];
+    const tags = tagParam
+      ? tagParam.split(',').map(t => t.trim().slice(0, 50)).filter(Boolean).slice(0, 10)
+      : [];
 
-    const sortBy = searchParams.get('sortBy'); // updatedAt_desc | createdAt_desc | name_asc
+    const ALLOWED_SORT = ['updatedAt_desc', 'createdAt_desc', 'name_asc'] as const;
+    const rawSortBy = searchParams.get('sortBy');
+    const sortBy = ALLOWED_SORT.includes(rawSortBy as typeof ALLOWED_SORT[number]) ? rawSortBy : null;
     const orderBy =
       sortBy === 'createdAt_desc' ? { createdAt: 'desc' as const } :
       sortBy === 'name_asc'       ? { name: 'asc' as const } :
-      { updatedAt: 'desc' as const }; // 기본값
+      { updatedAt: 'desc' as const };
+
+    const ALLOWED_TYPES = ['LEAD', 'INQUIRY', 'CUSTOMER', '구매완료', 'PURCHASED', 'GOLD', '잠재고객'];
+    const safeType = ALLOWED_TYPES.includes(type) ? type : '';
 
     const where = {
       deletedAt: null, // 삭제된 고객(soft delete) 제외
       ...(orgId ? { organizationId: orgId } : {}),
-      ...(type ? { type } : {}),
+      ...(safeType ? { type: safeType } : {}),
       ...(tags.length > 0 ? { tags: { hasEvery: tags } } : {}),
       ...(q ? {
         OR: [
