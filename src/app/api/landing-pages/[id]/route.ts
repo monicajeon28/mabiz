@@ -25,7 +25,13 @@ const PatchSchema = z.object({
   category:         z.string().nullable().optional(),
   pageGroup:        z.string().nullable().optional(),
   buttonTitle:      z.string().nullable().optional(),
-  completionPageUrl: z.string().nullable().optional(),
+  completionPageUrl: z.string()
+    .refine(v => {
+      if (!v) return true;
+      try { const u = new URL(v); return ['http:', 'https:'].includes(u.protocol); }
+      catch { return false; }
+    }, { message: 'completionPageUrl은 http:// 또는 https:// URL이어야 합니다.' })
+    .nullable().optional(),
   headerScript:     z.string().nullable().optional(),
   exposureTitle:    z.string().nullable().optional(),
   exposureImage:    z.string().nullable().optional(),
