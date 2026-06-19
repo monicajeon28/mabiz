@@ -7714,3 +7714,23 @@ model PassportBackupLog {
   @@index([createdAt])
   @@map("PassportBackupLog")
 }
+
+// 마케팅 월별 매출 스냅샷 (Cron 자동 저장)
+model MarketingMonthlySalesSnapshot {
+  id             String   @id @default(cuid())
+  month          String   // "2026-05" 형식 (KST 기준)
+  organizationId String?  // null = 전체 합계
+  orgName        String?  // 대리점 이름 (null이면 "전체")
+  totalRevenue   Float    @default(0)
+  totalRefund    Float    @default(0)
+  netRevenue     Float    @default(0)
+  paidCount      Int      @default(0)
+  sheetsRowId    String?  // Google Sheets 연동용 (미래 사용)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([month, organizationId])
+  @@index([month])
+  @@index([organizationId])
+  @@map("MarketingMonthlySalesSnapshot")
+}
