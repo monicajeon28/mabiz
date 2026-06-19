@@ -152,7 +152,7 @@ export default function OfferSection() {
                 {/* CTA Button */}
                 <button
                   onClick={() => handleLearnMore(offer.id)}
-                  className="w-full h-12 px-4 text-xs xs:text-sm sm:text-base bg-white text-gray-900 rounded-lg font-bold hover:bg-gray-100 transition-all flex items-center justify-center"
+                  className="w-full h-12 px-4 text-sm xs:text-base sm:text-base bg-white text-gray-900 rounded-lg font-bold hover:bg-gray-100 transition-all flex items-center justify-center"
                 >
                   이 플랜 선택
                 </button>

@@ -28,14 +28,14 @@ const FORMAT_EMOJI: Record<PageFormat, string> = {
 };
 
 const FORMAT_LABELS: Record<PageFormat, string> = {
-  squeeze: '상품 신청 받기',
-  vsl: '영상으로 소개',
-  webinar: '설명회 참가',
-  funnel: '단계별 안내',
-  tripwire: '특가 상품',
-  downsell: '대안 상품',
-  launch: '상품 런칭',
-  hybrid: '자유 형식',
+  squeeze: '상품신청 폼',
+  vsl: '영상소개',
+  webinar: '설명회',
+  funnel: '단계별안내',
+  tripwire: '한정특가',
+  downsell: '대안상품',
+  launch: '새상품출시',
+  hybrid: '자유선택',
 };
 
 // 형식별 기대 전환율
@@ -101,10 +101,12 @@ const IMAGE_FIELDS_BY_FORMAT: Record<PageFormat, Array<{ name: string; required:
 };
 
 // CTA 심리학 맵 (API 스키마와 일치: default/urgent/explore/reserve)
-const CTA_PSYCHOLOGY_MAP: Record<string, { emoji: string; text: string; psychology: string; description: string; bgColor: string; borderColor: string; hoverBgColor: string }> = {
+const CTA_PSYCHOLOGY_MAP: Record<string, { label: string; emoji: string; color: string; desc: string; psychology: string; description: string; bgColor: string; borderColor: string; hoverBgColor: string }> = {
   default: {
-    emoji: '✓',
-    text: '신청하기',
+    label: '신청하기',
+    emoji: '📝',
+    color: 'gray',
+    desc: '기본 신청',
     psychology: '기본 액션',
     description: '모든 방문자를 위한 표준 신청 버튼입니다.',
     bgColor: 'bg-gray-100',
@@ -112,8 +114,10 @@ const CTA_PSYCHOLOGY_MAP: Record<string, { emoji: string; text: string; psycholo
     hoverBgColor: 'hover:bg-gray-200',
   },
   urgent:  {
-    emoji: '⚡',
-    text: '지금 신청하기',
+    label: '지금 신청하기',
+    emoji: '🔥',
+    color: 'red',
+    desc: '긴박감 + 지금',
     psychology: '긴박감',
     description: '긴급함과 즉시 행동 필요성을 강조합니다. 마감 임박, 한정 시간 오퍼에 최적입니다.',
     bgColor: 'bg-red-50',
@@ -121,8 +125,10 @@ const CTA_PSYCHOLOGY_MAP: Record<string, { emoji: string; text: string; psycholo
     hoverBgColor: 'hover:bg-red-100',
   },
   explore: {
-    emoji: '👑',
-    text: '제한된 자리 예약',
+    label: '제한된 자리 예약',
+    emoji: '⏰',
+    color: 'yellow',
+    desc: '희소성 심리',
     psychology: '희소성',
     description: '한정된 자리 또는 수량이 있음을 암시합니다. FOMO 심리로 즉시 결정을 유도합니다.',
     bgColor: 'bg-yellow-50',
@@ -130,8 +136,10 @@ const CTA_PSYCHOLOGY_MAP: Record<string, { emoji: string; text: string; psycholo
     hoverBgColor: 'hover:bg-yellow-100',
   },
   reserve: {
-    emoji: '🔥',
-    text: '마감 전 신청',
+    label: '마감 전 신청',
+    emoji: '⚠️',
+    color: 'orange',
+    desc: '손실회피',
     psychology: '손실회피',
     description: '마감 시간을 강조하여 기회를 놓칠 수 있다는 두려움을 유발합니다.',
     bgColor: 'bg-orange-50',
@@ -311,6 +319,7 @@ export default function NewLandingPage() {
   const [completionPageUrl, setCompletionPageUrl] = useState("");
   const [headerScript, setHeaderScript]           = useState("");
   const [description, setDescription]             = useState("");
+  const [showMoreFormats, setShowMoreFormats]   = useState(false);
 
   // 폼 필드
   const [formFields, setFormFields] = useState<Record<string, FieldToggle>>({
@@ -404,7 +413,7 @@ export default function NewLandingPage() {
       reserve: '#F97316', // 주황
     };
     const buttonColor = buttonColorMap[ctaType] || '#1E2D4E';
-    const displayButtonTitle = buttonTitle || CTA_PSYCHOLOGY_MAP[ctaType]?.text || "신청하기";
+    const displayButtonTitle = buttonTitle || CTA_PSYCHOLOGY_MAP[ctaType]?.label || "신청하기";
 
     const formBlock = fieldHtmls.length > 0 || paymentEnabled ? `
 <div style="max-width:480px;margin:0 auto;padding:28px 20px 48px;background:#fff;font-family:-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif">
@@ -954,10 +963,10 @@ ${footerBlock}
   };
 
   return (
-    <div className="grid grid-cols-5 h-screen bg-gray-50 overflow-hidden">
+    <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 h-screen bg-gray-50 overflow-hidden">
 
       {/* ═══════════════════ LEFT: 설정 + 에디터 ═══════════════════ */}
-      <div className="lg:col-span-2 col-span-5 flex flex-col overflow-hidden min-w-0">
+      <div className="lg:col-span-2 col-span-1 flex flex-col overflow-hidden min-w-0">
 
         {/* 헤더 */}
         <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200 bg-white shrink-0">
@@ -1080,26 +1089,66 @@ ${footerBlock}
             </div>
           </div>
 
-          {/* Step 1: 형식 선택 카드 */}
+          {/* Step 1: 형식 선택 카드 - 상위 3개만 큰 카드로 표시 */}
           <div className="px-4 py-4 bg-white border-b border-gray-100">
-            <p className="text-sm font-semibold text-gray-800 mb-3">어떤 페이지를 만드실 건가요?</p>
-            <div className="grid grid-cols-4 gap-2">
-              {(['squeeze', 'vsl', 'webinar', 'funnel', 'tripwire', 'downsell', 'launch', 'hybrid'] as PageFormat[]).map(fmt => (
+            <p className="text-sm font-semibold text-gray-800 mb-4">어떤 페이지를 만드실 건가요?</p>
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              {(['squeeze', 'vsl', 'webinar'] as PageFormat[]).map(fmt => (
                 <button
                   key={fmt}
                   onClick={() => setPageFormat(fmt)}
-                  className={`p-3 rounded-lg border-2 text-center transition ${
+                  className={`p-4 rounded-xl border-2 text-center transition ${
                     pageFormat === fmt
                       ? 'border-yellow-400 bg-yellow-50 shadow-md'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  <div className="text-2xl mb-1">{FORMAT_EMOJI[fmt]}</div>
-                  <div className="text-xs font-bold text-gray-700">{FORMAT_LABELS[fmt]}</div>
+                  <div className="text-4xl mb-2">{FORMAT_EMOJI[fmt]}</div>
+                  <div className="text-sm font-bold text-gray-700">{FORMAT_LABELS[fmt]}</div>
                 </button>
               ))}
             </div>
+            <button
+              onClick={() => setShowMoreFormats(true)}
+              className="w-full p-3 border-2 border-gray-200 rounded-lg text-sm font-semibold text-gray-700 hover:border-blue-400 hover:bg-blue-50 transition"
+            >
+              더보기 →
+            </button>
           </div>
+
+          {/* 더보기 모달 */}
+          {showMoreFormats && (
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl p-6 max-w-2xl w-full shadow-2xl">
+                <h3 className="text-lg font-bold mb-6 text-gray-900">다른 형식을 선택하세요</h3>
+                <div className="grid grid-cols-3 gap-3 mb-6">
+                  {(['funnel', 'tripwire', 'downsell', 'launch', 'hybrid'] as PageFormat[]).map(fmt => (
+                    <button
+                      key={fmt}
+                      onClick={() => {
+                        setPageFormat(fmt);
+                        setShowMoreFormats(false);
+                      }}
+                      className={`p-4 rounded-xl border-2 text-center transition ${
+                        pageFormat === fmt
+                          ? 'border-yellow-400 bg-yellow-50 shadow-md'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="text-4xl mb-2">{FORMAT_EMOJI[fmt]}</div>
+                      <div className="text-sm font-bold text-gray-700">{FORMAT_LABELS[fmt]}</div>
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setShowMoreFormats(false)}
+                  className="w-full p-3 bg-yellow-400 text-yellow-900 font-bold rounded-lg hover:bg-yellow-500 transition"
+                >
+                  선택 완료
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Step 2: 이미지 필드 + 위험신호 */}
           <div className="px-4 py-3 bg-white border-b border-gray-100">
@@ -1226,9 +1275,9 @@ ${footerBlock}
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-lg">{value.emoji}</span>
-                        <span className="font-semibold text-gray-800">{value.text}</span>
+                        <span className="font-semibold text-gray-800">{value.label}</span>
                         <span className="text-xs font-medium px-2 py-1 rounded-full bg-white border border-gray-200 text-gray-600">
-                          {value.psychology}
+                          {value.desc}
                         </span>
                       </div>
                       <p className="text-xs text-gray-600 ml-6">{value.description}</p>
@@ -1431,7 +1480,7 @@ ${footerBlock}
               <div className="pt-3 border-t border-gray-100 flex items-center gap-2 mt-3">
                 <label className="text-sm text-gray-500 shrink-0 w-20">버튼 텍스트</label>
                 <input type="text" value={buttonTitle} onChange={(e) => setButtonTitle(e.target.value)}
-                  placeholder={CTA_PSYCHOLOGY_MAP[ctaType]?.text || "신청하기 (기본값)"}
+                  placeholder={CTA_PSYCHOLOGY_MAP[ctaType]?.label || "신청하기 (기본값)"}
                   className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400" />
               </div>
 
@@ -1621,7 +1670,7 @@ ${footerBlock}
       </div>{/* end LEFT */}
 
       {/* ═══════════════════ RIGHT: 실시간 미리보기 ═══════════════════ */}
-      <div className="lg:col-span-3 hidden lg:flex flex-col bg-[#1a1a2e] border-l border-gray-700">
+      <div className="lg:col-span-3 col-span-1 hidden lg:flex flex-col bg-[#1a1a2e] border-l border-gray-700">
         {/* 상단 바 + 탭 */}
         <div className="px-4 py-3 border-b border-white/10">
           <div className="flex items-center gap-2 mb-3">

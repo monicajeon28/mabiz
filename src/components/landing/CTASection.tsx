@@ -393,7 +393,7 @@ export default function CTASection() {
                 </p>
                 <button
                   onClick={handleRetry}
-                  className="px-6 xs:px-7 sm:px-8 h-12 text-sm xs:text-base bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-all mb-3"
+                  className="px-6 xs:px-7 sm:px-8 h-12 text-base xs:text-base bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-all mb-3"
                 >
                   다시 시도하기
                 </button>

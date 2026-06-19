@@ -157,7 +157,7 @@ export default function ProofSection() {
               <button
                 key={testimonial.id}
                 onClick={() => handleTestimonialClick(testimonial.id)}
-                className={`w-full text-left px-4 h-12 rounded-lg transition-all transform hover:scale-102 flex items-center ${
+                className={`w-full text-left px-4 h-12 rounded-lg transition-all transform hover:scale-105 flex items-center text-sm ${
                   activeTestimonial === testimonial.id
                     ? 'bg-blue-500 border-2 border-white shadow-lg'
                     : 'bg-white/10 border-2 border-white/20 hover:bg-white/20'
