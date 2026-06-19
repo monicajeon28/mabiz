@@ -6,7 +6,7 @@ import { logger } from "@/lib/logger";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
 import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
 import { generateUniqueShortlink } from "@/lib/landing-page-utils";
-import { IMAGE_FIELDS_BY_FORMAT, CTA_PSYCHOLOGY_MAP } from "@/lib/landing-page-constants";
+import { IMAGE_FIELDS_BY_FORMAT } from "@/lib/landing-page-constants";
 
 // GET /api/landing-pages
 export async function GET() {
