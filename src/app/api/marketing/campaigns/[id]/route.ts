@@ -5,7 +5,7 @@ import { getMabizSession } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 
 // ── GET /api/marketing/campaigns/[id] — 캠페인 상세 조회 ──────────
-export async function GET(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const ctx = await getMabizSession();
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
@@ -15,10 +15,34 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
 
     const { id } = await context.params;
 
+    // ── 권한 로직: organizationId 파라미터 처리 (관리자가 특정 조직 선택)
+    let orgIdFilter: string | undefined;
+    const selectedOrgIdParam = new URL(req.url).searchParams.get('organizationId');
+
+    if (ctx.role === 'OWNER') {
+      // 대리점장: 자신의 조직만 조회
+      orgIdFilter = ctx.organizationId ?? undefined;
+    } else if (ctx.role === 'GLOBAL_ADMIN') {
+      if (selectedOrgIdParam) {
+        // 관리자가 특정 조직 선택
+        const org = await prisma.organization.findUnique({
+          where: { id: selectedOrgIdParam },
+          select: { id: true },
+        });
+        if (!org) {
+          return NextResponse.json({ ok: false, message: '유효하지 않은 조직입니다.' }, { status: 403 });
+        }
+        orgIdFilter = org.id;
+      } else {
+        // 관리자가 organizationId 없으면 제한 없음
+        orgIdFilter = undefined;
+      }
+    }
+
     const campaign = await prisma.crmMarketingCampaign.findFirst({
       where: {
         id: id || undefined, // || undefined: null/undefined/빈문자열 모두 방어 (?? 는 빈문자열을 통과시킴)
-        organizationId: ctx.organizationId ?? undefined,
+        organizationId: orgIdFilter,
       },
       include: {
         group: { select: { id: true, name: true } },
@@ -60,12 +84,34 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     const { id } = await context.params;
     const body = await req.json();
 
-    // GLOBAL_ADMIN: ctx.organizationId가 null이므로 undefined로 평가되어 Prisma가 org 필터를 무시함.
-    // 이는 의도적 설계: GLOBAL_ADMIN은 모든 조직의 캠페인을 수정할 수 있음 (운영 지원 목적)
+    // ── 권한 로직: organizationId 파라미터 처리 (관리자가 특정 조직 선택)
+    let orgIdFilter: string | undefined;
+    const selectedOrgIdParam = new URL(req.url).searchParams.get('organizationId');
+
+    if (ctx.role === 'OWNER') {
+      // 대리점장: 자신의 조직만 수정
+      orgIdFilter = ctx.organizationId ?? undefined;
+    } else if (ctx.role === 'GLOBAL_ADMIN') {
+      if (selectedOrgIdParam) {
+        // 관리자가 특정 조직 선택
+        const org = await prisma.organization.findUnique({
+          where: { id: selectedOrgIdParam },
+          select: { id: true },
+        });
+        if (!org) {
+          return NextResponse.json({ ok: false, message: '유효하지 않은 조직입니다.' }, { status: 403 });
+        }
+        orgIdFilter = org.id;
+      } else {
+        // 관리자가 organizationId 없으면 제한 없음
+        orgIdFilter = undefined;
+      }
+    }
+
     const existing = await prisma.crmMarketingCampaign.findFirst({
       where: {
         id: id || undefined, // || undefined: null/undefined/빈문자열 모두 방어 (?? 는 빈문자열을 통과시킴)
-        organizationId: ctx.organizationId ?? undefined,
+        organizationId: orgIdFilter,
       },
     });
 
@@ -181,7 +227,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
 }
 
 // ── DELETE /api/marketing/campaigns/[id] — 캠페인 삭제 ──────────────
-export async function DELETE(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const ctx = await getMabizSession();
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
@@ -194,12 +240,34 @@ export async function DELETE(_req: NextRequest, context: { params: Promise<{ id:
 
     const { id } = await context.params;
 
-    // GLOBAL_ADMIN: cross-org 삭제 허용 (line 106에서 GLOBAL_ADMIN 삭제 권한 명시적 부여됨)
-    // ctx.organizationId가 null인 GLOBAL_ADMIN은 org 필터 없이 모든 조직의 캠페인 삭제 가능
+    // ── 권한 로직: organizationId 파라미터 처리 (관리자가 특정 조직 선택)
+    let orgIdFilter: string | undefined;
+    const selectedOrgIdParam = new URL(req.url).searchParams.get('organizationId');
+
+    if (ctx.role === 'OWNER') {
+      // 대리점장: 자신의 조직만 삭제
+      orgIdFilter = ctx.organizationId ?? undefined;
+    } else if (ctx.role === 'GLOBAL_ADMIN') {
+      if (selectedOrgIdParam) {
+        // 관리자가 특정 조직 선택
+        const org = await prisma.organization.findUnique({
+          where: { id: selectedOrgIdParam },
+          select: { id: true },
+        });
+        if (!org) {
+          return NextResponse.json({ ok: false, message: '유효하지 않은 조직입니다.' }, { status: 403 });
+        }
+        orgIdFilter = org.id;
+      } else {
+        // 관리자가 organizationId 없으면 제한 없음
+        orgIdFilter = undefined;
+      }
+    }
+
     const existing = await prisma.crmMarketingCampaign.findFirst({
       where: {
         id: id || undefined, // || undefined: null/undefined/빈문자열 모두 방어 (?? 는 빈문자열을 통과시킴)
-        organizationId: ctx.organizationId ?? undefined,
+        organizationId: orgIdFilter,
       },
     });
 

@@ -5,7 +5,7 @@ import { resolveOrgIdOrNull } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 // GET /api/marketing/dashboard
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const ctx = await getMabizSession();
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
@@ -19,7 +19,32 @@ export async function GET() {
       return NextResponse.json({ ok: false, message: "조직 정보가 없어요. 관리자에게 문의해주세요." }, { status: 403 });
     }
 
-    const orgId = resolveOrgIdOrNull(ctx);
+    // ── 권한 로직: organizationId 파라미터 처리 (관리자가 특정 조직 선택)
+    let orgId: string | null = null;
+    const selectedOrgIdParam = new URL(request.url).searchParams.get('organizationId');
+
+    if (ctx.role === "OWNER") {
+      // 대리점장: 자신의 조직만 조회 (파라미터 무시)
+      orgId = ctx.organizationId || null;
+    } else if (ctx.role === "GLOBAL_ADMIN") {
+      if (selectedOrgIdParam) {
+        // 관리자가 특정 조직 선택
+        const org = await prisma.organization.findUnique({
+          where: { id: selectedOrgIdParam },
+          select: { id: true },
+        });
+        if (!org) {
+          return NextResponse.json({ ok: false, message: "유효하지 않은 조직입니다." }, { status: 403 });
+        }
+        orgId = org.id;
+      } else {
+        // 관리자가 organizationId 없으면 전체 조직 데이터 조회
+        orgId = null;
+      }
+    } else {
+      // 다른 권한 (AGENT, FREE_SALES 등)
+      return NextResponse.json({ ok: false, message: "이 기능을 사용할 권한이 없어요." }, { status: 403 });
+    }
 
     // ── 1. 조직 소유 랜딩페이지 목록 + viewCount 합계
     // DB-25: take:500 제거 — 500개 초과 LP 보유 조직의 funnelEntered·trend 과소보고 수정.
