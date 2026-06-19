@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
 
   if (!secret) {
     logger.error('[InventorySyncWebhook] CRUISEDOT_INVENTORY_WEBHOOK_SECRET 미설정');
-    return NextResponse.json({ ok: false, error: '서버 설정 오류' }, { status: 500 });
+    return NextResponse.json({ ok: false, error: '서버 설정 오류' }, { status: 503 });
   }
 
   // Bearer Token 검증
@@ -69,10 +69,9 @@ export async function POST(req: NextRequest) {
   }
   const token = authHeader.slice(7);
 
-  if (
-    token.length !== secret.length ||
-    !timingSafeEqual(Buffer.from(token), Buffer.from(secret))
-  ) {
+  const tokenBuf = Buffer.from(token, 'utf8');
+  const secretBuf = Buffer.from(secret, 'utf8');
+  if (tokenBuf.byteLength !== secretBuf.byteLength || !timingSafeEqual(tokenBuf, secretBuf)) {
     logger.warn('[InventorySyncWebhook] 인증 실패');
     return NextResponse.json({ ok: false, error: '인증 실패' }, { status: 401 });
   }
@@ -84,10 +83,9 @@ export async function POST(req: NextRequest) {
   const signature = req.headers.get('x-signature') ?? '';
   const expectedSignature = createHmac('sha256', secret).update(body).digest('hex');
 
-  if (
-    signature.length !== expectedSignature.length ||
-    !timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
-  ) {
+  const sigBuf = Buffer.from(signature, 'utf8');
+  const expBuf = Buffer.from(expectedSignature, 'utf8');
+  if (sigBuf.byteLength !== expBuf.byteLength || !timingSafeEqual(sigBuf, expBuf)) {
     logger.warn('[InventorySyncWebhook] 서명 검증 실패');
     return NextResponse.json({ ok: false, error: '서명 검증 실패' }, { status: 403 });
   }

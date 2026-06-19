@@ -48,7 +48,9 @@ export async function POST(req: NextRequest) {
   }
   const token = authHeader.slice(7);
 
-  if (token.length !== secretStr.length || !timingSafeEqual(Buffer.from(token), Buffer.from(secretStr))) {
+  const tokenBuf = Buffer.from(token, 'utf8');
+  const secretStrBuf = Buffer.from(secretStr, 'utf8');
+  if (tokenBuf.byteLength !== secretStrBuf.byteLength || !timingSafeEqual(tokenBuf, secretStrBuf)) {
     logger.warn('[SettlementWebhook] 인증 실패');
     return NextResponse.json({ ok: false }, { status: 401 });
   }
@@ -62,7 +64,9 @@ export async function POST(req: NextRequest) {
     .update(body)
     .digest('hex');
 
-  if (signature.length !== expectedSignature.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+  const sigBuf = Buffer.from(signature, 'utf8');
+  const expBuf = Buffer.from(expectedSignature, 'utf8');
+  if (sigBuf.byteLength !== expBuf.byteLength || !timingSafeEqual(sigBuf, expBuf)) {
     logger.warn('[SettlementWebhook] 서명 검증 실패');
     return NextResponse.json({ ok: false }, { status: 403 });
   }

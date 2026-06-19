@@ -49,8 +49,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Empty Bearer token' }, { status: 401 });
   }
 
-  // [P0-SEC-003] Timing-safe 비교로 토큰 검증
-  if (token.length !== secret.length || !timingSafeEqual(Buffer.from(token), Buffer.from(secret))) {
+  // [P0-SEC-003] Timing-safe 비교로 토큰 검증 (byteLength 가드)
+  const tokenBuf = Buffer.from(token, 'utf8');
+  const secretBuf = Buffer.from(secret, 'utf8');
+  if (tokenBuf.byteLength !== secretBuf.byteLength || !timingSafeEqual(tokenBuf, secretBuf)) {
     logger.warn('[CruisedotWebhook] Bearer token 불일치 — 인증 실패');
     return NextResponse.json({ ok: false, error: 'Authentication failed' }, { status: 401 });
   }
@@ -64,7 +66,9 @@ export async function POST(req: NextRequest) {
     .update(body)
     .digest('hex');
 
-  if (signature.length !== expectedSignature.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+  const sigBuf = Buffer.from(signature, 'utf8');
+  const expBuf = Buffer.from(expectedSignature, 'utf8');
+  if (sigBuf.byteLength !== expBuf.byteLength || !timingSafeEqual(sigBuf, expBuf)) {
     logger.warn('[CruisedotWebhook] 서명 검증 실패');
     return NextResponse.json({ ok: false }, { status: 403 });
   }
