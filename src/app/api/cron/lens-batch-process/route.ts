@@ -17,9 +17,11 @@ export async function POST(req: NextRequest) {
   }
   const authHeader = req.headers.get('authorization') ?? '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  const tokenBuf = Buffer.from(token, 'utf8');
+  const secretBuf = Buffer.from(cronSecret, 'utf8');
   if (
-    token.length !== cronSecret.length ||
-    !timingSafeEqual(Buffer.from(token), Buffer.from(cronSecret))
+    tokenBuf.byteLength !== secretBuf.byteLength ||
+    !timingSafeEqual(tokenBuf, secretBuf)
   ) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
