@@ -10,6 +10,7 @@ import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { hashPassword } from '@/lib/password';
 import { autoCreateDocumentsOnPassportCreated } from '@/lib/passport-document-service';
+import { preparePassportForDb } from '@/lib/passport-db-helpers';
 
 // ── Zod 스키마 ──────────────────────────────────────────────
 
@@ -317,14 +318,16 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // PassportSubmissionGuest 생성
+        // PassportSubmissionGuest 생성 (여권번호 AES-256 암호화)
+        const passportData = preparePassportForDb(guest.passportNumber);
         const createdGuest = await tx.gmPassportSubmissionGuest.create({
           data: {
             submissionId: submission.id,
             groupNumber: guest.groupNumber,
             name: guest.name,
             phone: guest.phone,
-            passportNumber: guest.passportNumber,
+            passportNumber: passportData.passportNumber, // 암호화됨
+            passportIV: passportData.passportIV, // 초기화벡터
             nationality: guest.nationality,
             dateOfBirth: guest.dateOfBirth,
             passportExpiryDate: guest.passportExpiryDate,

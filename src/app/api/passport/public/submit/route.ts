@@ -9,6 +9,7 @@ import { writeTravelerWithAudit, TravelerNotFound } from '@/lib/apis-traveler-wr
 import { normalizeDateOnlyString } from '@/lib/passport-date';
 import { normalizePassportNo, isPassportDupViolation } from '@/lib/passport-match';
 import { decodePassportToken } from '@/lib/passport-utils';
+import { preparePassportForDb } from '@/lib/passport-db-helpers';
 
 interface TravelerInput {
   id?: number;
@@ -72,10 +73,14 @@ async function syncSubmissionGuestsBestEffort(
 
     const birth = normalizeDateOnlyString(td.dateOfBirth);
     const expiry = normalizeDateOnlyString(td.passportExpiryDate);
+
+    // 여권번호 AES-256 암호화
+    const passportData = preparePassportForDb(passportNo);
     const guestData = {
       name: td.korName,
       phone: td.phone || null,
-      passportNumber: passportNo,
+      passportNumber: passportData.passportNumber, // 암호화됨
+      passportIV: passportData.passportIV, // 초기화벡터
       nationality: td.nationality || null,
       dateOfBirth: birth ? new Date(birth) : null,
       passportExpiryDate: expiry ? new Date(expiry) : null,
