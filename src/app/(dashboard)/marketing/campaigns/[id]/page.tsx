@@ -255,25 +255,32 @@ export default function CampaignDetailPage() {
         </div>
       </div>
 
-      {/* 퍼널 다이어그램 */}
+      {/* 퍼널 다이어그램 - 50대 친화 (폰트 16px+, 명확한 설명) */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold mb-6">전환 퍼널</h2>
+        <h2 className="text-lg font-semibold mb-2 text-gray-900">메시지 효과 분석</h2>
+        <p className="text-sm text-gray-600 mb-6">발송 후 고객의 반응을 단계별로 보여줍니다</p>
 
-        <div className="space-y-4">
+        <div className="space-y-5">
           {[
-            { label: '발송', count: stats.sent, color: 'bg-blue-500' },
-            { label: '열람', count: stats.opened, color: 'bg-green-500' },
-            { label: '클릭', count: stats.clicked, color: 'bg-purple-500' },
-            { label: '신청', count: stats.registered, color: 'bg-orange-500' },
+            { label: '메시지 발송', subLabel: '총 발송된 메시지', count: stats.sent, color: 'bg-blue-500', icon: '📧' },
+            { label: '메시지 열람', subLabel: '메시지를 읽은 사람', count: stats.opened, color: 'bg-green-500', icon: '👀' },
+            { label: '링크 클릭', subLabel: '메시지의 링크를 클릭', count: stats.clicked, color: 'bg-purple-500', icon: '🔗' },
+            { label: '신청서 제출', subLabel: '폼을 작성해서 등록', count: stats.registered, color: 'bg-orange-500', icon: '📝' },
           ].map((item) => (
             <div key={item.label}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium">{item.label}</span>
-                <span className="text-sm text-gray-600">{item.count}명</span>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{item.icon}</span>
+                  <div>
+                    <span className="text-base font-medium text-gray-900">{item.label}</span>
+                    <p className="text-xs text-gray-500">{item.subLabel}</p>
+                  </div>
+                </div>
+                <span className="text-base font-bold text-gray-700">{item.count}명</span>
               </div>
-              <div className="w-full bg-gray-100 rounded-full h-6 overflow-hidden">
+              <div className="w-full bg-gray-100 rounded-full h-8 overflow-hidden">
                 <div
-                  className={`${item.color} h-full flex items-center justify-center text-white text-xs font-medium`}
+                  className={`${item.color} h-full flex items-center justify-center text-white text-sm font-semibold`}
                   style={{
                     width: stats.total > 0 ? `${Math.min(100, (item.count / stats.total) * 100)}%` : '0%',
                   }}
@@ -283,6 +290,14 @@ export default function CampaignDetailPage() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* 50대 친화: 해석 가이드 */}
+        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <p className="text-sm text-blue-900">
+            💡 <strong>어떻게 읽나요?</strong> 발송한 메시지가 얼마나 많은 사람에게 읽혀서, 클릭되고, 신청까지 되었는지 보여줍니다.
+            각 단계의 비율(%)이 높을수록 메시지가 잘 전달된 것입니다.
+          </p>
         </div>
       </div>
 
