@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
+import { timingSafeEqual } from 'crypto';
 import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
@@ -29,8 +30,15 @@ export async function GET(req: Request) {
 
   try {
     // Vercel Crons 인증 (요청 헤더에 Authorization 포함)
-    const authHeader = req.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    const expectedToken = process.env.CRON_SECRET;
+    if (!expectedToken) {
+      return NextResponse.json({ error: 'CRON_SECRET 미설정' }, { status: 503 });
+    }
+    const authHeader = req.headers.get('authorization') ?? '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    const tokenBuf = Buffer.from(token, 'utf8');
+    const expectedBuf = Buffer.from(expectedToken, 'utf8');
+    if (tokenBuf.byteLength !== expectedBuf.byteLength || !timingSafeEqual(tokenBuf, expectedBuf)) {
       return NextResponse.json({ ok: false, message: '인증 실패' }, { status: 401 });
     }
 

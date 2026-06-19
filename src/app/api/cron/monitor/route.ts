@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
@@ -10,23 +11,16 @@ import { logger } from '@/lib/logger';
  * 또는 수동으로 호출 가능
  */
 export async function GET(req: NextRequest) {
-  const authToken = req.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (!cronSecret) {
-    logger.error('[Monitor] CRON_SECRET is not configured');
-    return NextResponse.json(
-      { ok: false, error: 'UNAUTHORIZED' },
-      { status: 401 }
-    );
+  const expectedToken = process.env.CRON_SECRET;
+  if (!expectedToken) {
+    return NextResponse.json({ error: 'CRON_SECRET 미설정' }, { status: 503 });
   }
-
-  // [SEC] Cron 요청 검증
-  if (authToken !== `Bearer ${cronSecret}`) {
-    return NextResponse.json(
-      { ok: false, error: 'UNAUTHORIZED' },
-      { status: 401 }
-    );
+  const authHeader = req.headers.get('authorization') ?? '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  const tokenBuf = Buffer.from(token, 'utf8');
+  const expectedBuf = Buffer.from(expectedToken, 'utf8');
+  if (tokenBuf.byteLength !== expectedBuf.byteLength || !timingSafeEqual(tokenBuf, expectedBuf)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
@@ -167,22 +161,16 @@ export async function GET(req: NextRequest) {
  * 모니터링 결과를 저장 (선택사항)
  */
 export async function POST(req: NextRequest) {
-  const authToken = req.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (!cronSecret) {
-    logger.error('[Monitor] CRON_SECRET is not configured');
-    return NextResponse.json(
-      { ok: false, error: 'UNAUTHORIZED' },
-      { status: 401 }
-    );
+  const expectedToken = process.env.CRON_SECRET;
+  if (!expectedToken) {
+    return NextResponse.json({ error: 'CRON_SECRET 미설정' }, { status: 503 });
   }
-
-  if (authToken !== `Bearer ${cronSecret}`) {
-    return NextResponse.json(
-      { ok: false, error: 'UNAUTHORIZED' },
-      { status: 401 }
-    );
+  const authHeader = req.headers.get('authorization') ?? '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  const tokenBuf = Buffer.from(token, 'utf8');
+  const expectedBuf = Buffer.from(expectedToken, 'utf8');
+  if (tokenBuf.byteLength !== expectedBuf.byteLength || !timingSafeEqual(tokenBuf, expectedBuf)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {

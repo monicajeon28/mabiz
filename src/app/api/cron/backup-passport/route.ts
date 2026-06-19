@@ -186,7 +186,7 @@ export async function POST(req: NextRequest) {
         deletedCount = await deleteOldBackups(accessToken, 365);
       }
     } catch (err) {
-      logger.warn('[Cron] Backup Passport - Old backups cleanup failed', err);
+      logger.warn('[Cron] Backup Passport - Old backups cleanup failed', { error: err instanceof Error ? err.message : String(err) });
     }
 
     const processingTimeMs = Date.now() - startTime;

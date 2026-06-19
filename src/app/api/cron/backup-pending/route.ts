@@ -1,6 +1,7 @@
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
+import { timingSafeEqual } from 'crypto';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { backupCallLogsToGoogleDrive } from '@/lib/google-drive';
@@ -14,13 +15,16 @@ import { logger } from '@/lib/logger';
  */
 export async function GET(req: Request) {
   try {
-    // Cron 보안 — CRON_SECRET 미설정 시 fail-closed (500)
-    const envSecret = process.env.CRON_SECRET;
-    if (!envSecret) {
-      return NextResponse.json({ ok: false, message: 'CRON_SECRET 환경변수 미설정' }, { status: 503 });
+    // Cron 보안 — CRON_SECRET 미설정 시 fail-closed (503)
+    const expectedToken = process.env.CRON_SECRET;
+    if (!expectedToken) {
+      return NextResponse.json({ error: 'CRON_SECRET 미설정' }, { status: 503 });
     }
-    const cronSecret = req.headers.get('x-vercel-cron-secret');
-    if (cronSecret !== envSecret) {
+    const authHeader = req.headers.get('authorization') ?? '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    const tokenBuf = Buffer.from(token, 'utf8');
+    const expectedBuf = Buffer.from(expectedToken, 'utf8');
+    if (tokenBuf.byteLength !== expectedBuf.byteLength || !timingSafeEqual(tokenBuf, expectedBuf)) {
       return NextResponse.json({ ok: false, message: '인증 실패' }, { status: 401 });
     }
 

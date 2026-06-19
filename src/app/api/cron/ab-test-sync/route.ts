@@ -4,19 +4,23 @@
  * 매 월요일 09:00 KST 실행
  */
 
+import { timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { runABTestSyncJob } from "@/jobs/ab-test-sync-cron";
 import { logger } from "@/lib/logger";
 
 export async function POST(request: NextRequest) {
   try {
-    // Vercel Cron 인증 — CRON_SECRET 미설정 시 fail-closed (500)
+    // Vercel Cron 인증 — CRON_SECRET 미설정 시 fail-closed (503)
     const expectedToken = process.env.CRON_SECRET;
     if (!expectedToken) {
-      return NextResponse.json({ error: "CRON_SECRET 환경변수 미설정" }, { status: 503 });
+      return NextResponse.json({ error: "CRON_SECRET 미설정" }, { status: 503 });
     }
-    const authHeader = request.headers.get("Authorization");
-    if (authHeader !== `Bearer ${expectedToken}`) {
+    const authHeader = request.headers.get("authorization") ?? "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+    const tokenBuf = Buffer.from(token, "utf8");
+    const expectedBuf = Buffer.from(expectedToken, "utf8");
+    if (tokenBuf.byteLength !== expectedBuf.byteLength || !timingSafeEqual(tokenBuf, expectedBuf)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

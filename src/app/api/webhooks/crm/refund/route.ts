@@ -41,8 +41,8 @@ export async function POST(req: NextRequest) {
   const expected = createHmac('sha256', secret).update(Buffer.from(body)).digest('hex');
 
   if (
-    incoming.length !== expected.length ||
-    !timingSafeEqual(Buffer.from(incoming), Buffer.from(expected))
+    Buffer.from(incoming, 'hex').byteLength !== Buffer.from(expected, 'hex').byteLength ||
+    !timingSafeEqual(Buffer.from(incoming, 'hex'), Buffer.from(expected, 'hex'))
   ) {
     logger.warn('[CrmRefundWebhook] 서명 검증 실패');
     return NextResponse.json({ ok: false }, { status: 401 });

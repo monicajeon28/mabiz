@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { sendDayNSmsBatch } from '@/lib/loop5-sms-batch';
@@ -23,10 +24,17 @@ export const maxDuration = 300; // 5분 제한
 export async function GET(request: NextRequest) {
   try {
     // CRON_SECRET 검증
-    const cronSecret = request.headers.get('authorization');
-    if (cronSecret !== `Bearer ${process.env.CRON_SECRET}`) {
+    const expectedToken = process.env.CRON_SECRET;
+    if (!expectedToken) {
+      return NextResponse.json({ error: 'CRON_SECRET 미설정' }, { status: 503 });
+    }
+    const authHeader = request.headers.get('authorization') ?? '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    const tokenBuf = Buffer.from(token, 'utf8');
+    const expectedBuf = Buffer.from(expectedToken, 'utf8');
+    if (tokenBuf.byteLength !== expectedBuf.byteLength || !timingSafeEqual(tokenBuf, expectedBuf)) {
       logger.warn('[Loop5 Day1 Batch] CRON 권한 없음', {
-        cronSecret: cronSecret?.slice(0, 10),
+        tokenPrefix: token?.slice(0, 10),
       });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

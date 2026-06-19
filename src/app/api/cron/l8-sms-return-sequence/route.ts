@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
@@ -48,11 +49,15 @@ export async function POST(req: NextRequest) {
   const results: CronResult[] = [];
 
   try {
-    // CRON 인증 확인 (선택사항, 환경변수로 설정)
-    const cronSecret = req.headers.get("x-cron-secret");
-    const expectedSecret = process.env.CRON_SECRET;
-
-    if (expectedSecret && cronSecret !== expectedSecret) {
+    // CRON 인증 확인
+    const expectedToken = process.env.CRON_SECRET;
+    if (!expectedToken) {
+      return NextResponse.json({ error: 'CRON_SECRET 미설정' }, { status: 503 });
+    }
+    const cronSecret = req.headers.get("x-cron-secret") ?? "";
+    const cronBuf = Buffer.from(cronSecret, "utf8");
+    const expectedBuf = Buffer.from(expectedToken, "utf8");
+    if (cronBuf.byteLength !== expectedBuf.byteLength || !timingSafeEqual(cronBuf, expectedBuf)) {
       logger.warn("[CRON_AUTH_FAILED]", { cronSecret: "***" });
       return NextResponse.json(
         { error: "Unauthorized" },

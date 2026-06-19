@@ -20,19 +20,21 @@ export async function GET(req: Request) {
     const secret = process.env.CRON_SECRET;
     if (!secret) {
       logger.error('[CronHealthCheck] 인증 실패', { reason: 'CRON_SECRET 환경변수 미설정' });
-      throw new Error('CRON_SECRET environment variable is not set');
+      return NextResponse.json({ error: 'CRON_SECRET 미설정' }, { status: 503 });
     }
 
     // P0-7: CRON_SECRET 강도 검증 (brute force 방지)
     if (secret.length < 32) {
       logger.error('[CronHealthCheck] 보안 경고', { reason: 'CRON_SECRET이 32자 미만 (약함)' });
-      throw new Error('CRON_SECRET must be at least 32 characters (P0-7 security requirement)');
+      return NextResponse.json({ error: 'CRON_SECRET 강도 부족 (32자 이상 필요)' }, { status: 503 });
     }
 
     const auth = req.headers.get('x-cron-secret') ?? req.headers.get('x-vercel-cron-secret') ?? '';
     let authValid = false;
     try {
-      authValid = auth.length === secret.length && timingSafeEqual(Buffer.from(auth), Buffer.from(secret));
+      const authBuf = Buffer.from(auth, 'utf8');
+      const secretBuf = Buffer.from(secret, 'utf8');
+      authValid = authBuf.byteLength === secretBuf.byteLength && timingSafeEqual(authBuf, secretBuf);
     } catch {
       authValid = false;
     }

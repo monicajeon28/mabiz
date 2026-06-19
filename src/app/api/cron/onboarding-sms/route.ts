@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 
+import { timingSafeEqual } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { scheduleOnboardingSms } from '@/lib/cron/sms-onboarding-cron';
 import { logger } from '@/lib/logger';
@@ -32,16 +33,18 @@ import { logger } from '@/lib/logger';
 
 export async function GET(req: NextRequest) {
   // Vercel Cron 보안 검증
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
+  const expectedToken = process.env.CRON_SECRET;
+  if (!expectedToken) {
     logger.error('[OnboardingCronApi] CRON_SECRET 환경변수 미설정');
-    return NextResponse.json({ ok: false, message: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: 'CRON_SECRET 미설정' }, { status: 503 });
   }
-  const token = req.headers.get('authorization');
-  const providedSecret = token?.startsWith('Bearer ') ? token.slice(7) : '';
-  if (providedSecret !== cronSecret) {
+  const authHeader = req.headers.get('authorization') ?? '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  const tokenBuf = Buffer.from(token, 'utf8');
+  const expectedBuf = Buffer.from(expectedToken, 'utf8');
+  if (tokenBuf.byteLength !== expectedBuf.byteLength || !timingSafeEqual(tokenBuf, expectedBuf)) {
     logger.error('[OnboardingCronApi] 인증 실패');
-    return NextResponse.json({ ok: false, message: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {

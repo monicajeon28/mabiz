@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 
+import { timingSafeEqual } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
@@ -10,8 +11,15 @@ import { logger } from '@/lib/logger';
  * Vercel Cron: 매일 09:00 KST (00:00 UTC)
  */
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization');
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const expectedToken = process.env.CRON_SECRET;
+  if (!expectedToken) {
+    return NextResponse.json({ error: 'CRON_SECRET 미설정' }, { status: 503 });
+  }
+  const authHeader = req.headers.get('authorization') ?? '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  const tokenBuf = Buffer.from(token, 'utf8');
+  const expectedBuf = Buffer.from(expectedToken, 'utf8');
+  if (tokenBuf.byteLength !== expectedBuf.byteLength || !timingSafeEqual(tokenBuf, expectedBuf)) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
 

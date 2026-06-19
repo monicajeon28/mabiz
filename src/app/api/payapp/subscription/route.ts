@@ -36,6 +36,7 @@ export async function GET(req: Request) {
         ...(status && VALID_STATUSES.includes(status as (typeof VALID_STATUSES)[number]) ? { status } : {}),
       },
       orderBy: { createdAt: 'desc' },
+      take: 200,
     });
 
     return NextResponse.json({ ok: true, subscriptions });

@@ -468,7 +468,7 @@ export async function POST(req: Request, { params }: Params) {
           const enrollData = await enrollRes.json();
           if (enrollData.ok) {
             funnelStarted = true;
-            prisma.crmLandingRegistration.update({
+            void prisma.crmLandingRegistration.update({
               where: { id: regId },
               data: { funnelStarted: true },
             }).catch((err) => {
@@ -521,7 +521,7 @@ export async function POST(req: Request, { params }: Params) {
           // funnelStarted 업데이트 (fire-and-forget)
           if (triggered || smsTriggered || emailTriggered) {
             // id로 특정 행만 업데이트 (updateMany 다중 행 방지)
-            prisma.crmLandingRegistration.update({
+            void prisma.crmLandingRegistration.update({
               where: { id: regId },
               data:  { funnelStarted: true },
             }).catch((err) => {

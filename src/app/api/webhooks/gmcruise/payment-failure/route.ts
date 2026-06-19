@@ -19,14 +19,14 @@ export async function POST(req: NextRequest) {
   const secret = process.env.MABIZ_PAYMENT_FAILURE_WEBHOOK_SECRET;
   if (!secret) {
     logger.error('[PaymentFailureWebhook] MABIZ_PAYMENT_FAILURE_WEBHOOK_SECRET 미설정');
-    return NextResponse.json({ ok: false }, { status: 500 });
+    return NextResponse.json({ ok: false }, { status: 503 });
   }
 
-  const token = (req.headers.get('authorization') ?? '').replace('Bearer ', '');
-  if (
-    token.length !== secret.length ||
-    !timingSafeEqual(Buffer.from(token), Buffer.from(secret))
-  ) {
+  const authHeader = req.headers.get('authorization') ?? '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  const tokenBuf = Buffer.from(token, 'utf8');
+  const secretBuf = Buffer.from(secret, 'utf8');
+  if (tokenBuf.byteLength !== secretBuf.byteLength || !timingSafeEqual(tokenBuf, secretBuf)) {
     logger.error('[PaymentFailureWebhook] 인증 실패');
     return NextResponse.json({ ok: false }, { status: 401 });
   }

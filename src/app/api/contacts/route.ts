@@ -447,7 +447,7 @@ export async function POST(req: Request) {
       const firstOrg = bonsaOrgId
         ? { id: bonsaOrgId }
         : await prisma.organization.findFirst({ orderBy: { createdAt: 'asc' }, select: { id: true } });
-      if (!firstOrg) return NextResponse.json({ ok: false, error: '조직이 없습니다.' }, { status: 500 });
+      if (!firstOrg) return NextResponse.json({ ok: false, error: '조직이 없습니다.' }, { status: 503 });
       orgId = firstOrg.id;
     } else {
       return NextResponse.json({ ok: false, error: '조직 정보가 없습니다.' }, { status: 403 });
