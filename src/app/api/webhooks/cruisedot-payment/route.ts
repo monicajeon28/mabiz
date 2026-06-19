@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   // [P0-SEC-001] CRUISEDOT_WEBHOOK_SECRET 필수 — 없으면 웹훅 비활성화
   if (!secret) {
     logger.error('[CruisedotWebhook] CRITICAL: CRUISEDOT_WEBHOOK_SECRET 미설정. 웹훅 수신 불가능합니다. DevOps에 연락하세요.');
-    return NextResponse.json({ ok: false, error: 'Webhook secret not configured' }, { status: 500 });
+    return NextResponse.json({ ok: false, error: 'Webhook secret not configured' }, { status: 503 });
   }
 
   // [P0-SEC-002] Bearer Token 검증 (필수)
@@ -79,6 +79,8 @@ export async function POST(req: NextRequest) {
 
   eventId = payload.eventId;
   const { eventType, timestamp, bookingRef, affiliateCode, saleAmount, status, refundAmount, reason } = payload;
+  const parsedTs = timestamp ? Date.parse(String(timestamp)) : NaN;
+  const safeTimestamp = !isNaN(parsedTs) ? new Date(parsedTs) : new Date();
 
   // 필수 필드 검증 (affiliateCode는 선택 — null이면 HQ 직접구매)
   if (!eventId || !eventType || !bookingRef || !status) {
@@ -200,7 +202,7 @@ export async function POST(req: NextRequest) {
           type: 'PURCHASED',
           affiliateCode: affiliateCode || null,
           lastPaymentStatus: status === 'CONFIRMED' ? 'paid' : 'pending',
-          lastPaymentAt: status === 'CONFIRMED' ? new Date(timestamp ?? Date.now()) : undefined,
+          lastPaymentAt: status === 'CONFIRMED' ? safeTimestamp : undefined,
           // 출처 분류: 어필리에이트 구매면 'affiliate', HQ 직접구매면 'user'
           sourceType: isDirectPurchase ? 'user' : 'affiliate',
           channel: 'b2c',
@@ -266,8 +268,8 @@ export async function POST(req: NextRequest) {
           smsDay7Sent?: boolean;
         } = {
           lastPaymentStatus: paymentStatus,
-          lastPaymentAt: status === 'CONFIRMED' ? new Date(timestamp ?? Date.now()) : undefined,
-          lastRefundedAt: status === 'REFUNDED' ? new Date(timestamp ?? Date.now()) : undefined,
+          lastPaymentAt: status === 'CONFIRMED' ? safeTimestamp : undefined,
+          lastRefundedAt: status === 'REFUNDED' ? safeTimestamp : undefined,
           paymentStatusNote:
             status === 'REFUNDED'
               ? `환불완료: ${refundAmount ? refundAmount.toLocaleString() + '원' : '금액미상'}`
@@ -304,7 +306,7 @@ export async function POST(req: NextRequest) {
             refundAmount ? `금액: ${refundAmount.toLocaleString()}원` : null,
             reason ? `사유: ${reason}` : null,
             `이벤트ID: ${eventId}`,
-            `처리일시: ${new Date(timestamp ?? Date.now()).toLocaleString('ko-KR')}`,
+            `처리일시: ${safeTimestamp.toLocaleString('ko-KR')}`,
           ]
             .filter(Boolean)
             .join('\n');
