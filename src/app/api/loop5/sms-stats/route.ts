@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     const organizationId = ctx.organizationId;
     const segment = searchParams.get('segment') as 'A' | 'B' | 'C' | 'D' | 'E' | null;
     const daysParam = searchParams.get('days');
-    const days = daysParam ? parseInt(daysParam) : 7;
+    const days = daysParam ? parseInt(daysParam, 10) : 7;
 
     const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
