@@ -31,6 +31,46 @@ type UploadedImage = {
   altText?: string;
 };
 
+// CTA 심리학 맵 (new/page.tsx와 대칭)
+const CTA_PSYCHOLOGY_MAP: Record<string, { emoji: string; text: string; psychology: string; description: string; bgColor: string; borderColor: string; hoverBgColor: string }> = {
+  default: {
+    emoji: '✓',
+    text: '신청하기',
+    psychology: '기본 액션',
+    description: '모든 방문자를 위한 표준 신청 버튼입니다.',
+    bgColor: 'bg-gray-100',
+    borderColor: 'border-gray-300',
+    hoverBgColor: 'hover:bg-gray-200',
+  },
+  urgent:  {
+    emoji: '⚡',
+    text: '지금 신청하기',
+    psychology: '긴박감',
+    description: '긴급함과 즉시 행동 필요성을 강조합니다. 마감 임박, 한정 시간 오퍼에 최적입니다.',
+    bgColor: 'bg-red-50',
+    borderColor: 'border-red-300',
+    hoverBgColor: 'hover:bg-red-100',
+  },
+  explore: {
+    emoji: '👑',
+    text: '제한된 자리 예약',
+    psychology: '희소성',
+    description: '한정된 자리 또는 수량이 있음을 암시합니다. FOMO 심리로 즉시 결정을 유도합니다.',
+    bgColor: 'bg-yellow-50',
+    borderColor: 'border-yellow-300',
+    hoverBgColor: 'hover:bg-yellow-100',
+  },
+  reserve: {
+    emoji: '🔥',
+    text: '마감 전 신청',
+    psychology: '손실회피',
+    description: '마감 시간을 강조하여 기회를 놓칠 수 있다는 두려움을 유발합니다.',
+    bgColor: 'bg-orange-50',
+    borderColor: 'border-orange-300',
+    hoverBgColor: 'hover:bg-orange-100',
+  },
+};
+
 export default function EditLandingPage() {
   const router = useRouter();
   const params = useParams();
@@ -662,12 +702,21 @@ export default function EditLandingPage() {
 
     // Task 1-1: 더미 데이터 제거, 동적 폼 생성, footer 텍스트 사용
     const formFieldsHtml = buildFormFields();
-    const encodedButtonTitle = encodeHtml(buttonTitle || "신청하기");
+    const encodedButtonTitle = encodeHtml(buttonTitle || CTA_PSYCHOLOGY_MAP[ctaType]?.text || "신청하기");
     const encodedFooter = footer ? encodeHtml(footer) : "";
+
+    // CTA 타입별 버튼 색상
+    const buttonColorMap: Record<string, string> = {
+      default: '#9CA3AF', // 회색
+      urgent: '#EF4444',  // 빨강
+      explore: '#FBBF24', // 노랑
+      reserve: '#F97316', // 주황
+    };
+    const buttonColor = buttonColorMap[ctaType] || '#FF6B35';
 
     if (imgTags.length === 0 || !Array.isArray(images)) return `<div style="margin:0;padding:0;line-height:0;background:#fff;"></div>`;
 
-    return `<div style="margin:0;padding:0;line-height:0;background:#fff;">\n${imgTags}\n</div>\n<form style="max-width:480px;margin:0 auto;padding:32px 20px 48px;background:#fff;font-family:'Pretendard',sans-serif;"><h3 style="text-align:center;font-size:22px;font-weight:700;color:#1a1a1a;margin:0 0 8px;">지금 바로 신청하세요</h3><p style="text-align:center;font-size:14px;color:#888;margin:0 0 24px;">상담 신청 후 담당자가 연락드립니다</p>${formFieldsHtml}<button type="submit" style="width:100%;padding:16px;background:#FF6B35;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;">${encodedButtonTitle}</button>${encodedFooter ? `<p style="text-align:center;font-size:12px;color:#999;margin-top:12px;">${encodedFooter}</p>` : ""}</form>`;
+    return `<div style="margin:0;padding:0;line-height:0;background:#fff;">\n${imgTags}\n</div>\n<form style="max-width:480px;margin:0 auto;padding:32px 20px 48px;background:#fff;font-family:'Pretendard',sans-serif;"><h3 style="text-align:center;font-size:22px;font-weight:700;color:#1a1a1a;margin:0 0 8px;">지금 바로 신청하세요</h3><p style="text-align:center;font-size:14px;color:#888;margin:0 0 24px;">상담 신청 후 담당자가 연락드립니다</p>${formFieldsHtml}<button type="submit" style="width:100%;padding:16px;background:${buttonColor};color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;">${encodedButtonTitle}</button>${encodedFooter ? `<p style="text-align:center;font-size:12px;color:#999;margin-top:12px;">${encodedFooter}</p>` : ""}</form>`;
   };
 
   // 모드 전환 — 두 형식이 서로 침범하지 않도록 안전하게 전환
@@ -976,6 +1025,44 @@ export default function EditLandingPage() {
               )}
             </div>
           </div>
+          {/* CTA 버튼 선택 */}
+          <div className="px-4 py-4 bg-white border-b border-gray-100 shrink-0">
+            <p className="text-sm font-semibold text-gray-800 mb-3">신청 버튼 문구를 선택하세요</p>
+            <div className="space-y-2">
+              {Object.entries(CTA_PSYCHOLOGY_MAP).map(([key, value]) => (
+                <label
+                  key={key}
+                  className={`flex flex-col p-4 border-2 rounded-lg cursor-pointer transition ${
+                    ctaType === key
+                      ? `${value.bgColor} ${value.borderColor} shadow-md`
+                      : `border-gray-200 hover:${value.borderColor}`
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="radio"
+                      name="cta-edit"
+                      value={key}
+                      checked={ctaType === key}
+                      onChange={(e) => setCtaType(e.target.value)}
+                      className="mt-1 w-4 h-4 accent-amber-400 shrink-0"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-lg">{value.emoji}</span>
+                        <span className="font-semibold text-gray-800">{value.text}</span>
+                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-white border border-gray-200 text-gray-600">
+                          {value.psychology}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-600 ml-6">{value.description}</p>
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
           {/* B2B 문의자 자동 연결 */}
           <div className="flex items-center gap-3 px-4 py-2 bg-indigo-50 border-b border-indigo-100 shrink-0">
             <label className="text-xs font-medium text-indigo-700">B2B 자동 등록</label>
