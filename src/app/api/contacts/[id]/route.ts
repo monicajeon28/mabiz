@@ -5,6 +5,8 @@ import { getAuthContext, buildContactWhere, canDelete, maskContactInfo, actorDis
 import { backupContactsToExcel } from "@/lib/backup-xlsx";
 import { logger } from "@/lib/logger";
 import { logContactChange, logContactChanges } from "@/lib/audit/log-contact-change";
+import { checkRateLimitAsync } from "@/lib/rate-limit";
+import { RATE_LIMIT_CONFIG } from "@/lib/rate-limit-config";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -17,6 +19,19 @@ export async function GET(_req: Request, { params }: Params) {
     // 권한 검사 먼저 — FREE_SALES 차단 (buildContactWhere 호출 전)
     if (ctx.role === 'FREE_SALES') {
       return NextResponse.json({ ok: false }, { status: 403 });
+    }
+
+    // Rate limiting — 고객 상세 스크래핑 방지 (분당 60회)
+    const rlGet = await checkRateLimitAsync(
+      `contacts:get:${ctx.userId}`,
+      RATE_LIMIT_CONFIG.contacts.perUserGet,
+      60_000
+    );
+    if (!rlGet.allowed) {
+      return NextResponse.json(
+        { ok: false, error: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' },
+        { status: 429 }
+      );
     }
 
     const where  = buildContactWhere(ctx, { id });
@@ -141,6 +156,19 @@ export async function PATCH(req: Request, { params }: Params) {
     // FREE_SALES 역할 미리 차단
     if (ctx.role === 'FREE_SALES') {
       return NextResponse.json({ ok: false }, { status: 403 });
+    }
+
+    // Rate limiting — 고객 수정 남용 방지 (분당 perUser회)
+    const rlPatch = await checkRateLimitAsync(
+      `contacts:${ctx.userId}`,
+      RATE_LIMIT_CONFIG.contacts.perUser,
+      RATE_LIMIT_CONFIG.contacts.perUserWindow * 1000
+    );
+    if (!rlPatch.allowed) {
+      return NextResponse.json(
+        { ok: false, error: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' },
+        { status: 429 }
+      );
     }
 
     const where  = buildContactWhere(ctx, { id });
@@ -359,6 +387,19 @@ export async function DELETE(_req: Request, { params }: Params) {
       return NextResponse.json(
         { ok: false, message: "삭제 권한이 없습니다. (판매원은 삭제할 수 없습니다)" },
         { status: 403 }
+      );
+    }
+
+    // Rate limiting — 고객 삭제 남용 방지 (분당 perUser회)
+    const rlDelete = await checkRateLimitAsync(
+      `contacts:${ctx.userId}`,
+      RATE_LIMIT_CONFIG.contacts.perUser,
+      RATE_LIMIT_CONFIG.contacts.perUserWindow * 1000
+    );
+    if (!rlDelete.allowed) {
+      return NextResponse.json(
+        { ok: false, error: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' },
+        { status: 429 }
       );
     }
 

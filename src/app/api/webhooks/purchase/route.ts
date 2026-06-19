@@ -27,8 +27,8 @@ export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('authorization') ?? '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
   if (
-    token.length !== secret.length ||
-    !timingSafeEqual(Buffer.from(token), Buffer.from(secret))
+    Buffer.byteLength(token, 'utf8') !== Buffer.byteLength(secret, 'utf8') ||
+    !timingSafeEqual(Buffer.from(token, 'utf8'), Buffer.from(secret, 'utf8'))
   ) {
     logger.error('[PurchaseWebhook] 인증 실패');
     return NextResponse.json({ ok: false }, { status: 401 });
@@ -97,13 +97,13 @@ export async function POST(req: NextRequest) {
     }
 
     const normalizedPhone = normalizePhone(phone);
-    const finalSaleAmount = parseInt(String(saleAmount ?? amount)) || 0;
+    const finalSaleAmount = parseInt(String(saleAmount ?? amount), 10) || 0;
 
     // commissionRate: null 허용 (크루즈닷몰 관리자 승인 전)
     const parsedCommissionRate = commissionRate != null ? parseFloat(String(commissionRate)) : null;
-    const parsedCommissionAmount = parseInt(String(commissionAmount)) || 0;
-    const _parsedCruiseSaleId = saleId != null ? parseInt(String(saleId)) : null;
-    const _parsedHeadcount = headcount != null ? parseInt(String(headcount)) : null;
+    const parsedCommissionAmount = parseInt(String(commissionAmount), 10) || 0;
+    const _parsedCruiseSaleId = saleId != null ? parseInt(String(saleId), 10) : null;
+    const _parsedHeadcount = headcount != null ? parseInt(String(headcount), 10) : null;
 
     logger.log('[PurchaseWebhook] 수신', {
       phone: normalizedPhone.slice(0, 4) + '***',
@@ -176,7 +176,7 @@ export async function POST(req: NextRequest) {
       // ── 상품 마스터 upsert (productCode 기준) ──
       // purchase 웹훅에서 받은 상품 정보를 CruiseProduct에 자동 저장
       if (productCode && body.basePrice) {
-        const parsedBasePrice = parseInt(String(body.basePrice ?? 0)) || 0;
+        const parsedBasePrice = parseInt(String(body.basePrice ?? 0), 10) || 0;
         const startDate = departureDate ? new Date(departureDate) : null;
 
         await tx.cruiseProduct.upsert({
@@ -188,8 +188,8 @@ export async function POST(req: NextRequest) {
             startDate,
             cruiseLine:       body.cruiseLine ?? "",
             shipName:         body.shipName ?? "",
-            nights:           body.nights ? parseInt(String(body.nights)) : 0,
-            days:             body.days ? parseInt(String(body.days)) : 0,
+            nights:           body.nights ? parseInt(String(body.nights), 10) : 0,
+            days:             body.days ? parseInt(String(body.days), 10) : 0,
             itineraryPattern: {},
             updatedAt:        new Date(),
             isActive:         true,
@@ -201,8 +201,8 @@ export async function POST(req: NextRequest) {
             ...(startDate ? { startDate } : {}),
             ...(body.cruiseLine ? { cruiseLine: body.cruiseLine } : {}),
             ...(body.shipName ? { shipName: body.shipName } : {}),
-            ...(body.nights ? { nights: parseInt(String(body.nights)) } : {}),
-            ...(body.days ? { days: parseInt(String(body.days)) } : {}),
+            ...(body.nights ? { nights: parseInt(String(body.nights), 10) } : {}),
+            ...(body.days ? { days: parseInt(String(body.days), 10) } : {}),
           },
         });
       }

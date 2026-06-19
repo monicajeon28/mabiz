@@ -54,23 +54,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
-  // 3. HMAC-SHA256 서명 검증
+  // 3. HMAC-SHA256 서명 검증 (필수)
   const receivedSig = req.headers.get('x-signature') ?? '';
-  if (receivedSig) {
-    const expectedSig = createHmac('sha256', secret).update(rawBody).digest('hex');
-    const sigBufExpected = Buffer.from(expectedSig, 'utf8');
-    const sigBufReceived = Buffer.from(receivedSig, 'utf8');
-    const sigMatch =
-      sigBufExpected.length === sigBufReceived.length &&
-      timingSafeEqual(sigBufExpected, sigBufReceived);
-    if (!sigMatch) {
-      logger.warn('[sale-approved] HMAC 서명 불일치');
-      return NextResponse.json({ ok: false }, { status: 401 });
-    }
-  }
-  // X-Signature 헤더가 없는 경우: Bearer만으로 통과 (하위 호환 — 추후 제거 예정)
   if (!receivedSig) {
-    logger.warn('[sale-approved] X-Signature 헤더 없음 — Bearer 단독 허용 (하위 호환 모드)');
+    logger.warn('[sale-approved] X-Signature 헤더 누락');
+    return NextResponse.json({ error: 'x-signature 헤더 필수' }, { status: 401 });
+  }
+  const expectedSig = createHmac('sha256', secret).update(rawBody).digest('hex');
+  const sigBufExpected = Buffer.from(expectedSig, 'utf8');
+  const sigBufReceived = Buffer.from(receivedSig, 'utf8');
+  const sigMatch =
+    sigBufExpected.length === sigBufReceived.length &&
+    timingSafeEqual(sigBufExpected, sigBufReceived);
+  if (!sigMatch) {
+    logger.warn('[sale-approved] HMAC 서명 불일치');
+    return NextResponse.json({ ok: false }, { status: 401 });
   }
 
   let payload: SaleApprovedPayload;

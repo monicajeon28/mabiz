@@ -120,7 +120,7 @@ export async function POST(req: Request) {
         return new Response("FAIL", { status: 403 });
       }
 
-      if (token.length !== payappToken.length || !timingSafeEqual(Buffer.from(token), Buffer.from(payappToken))) {
+      if (Buffer.byteLength(token, 'utf8') !== Buffer.byteLength(payappToken, 'utf8') || !timingSafeEqual(Buffer.from(token, 'utf8'), Buffer.from(payappToken, 'utf8'))) {
         logger.warn("[PayApp Webhook] Bearer token 불일치 — 인증 실패", { requestIP });
         return new Response("FAIL", { status: 401 });
       }
