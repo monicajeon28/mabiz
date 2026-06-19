@@ -34,12 +34,13 @@ type TripRow = {
   googleFolderId: string | null;
 };
 
-// CabinInventory: 상품 등록 시 설정한 총 용량
+// CabinInventory: 상품 등록 시 설정한 총 용량 + 웹훅 업데이트 예약수
 type InventoryRow = {
   tripCode: string;
   cabinType: string;
   total: bigint;
-  status: string; // ★ AVAILABLE, SOLD_OUT 등
+  webhookBooked: bigint; // ★ CabinInventory.bookedCount (크루즈닷 웹훅 업데이트)
+  status: string;        // ★ AVAILABLE, SOLD_OUT 등
 };
 
 // Reservation: 실제 확정된 예약 건수 (여권+PNR 완료 기준)
@@ -49,7 +50,7 @@ type ReservationCountRow = {
   count: bigint;
 };
 
-type CabinEntry = { total: number; booked: number; remaining: number; status: string };
+type CabinEntry = { total: number; booked: number; remaining: number; status: string; webhookBooked: number };
 type CabinSummary = Record<string, CabinEntry>;
 
 const CABIN_STATUS = {
@@ -166,8 +167,9 @@ export async function GET(req: NextRequest) {
           ctx.organizationId
             ? prisma.$queryRaw<InventoryRow[]>(Prisma.sql`
                 SELECT "tripCode", "cabinType",
-                       SUM("totalCount")::bigint AS total,
-                       MAX("status") AS status
+                       SUM("totalCount")::bigint  AS total,
+                       SUM("bookedCount")::bigint AS "webhookBooked",
+                       MAX("status")              AS status
                 FROM "CabinInventory"
                 WHERE "tripCode" IN (${Prisma.join(codes)})
                   AND "organizationId" = ${ctx.organizationId}
@@ -175,8 +177,9 @@ export async function GET(req: NextRequest) {
               `)
             : prisma.$queryRaw<InventoryRow[]>(Prisma.sql`
                 SELECT "tripCode", "cabinType",
-                       SUM("totalCount")::bigint AS total,
-                       MAX("status") AS status
+                       SUM("totalCount")::bigint  AS total,
+                       SUM("bookedCount")::bigint AS "webhookBooked",
+                       MAX("status")              AS status
                 FROM "CabinInventory"
                 WHERE "tripCode" IN (${Prisma.join(codes)})
                 GROUP BY "tripCode", "cabinType"
@@ -199,8 +202,8 @@ export async function GET(req: NextRequest) {
     const tripMap = new Map<string, TripRow>();
     for (const t of tripRows) tripMap.set(t.productCode, t);
 
-    // CabinInventory: productCode → { normalizedCabinType → { total, status } }
-    const inventoryTotalMap = new Map<string, Map<string, { total: number; status: string }>>();
+    // CabinInventory: productCode → { normalizedCabinType → { total, webhookBooked, status } }
+    const inventoryTotalMap = new Map<string, Map<string, { total: number; webhookBooked: number; status: string }>>();
     for (const inv of inventoryRows) {
       if (!inv.tripCode) continue;
       if (!inventoryTotalMap.has(inv.tripCode)) inventoryTotalMap.set(inv.tripCode, new Map());
@@ -209,6 +212,7 @@ export async function GET(req: NextRequest) {
       const existing = cur.get(key);
       cur.set(key, {
         total: (existing?.total ?? 0) + Number(inv.total),
+        webhookBooked: (existing?.webhookBooked ?? 0) + Number(inv.webhookBooked ?? 0),
         status: normalizeStatus(inv.status), // MAX("status")에서 반환된 값, null-safe normalization
       });
     }
@@ -255,12 +259,15 @@ export async function GET(req: NextRequest) {
       if (invTotals && invTotals.size > 0) {
         cabinSummary = {};
         for (const [cabinType, data] of invTotals.entries()) {
-          const booked = rvBookings?.get(cabinType) ?? 0;
+          // 웹훅(CabinInventory.bookedCount)과 실제예약(Reservation) 중 큰 값 사용
+          const reservationBooked = rvBookings?.get(cabinType) ?? 0;
+          const booked = Math.max(data.webhookBooked, reservationBooked);
           cabinSummary[cabinType] = {
             total: data.total,
             booked,
             remaining: Math.max(0, data.total - booked),
             status: data.status, // ★ CabinInventory.status 직접 전달
+            webhookBooked: data.webhookBooked,
           };
         }
       }

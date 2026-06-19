@@ -79,12 +79,12 @@ export async function POST(req: NextRequest) {
   // 요청 본문 읽기
   const body = await req.text();
 
-  // HMAC-SHA256 서명 검증
+  // HMAC-SHA256 서명 검증 (hex→binary 디코딩 후 timingSafeEqual 비교)
   const signature = req.headers.get('x-signature') ?? '';
   const expectedSignature = createHmac('sha256', secret).update(body).digest('hex');
 
-  const sigBuf = Buffer.from(signature, 'utf8');
-  const expBuf = Buffer.from(expectedSignature, 'utf8');
+  const sigBuf = Buffer.from(signature, 'hex');
+  const expBuf = Buffer.from(expectedSignature, 'hex');
   if (sigBuf.byteLength !== expBuf.byteLength || !timingSafeEqual(sigBuf, expBuf)) {
     logger.warn('[InventorySyncWebhook] 서명 검증 실패');
     return NextResponse.json({ ok: false, error: '서명 검증 실패' }, { status: 403 });
@@ -109,6 +109,13 @@ export async function POST(req: NextRequest) {
 
   const payload: InventoryWebhookPayload = parsed.data;
   const { eventId, productCode, action, quantity, organizationId, inventorySnapshot } = payload;
+
+  // 상품명 조회 (tripName 저장용 — 없으면 productCode fallback)
+  const productRecord = await prisma.cruiseProduct.findFirst({
+    where: { productCode },
+    select: { packageName: true },
+  });
+  const resolvedTripName = productRecord?.packageName ?? productCode;
 
   logger.log('[InventorySyncWebhook] 수신', {
     eventId,
@@ -160,7 +167,7 @@ export async function POST(req: NextRequest) {
               create: {
                 organizationId,
                 tripCode:   productCode,
-                tripName:   productCode,
+                tripName:   resolvedTripName,
                 cabinType,
                 totalCount: snap.total,
                 bookedCount: snap.booked,
@@ -202,7 +209,7 @@ export async function POST(req: NextRequest) {
               data: {
                 organizationId,
                 tripCode:    productCode,
-                tripName:    productCode,
+                tripName:    resolvedTripName,
                 cabinType,
                 totalCount:  0,
                 bookedCount: initialBooked,

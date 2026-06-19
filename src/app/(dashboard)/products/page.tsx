@@ -18,7 +18,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-type CabinEntry = { total: number; booked: number; remaining: number; status?: string };
+type CabinEntry = { total: number; booked: number; remaining: number; status?: string; webhookBooked?: number };
 type CabinSummary = Record<string, CabinEntry>;
 
 type RefundSlot = { daysBeforeDep: number; penaltyRate: number; label?: string };
