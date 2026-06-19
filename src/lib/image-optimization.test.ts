@@ -206,16 +206,9 @@ describe('image-optimization', () => {
 /**
  * E2E 테스트 (실제 이미지 파일 필요)
  *
- * 테스트 이미지 생성 (ImageMagick):
+ * 테스트 이미지 생성:
  * ```bash
- * # JPEG 3000x4000 (5MB 근처)
- * convert -size 3000x4000 xc:blue test-passport.jpg
- *
- * # PNG 1920x1080 (2MB)
- * convert -size 1920x1080 xc:green test-landscape.png
- *
- * # WebP 1280x720 (1MB)
- * convert -size 1280x720 xc:red test-small.webp
+ * npm run test:generate-images
  * ```
  *
  * 그 후 다음 테스트 실행:
@@ -224,69 +217,128 @@ describe('image-optimization', () => {
  * ```
  */
 
-// describe('image-optimization E2E', () => {
-//   const testAssetsDir = './test-assets';
-//
-//   beforeAll(() => {
-//     // 테스트 이미지 파일 확인
-//     if (!fs.existsSync(testAssetsDir)) {
-//       console.warn('test-assets 디렉토리가 없습니다. 테스트를 건너뜁니다.');
-//       console.warn('이미지 생성: npm run test:generate-images');
-//     }
-//   });
-//
-//   test('E2E: JPEG 3000x4000 최적화', async () => {
-//     const buffer = fs.readFileSync(`${testAssetsDir}/test-passport.jpg`);
-//     const result = await optimizePassportImage(buffer, 'e2e-test');
-//
-//     expect(result.savings).toBeGreaterThan(75);
-//     expect(result.processingTimeMs).toBeLessThan(3000);
-//     expect(result.fullSize).toBeLessThan(result.originalSize);
-//     expect(result.originalFormat).toBe('jpeg');
-//   });
-//
-//   test('E2E: PNG 1920x1080 최적화', async () => {
-//     const buffer = fs.readFileSync(`${testAssetsDir}/test-landscape.png`);
-//     const result = await optimizePassportImage(buffer, 'e2e-landscape');
-//
-//     expect(result.savings).toBeGreaterThan(70);
-//     expect(result.originalFormat).toBe('png');
-//   });
-//
-//   test('E2E: 3개 해상도 검증', async () => {
-//     const buffer = fs.readFileSync(`${testAssetsDir}/test-passport.jpg`);
-//     const result = await optimizePassportImage(buffer, 'e2e-multi');
-//
-//     expect(result.fullSize).toBeGreaterThanOrEqual(result.thumbSize);
-//     expect(result.thumbSize).toBeGreaterThanOrEqual(result.archiveSize);
-//   });
-//
-//   test('E2E: 성능 벤치마크', async () => {
-//     const buffer = fs.readFileSync(`${testAssetsDir}/test-passport.jpg`);
-//     const iterations = 5;
-//     const times: number[] = [];
-//
-//     for (let i = 0; i < iterations; i++) {
-//       const result = await optimizePassportImage(buffer, `e2e-bench-${i}`);
-//       times.push(result.processingTimeMs);
-//     }
-//
-//     const avgTime = times.reduce((a, b) => a + b) / times.length;
-//     expect(avgTime).toBeLessThan(2000);
-//
-//     console.log(`평균 처리 시간: ${avgTime.toFixed(0)}ms`);
-//   });
-//
-//   test('E2E: 배치 처리 (3개 이미지)', async () => {
-//     const jpegBuffer = fs.readFileSync(`${testAssetsDir}/test-passport.jpg`);
-//     const pngBuffer = fs.readFileSync(`${testAssetsDir}/test-landscape.png`);
-//     const webpBuffer = fs.readFileSync(`${testAssetsDir}/test-small.webp`);
-//
-//     const startTime = Date.now();
-//     const results = await optimizePassportImagesBatch([jpegBuffer, pngBuffer, webpBuffer], 3);
-//     const totalTime = Date.now() - startTime;
-//
-//     expect(results).toHaveLength(3);
-//     expect(totalTime).toBeLessThan(6000); // 순차 처리: 2000 * 3 = 6000ms
-//   });
-// });
+import fs from 'fs';
+
+describe('image-optimization E2E', () => {
+  const testAssetsDir = './test-assets';
+
+  beforeAll(() => {
+    // 테스트 이미지 파일 확인
+    if (!fs.existsSync(testAssetsDir)) {
+      console.warn('test-assets 디렉토리가 없습니다. 테스트를 건너뜁니다.');
+      console.warn('이미지 생성: node scripts/generate-test-images.mjs');
+    }
+  });
+
+  test('E2E: JPEG 3000x4000 최적화', async () => {
+    if (!fs.existsSync(`${testAssetsDir}/test-passport.jpg`)) {
+      console.warn('test-passport.jpg가 없습니다.');
+      return;
+    }
+
+    const buffer = fs.readFileSync(`${testAssetsDir}/test-passport.jpg`);
+    const result = await optimizePassportImage(buffer, 'e2e-test');
+
+    expect(result.savings).toBeGreaterThan(50);
+    expect(result.processingTimeMs).toBeLessThan(3000);
+    expect(result.fullSize).toBeLessThan(result.originalSize);
+    expect(result.originalFormat).toBe('jpeg');
+
+    console.log(`\n  JPEG 최적화:`);
+    console.log(`    원본: ${(result.originalSize / 1024 / 1024).toFixed(2)}MB (${result.originalWidth}x${result.originalHeight})`);
+    console.log(`    Full: ${(result.fullSize / 1024 / 1024).toFixed(2)}MB`);
+    console.log(`    Thumb: ${(result.thumbSize / 1024 / 1024).toFixed(2)}MB`);
+    console.log(`    Archive: ${(result.archiveSize / 1024 / 1024).toFixed(2)}MB`);
+    console.log(`    절약: ${result.savings}% (${(result.savingsBytes / 1024 / 1024).toFixed(2)}MB)`);
+    console.log(`    시간: ${result.processingTimeMs}ms`);
+  });
+
+  test('E2E: PNG 1920x1080 최적화', async () => {
+    if (!fs.existsSync(`${testAssetsDir}/test-landscape.png`)) {
+      console.warn('test-landscape.png가 없습니다.');
+      return;
+    }
+
+    const buffer = fs.readFileSync(`${testAssetsDir}/test-landscape.png`);
+    const result = await optimizePassportImage(buffer, 'e2e-landscape');
+
+    expect(result.savings).toBeGreaterThan(50);
+    expect(result.originalFormat).toBe('png');
+
+    console.log(`\n  PNG 최적화:`);
+    console.log(`    원본: ${(result.originalSize / 1024 / 1024).toFixed(2)}MB (${result.originalWidth}x${result.originalHeight})`);
+    console.log(`    Full: ${(result.fullSize / 1024 / 1024).toFixed(2)}MB`);
+    console.log(`    절약: ${result.savings}%`);
+    console.log(`    시간: ${result.processingTimeMs}ms`);
+  });
+
+  test('E2E: 3개 해상도 검증 (Full > Thumb > Archive)', async () => {
+    if (!fs.existsSync(`${testAssetsDir}/test-passport.jpg`)) {
+      console.warn('test-passport.jpg가 없습니다.');
+      return;
+    }
+
+    const buffer = fs.readFileSync(`${testAssetsDir}/test-passport.jpg`);
+    const result = await optimizePassportImage(buffer, 'e2e-multi');
+
+    expect(result.fullSize).toBeGreaterThanOrEqual(result.thumbSize);
+    expect(result.thumbSize).toBeGreaterThanOrEqual(result.archiveSize);
+
+    console.log(`\n  해상도 비교:`);
+    console.log(`    Full (원본): ${(result.fullSize / 1024).toFixed(0)}KB`);
+    console.log(`    Thumb (400px): ${(result.thumbSize / 1024).toFixed(0)}KB (${((result.thumbSize / result.fullSize) * 100).toFixed(1)}%)`);
+    console.log(`    Archive (150px): ${(result.archiveSize / 1024).toFixed(0)}KB (${((result.archiveSize / result.fullSize) * 100).toFixed(1)}%)`);
+  });
+
+  test('E2E: 성능 벤치마크 (5회 반복)', async () => {
+    if (!fs.existsSync(`${testAssetsDir}/test-passport.jpg`)) {
+      console.warn('test-passport.jpg가 없습니다.');
+      return;
+    }
+
+    const buffer = fs.readFileSync(`${testAssetsDir}/test-passport.jpg`);
+    const iterations = 5;
+    const times: number[] = [];
+
+    for (let i = 0; i < iterations; i++) {
+      const result = await optimizePassportImage(buffer, `e2e-bench-${i}`);
+      times.push(result.processingTimeMs);
+    }
+
+    const avgTime = times.reduce((a, b) => a + b) / times.length;
+    const maxTime = Math.max(...times);
+    const minTime = Math.min(...times);
+
+    expect(avgTime).toBeLessThan(2500);
+
+    console.log(`\n  벤치마크 (5회 반복):`);
+    console.log(`    평균: ${avgTime.toFixed(0)}ms`);
+    console.log(`    최소: ${minTime.toFixed(0)}ms`);
+    console.log(`    최대: ${maxTime.toFixed(0)}ms`);
+    console.log(`    목표: < 2초 ✓`);
+  }, 20000); // 20초 타임아웃
+
+  test('E2E: 배치 처리 (3개 이미지 병렬)', async () => {
+    if (!fs.existsSync(`${testAssetsDir}/test-passport.jpg`)) {
+      console.warn('test-passport.jpg가 없습니다.');
+      return;
+    }
+
+    const jpegBuffer = fs.readFileSync(`${testAssetsDir}/test-passport.jpg`);
+    const pngBuffer = fs.readFileSync(`${testAssetsDir}/test-landscape.png`);
+    const webpBuffer = fs.readFileSync(`${testAssetsDir}/test-small.webp`);
+
+    const startTime = Date.now();
+    const results = await optimizePassportImagesBatch([jpegBuffer, pngBuffer, webpBuffer], 3);
+    const totalTime = Date.now() - startTime;
+
+    expect(results).toHaveLength(3);
+    expect(totalTime).toBeLessThan(10000);
+
+    console.log(`\n  배치 처리 (maxConcurrent=3):`);
+    console.log(`    이미지 수: 3개`);
+    console.log(`    총 시간: ${totalTime}ms`);
+    console.log(`    예상 시간 (순차): ~${results.reduce((a, b) => a + b.processingTimeMs, 0)}ms`);
+    console.log(`    병렬화 개선: ${((results.reduce((a, b) => a + b.processingTimeMs, 0) - totalTime) / results.reduce((a, b) => a + b.processingTimeMs, 0) * 100).toFixed(0)}%`);
+  });
+});

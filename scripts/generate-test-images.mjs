@@ -25,13 +25,13 @@ async function generateTestImages() {
   console.log('📸 테스트 이미지 생성 중...');
 
   try {
-    // 1-1. JPEG (여권 크기, 약 5MB) - 복잡한 패턴으로 압축률 낮춤
-    console.log('  1. JPEG 3000x4000 생성...');
+    // 1-1. JPEG (1200x1600, 약 1-2MB) - WebP 호환 해상도, 빠른 처리
+    console.log('  1. JPEG 1200x1600 생성...');
     const jpegPath = path.join(testAssetsDir, 'test-passport.jpg');
 
-    // 큰 이미지 생성: 여러 색상 패턴으로 압축률 낮춤
+    // 더 작은 여권 크기 (1200x1600)
     const svgJpeg = Buffer.from(`
-      <svg width="3000" height="4000" xmlns="http://www.w3.org/2000/svg">
+      <svg width="1200" height="1600" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <pattern id="pattern" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
             <rect width="100" height="100" fill="#1E3C96"/>
@@ -40,7 +40,7 @@ async function generateTestImages() {
             <polygon points="70,70 100,70 85,100" fill="#6BCB77"/>
           </pattern>
         </defs>
-        <rect width="3000" height="4000" fill="url(#pattern)"/>
+        <rect width="1200" height="1600" fill="url(#pattern)"/>
       </svg>
     `);
 
