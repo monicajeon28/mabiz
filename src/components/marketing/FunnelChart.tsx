@@ -7,84 +7,147 @@ interface FunnelChartProps {
 export function FunnelChart({ summary }: FunnelChartProps) {
   const steps = [
     {
-      label: "랜딩페이지 방문",
-      description: "클릭해서 페이지 도착",
+      label: "방문",
+      description: "랜딩페이지 도착",
       value: summary.totalViews,
-      color: "bg-navy-600"
+      color: "from-emerald-500 to-green-600",
+      bgColor: "bg-emerald-50"
     },
     {
-      label: "신청서 제출",
-      description: "폼 작성 및 등록",
+      label: "신청",
+      description: "폼 작성 후 등록",
       value: summary.totalRegistrations,
-      color: "bg-blue-500"
+      color: "from-blue-500 to-blue-600",
+      bgColor: "bg-blue-50"
     },
     {
-      label: "결제페이지 진입",
-      description: "신청 후 결제 화면 접속",
+      label: "결제",
+      description: "결제 페이지 진입",
       value: summary.totalFunnelEntered,
-      color: "bg-blue-400"
+      color: "from-orange-500 to-orange-600",
+      bgColor: "bg-orange-50"
     },
     {
-      label: "구매 완료",
-      description: "결제 성공",
+      label: "완료",
+      description: "구매 성공",
       value: summary.totalPurchased,
-      color: "bg-green-500"
+      color: "from-red-500 to-red-600",
+      bgColor: "bg-red-50"
     },
   ];
 
+  // 각 단계의 통계 계산
+  const stats = steps.map((step, i) => {
+    const prev = i > 0 ? steps[i - 1].value : step.value;
+    const rate = prev > 0 ? Math.round((step.value / prev) * 100) : 0;
+    const dropoff = prev - step.value;
+    const dropoffPercent = prev > 0 ? Math.round((dropoff / prev) * 100) : 0;
+    return { rate, dropoff, dropoffPercent };
+  });
+
+  const maxValue = steps[0].value || 1;
+
   return (
-    <div className="bg-white border rounded-xl p-5 mb-6">
-      <h2 className="text-lg font-semibold text-gray-900 mb-2">구매 경로 분석</h2>
-      <p className="text-sm text-gray-600 mb-6">고객들이 방문해서 구매까지 가는 과정을 단계별로 보여줍니다</p>
+    <div className="bg-white border rounded-xl p-6 mb-6">
+      <h2 className="text-xl font-bold text-gray-900 mb-1">구매 경로</h2>
+      <p className="text-base text-gray-600 mb-8">
+        고객이 방문해서 구매까지 가는 과정. 각 단계에서 몇 명이 빠져나가는지 확인할 수 있습니다.
+      </p>
 
-      {/* 50대 친화: 더 큰 폰트 + 명확한 설명 */}
-      <div className="flex items-end gap-3 h-32">
-        {steps.map((step, i, arr) => {
-          const max = arr[0].value || 1;
-          const h = Math.max(4, Math.round(100 * step.value / max));
-          const prev = i > 0 ? arr[i - 1].value : step.value;
-          const rate = prev > 0 ? Math.round((step.value / prev) * 100) : 0;
+      {/* 세로형 퍼널 시각화 */}
+      <div className="space-y-4">
+        {steps.map((step, i) => {
+          const widthPercent = (step.value / maxValue) * 100;
+          const stat = stats[i];
+
           return (
-            <div key={step.label} className="flex-1 flex flex-col items-center gap-2">
-              {/* 단계 번호 + 숫자 (50대 친화 16px) */}
-              <div className="text-center">
-                <div className="text-xs text-gray-500 mb-1">Step {i + 1}</div>
-                <span className="text-base font-bold text-gray-900">
-                  {step.value.toLocaleString()}명
-                </span>
+            <div key={step.label} className="space-y-2">
+              {/* 단계 헤더: 번호 + 이름 */}
+              <div className="flex items-baseline gap-3">
+                <div className="flex items-baseline gap-2 min-w-max">
+                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 font-bold text-base text-gray-900">
+                    {i + 1}
+                  </span>
+                  <div>
+                    <div className="text-lg font-bold text-gray-900">{step.label}</div>
+                    <div className="text-sm text-gray-500">{step.description}</div>
+                  </div>
+                </div>
+                <div className="flex-1" />
+                {/* 숫자 (오른쪽 정렬) */}
+                <div className="text-right min-w-max">
+                  <div className="text-xl font-bold text-gray-900">
+                    {step.value.toLocaleString()}명
+                  </div>
+                  <div className="text-sm font-semibold text-gray-600">
+                    {i === 0 ? "100%" : `${stat.rate}% 진입`}
+                  </div>
+                </div>
               </div>
 
-              {/* 막대 그래프 */}
-              <div className="w-full flex items-end justify-center">
-                <div
-                  className={`w-full ${step.color} rounded-t transition-all`}
-                  style={{ height: `${h}px` }}
-                  suppressHydrationWarning
-                />
+              {/* 진행 막대 */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-14 bg-gray-100 rounded-lg overflow-hidden">
+                  <div
+                    className={`h-full bg-gradient-to-r ${step.color} rounded-lg transition-all flex items-center justify-center`}
+                    style={{ width: `${widthPercent}%` }}
+                  >
+                    {widthPercent > 20 && (
+                      <span className="text-white font-semibold text-sm">
+                        {Math.round(widthPercent)}%
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              {/* 단계명 (50대 친화 14px) */}
-              <div className="text-center">
-                <span className="text-sm font-medium text-gray-900 block">{step.label}</span>
-                <span className="text-xs text-gray-500 block">{step.description}</span>
-              </div>
-
-              {/* 전환율 (이전 단계 대비) */}
-              {i > 0 && (
-                <span className="text-sm font-semibold text-gray-700 bg-gray-50 px-2 py-1 rounded">
-                  {rate}% 진입
-                </span>
+              {/* 탈락 정보 (1단계 제외) */}
+              {i > 0 && stat.dropoff > 0 && (
+                <div className={`px-4 py-3 ${step.bgColor} rounded-lg border border-gray-200`}>
+                  <p className="text-sm text-gray-700">
+                    <span className="font-semibold">{stat.dropoff.toLocaleString()}명 탈락</span>
+                    {" "}
+                    <span className="text-gray-600">
+                      (이전 단계 대비 {stat.dropoffPercent}%)
+                    </span>
+                  </p>
+                </div>
               )}
             </div>
           );
         })}
       </div>
 
-      {/* 50대 친화: 해석 가이드 */}
-      <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-        <p className="text-sm text-blue-900">
-          💡 <strong>어떻게 읽나요?</strong> 첫 번째 단계(방문)에서 마지막 단계(구매)로 갈수록 숫자가 줄어듭니다.
-          각 단계의 비율(%)를 높이면 더 많은 고객이 구매까지 가게 됩니다.
+      {/* 해석 가이드 */}
+      <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <div className="flex gap-3">
+          <div className="flex-shrink-0 text-xl">💡</div>
+          <div>
+            <p className="font-semibold text-gray-900 text-base mb-2">이 차트가 보여주는 것</p>
+            <ul className="text-sm text-gray-700 space-y-1 ml-0">
+              <li>
+                <span className="font-semibold">방문:</span> 랜딩페이지에 도착한 고객 수
+              </li>
+              <li>
+                <span className="font-semibold">신청:</span> 신청서를 작성하고 등록한 고객 수
+              </li>
+              <li>
+                <span className="font-semibold">결제:</span> 결제 페이지에 진입한 고객 수
+              </li>
+              <li>
+                <span className="font-semibold">완료:</span> 실제로 구매한 고객 수
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      {/* 개선 팁 */}
+      <div className="mt-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+        <p className="text-sm text-amber-900">
+          <span className="font-semibold">💭 개선 팁:</span> 가장 많은 고객이 빠져나가는 단계를 찾아서
+          그 단계를 개선하면 전체 판매가 늘어납니다. 예를 들어 "신청 → 결제" 단계에서 50%가 빠져나간다면,
+          결제 페이지를 더 간단하게 만들거나 할부 옵션을 제안하는 것이 도움이 될 수 있습니다.
         </p>
       </div>
     </div>
