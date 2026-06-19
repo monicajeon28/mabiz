@@ -18,7 +18,8 @@ export async function GET(req: Request) {
     }
     const url = new URL(req.url);
 
-    const search = url.searchParams.get('search');
+    const rawSearch = url.searchParams.get('search');
+    const search = rawSearch ? rawSearch.slice(0, 100) : null;
     const status = url.searchParams.get('status');
     const rawPage = parseInt(url.searchParams.get('page') ?? '1', 10);
     const page = Number.isNaN(rawPage) ? 1 : Math.max(1, rawPage);

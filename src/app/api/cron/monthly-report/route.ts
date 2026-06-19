@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
@@ -15,10 +16,16 @@ export const runtime = 'nodejs';
 export async function POST(req: NextRequest) {
   try {
     // Vercel Cron 요청 검증
-    const authHeader = req.headers.get('authorization');
-    const expectedSecret = process.env.CRON_SECRET;
-
-    if (!expectedSecret || authHeader !== `Bearer ${expectedSecret}`) {
+    const expectedToken = process.env.CRON_SECRET;
+    if (!expectedToken) {
+      logger.warn('[Cron] 월간리포트 - CRON_SECRET 미설정');
+      return NextResponse.json({ error: 'CRON_SECRET 미설정' }, { status: 503 });
+    }
+    const authHeader = req.headers.get('authorization') ?? '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    const tokenBuf = Buffer.from(token, 'utf8');
+    const expectedBuf = Buffer.from(expectedToken, 'utf8');
+    if (tokenBuf.byteLength !== expectedBuf.byteLength || !timingSafeEqual(tokenBuf, expectedBuf)) {
       logger.warn('[Cron] 월간리포트 - 비인가 요청');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

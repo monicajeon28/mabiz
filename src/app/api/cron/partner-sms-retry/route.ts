@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
@@ -13,10 +14,15 @@ import { retryFailedPartnerSms } from '@/lib/aligo-sms-service';
 export async function GET(req: NextRequest) {
   try {
     // Vercel Cron Job 검증
-    const authHeader = req.headers.get('authorization');
-    const expectedSecret = process.env.CRON_SECRET;
-
-    if (!expectedSecret || authHeader !== `Bearer ${expectedSecret}`) {
+    const expectedToken = process.env.CRON_SECRET;
+    if (!expectedToken) {
+      return NextResponse.json({ error: 'CRON_SECRET 미설정' }, { status: 503 });
+    }
+    const authHeader = req.headers.get('authorization') ?? '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    const tokenBuf = Buffer.from(token, 'utf8');
+    const expectedBuf = Buffer.from(expectedToken, 'utf8');
+    if (tokenBuf.byteLength !== expectedBuf.byteLength || !timingSafeEqual(tokenBuf, expectedBuf)) {
       logger.warn('[partner-sms-retry] 인증 실패', {
         hasAuthHeader: !!authHeader,
       });

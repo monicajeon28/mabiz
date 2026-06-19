@@ -39,17 +39,14 @@ export async function POST(req: NextRequest) {
   const secret = process.env.INTERNAL_WEBHOOK_SECRET;
   if (!secret) {
     logger.error('[ApisDelegate] INTERNAL_WEBHOOK_SECRET 미설정');
-    return NextResponse.json({ ok: false }, { status: 500 });
+    return NextResponse.json({ ok: false }, { status: 503 });
   }
 
   const rawToken = req.headers.get('authorization') ?? '';
-  const token = rawToken.startsWith('Bearer ') ? rawToken.slice(7) : rawToken;
-
-  if (
-    token.length === 0 ||
-    token.length !== secret.length ||
-    !timingSafeEqual(Buffer.from(token), Buffer.from(secret))
-  ) {
+  const token = rawToken.startsWith('Bearer ') ? rawToken.slice(7) : '';
+  const tokenBuf = Buffer.from(token, 'utf8');
+  const secretBuf = Buffer.from(secret, 'utf8');
+  if (token.length === 0 || tokenBuf.byteLength !== secretBuf.byteLength || !timingSafeEqual(tokenBuf, secretBuf)) {
     logger.warn('[ApisDelegate] 인증 실패');
     return NextResponse.json({ ok: false }, { status: 401 });
   }

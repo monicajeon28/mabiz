@@ -5,6 +5,7 @@
  * 2026-05-27 Compliance Monitor Agent
  */
 
+import { timingSafeEqual } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
@@ -14,12 +15,16 @@ import { auditLogger } from '@/lib/compliance/audit-logger';
 export async function GET(req: NextRequest) {
   try {
     // Cron secret 검증
-    const cronSecret = req.headers.get('x-cron-secret');
-    if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const expectedToken = process.env.CRON_SECRET;
+    if (!expectedToken) {
+      return NextResponse.json({ error: 'CRON_SECRET 미설정' }, { status: 503 });
+    }
+    const authHeader = req.headers.get('authorization') ?? '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    const tokenBuf = Buffer.from(token, 'utf8');
+    const expectedBuf = Buffer.from(expectedToken, 'utf8');
+    if (tokenBuf.byteLength !== expectedBuf.byteLength || !timingSafeEqual(tokenBuf, expectedBuf)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // 모든 활성 조직 조회

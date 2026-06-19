@@ -166,6 +166,14 @@ export async function PUT(req: Request, { params }: Params) {
       );
     }
 
+    // Validate scheduledAt before using it
+    if (scheduledAt !== undefined && scheduledAt !== null) {
+      const parsedSched = Date.parse(String(scheduledAt));
+      if (Number.isNaN(parsedSched)) {
+        return NextResponse.json({ ok: false, message: 'scheduledAt 날짜 형식이 올바르지 않습니다.' }, { status: 400 });
+      }
+    }
+
     // 수정
     const updateResult = await prisma.callLog.updateMany({
       where: { id: logId, contactId: id },
@@ -241,6 +249,14 @@ export async function POST(req: Request, { params }: Params) {
         { ok: false, errors: objectionValidation.errors },
         { status: 400 }
       );
+    }
+
+    // Validate scheduledAt before using it
+    if (scheduledAt !== undefined && scheduledAt !== null) {
+      const parsedSched = Date.parse(String(scheduledAt));
+      if (Number.isNaN(parsedSched)) {
+        return NextResponse.json({ ok: false, message: 'scheduledAt 날짜 형식이 올바르지 않습니다.' }, { status: 400 });
+      }
     }
 
     const log = await prisma.callLog.create({

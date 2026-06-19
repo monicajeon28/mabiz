@@ -21,13 +21,15 @@ export async function GET(req: Request) {
     const secret = process.env.CRON_SECRET;
     if (!secret) {
       logger.error('[CronCleanup] 인증 실패', { reason: 'CRON_SECRET 환경변수 미설정' });
-      throw new Error('CRON_SECRET environment variable is not set');
+      return NextResponse.json({ error: 'CRON_SECRET 미설정' }, { status: 503 });
     }
 
     const auth = req.headers.get('x-cron-secret') ?? req.headers.get('x-vercel-cron-secret') ?? '';
     let authValid = false;
     try {
-      authValid = auth.length === secret.length && timingSafeEqual(Buffer.from(auth), Buffer.from(secret));
+      const authBuf = Buffer.from(auth, 'utf8');
+      const secretBuf = Buffer.from(secret, 'utf8');
+      authValid = authBuf.byteLength === secretBuf.byteLength && timingSafeEqual(authBuf, secretBuf);
     } catch {
       authValid = false;
     }

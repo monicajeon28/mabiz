@@ -8,6 +8,7 @@
  * Authorization: Bearer CRON_SECRET
  */
 
+import { timingSafeEqual } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { dailyReactivationClassification } from '@/lib/services/reactivation-classifier';
 import { logger } from '@/lib/logger';
@@ -15,9 +16,15 @@ import { logger } from '@/lib/logger';
 export async function GET(request: NextRequest) {
   try {
     // 크론 시크릿 검증
-    const cronSecret = request.headers.get('authorization')?.replace('Bearer ', '');
-
-    if (cronSecret !== process.env.CRON_SECRET) {
+    const expectedToken = process.env.CRON_SECRET;
+    if (!expectedToken) {
+      return NextResponse.json({ error: 'CRON_SECRET 미설정' }, { status: 503 });
+    }
+    const authHeader = request.headers.get('authorization') ?? '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    const tokenBuf = Buffer.from(token, 'utf8');
+    const expectedBuf = Buffer.from(expectedToken, 'utf8');
+    if (tokenBuf.byteLength !== expectedBuf.byteLength || !timingSafeEqual(tokenBuf, expectedBuf)) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 },

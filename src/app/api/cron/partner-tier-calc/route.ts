@@ -15,6 +15,7 @@
 
 export const runtime = 'nodejs';
 
+import { timingSafeEqual } from 'crypto';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
@@ -39,8 +40,15 @@ interface TierCalcResponse {
 }
 
 export async function POST(req: Request) {
-  const cronSecret = req.headers.get('authorization')?.replace('Bearer ', '');
-  if (cronSecret !== process.env.CRON_SECRET) {
+  const expectedToken = process.env.CRON_SECRET;
+  if (!expectedToken) {
+    return NextResponse.json({ error: 'CRON_SECRET 미설정' }, { status: 503 });
+  }
+  const authHeader = req.headers.get('authorization') ?? '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  const tokenBuf = Buffer.from(token, 'utf8');
+  const expectedBuf = Buffer.from(expectedToken, 'utf8');
+  if (tokenBuf.byteLength !== expectedBuf.byteLength || !timingSafeEqual(tokenBuf, expectedBuf)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

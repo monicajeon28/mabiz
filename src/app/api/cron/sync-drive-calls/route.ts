@@ -1,8 +1,8 @@
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-import { NextResponse } from 'next/server';
-import { headers } from 'next/headers';
+import { timingSafeEqual } from 'crypto';
+import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { listSubFolders, listMdFilesInFolder, readDriveFileContent } from '@/lib/drive-client';
 import { logger } from '@/lib/logger';
@@ -28,11 +28,18 @@ function maskPhone(text: string): string {
   return text.replace(/01[0-9]-?\d{3,4}-?\d{4}/g, '010-****-****');
 }
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   // Vercel Cron 인증
-  const authHeader = (await headers()).get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ ok: false }, { status: 401 });
+  const expectedToken = process.env.CRON_SECRET;
+  if (!expectedToken) {
+    return NextResponse.json({ error: 'CRON_SECRET 미설정' }, { status: 503 });
+  }
+  const authHeader = req.headers.get('authorization') ?? '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  const tokenBuf = Buffer.from(token, 'utf8');
+  const expectedBuf = Buffer.from(expectedToken, 'utf8');
+  if (tokenBuf.byteLength !== expectedBuf.byteLength || !timingSafeEqual(tokenBuf, expectedBuf)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const rootFolderId = process.env.GOOGLE_DRIVE_CALL_UPLOAD_FOLDER_ID;

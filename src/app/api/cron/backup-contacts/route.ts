@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { backupContactsToDrive } from '@/lib/google-drive';
@@ -19,12 +20,16 @@ import { logger } from '@/lib/logger';
  */
 export async function GET(req: NextRequest) {
   // Cron 인증 (Bearer Token)
-  const authHeader = req.headers.get('Authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json(
-      { ok: false, error: '인증 실패' },
-      { status: 401 }
-    );
+  const expectedToken = process.env.CRON_SECRET;
+  if (!expectedToken) {
+    return NextResponse.json({ error: 'CRON_SECRET 미설정' }, { status: 503 });
+  }
+  const authHeader = req.headers.get('authorization') ?? '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  const tokenBuf = Buffer.from(token, 'utf8');
+  const expectedBuf = Buffer.from(expectedToken, 'utf8');
+  if (tokenBuf.byteLength !== expectedBuf.byteLength || !timingSafeEqual(tokenBuf, expectedBuf)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const results = {

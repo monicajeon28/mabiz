@@ -191,7 +191,7 @@ export async function uploadPassportToGoogleDrive(
           appProperties: {
             type: 'passport_backup',
             guestName,
-            passportNumber: passportNumber.slice(-4), // 마지막 4자리만 저장 (보안)
+            passportNumber: passportNumber.slice(-4),
           },
         },
         media: {
@@ -199,9 +199,8 @@ export async function uploadPassportToGoogleDrive(
           body: fileBuffer,
         },
         fields: 'id',
-        timeout: 30000,
       });
-      return createRes.data.id!;
+      return (createRes as { data: { id?: string } }).data.id!;
     });
 
     logger.info(`[uploadPassportToGoogleDrive] 완료: fileId=${fileId}`);
