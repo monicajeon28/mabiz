@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   const secret = process.env.MABIZ_SALE_APPROVED_WEBHOOK_SECRET;
   if (!secret) {
     logger.error('[sale-approved] MABIZ_SALE_APPROVED_WEBHOOK_SECRET 미설정');
-    return NextResponse.json({ ok: false }, { status: 500 });
+    return NextResponse.json({ ok: false }, { status: 503 });
   }
 
   // 1. 원시 바디 읽기 (HMAC 검증을 위해 JSON 파싱 전에 읽어야 함)
@@ -43,10 +43,12 @@ export async function POST(req: NextRequest) {
   // 2. Bearer 인증
   const rawAuth = req.headers.get('authorization') ?? '';
   const token = rawAuth.startsWith('Bearer ') ? rawAuth.slice(7) : '';
+  const tokenBuf = Buffer.from(token, 'utf8');
+  const secretBuf = Buffer.from(secret, 'utf8');
   if (
-    token.length === 0 ||
-    token.length !== secret.length ||
-    !timingSafeEqual(Buffer.from(token), Buffer.from(secret))
+    tokenBuf.byteLength === 0 ||
+    tokenBuf.byteLength !== secretBuf.byteLength ||
+    !timingSafeEqual(tokenBuf, secretBuf)
   ) {
     logger.warn('[sale-approved] Bearer 인증 실패');
     return NextResponse.json({ ok: false }, { status: 401 });
@@ -66,7 +68,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false }, { status: 401 });
     }
   }
-  // X-Signature 헤더가 없는 경우: Bearer만으로 통과 (하위 호환)
+  // X-Signature 헤더가 없는 경우: Bearer만으로 통과 (하위 호환 — 추후 제거 예정)
+  if (!receivedSig) {
+    logger.warn('[sale-approved] X-Signature 헤더 없음 — Bearer 단독 허용 (하위 호환 모드)');
+  }
 
   let payload: SaleApprovedPayload;
   try {
@@ -80,6 +85,11 @@ export async function POST(req: NextRequest) {
   if (!eventId || !reservationId || !status || !timestamp || !['APPROVED', 'REJECTED'].includes(status)) {
     return NextResponse.json({ ok: false, message: '필수 필드 누락' }, { status: 400 });
   }
+  const parsedTs = Date.parse(String(timestamp));
+  if (isNaN(parsedTs)) {
+    return NextResponse.json({ ok: false, message: 'timestamp 형식 오류' }, { status: 400 });
+  }
+  const confirmedAt = new Date(parsedTs);
 
   logger.log('[sale-approved] 수신', { eventId, saleId, reservationId, status });
 
@@ -99,14 +109,14 @@ export async function POST(req: NextRequest) {
         await tx.$executeRaw`
           UPDATE "Reservation"
           SET "finalConfirmStatus"      = 'APPROVED',
-              "finalConfirmApprovedAt"  = ${new Date(timestamp)}
+              "finalConfirmApprovedAt"  = ${confirmedAt}
           WHERE id = ${reservationId}
         `;
       } else {
         await tx.$executeRaw`
           UPDATE "Reservation"
           SET "finalConfirmStatus"          = 'REJECTED',
-              "finalConfirmRejectedAt"      = ${new Date(timestamp)},
+              "finalConfirmRejectedAt"      = ${confirmedAt},
               "finalConfirmRejectionReason" = ${rejectionReason ?? null}
           WHERE id = ${reservationId}
         `;
