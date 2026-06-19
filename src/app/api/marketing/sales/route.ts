@@ -60,17 +60,30 @@ export async function GET(req: NextRequest) {
     const skip  = (page - 1) * limit;
 
     // [API-SALES-007] KST(UTC+9) 기준 날짜 계산 — UTC 기준으로 하면 한국 달력과 9시간 불일치 발생
-    const KST_OFFSET     = 9 * 60 * 60 * 1000;  // 9시간을 ms로
-    const nowUTC         = new Date();
-    const nowKST         = new Date(nowUTC.getTime() + KST_OFFSET);  // KST 현재 시각
-    // KST 이번 달 1일 00:00 KST → thisMonthStart(UTC), 다음 달 1일 00:00 KST → thisMonthEnd(UTC)
+    // month 파라미터 파싱 (YYYY-MM 형식, 기본값: 현재 KST 월)
+    const monthParam = req.nextUrl.searchParams.get('month') ?? '';
+    const isValidMonth = /^\d{4}-\d{2}$/.test(monthParam);
+    const KST_OFFSET = 9 * 60 * 60 * 1000;
+    const nowUTC = new Date();
+    const nowKST = new Date(nowUTC.getTime() + KST_OFFSET);
+    let selectedYear = nowKST.getUTCFullYear();
+    let selectedMonth0 = nowKST.getUTCMonth(); // 0-indexed
+
+    if (isValidMonth) {
+      const [y, m] = monthParam.split('-').map(Number);
+      if (y >= 2020 && y <= 2100 && m >= 1 && m <= 12) {
+        selectedYear = y;
+        selectedMonth0 = m - 1;
+      }
+    }
+
+    // 선택된 월 기준 날짜 계산 (KST)
     // 두 변수는 동일한 KST-to-UTC 역산 로직(- KST_OFFSET)을 사용하므로 한쪽만 수정하지 말 것 [API-SALES-012]
-    const thisMonthStart = new Date(Date.UTC(nowKST.getUTCFullYear(), nowKST.getUTCMonth(), 1) - KST_OFFSET);
-    const thisMonthEnd   = new Date(Date.UTC(nowKST.getUTCFullYear(), nowKST.getUTCMonth() + 1, 1) - KST_OFFSET);
-    const sixMonthsAgo   = new Date(Date.UTC(nowKST.getUTCFullYear(), nowKST.getUTCMonth() - 5, 1) - KST_OFFSET);
-    logger.debug('[GET /api/marketing/sales] 날짜 범위', { thisMonthStart, thisMonthEnd, sixMonthsAgo });
-    // 월 키 계산도 KST 기준으로
-    const now = nowKST;  // 이후 monthKey 계산 등에 now 대신 nowKST 사용
+    const thisMonthStart = new Date(Date.UTC(selectedYear, selectedMonth0, 1) - KST_OFFSET);
+    const thisMonthEnd   = new Date(Date.UTC(selectedYear, selectedMonth0 + 1, 1) - KST_OFFSET);
+    const sixMonthsAgo   = new Date(Date.UTC(selectedYear, selectedMonth0 - 5, 1) - KST_OFFSET);
+    const selectedMonthKey = `${selectedYear}-${String(selectedMonth0 + 1).padStart(2, '0')}`;
+    logger.debug('[GET /api/marketing/sales] 날짜 범위', { thisMonthStart, thisMonthEnd, sixMonthsAgo, selectedMonthKey });
 
     // ─── (A) COUNT 쿼리: DB 레벨 전체 건수 ──────────────────────
     // DB-SALES-INMEMORY-PAGINATION-001 / API-SALES-007: in-memory slice 제거
@@ -164,7 +177,7 @@ export async function GET(req: NextRequest) {
     // 6개월 빈 슬롯 보장 후 DB 결과 병합
     const monthlyMap: Record<string, { revenue: number; count: number }> = {};
     for (let i = 5; i >= 0; i--) {
-      const d   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+      const d   = new Date(Date.UTC(selectedYear, selectedMonth0 - i, 1));
       const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
       monthlyMap[key] = { revenue: 0, count: 0 };
     }
@@ -180,7 +193,7 @@ export async function GET(req: NextRequest) {
     }));
 
     // ─── (D) 이번 달 요약: monthly 결과에서 추출 + 별도 환불 SUM ─
-    const monthKey    = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+    const monthKey    = selectedMonthKey;
     const thisMonth   = monthlyMap[monthKey] ?? { revenue: 0, count: 0 };
 
     // INNER JOIN 의도: AffiliateSale과 연결된 결제만 집계 (직접 결제/웹훅 미처리 건 제외)
@@ -409,6 +422,7 @@ export async function GET(req: NextRequest) {
       adminPersonalSales,
       isGlobalAdmin: ctx.role === 'GLOBAL_ADMIN',
       orgBreakdownBasis: 'affiliate',  // [API-SALES-006] 귀속 기준 명시: 판매원 소속 대리점 기준
+      selectedMonth: selectedMonthKey,
       pagination: { page, limit, totalCount, totalPages },
     });
   } catch (err: unknown) {

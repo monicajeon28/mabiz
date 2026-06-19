@@ -268,6 +268,27 @@ function AccessDeniedView() {
   );
 }
 
+// ─── KST 현재 월 계산 ─────────────────────────────────────────
+function getCurrentKSTMonth() {
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return `${kst.getUTCFullYear()}-${String(kst.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+// ─── 최근 12개월 목록 생성 ─────────────────────────────────────
+function getLast12Months(): { value: string; label: string }[] {
+  const months = [];
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth() - i, 1));
+    const value = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+    const label = `${d.getUTCFullYear()}년 ${d.getUTCMonth() + 1}월${i === 0 ? ' (이번 달)' : ''}`;
+    months.push({ value, label });
+  }
+  return months;
+}
+
 // ─── 메인 페이지 ──────────────────────────────────────────────
 export default function MarketingSalesPage() {
   const { data: session, status: sessionStatus } = useSession();
@@ -276,13 +297,18 @@ export default function MarketingSalesPage() {
   const [error,     setError]     = useState<string | null>(null);
   const [forbidden, setForbidden] = useState(false);
   const [page,      setPage]      = useState(1);
+  const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentKSTMonth);
+  const [organizations, setOrganizations] = useState<{ id: string; name: string | null }[]>([]);
+  const [selectedOrgId, setSelectedOrgId] = useState<string>('');
   const refreshCtrlRef = useRef<AbortController | null>(null);
 
   const load = useCallback((pageNum: number = 1, signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     setPage(pageNum);
-    fetch(`/api/marketing/sales?page=${pageNum}&limit=20`, { signal })
+    const params = new URLSearchParams({ page: String(pageNum), limit: '20', month: selectedMonth });
+    if (selectedOrgId) params.set('organizationId', selectedOrgId);
+    fetch(`/api/marketing/sales?${params.toString()}`, { signal })
       .then((res) => {
         // UI-SALES-001: 403 응답 시 명확한 접근 거부 UI 표시
         if (res.status === 403) {
@@ -305,13 +331,23 @@ export default function MarketingSalesPage() {
         setError("네트워크 오류가 발생했습니다.");
       })
       .finally(() => { if (!signal?.aborted) setLoading(false); });
-  }, []);
+  }, [selectedMonth, selectedOrgId]);
 
   useEffect(() => {
     const controller = new AbortController();
     load(1, controller.signal);
     return () => controller.abort();
-  }, [load]);
+  }, [load, selectedMonth, selectedOrgId]);
+
+  // GLOBAL_ADMIN이면 조직 목록 로드
+  useEffect(() => {
+    const sessionRole = (session?.user as { role?: string } | undefined)?.role;
+    if (sessionRole !== 'GLOBAL_ADMIN') return;
+    fetch('/api/organizations')
+      .then(r => r.ok ? r.json() : [])
+      .then(orgs => setOrganizations(orgs))
+      .catch(() => {});
+  }, [session]);
 
   // [UI-SALES-009] 세션에서 역할을 즉시 읽어 AGENT/FREE_SALES 차단 (fetch 완료 전 조기 차단)
   const sessionRole = (session?.user as { role?: string } | undefined)?.role;
@@ -340,7 +376,8 @@ export default function MarketingSalesPage() {
   const orgBreakdown = data?.orgBreakdown ?? [];
   const adminPersonalSales: AdminPersonalSales | null = data?.adminPersonalSales ?? null;
   // UI-SALES-002: 서버가 명시적으로 내려주는 isGlobalAdmin 플래그 사용 (실적 0인 경우 오판 방지)
-  const isGlobalAdmin = data?.isGlobalAdmin === true;
+  // 세션에서도 체크하여 로딩 중에도 GLOBAL_ADMIN 드롭다운이 보이도록 처리
+  const isGlobalAdmin = data?.isGlobalAdmin === true || sessionRole === 'GLOBAL_ADMIN';
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6 leading-relaxed">
@@ -368,6 +405,42 @@ export default function MarketingSalesPage() {
           <RefreshCw className={cn("w-5 h-5 text-gray-500", loading && "animate-spin")} />
           <span className="hidden sm:inline text-base text-gray-600">새로 읽기</span>
         </button>
+      </div>
+
+      {/* 필터 영역: 월 선택 + 대리점 선택 */}
+      <div className="flex flex-wrap items-center gap-3">
+        {/* 월 선택 */}
+        <div className="flex items-center gap-2">
+          <label htmlFor="month-select" className="text-base text-gray-600 shrink-0">📅 월 선택</label>
+          <select
+            id="month-select"
+            value={selectedMonth}
+            onChange={(e) => { setSelectedMonth(e.target.value); setPage(1); }}
+            className="h-12 px-3 border border-gray-300 rounded-lg bg-white text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            {getLast12Months().map(({ value, label }) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* 대리점 선택 (GLOBAL_ADMIN만) */}
+        {isGlobalAdmin && organizations.length > 0 && (
+          <div className="flex items-center gap-2">
+            <label htmlFor="org-select" className="text-base text-gray-600 shrink-0">🏢 대리점</label>
+            <select
+              id="org-select"
+              value={selectedOrgId}
+              onChange={(e) => { setSelectedOrgId(e.target.value); setPage(1); }}
+              className="h-12 px-3 border border-gray-300 rounded-lg bg-white text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">전체 대리점</option>
+              {organizations.map((org) => (
+                <option key={org.id} value={org.id}>{org.name ?? '이름 없음'}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* 에러 */}
