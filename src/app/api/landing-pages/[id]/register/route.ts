@@ -460,10 +460,11 @@ export async function POST(req: Request, { params }: Params) {
           try {
             // [CODE-SMELL] 동일 프로세스 내 루프백 HTTP 호출: 콜드스타트 중복 비용 + 타임아웃 위험 + Authorization 헤더 미전달.
             // TODO(B2B-REFACTOR): lib/funnel-service.ts에 enrollContactToFunnel() 추출 후 직접 임포트 호출로 전환.
-            const enrollRes = await fetch(new URL(`/api/funnels/${landingPage.autoFunnelId}/enroll`, req.url).toString(), {
+            const enrollRes = await fetch(new URL(`/api/funnels/${landingPage.autoFunnelId}/enroll`, process.env.NEXT_PUBLIC_APP_URL ?? req.url).toString(), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ contactId: contact.id, sendNow: false }),
+            signal: AbortSignal.timeout(5000),
           });
           const enrollData = await enrollRes.json();
           if (enrollData.ok) {

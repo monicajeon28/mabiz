@@ -126,11 +126,11 @@ export default function ApisPage() {
             <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
             상품별 APIS 관리
           </h1>
-          <p className="text-sm text-gray-500 mt-0.5">판매 중인 상품을 선택하면 탑승객 APIS(승객정보)를 확인하고 엑셀로 다운로드합니다</p>
+          <p className="text-base text-gray-600 mt-0.5">판매 중인 상품을 선택하면 탑승객 APIS(승객정보)를 확인하고 엑셀로 다운로드합니다</p>
         </div>
         <button
           onClick={() => loadProducts(search)}
-          className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+          className="flex items-center gap-1.5 px-4 py-3 h-12 text-base text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50"
         >
           <RefreshCw className="w-4 h-4" />
           새로고침
@@ -147,7 +147,7 @@ export default function ApisPage() {
               onChange={e => setSearch(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && loadProducts(search)}
               placeholder="선박명·크루즈명·상품코드 검색"
-              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full h-12 pl-10 pr-4 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
 
@@ -172,12 +172,12 @@ export default function ApisPage() {
                     <Ship className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span className="font-semibold text-sm text-gray-900 truncate">{p.shipName || p.cruiseLine || '선박미정'}</span>
                   </div>
-                  {p.name && <p className="text-xs text-gray-500 truncate mb-1">{p.name}</p>}
-                  <div className="flex items-center gap-3 text-xs text-gray-400">
+                  {p.name && <p className="text-sm text-gray-700 truncate mb-1">{p.name}</p>}
+                  <div className="flex items-center gap-3 text-sm text-gray-600">
                     {p.departureDate && <span>{fmtDate(p.departureDate)} 출발</span>}
                     {p.saleStatus && <span className="text-emerald-600">{p.saleStatus}</span>}
                   </div>
-                  {p.code && <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">{p.code}</span>}
+                  {p.code && <span className="inline-block mt-1 text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">{p.code}</span>}
                 </button>
               ))
             )}
@@ -201,7 +201,9 @@ export default function ApisPage() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={downloadExcel}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700"
+                    disabled={travelerCount === 0}
+                    title={travelerCount === 0 ? '탑승객 0명 — 다운로드할 명단이 없습니다' : '탑승객 APIS를 엑셀로 다운로드'}
+                    className="flex items-center gap-1.5 px-4 py-3 h-12 bg-emerald-600 text-white text-base font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Download className="w-4 h-4" />
                     엑셀 다운로드
@@ -215,7 +217,7 @@ export default function ApisPage() {
                           href={selected.driveSheetUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 px-3 py-2 border border-blue-300 text-blue-700 text-sm font-medium rounded-lg hover:bg-blue-50"
+                          className="flex items-center gap-1.5 px-4 py-3 h-12 border border-blue-300 text-blue-700 text-base font-medium rounded-lg hover:bg-blue-50"
                         >
                           <ExternalLink className="w-4 h-4" />
                           Drive 열기
@@ -224,7 +226,7 @@ export default function ApisPage() {
                           onClick={saveToDrive}
                           disabled={savingDrive || travelerCount === 0}
                           title={travelerCount === 0 ? '탑승객 0명 — 갱신할 명단 없음' : '최신 명단으로 덮어쓰기'}
-                          className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="flex items-center gap-1.5 px-4 py-3 h-12 border border-gray-300 text-gray-900 text-base font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {savingDrive ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                           최신본 갱신
@@ -235,7 +237,7 @@ export default function ApisPage() {
                         onClick={saveToDrive}
                         disabled={savingDrive || travelerCount === 0}
                         title={travelerCount === 0 ? '탑승객 0명 — 저장할 명단이 없습니다' : 'Google Drive에 APIS 명단 저장'}
-                        className="flex items-center gap-1.5 px-3 py-2 border border-blue-300 text-blue-700 text-sm font-medium rounded-lg hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center gap-1.5 px-4 py-3 h-12 border border-blue-300 text-blue-700 text-base font-medium rounded-lg hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {savingDrive ? <Loader2 className="w-4 h-4 animate-spin" /> : <FolderPlus className="w-4 h-4" />}
                         Drive 시트 만들기

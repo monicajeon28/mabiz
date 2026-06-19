@@ -17,9 +17,9 @@ import { resolveGmcruiseWebhookContext } from '@/lib/gmcruise-webhook';
  */
 export async function POST(req: NextRequest) {
   const secret = process.env.MABIZ_PAYMENT_FAILURE_WEBHOOK_SECRET;
-  if (!secret) {
-    logger.error('[PaymentFailureWebhook] MABIZ_PAYMENT_FAILURE_WEBHOOK_SECRET 미설정');
-    return NextResponse.json({ ok: false }, { status: 503 });
+  if (!secret || secret.length < 16) {
+    logger.error('[PaymentFailureWebhook] MABIZ_PAYMENT_FAILURE_WEBHOOK_SECRET 미설정 또는 길이 부족');
+    return NextResponse.json({ error: 'MABIZ_PAYMENT_FAILURE_WEBHOOK_SECRET 미설정 또는 길이 부족' }, { status: 503 });
   }
 
   const authHeader = req.headers.get('authorization') ?? '';

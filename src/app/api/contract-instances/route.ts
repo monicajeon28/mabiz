@@ -80,9 +80,9 @@ export async function GET(request: NextRequest) {
       status: searchParams.get("status") || undefined,
       templateId: searchParams.get("templateId") || undefined,
       contactId: searchParams.get("contactId") || undefined,
-      page: searchParams.get("page") ? parseInt(searchParams.get("page")!) : 1,
+      page: searchParams.get("page") ? parseInt(searchParams.get("page") ?? "1", 10) : 1,
       limit: searchParams.get("limit")
-        ? parseInt(searchParams.get("limit")!)
+        ? Math.min(parseInt(searchParams.get("limit") ?? "20", 10), 100)
         : 20,
     };
 
@@ -231,7 +231,7 @@ export async function POST(request: NextRequest) {
     );
 
     // 유효기한 설정 (환경변수 기반, 기본값 24시간, L10 렌즈)
-    const expirationHours = parseInt(process.env.CONTRACT_EXPIRY_HOURS || '24');
+    const expirationHours = parseInt(process.env.CONTRACT_EXPIRY_HOURS || '24', 10);
     const expiresAt = new Date(Date.now() + expirationHours * 60 * 60 * 1000);
 
     // 계약서 인스턴스 생성

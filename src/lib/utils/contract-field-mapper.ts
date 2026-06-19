@@ -3,6 +3,7 @@ import {
   CONTACT_INPUT_FIELD_MAPPINGS,
   ContactFieldMapping,
 } from "@/lib/types/contract-templates";
+import { logger } from "@/lib/logger";
 
 /**
  * 계약서 필드 매퍼 유틸 (Phase 6)
@@ -85,7 +86,7 @@ export function extractContactFieldValue(
   // 매핑 정의 조회
   const mapping = CONTACT_INPUT_FIELD_MAPPINGS[contactFieldName];
   if (!mapping) {
-    console.warn(
+    logger.warn(
       `[ContractFieldMapper] Contact field mapping not found: ${contactFieldName}`
     );
     return undefined;
@@ -100,7 +101,7 @@ export function extractContactFieldValue(
     try {
       value = mapping.transformer(value);
     } catch (error) {
-      console.error(
+      logger.error(
         `[ContractFieldMapper] transformer 에러 (${contactFieldName}):`,
         error
       );
@@ -306,7 +307,7 @@ export function validateFieldValue(
             };
           }
         } catch (error) {
-          console.error(
+          logger.error(
             `[ContractFieldMapper] 정규식 에러 (${field.id}):`,
             error
           );
@@ -450,7 +451,7 @@ export function validateFieldValue(
       }
 
       if (!field.options || field.options.length === 0) {
-        console.warn(
+        logger.warn(
           `[ContractFieldMapper] 드롭다운 옵션이 없습니다 (${field.id})`
         );
         return { isValid: true, value: stringValue };

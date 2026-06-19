@@ -140,6 +140,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const { organizationId, role } = authContext;
     const { id } = await params;
 
+    // 조직 정보 없으면 즉시 401 (GLOBAL_ADMIN 제외)
+    if (role !== 'GLOBAL_ADMIN' && !organizationId) {
+      return NextResponse.json({ ok: false, error: '조직 정보가 없습니다' }, { status: 401 });
+    }
+
     const instance = await prisma.contractInstance.findUnique({
       where: { id },
       include: {
