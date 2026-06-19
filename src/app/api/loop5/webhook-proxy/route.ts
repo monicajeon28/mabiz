@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       logger.error('[webhook-proxy] MABIZ_INQUIRY_WEBHOOK_SECRET is required');
       return NextResponse.json(
         { ok: false, error: 'Server configuration error' },
-        { status: 500 }
+        { status: 503 }
       );
     }
 
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     let sigValid = false;
     try {
       sigValid = signature.length === expected.length &&
-        timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+        timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expected, 'hex'));
     } catch { sigValid = false; }
 
     if (!sigValid) {

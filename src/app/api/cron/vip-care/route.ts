@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   // Cron 보안 검증 — CRON_SECRET 미설정 시 fail-closed (500)
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
-    return NextResponse.json({ ok: false, error: "CRON_SECRET 환경변수 미설정" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "CRON_SECRET 환경변수 미설정" }, { status: 503 });
   }
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${cronSecret}`) {
@@ -162,7 +162,9 @@ export async function GET(req: Request) {
         await prisma.vipCareLog.update({
           where: { id: log.id },
           data:  { status: "PENDING" },
-        }).catch(() => {});
+        }).catch((rollbackErr: unknown) => {
+          logger.error("[Cron/vip-care] SENDING→PENDING 롤백 실패 — 레코드 고착됨", { logId: log.id, error: rollbackErr });
+        });
         skippedCount++;
       }
     }
@@ -209,7 +211,10 @@ export async function GET(req: Request) {
   ninetyDaysAgo.setUTCDate(ninetyDaysAgo.getUTCDate() - 90);
   const { count: deletedLogs } = await prisma.smsLog.deleteMany({
     where: { sentAt: { lt: ninetyDaysAgo } },
-  }).catch(() => ({ count: 0 }));
+  }).catch((err: unknown) => {
+    logger.error("[Cron/vip-care] SmsLog 삭제 실패", { error: err });
+    return { count: 0 };
+  });
 
   const durationMs = Date.now() - startTime;
   logger.log("[Cron/vip-care] 완료", {

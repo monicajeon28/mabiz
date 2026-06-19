@@ -484,6 +484,7 @@ ${footerBlock}
     if (!pageId) return;
     setUploading(true);
     let uploaded = 0;
+    const initialImageCount = images.length;
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -498,7 +499,7 @@ ${footerBlock}
         const formData = new FormData();
         formData.append("file", uploadFile);
         formData.append("landingPageId", pageId);
-        formData.append("sortOrder", String(images.length + uploaded));
+        formData.append("sortOrder", String(initialImageCount + uploaded));
 
         const res = await fetch("/api/landing-pages/images", { method: "POST", body: formData });
         const data = res.ok ? await res.json() : await res.json().catch(() => null);
@@ -524,16 +525,28 @@ ${footerBlock}
   const handleDragEnd = async () => {
     setDragIdx(null);
     if (!savedPageId) return;
-    await fetch("/api/landing-pages/images", {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ landingPageId: savedPageId, imageIds: images.map((i) => i.id) }),
-    });
+    const snapshot = [...images];
+    try {
+      const res = await fetch("/api/landing-pages/images", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ landingPageId: savedPageId, imageIds: images.map((i) => i.id) }),
+      });
+      if (!res.ok) throw new Error("순서 저장 실패");
+    } catch {
+      setImages(snapshot);
+    }
   };
   const removeImage = async (id: string) => {
-    await fetch("/api/landing-pages/images", {
-      method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }),
-    });
-    setImages((prev) => prev.filter((i) => i.id !== id));
+    try {
+      const res = await fetch("/api/landing-pages/images", {
+        method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.error ?? "삭제 실패");
+      setImages((prev) => prev.filter((i) => i.id !== id));
+    } catch {
+      alert("이미지 삭제에 실패했습니다. 다시 시도해주세요.");
+    }
   };
 
   // 이미지 라이브러리에서 선택 시
@@ -631,7 +644,7 @@ ${footerBlock}
         ...(smsDayRange ? { smsDayRange } : {}),
         ...(paymentEnabled ? {
           paymentEnabled: true, paymentType, productName,
-          productPrice: parseInt(productPrice) || 0,
+          productPrice: parseInt(productPrice, 10) || 0,
           ...(paymentType === "subscription" ? { cycleDay: parseInt(cycleDay, 10) || 1, expireDate } : {}),
         } : {}),
         // Phase C: 블록 에디터 데이터 저장
@@ -1464,7 +1477,7 @@ ${footerBlock}
                 <div className="flex items-center gap-3">
                   <label className="text-sm text-gray-500 w-20 shrink-0">후기 개수</label>
                   <input type="number" min={1} max={15} value={commentCount}
-                    onChange={(e) => setCommentCount(Math.min(15, Math.max(1, parseInt(e.target.value) || 1)))}
+                    onChange={(e) => setCommentCount(Math.min(15, Math.max(1, parseInt(e.target.value, 10) || 1)))}
                     className="w-20 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400" />
                   <span className="text-sm text-gray-600">개 (최대 15)</span>
                 </div>

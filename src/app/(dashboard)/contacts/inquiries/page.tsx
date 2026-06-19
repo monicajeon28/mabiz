@@ -341,7 +341,7 @@ export default function InquiriesPage() {
                   {importResult.skipCount > 0 && ` / ⚠️ ${importResult.skipCount}건 건너뜀`}
                 </p>
                 {importResult.errors.slice(0, 3).map((e, i) => (
-                  <p key={i} className="text-sm opacity-80">{e}</p>
+                  <p key={`import-err-${i}`} className="text-sm opacity-80">{e}</p>
                 ))}
               </div>
             )}
@@ -506,7 +506,7 @@ export default function InquiriesPage() {
       {!fetchError && loading ? (
         <div className="space-y-3">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />
+            <div key={`skeleton-${i}`} className="h-20 bg-gray-100 rounded-xl animate-pulse" />
           ))}
         </div>
       ) : !fetchError && contacts.length === 0 ? (

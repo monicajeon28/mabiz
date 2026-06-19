@@ -766,7 +766,7 @@ export default function EditLandingPage() {
           } : {}),
           ...(paymentEnabled ? {
             paymentType, productName: productName || null,
-            productPrice: parseInt(productPrice) || null,
+            productPrice: parseInt(productPrice, 10) || null,
             ...(paymentType === "subscription" ? { cycleDay: parseInt(cycleDay, 10) || 1, expireDate: expireDate || null } : {}),
           } : {}),
         }),
@@ -1149,7 +1149,7 @@ export default function EditLandingPage() {
                   {commentEnabled && (
                     <>
                       <input type="number" min={1} max={30} value={commentCount}
-                        onChange={(e) => setCommentCount(parseInt(e.target.value) || 5)}
+                        onChange={(e) => setCommentCount(parseInt(e.target.value, 10) || 5)}
                         className="border border-gray-200 rounded px-2 py-1 text-xs w-14"
                       />
                       <span className="text-xs text-gray-400">개, 기간:</span>
@@ -1319,7 +1319,7 @@ export default function EditLandingPage() {
               <button onClick={loadStats} className="text-xs text-gray-500 hover:text-navy-900 underline">새로고침</button>
             </div>
             {statsLoading ? (
-              <div className="space-y-3">{[...Array(5)].map((_, i) => <div key={i} className="h-14 bg-gray-200 animate-pulse rounded-xl" />)}</div>
+              <div className="space-y-3">{[...Array(5)].map((_, i) => <div key={`stat-skeleton-${i}`} className="h-14 bg-gray-200 animate-pulse rounded-xl" />)}</div>
             ) : stats ? (
               <>
                 {/* 5단계 퍼널 카드 */}

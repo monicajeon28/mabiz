@@ -291,7 +291,7 @@ export default function ContactsAllPage() {
       {!error && loading ? (
         <div className="space-y-3">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />
+            <div key={`skeleton-${i}`} className="h-16 bg-gray-100 rounded-xl animate-pulse" />
           ))}
         </div>
       ) : !error && contacts.length === 0 ? (
