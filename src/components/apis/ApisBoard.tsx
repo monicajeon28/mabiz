@@ -218,15 +218,17 @@ function dotColor(t: BoardTraveler): { bg: string; label: string } {
   return { bg: '#eab308', label: '일부' };
 }
 
-/** updatedAt → 'M/D HH:mm' */
+/** updatedAt → 'M/D HH:mm' (KST 기준) */
 function fmtUpdated(iso: string): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  const mm = d.getMonth() + 1;
-  const dd = d.getDate();
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mi = String(d.getMinutes()).padStart(2, '0');
+  // KST (UTC+9) 기준으로 시간 변환
+  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+  const mm = kst.getUTCMonth() + 1;
+  const dd = kst.getUTCDate();
+  const hh = String(kst.getUTCHours()).padStart(2, '0');
+  const mi = String(kst.getUTCMinutes()).padStart(2, '0');
   return `${mm}/${dd} ${hh}:${mi}`;
 }
 
@@ -892,9 +894,10 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20 text-gray-500">
-        <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+      <div className="flex flex-col items-center justify-center py-20 gap-3 text-gray-500">
+        <Loader2 className="h-6 w-6 animate-spin" />
         <span className="text-lg">보드를 불러오는 중…</span>
+        <span className="text-sm">저장 중...</span>
       </div>
     );
   }
@@ -1098,7 +1101,7 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">방번호</label>
+                    <label className="block text-sm font-semibold text-gray-900 mb-1">방번호</label>
                     <input
                       type="number"
                       min={1}
@@ -1108,7 +1111,7 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">한글이름</label>
+                    <label className="block text-sm font-semibold text-gray-900 mb-1">한글이름</label>
                     <input
                       type="text"
                       placeholder="홍길동"
@@ -1118,7 +1121,7 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">영문 성</label>
+                    <label className="block text-sm font-semibold text-gray-900 mb-1">영문 성</label>
                     <input
                       type="text"
                       placeholder="HONG"
@@ -1128,7 +1131,7 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">영문 이름</label>
+                    <label className="block text-sm font-semibold text-gray-900 mb-1">영문 이름</label>
                     <input
                       type="text"
                       placeholder="GILDONG"
@@ -1138,7 +1141,7 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">성별</label>
+                    <label className="block text-sm font-semibold text-gray-900 mb-1">성별</label>
                     <div className="flex gap-2">
                       {['M', 'F'].map((g) => (
                         <button
@@ -1157,7 +1160,7 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">생년월일</label>
+                    <label className="block text-sm font-semibold text-gray-900 mb-1">생년월일</label>
                     <input
                       type="text"
                       placeholder="YYYY-MM-DD"
@@ -1167,7 +1170,7 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">여권번호</label>
+                    <label className="block text-sm font-semibold text-gray-900 mb-1">여권번호</label>
                     <input
                       type="text"
                       placeholder="M12345678"
@@ -1177,7 +1180,7 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">만료일</label>
+                    <label className="block text-sm font-semibold text-gray-900 mb-1">만료일</label>
                     <input
                       type="text"
                       placeholder="YYYY-MM-DD"
@@ -1187,7 +1190,7 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">국적</label>
+                    <label className="block text-sm font-semibold text-gray-900 mb-1">국적</label>
                     <input
                       type="text"
                       placeholder="KOR"
@@ -1197,7 +1200,7 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">연락처</label>
+                    <label className="block text-sm font-semibold text-gray-900 mb-1">연락처</label>
                     <input
                       type="tel"
                       placeholder="010-0000-0000"
@@ -1374,6 +1377,9 @@ function RoomCard({
             {room.roomNumber > 0 ? `${room.roomNumber}번방` : '미배정'}
             <span className="ml-2 text-base font-semibold text-gray-500">
               · {room.travelers.length}명
+            </span>
+            <span className="ml-2 text-sm font-semibold text-gray-400">
+              (예약 #{room.reservationId})
             </span>
           </h3>
           {/* 판매확인 승인요청 영역 */}
@@ -1828,7 +1834,7 @@ function EditPanel({ traveler, canManage, onClose, onSaveField }: EditPanelProps
     const key = f.key as EditableKey;
     return (
       <div key={f.key}>
-        <label className="mb-1 block font-bold text-gray-700" style={{ fontSize: 16 }}>
+        <label className="mb-1 block font-bold text-gray-900" style={{ fontSize: 16 }}>
           {f.label}
           {savingKey === key && (
             <Loader2 className="ml-2 inline h-4 w-4 animate-spin text-gray-400" />
@@ -2005,7 +2011,7 @@ function AddCompanionModal({
 
         <div className="space-y-4">
           <div>
-            <label className="mb-1 block font-bold text-gray-700" style={{ fontSize: 16 }}>
+            <label className="mb-1 block font-bold text-gray-900" style={{ fontSize: 16 }}>
               이름
             </label>
             <input
@@ -2018,7 +2024,7 @@ function AddCompanionModal({
             />
           </div>
           <div>
-            <label className="mb-1 block font-bold text-gray-700" style={{ fontSize: 16 }}>
+            <label className="mb-1 block font-bold text-gray-900" style={{ fontSize: 16 }}>
               연락처
             </label>
             <input
