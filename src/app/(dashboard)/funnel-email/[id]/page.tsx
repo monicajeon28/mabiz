@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Trash2, Plus, ChevronDown, Mail, ToggleLeft, ToggleRight } from "lucide-react";
+import { ArrowLeft, Trash2, Plus, ChevronDown, Mail, ToggleLeft, ToggleRight, Smartphone, Monitor } from "lucide-react";
 import { showSuccess, showError } from "@/components/ui/Toast";
 import { logger } from "@/lib/logger";
 
@@ -37,6 +37,8 @@ interface HeaderState {
   sendHour: number;
   sendMinute: number;
 }
+
+type PreviewMode = "mobile" | "pc";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = [0, 10, 20, 30, 40, 50];
@@ -87,6 +89,8 @@ export default function FunnelEmailEditPage({
   const [notFound, setNotFound] = useState(false);
   const [saving, setSaving] = useState(false);
   const [togglingActive, setTogglingActive] = useState(false);
+  const [previewMode, setPreviewMode] = useState<PreviewMode>("mobile");
+  const [selectedMessageIndex, setSelectedMessageIndex] = useState(0);
 
   // ──────────────────────────────
   // 초기 데이터 로드
@@ -354,306 +358,386 @@ export default function FunnelEmailEditPage({
   // ──────────────────────────────
   // 렌더
   // ──────────────────────────────
+  const currentMessage = messages.length > 0 ? messages[selectedMessageIndex] : null;
+
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gray-50">
       {/* 상단 헤더 바 */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push("/funnel-email")}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-            aria-label="목록으로 돌아가기"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">자동이메일 편집</h1>
-            <p className="text-sm text-gray-500 truncate max-w-xs">{header.title}</p>
+      <div className="sticky top-0 z-40 bg-white border-b border-gray-200">
+        <div className="px-4 md:px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push("/funnel-email")}
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              aria-label="목록으로 돌아가기"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">자동이메일 편집</h1>
+              <p className="text-sm text-gray-500 truncate max-w-xs">{header.title}</p>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* 활성/비활성 토글 */}
-          <button
-            onClick={handleToggleActive}
-            disabled={togglingActive}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border transition-colors min-h-[44px] ${
-              isActive
-                ? "text-green-700 bg-green-50 border-green-200 hover:bg-green-100"
-                : "text-gray-600 bg-gray-50 border-gray-200 hover:bg-gray-100"
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
-            aria-label={isActive ? "비활성화" : "활성화"}
-          >
-            {isActive ? (
-              <ToggleRight className="w-5 h-5" />
-            ) : (
-              <ToggleLeft className="w-5 h-5" />
-            )}
-            {isActive ? "활성" : "비활성"}
-          </button>
-          {/* 삭제 버튼 */}
-          <button
-            onClick={handleDelete}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200 rounded-lg transition-colors min-h-[44px]"
-          >
-            <Trash2 className="w-4 h-4" />
-            삭제
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleToggleActive}
+              disabled={togglingActive}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border transition-colors min-h-[44px] ${
+                isActive
+                  ? "text-green-700 bg-green-50 border-green-200 hover:bg-green-100"
+                  : "text-gray-600 bg-gray-50 border-gray-200 hover:bg-gray-100"
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+              aria-label={isActive ? "비활성화" : "활성화"}
+            >
+              {isActive ? (
+                <ToggleRight className="w-5 h-5" />
+              ) : (
+                <ToggleLeft className="w-5 h-5" />
+              )}
+              {isActive ? "활성" : "비활성"}
+            </button>
+            <button
+              onClick={handleDelete}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200 rounded-lg transition-colors min-h-[44px]"
+            >
+              <Trash2 className="w-4 h-4" />
+              삭제
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="space-y-6">
-        {/* 기본 정보 섹션 */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h2 className="text-base font-semibold text-gray-800 mb-4">기본 정보</h2>
-          <div className="space-y-4">
-            {/* 이름 */}
+      {/* 메인 콘텐츠: 2열 레이아웃 */}
+      <div className="flex h-[calc(100vh-80px)]">
+        {/* 좌측 패널 (40%) - 편집 폼 */}
+        <div className="w-2/5 border-r border-gray-200 bg-white overflow-y-auto">
+          <div className="p-4 md:p-6 space-y-6">
+            {/* 기본 정보 섹션 */}
+            <div className="rounded-xl border border-gray-200 p-5 bg-gray-50">
+              <h2 className="text-base font-semibold text-gray-800 mb-4">기본 정보</h2>
+              <div className="space-y-4">
+                {/* 이름 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    자동이메일 이름 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={header.title}
+                    onChange={(e) => handleHeaderChange("title", e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
+                  />
+                </div>
+
+                {/* 보내는 사람 이름 + 이메일 */}
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      보내는 사람 이름
+                    </label>
+                    <input
+                      type="text"
+                      value={header.senderName}
+                      onChange={(e) => handleHeaderChange("senderName", e.target.value)}
+                      placeholder="비워두면 조직 기본값 사용"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      보내는 이메일 주소
+                    </label>
+                    <input
+                      type="email"
+                      value={header.senderEmail}
+                      onChange={(e) => handleHeaderChange("senderEmail", e.target.value)}
+                      placeholder="비워두면 조직 기본값 사용"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
+                    />
+                  </div>
+                </div>
+
+                {/* 발송 시각 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    발송 시각
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={header.sendHour}
+                      onChange={(e) => handleHeaderChange("sendHour", Number(e.target.value))}
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
+                    >
+                      {HOURS.map((h) => (
+                        <option key={h} value={h}>
+                          {formatHour(h)}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={header.sendMinute}
+                      onChange={(e) => handleHeaderChange("sendMinute", Number(e.target.value))}
+                      className="w-20 border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
+                    >
+                      {MINUTES.map((m) => (
+                        <option key={m} value={m}>
+                          {String(m).padStart(2, "0")}분
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* 설명 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    설명 (선택)
+                  </label>
+                  <textarea
+                    value={header.description}
+                    onChange={(e) => handleHeaderChange("description", e.target.value)}
+                    rows={2}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 이메일 선택 탭 */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                자동이메일 이름 <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={header.title}
-                onChange={(e) => handleHeaderChange("title", e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
-              />
-            </div>
-
-            {/* 보내는 사람 이름 + 이메일 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  보내는 사람 이름
-                </label>
-                <input
-                  type="text"
-                  value={header.senderName}
-                  onChange={(e) => handleHeaderChange("senderName", e.target.value)}
-                  placeholder="비워두면 조직 기본값 사용"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
-                />
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-semibold text-gray-800">
+                  이메일 목록 ({messages.length}개)
+                </h2>
+                {messages.length > 0 && (
+                  <button
+                    onClick={addMessage}
+                    className="flex items-center gap-1 px-2 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    aria-label="이메일 추가"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                )}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  보내는 이메일 주소
-                </label>
-                <input
-                  type="email"
-                  value={header.senderEmail}
-                  onChange={(e) => handleHeaderChange("senderEmail", e.target.value)}
-                  placeholder="비워두면 조직 기본값 사용"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
-                />
-              </div>
-            </div>
 
-            {/* 발송 시각 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                발송 시각
-              </label>
-              <div className="flex items-center gap-3">
-                <select
-                  value={header.sendHour}
-                  onChange={(e) => handleHeaderChange("sendHour", Number(e.target.value))}
-                  className="border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
-                >
-                  {HOURS.map((h) => (
-                    <option key={h} value={h}>
-                      {formatHour(h)}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={header.sendMinute}
-                  onChange={(e) => handleHeaderChange("sendMinute", Number(e.target.value))}
-                  className="border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
-                >
-                  {MINUTES.map((m) => (
-                    <option key={m} value={m}>
-                      {String(m).padStart(2, "0")}분
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* 설명 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                설명 (선택)
-              </label>
-              <textarea
-                value={header.description}
-                onChange={(e) => handleHeaderChange("description", e.target.value)}
-                rows={2}
-                className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* 이메일 목록 섹션 */}
-        <div>
-          <h2 className="text-base font-semibold text-gray-800 mb-3">
-            이메일 목록 ({messages.length}개)
-          </h2>
-          <div className="space-y-0">
-            {messages.length === 0 ? (
-              <div className="bg-white rounded-xl border border-gray-200 p-5 flex justify-center">
-                <button
-                  onClick={addMessage}
-                  className="flex items-center gap-2 px-4 py-2.5 text-base text-blue-600 border border-dashed border-blue-300 rounded-xl hover:bg-blue-50 transition-colors"
-                >
-                  <Plus className="w-4 h-4" /> 이메일 추가
-                </button>
-              </div>
-            ) : (
-              messages.map((m, i) => (
-                <div key={m.id || `new-${i}`}>
-                  <div className="bg-white rounded-xl border border-gray-200 p-5">
-                    {/* 회차 헤더 */}
-                    <div className="flex items-center justify-between mb-4">
+              {messages.length === 0 ? (
+                <div className="bg-gray-50 rounded-xl border border-gray-200 p-5 flex justify-center">
+                  <button
+                    onClick={addMessage}
+                    className="flex items-center gap-2 px-4 py-2.5 text-base text-blue-600 border border-dashed border-blue-300 rounded-xl hover:bg-blue-50 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" /> 이메일 추가
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {messages.map((m, i) => (
+                    <button
+                      key={m.id || `new-${i}`}
+                      onClick={() => setSelectedMessageIndex(i)}
+                      className={`w-full text-left px-4 py-3 rounded-lg border transition-colors min-h-[48px] flex items-center justify-between ${
+                        selectedMessageIndex === i
+                          ? "bg-blue-50 border-blue-500 text-blue-900"
+                          : "bg-white border-gray-200 text-gray-700 hover:border-gray-300"
+                      }`}
+                    >
                       <div className="flex items-center gap-2">
-                        <span className="w-8 h-8 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center">
+                        <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">
                           {m.order}
                         </span>
-                        <span className="text-base font-semibold text-gray-700">
-                          {daysLabel(m.daysAfter)}
-                        </span>
+                        <span className="text-sm font-medium">{daysLabel(m.daysAfter)}</span>
                       </div>
-                      {messages.length > 1 && (
+                      {messages.length > 1 && selectedMessageIndex === i && (
                         <button
-                          onClick={() => removeMessage(i)}
-                          className="text-red-400 hover:text-red-600 p-2 rounded-lg transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeMessage(i);
+                            if (i > 0) setSelectedMessageIndex(i - 1);
+                          }}
+                          className="text-red-400 hover:text-red-600 p-1"
                           aria-label={`${m.order}번째 이메일 삭제`}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       )}
-                    </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
-                    <div className="space-y-4">
-                      {/* 발송 시점 */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          발송 시점 (신청 후 며칠 뒤)
-                        </label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            min={0}
-                            max={3650}
-                            value={m.daysAfter}
-                            onChange={(e) =>
-                              handleMessageChange(
-                                i,
-                                "daysAfter",
-                                Math.max(0, Math.min(3650, Number(e.target.value)))
-                              )
-                            }
-                            className="w-24 border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
-                          />
-                          <span className="text-base text-gray-600">일 후</span>
-                        </div>
-                        <div className="mt-1 flex items-center gap-1 text-sm text-gray-500 bg-gray-50 rounded-lg px-3 py-1.5 border border-gray-200">
-                          {m.daysAfter === 0 ? (
-                            <span>신청 즉시 발송</span>
-                          ) : (
-                            <span>{daysLabel(m.daysAfter)} — {getPreviewDate(m.daysAfter, header.sendHour, header.sendMinute)}</span>
-                          )}
-                        </div>
-                      </div>
+            {/* 현재 메시지 편집 */}
+            {currentMessage && (
+              <div className="rounded-xl border border-gray-200 p-5 bg-gray-50 space-y-4">
+                <h3 className="text-base font-semibold text-gray-800">
+                  {daysLabel(currentMessage.daysAfter)} 이메일
+                </h3>
 
-                      {/* 이메일 제목 */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          이메일 제목 <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={m.subject}
-                          onChange={(e) => handleMessageChange(i, "subject", e.target.value)}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
-                        />
-                      </div>
-
-                      {/* 미리보기 문구 */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          미리보기 문구 (선택)
-                        </label>
-                        <input
-                          type="text"
-                          value={m.previewText ?? ""}
-                          onChange={(e) => handleMessageChange(i, "previewText", e.target.value)}
-                          placeholder="받은편지함에서 제목 옆에 짧게 보이는 문구"
-                          className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
-                        />
-                      </div>
-
-                      {/* 이메일 내용 */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          이메일 내용 <span className="text-red-500">*</span>
-                        </label>
-                        <textarea
-                          value={m.bodyHtml}
-                          onChange={(e) => handleMessageChange(i, "bodyHtml", e.target.value)}
-                          rows={8}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
-                        />
-                        <p className="text-sm text-gray-400 mt-1">
-                          HTML 형식으로 입력하세요.
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* 마지막 회차 아래 추가 버튼 */}
-                    {i === messages.length - 1 && (
-                      <div className="mt-5 flex justify-center">
-                        <button
-                          onClick={addMessage}
-                          className="flex items-center gap-2 px-4 py-2.5 text-base text-blue-600 border border-dashed border-blue-300 rounded-xl hover:bg-blue-50 transition-colors"
-                        >
-                          <Plus className="w-4 h-4" /> 다음 이메일 추가
-                        </button>
-                      </div>
+                {/* 발송 시점 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    발송 시점 (신청 후 며칠 뒤)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={0}
+                      max={3650}
+                      value={currentMessage.daysAfter}
+                      onChange={(e) =>
+                        handleMessageChange(
+                          selectedMessageIndex,
+                          "daysAfter",
+                          Math.max(0, Math.min(3650, Number(e.target.value)))
+                        )
+                      }
+                      className="w-24 border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
+                    />
+                    <span className="text-base text-gray-600">일 후</span>
+                  </div>
+                  <div className="mt-1 text-sm text-gray-500 bg-white rounded-lg px-3 py-2 border border-gray-200">
+                    {currentMessage.daysAfter === 0 ? (
+                      <span>신청 즉시 발송</span>
+                    ) : (
+                      <span>{daysLabel(currentMessage.daysAfter)}</span>
                     )}
                   </div>
-
-                  {/* 회차 간 연결 화살표 */}
-                  {i < messages.length - 1 && (
-                    <div className="flex justify-center my-2">
-                      <div className="flex flex-col items-center gap-1">
-                        <div className="w-px h-4 bg-gray-300" />
-                        <ChevronDown className="w-4 h-4 text-gray-400" />
-                      </div>
-                    </div>
-                  )}
                 </div>
-              ))
+
+                {/* 이메일 제목 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    이메일 제목 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={currentMessage.subject}
+                    onChange={(e) => handleMessageChange(selectedMessageIndex, "subject", e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
+                  />
+                </div>
+
+                {/* 미리보기 문구 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    미리보기 문구 (선택)
+                  </label>
+                  <input
+                    type="text"
+                    value={currentMessage.previewText ?? ""}
+                    onChange={(e) => handleMessageChange(selectedMessageIndex, "previewText", e.target.value)}
+                    placeholder="받은편지함에서 제목 옆에 짧게 보이는 문구"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
+                  />
+                </div>
+
+                {/* 이메일 내용 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    이메일 내용 <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={currentMessage.bodyHtml}
+                    onChange={(e) => handleMessageChange(selectedMessageIndex, "bodyHtml", e.target.value)}
+                    rows={6}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-3 text-base font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    HTML 형식으로 입력하세요.
+                  </p>
+                </div>
+              </div>
             )}
+
+            {/* 저장 버튼 */}
+            <div className="flex gap-3 pb-6">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg text-base font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[48px]"
+              >
+                <Mail className="w-4 h-4" />
+                {saving ? "저장 중..." : "전체 저장"}
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* 하단 버튼 */}
-        <div className="flex items-center justify-between pb-6">
-          <button
-            onClick={handleDelete}
-            className="flex items-center gap-1.5 px-4 py-3 text-base text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200 rounded-lg transition-colors min-h-[48px]"
-          >
-            <Trash2 className="w-4 h-4" />
-            삭제
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg text-base font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[48px]"
-          >
-            <Mail className="w-4 h-4" />
-            {saving ? "저장 중..." : "전체 저장"}
-          </button>
+        {/* 우측 패널 (60%) - 미리보기 */}
+        <div className="w-3/5 bg-gray-100 flex flex-col">
+          {/* 미리보기 탭 */}
+          <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+            <h3 className="text-base font-semibold text-gray-800">미리보기</h3>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPreviewMode("mobile")}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-colors min-h-[44px] ${
+                  previewMode === "mobile"
+                    ? "bg-blue-50 border-blue-500 text-blue-700"
+                    : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                }`}
+              >
+                <Smartphone className="w-4 h-4" />
+                모바일 (375px)
+              </button>
+              <button
+                onClick={() => setPreviewMode("pc")}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-colors min-h-[44px] ${
+                  previewMode === "pc"
+                    ? "bg-blue-50 border-blue-500 text-blue-700"
+                    : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                }`}
+              >
+                <Monitor className="w-4 h-4" />
+                PC (800px)
+              </button>
+            </div>
+          </div>
+
+          {/* 미리보기 콘텐츠 */}
+          <div className="flex-1 overflow-y-auto p-6 flex items-center justify-center">
+            {currentMessage ? (
+              <div
+                className={`bg-white rounded-lg shadow-lg overflow-hidden ${
+                  previewMode === "mobile" ? "w-full max-w-sm" : "w-full max-w-2xl"
+                }`}
+              >
+                {/* 받은편지함 헤더 */}
+                <div className="bg-gray-50 border-b border-gray-200 px-4 py-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-gray-900 truncate">
+                        {header.senderName || "발신자"}
+                      </p>
+                      <p className="text-sm text-gray-600 truncate">
+                        {currentMessage.subject}
+                      </p>
+                      {currentMessage.previewText && (
+                        <p className="text-xs text-gray-500 truncate mt-0.5">
+                          {currentMessage.previewText}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-500 ml-2 whitespace-nowrap">
+                      {getPreviewDate(currentMessage.daysAfter, header.sendHour, header.sendMinute)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 이메일 내용 */}
+                <div className="px-6 py-4 text-base leading-relaxed text-gray-700">
+                  <div
+                    dangerouslySetInnerHTML={{ __html: currentMessage.bodyHtml }}
+                    className="prose prose-sm max-w-none"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="text-center text-gray-400">
+                <p className="text-base">이메일을 선택하면 미리보기가 표시됩니다.</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
