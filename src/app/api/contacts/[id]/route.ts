@@ -196,7 +196,17 @@ export async function PATCH(req: Request, { params }: Params) {
     if (cruiseInterest !== undefined) updateData.cruiseInterest = cruiseInterest;
     if (budgetRange !== undefined) updateData.budgetRange = budgetRange;
     if (adminMemo !== undefined) updateData.adminMemo = adminMemo;
-    if (departureDate !== undefined) updateData.departureDate = departureDate ? new Date(departureDate) : null;
+    if (departureDate !== undefined) {
+      if (departureDate) {
+        const parsedDeparture = Date.parse(departureDate);
+        if (Number.isNaN(parsedDeparture)) {
+          return NextResponse.json({ ok: false, message: '올바르지 않은 날짜 형식입니다.' }, { status: 400 });
+        }
+        updateData.departureDate = new Date(parsedDeparture);
+      } else {
+        updateData.departureDate = null;
+      }
+    }
     if (productName !== undefined) updateData.productName = productName;
     if (bookingRef !== undefined) updateData.bookingRef = bookingRef;
     if (Array.isArray(tags)) updateData.tags = tags;
@@ -208,7 +218,7 @@ export async function PATCH(req: Request, { params }: Params) {
     });
 
     // 변경 이력 자동 기록 (비동기, 실패해도 계속 진행)
-    void (async () => {
+    ;(async () => {
       const changes: Array<{
         fieldChanged: string;
         oldValue: any;
@@ -279,12 +289,15 @@ export async function PATCH(req: Request, { params }: Params) {
           newValue: bookingRef,
         });
       }
-      if (departureDate !== undefined && existing.departureDate?.toISOString() !== new Date(departureDate).toISOString()) {
-        changes.push({
-          fieldChanged: 'departureDate',
-          oldValue: existing.departureDate?.toISOString(),
-          newValue: departureDate ? new Date(departureDate).toISOString() : null,
-        });
+      if (departureDate !== undefined) {
+        const auditDate = departureDate ? new Date(Date.parse(departureDate)) : null;
+        if (existing.departureDate?.toISOString() !== auditDate?.toISOString()) {
+          changes.push({
+            fieldChanged: 'departureDate',
+            oldValue: existing.departureDate?.toISOString(),
+            newValue: auditDate?.toISOString() ?? null,
+          });
+        }
       }
       if (Array.isArray(tags) && JSON.stringify(existing.tags) !== JSON.stringify(tags)) {
         changes.push({
@@ -314,7 +327,9 @@ export async function PATCH(req: Request, { params }: Params) {
           })),
         });
       }
-    })();
+    })().catch((auditErr: unknown) => {
+      logger.error('[PATCH /api/contacts/[id]] 변경 이력 기록 실패', { id, auditErr });
+    });
 
     void isActive; void commentEnabled; // 미사용 변수 TS 경고 방지
 
