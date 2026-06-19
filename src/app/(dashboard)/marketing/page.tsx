@@ -14,6 +14,27 @@ interface Organization {
   name: string | null;
 }
 
+// 헬퍼 함수: 현재 KST 기준 월 (YYYY-MM)
+function getCurrentKSTMonth() {
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return `${kst.getUTCFullYear()}-${String(kst.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+// 헬퍼 함수: 최근 12개월 목록 생성
+function getLast12Months(): { value: string; label: string }[] {
+  const months = [];
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth() - i, 1));
+    const value = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+    const label = `${d.getUTCFullYear()}년 ${d.getUTCMonth() + 1}월${i === 0 ? ' (이번 달)' : ''}`;
+    months.push({ value, label });
+  }
+  return months;
+}
+
 function SkeletonCard() {
   return <div className="h-24 bg-gray-100 rounded-xl animate-pulse" />;
 }
@@ -25,6 +46,7 @@ export default function MarketingDashboardPage() {
   const [role, setRole] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string>("");
+  const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentKSTMonth);
   const refreshCtrlRef = useRef<AbortController | null>(null);
 
   // 역할과 조직 목록 로드
@@ -56,9 +78,10 @@ export default function MarketingDashboardPage() {
   const fetchData = useCallback((signal?: AbortSignal, orgId?: string) => {
     setLoading(true);
     setError(null);
-    const url = orgId
-      ? `/api/marketing/dashboard?organizationId=${encodeURIComponent(orgId)}`
-      : "/api/marketing/dashboard";
+    const params = new URLSearchParams();
+    if (orgId) params.set('organizationId', orgId);
+    params.set('month', selectedMonth);
+    const url = `/api/marketing/dashboard?${params.toString()}`;
 
     fetch(url, { signal })
       .then((r) => r.json())
@@ -80,20 +103,37 @@ export default function MarketingDashboardPage() {
         );
       })
       .finally(() => { if (!signal?.aborted) setLoading(false); });
-  }, []);
+  }, [selectedMonth]);
 
   useEffect(() => {
     const ctrl = new AbortController();
     fetchData(ctrl.signal, selectedOrgId);
     return () => ctrl.abort();
-  }, [fetchData, selectedOrgId]);
+  }, [fetchData, selectedOrgId, selectedMonth]);
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
       <div className="mb-6 flex items-start justify-between gap-4">
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-navy-900">마케팅 대시보드</h1>
-          <p className="text-gray-500 text-sm mt-1">랜딩페이지 성과 및 전환율 분석</p>
+          <p className="text-gray-500 text-base mt-1">
+            {selectedMonth.split('-')[0]}년 {Number(selectedMonth.split('-')[1])}월 성과 분석
+          </p>
+
+          {/* 월 선택 */}
+          <div className="mt-3 flex items-center gap-2">
+            <label htmlFor="month-select" className="text-base text-gray-600 shrink-0">📅 월 선택</label>
+            <select
+              id="month-select"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="h-12 px-3 border border-gray-300 rounded-lg bg-white text-base focus:ring-2 focus:ring-blue-500"
+            >
+              {getLast12Months().map(({ value, label }) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </div>
 
           {/* GLOBAL_ADMIN이면 조직 드롭다운 표시 */}
           {role === "GLOBAL_ADMIN" && organizations.length > 0 && (

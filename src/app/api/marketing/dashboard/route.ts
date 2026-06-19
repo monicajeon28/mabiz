@@ -97,12 +97,34 @@ export async function GET(request: Request) {
             where: { landingPageId: { in: lpIds }, funnelStarted: true },
           });
 
+    // month 파라미터 파싱 (YYYY-MM 형식, 기본값: 현재 월)
+    const monthParam = new URL(request.url).searchParams.get('month') ?? '';
+    const isValidMonth = /^\d{4}-\d{2}$/.test(monthParam);
+    let selectedYear: number;
+    let selectedMonth0: number; // 0-indexed
+
+    const nowForMonth = new Date();
+    if (isValidMonth) {
+      const [y, m] = monthParam.split('-').map(Number);
+      if (y >= 2020 && y <= 2100 && m >= 1 && m <= 12) {
+        selectedYear = y;
+        selectedMonth0 = m - 1;
+      } else {
+        selectedYear = nowForMonth.getUTCFullYear();
+        selectedMonth0 = nowForMonth.getUTCMonth();
+      }
+    } else {
+      selectedYear = nowForMonth.getUTCFullYear();
+      selectedMonth0 = nowForMonth.getUTCMonth();
+    }
+
+    const selectedMonthKey = `${selectedYear}-${String(selectedMonth0 + 1).padStart(2, '0')}`;
+
     // LIB-TYPES-014: sales/route.ts와 동일한 Date.UTC() 방식으로 통일 (setUTC* 방식 → 명시적 UTC 생성)
     // 서버 타임존에 관계없이 일관된 월 경계 보장
-    const nowForMonth = new Date();
-    const thisMonthStart = new Date(Date.UTC(nowForMonth.getUTCFullYear(), nowForMonth.getUTCMonth(), 1));
-    const thisMonthEnd   = new Date(Date.UTC(nowForMonth.getUTCFullYear(), nowForMonth.getUTCMonth() + 1, 1));
-    const lastMonthStart = new Date(Date.UTC(nowForMonth.getUTCFullYear(), nowForMonth.getUTCMonth() - 1, 1));
+    const thisMonthStart = new Date(Date.UTC(selectedYear, selectedMonth0, 1));
+    const thisMonthEnd   = new Date(Date.UTC(selectedYear, selectedMonth0 + 1, 1));
+    const lastMonthStart = new Date(Date.UTC(selectedYear, selectedMonth0 - 1, 1));
     const lastMonthEnd   = thisMonthStart;
 
     const [thisMonthRegs, lastMonthRegs] = await Promise.all([
@@ -138,46 +160,42 @@ export async function GET(request: Request) {
       .sort((a, b) => b.registrations - a.registrations)
       .slice(0, 5);
 
-    // ── 6. 최근 7일 일별 등록수 trend
-    const now = new Date();
+    // ── 6. 선택된 월의 전체 일수 트렌드
     // [DB-DASHBOARD-TRENDMAP-UTC-KST-MISMATCH-001]
-    // trendMap key는 KST(UTC+9) 기준이므로 DB 쿼리 하한도 KST 자정(= UTC -9h)으로 맞춤.
-    // KST 6일전 00:00:00 = UTC 6일전 -09:00:00 → setUTCHours(-9) = 전날 UTC 15:00
-    const sevenDaysAgo = new Date(now);
-    sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 6);
-    sevenDaysAgo.setUTCHours(-9, 0, 0, 0); // KST 자정 = UTC -9시간
+    // trendMap key는 KST(UTC+9) 기준이므로 DB 쿼리 범위도 thisMonthStart/thisMonthEnd 사용
+    const trendStart = thisMonthStart; // 월 1일
+    const trendEnd   = thisMonthEnd;   // 다음 월 1일
 
     // DB-26: findMany에 take 상한 + orderBy 추가
-    // [DB-DASHBOARD-RECENTREGS-NO-ORDERBY-001] orderBy 없으면 임의 순서 → 최신 5000건 보장 안 됨
+    // [DB-DASHBOARD-RECENTREGS-NO-ORDERBY-001] orderBy 없으면 임의 순서 → 최신 10000건 보장 안 됨
     const recentRegs =
       lpIds.length === 0
         ? []
         : await prisma.crmLandingRegistration.findMany({
             where: {
               landingPageId: { in: lpIds },
-              createdAt: { gte: sevenDaysAgo },
+              createdAt: { gte: trendStart, lt: trendEnd },
             },
             select: { createdAt: true },
             orderBy: { createdAt: 'desc' },
-            take: 5000,  // OOM 방지 상한 — 초과 시 최신 5000건만 집계
+            take: 10000,  // OOM 방지 상한 — 초과 시 최신 10000건만 집계
           });
+
+    // 선택된 월의 일수 계산 (UTC 기준)
+    const daysInMonth = new Date(Date.UTC(selectedYear, selectedMonth0 + 1, 0)).getUTCDate();
 
     // UTC+9 기준 날짜별 집계
     const trendMap: Record<string, number> = {};
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now);
-      d.setUTCDate(d.getUTCDate() - i);
-      const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = `${selectedYear}-${String(selectedMonth0 + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       trendMap[key] = 0;
     }
 
     for (const reg of recentRegs) {
       // UTC+9 변환
       const kst = new Date(reg.createdAt.getTime() + 9 * 60 * 60 * 1000);
-      const key = `${kst.getUTCFullYear()}-${String(kst.getUTCMonth() + 1).padStart(2, "0")}-${String(kst.getUTCDate()).padStart(2, "0")}`;
-      if (key in trendMap) {
-        trendMap[key] = (trendMap[key] ?? 0) + 1;
-      }
+      const key = `${kst.getUTCFullYear()}-${String(kst.getUTCMonth() + 1).padStart(2, '0')}-${String(kst.getUTCDate()).padStart(2, '0')}`;
+      if (key in trendMap) trendMap[key] = (trendMap[key] ?? 0) + 1;
     }
 
     const trend = Object.entries(trendMap).map(([date, count]) => ({ date, count }));
@@ -186,6 +204,8 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       ok: true,
+      selectedMonth: selectedMonthKey,
+      viewNote: 'cumulative',
       summary: {
         totalViews,
         totalRegistrations,
