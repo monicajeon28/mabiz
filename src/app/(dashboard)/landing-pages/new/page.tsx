@@ -250,6 +250,7 @@ export default function NewLandingPage() {
   const [error, setError]               = useState("");
   const [groups, setGroups]             = useState<{ id: string; name: string; funnelId: string | null }[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState("");
+  const [previewMode, setPreviewMode]   = useState<"mobile" | "desktop">("mobile");
 
   // Step 1-5: Russell Brunson 형식 선택
   const [pageFormat, setPageFormat]     = useState<PageFormat>('hybrid');
@@ -953,10 +954,10 @@ ${footerBlock}
   };
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="grid grid-cols-5 h-screen bg-gray-50 overflow-hidden">
 
       {/* ═══════════════════ LEFT: 설정 + 에디터 ═══════════════════ */}
-      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+      <div className="lg:col-span-2 col-span-5 flex flex-col overflow-hidden min-w-0">
 
         {/* 헤더 */}
         <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200 bg-white shrink-0">
@@ -1619,40 +1620,84 @@ ${footerBlock}
         </div>{/* end 스크롤 */}
       </div>{/* end LEFT */}
 
-      {/* ═══════════════════ RIGHT: 실시간 iPhone 미리보기 ═══════════════════ */}
-      <div className="w-[380px] shrink-0 bg-[#1a1a2e] border-l border-gray-700 flex flex-col">
-        {/* 상단 바 */}
-        <div className="px-4 py-3 flex items-center gap-2 border-b border-white/10">
-          <Smartphone className="w-4 h-4 text-gray-600" />
-          <span className="text-sm font-medium text-gray-300">실시간 미리보기</span>
-          <span className="ml-auto flex items-center gap-1 text-sm text-green-400 font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-            LIVE
-          </span>
+      {/* ═══════════════════ RIGHT: 실시간 미리보기 ═══════════════════ */}
+      <div className="lg:col-span-3 hidden lg:flex flex-col bg-[#1a1a2e] border-l border-gray-700">
+        {/* 상단 바 + 탭 */}
+        <div className="px-4 py-3 border-b border-white/10">
+          <div className="flex items-center gap-2 mb-3">
+            <Smartphone className="w-4 h-4 text-gray-600" />
+            <span className="text-sm font-medium text-gray-300">실시간 미리보기</span>
+            <span className="ml-auto flex items-center gap-1 text-sm text-green-400 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+              LIVE
+            </span>
+          </div>
+          {/* 모바일/PC 탭 */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPreviewMode('mobile')}
+              className="flex-1 h-12 px-3 py-2 rounded-lg text-sm font-medium transition-all"
+              style={{
+                backgroundColor: previewMode === 'mobile' ? '#4a5568' : 'transparent',
+                color: previewMode === 'mobile' ? '#fff' : '#9ca3af',
+                border: previewMode === 'mobile' ? '1px solid #667eea' : '1px solid #374151'
+              }}
+            >
+              📱 모바일 (375px)
+            </button>
+            <button
+              onClick={() => setPreviewMode('desktop')}
+              className="flex-1 h-12 px-3 py-2 rounded-lg text-sm font-medium transition-all"
+              style={{
+                backgroundColor: previewMode === 'desktop' ? '#4a5568' : 'transparent',
+                color: previewMode === 'desktop' ? '#fff' : '#9ca3af',
+                border: previewMode === 'desktop' ? '1px solid #667eea' : '1px solid #374151'
+              }}
+            >
+              💻 PC (1024px)
+            </button>
+          </div>
         </div>
 
-        {/* iPhone 프레임 */}
-        <div className="flex-1 overflow-y-auto flex flex-col items-center py-8 px-6 gap-6">
-          <div className="relative w-[280px]" style={{ userSelect: "none" }}>
-            {/* 폰 외곽 — z-0: 스크린 뒤에서 베젤 역할 */}
-            <div className="absolute inset-0 rounded-[40px] pointer-events-none z-0"
-              style={{ background: "#2d3748", boxShadow: "0 0 0 1.5px #4a5568, 0 24px 64px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.08)" }} />
-            {/* 스크린 — z-10: 폰 외곽 위에 표시 */}
-            <div className="relative mx-[10px] mt-[8px] mb-[8px] rounded-[32px] overflow-hidden bg-white z-10"
-              style={{ height: "580px" }}>
-              <iframe
-                srcDoc={previewHtml}
-                className="w-full h-full border-0"
-                title="실시간 미리보기"
-                sandbox="allow-scripts"
-                style={{ display: "block" }}
-              />
+        {/* 미리보기 프레임 */}
+        <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center py-8 px-8 gap-6">
+          {previewMode === "mobile" ? (
+            <div className="relative" style={{ width: "375px", userSelect: "none" }}>
+              {/* 폰 외곽 — z-0: 스크린 뒤에서 베젤 역할 */}
+              <div className="absolute inset-0 rounded-[40px] pointer-events-none z-0"
+                style={{ background: "#2d3748", boxShadow: "0 0 0 1.5px #4a5568, 0 24px 64px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.08)" }} />
+              {/* 스크린 — z-10: 폰 외곽 위에 표시 */}
+              <div className="relative mx-[10px] mt-[8px] mb-[8px] rounded-[32px] overflow-hidden bg-white z-10"
+                style={{ height: "812px" }}>
+                <iframe
+                  srcDoc={previewHtml}
+                  className="w-full h-full border-0"
+                  title="모바일 미리보기"
+                  sandbox="allow-scripts"
+                  style={{ display: "block" }}
+                />
+              </div>
+              {/* 노치 — z-20: 스크린 위에 오버레이 */}
+              <div className="absolute top-[8px] left-1/2 -translate-x-1/2 z-20 w-16 h-4 bg-[#2d3748] rounded-b-2xl pointer-events-none" />
+              {/* 홈 바 — z-20 */}
+              <div className="absolute bottom-[10px] left-1/2 -translate-x-1/2 z-20 w-14 h-1 bg-gray-400/40 rounded-full pointer-events-none" />
             </div>
-            {/* 노치 — z-20: 스크린 위에 오버레이 */}
-            <div className="absolute top-[8px] left-1/2 -translate-x-1/2 z-20 w-16 h-4 bg-[#2d3748] rounded-b-2xl pointer-events-none" />
-            {/* 홈 바 — z-20 */}
-            <div className="absolute bottom-[10px] left-1/2 -translate-x-1/2 z-20 w-14 h-1 bg-gray-400/40 rounded-full pointer-events-none" />
-          </div>
+          ) : (
+            <div className="w-full max-w-2xl rounded-lg overflow-hidden shadow-2xl" style={{ userSelect: "none" }}>
+              {/* PC 프레임 */}
+              <div className="bg-gray-100 p-4">
+                <div className="bg-white rounded-lg overflow-hidden" style={{ height: "640px" }}>
+                  <iframe
+                    srcDoc={previewHtml}
+                    className="w-full h-full border-0"
+                    title="PC 미리보기"
+                    sandbox="allow-scripts"
+                    style={{ display: "block" }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* OG 공유 카드 미리보기 */}
           {exposureImage && (

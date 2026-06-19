@@ -143,7 +143,7 @@ export default function SolutionSection() {
               {/* CTA button */}
               <button
                 onClick={() => handleLearnMore(solution.id)}
-                className="w-full py-2 px-4 bg-white border-2 border-gray-300 text-gray-900 rounded-lg font-semibold hover:bg-gray-50 transition-all"
+                className="w-full h-12 px-4 bg-white border-2 border-gray-300 text-gray-900 rounded-lg font-semibold hover:bg-gray-50 transition-all flex items-center justify-center"
               >
                 자세히 보기
               </button>

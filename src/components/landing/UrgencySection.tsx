@@ -195,7 +195,7 @@ export default function UrgencySection() {
         {/* CTA button */}
         <button
           onClick={handleClickUrgency}
-          className="w-full md:w-auto px-12 py-6 bg-white text-red-600 rounded-xl font-bold text-xl hover:bg-gray-100 transition-all transform hover:scale-105 active:scale-95 shadow-2xl mb-6"
+          className="w-full md:w-auto px-12 h-12 bg-white text-red-600 rounded-xl font-bold text-xl hover:bg-gray-100 transition-all transform hover:scale-105 active:scale-95 shadow-2xl mb-6 flex items-center justify-center"
         >
           지금 신청하기 (10-30% 할인)
         </button>

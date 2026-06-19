@@ -137,7 +137,7 @@ export default function CTASection() {
   const getFieldClasses = (fieldName: string, baseClasses: string = ''): string => {
     const status = fieldStatus[fieldName];
     const baseInput =
-      'w-full px-3 xs:px-4 py-2 xs:py-3 border rounded-lg text-sm xs:text-base outline-none transition-all duration-200';
+      'w-full px-4 xs:px-5 py-3 xs:py-3 border rounded-lg text-sm xs:text-base outline-none transition-all duration-200 h-12';
 
     const stateClasses: Record<FieldStatus, string> = {
       idle: 'border-gray-300 text-gray-900 placeholder-gray-400 bg-white',
@@ -393,7 +393,7 @@ export default function CTASection() {
                 </p>
                 <button
                   onClick={handleRetry}
-                  className="px-6 xs:px-7 sm:px-8 py-2 xs:py-3 text-sm xs:text-base bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-all mb-3"
+                  className="px-6 xs:px-7 sm:px-8 h-12 text-sm xs:text-base bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-all mb-3"
                 >
                   다시 시도하기
                 </button>
@@ -518,7 +518,7 @@ export default function CTASection() {
                 <button
                   type="submit"
                   disabled={submitStatus === 'loading'}
-                  className={`w-full py-3 xs:py-4 px-4 xs:px-6 rounded-lg font-bold text-white text-sm xs:text-base transition-all transform hover:scale-105 active:scale-95 ${
+                  className={`w-full h-12 px-4 xs:px-6 rounded-lg font-bold text-white text-sm xs:text-base transition-all transform hover:scale-105 active:scale-95 ${
                     submitStatus === 'loading'
                       ? 'bg-gray-400 cursor-not-allowed'
                       : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700'
@@ -544,10 +544,10 @@ export default function CTASection() {
           <p className="text-base xs:text-lg sm:text-2xl font-bold text-gray-900 mb-4 xs:mb-5 sm:mb-6">
             전화로 바로 상담받으세요
           </p>
-          <div className="flex flex-col xs:flex-row gap-2 xs:gap-3 sm:gap-4 justify-center">
+          <div className="flex flex-col xs:flex-row gap-3 sm:gap-4 justify-center">
             <a
               href="tel:02-1234-5678"
-              className="px-4 xs:px-6 sm:px-8 py-2 xs:py-3 sm:py-4 bg-blue-600 text-white rounded-lg font-bold text-xs xs:text-sm sm:text-base hover:bg-blue-700 transition-all"
+              className="px-4 xs:px-6 sm:px-8 h-12 bg-blue-600 text-white rounded-lg font-bold text-xs xs:text-sm sm:text-base hover:bg-blue-700 transition-all flex items-center justify-center"
             >
               📞 전화로 상담하기
             </a>
@@ -555,7 +555,7 @@ export default function CTASection() {
               href="http://pf.kakao.com/_"
               target="_blank"
               rel="noopener noreferrer"
-              className="px-4 xs:px-6 sm:px-8 py-2 xs:py-3 sm:py-4 bg-yellow-400 text-gray-900 rounded-lg font-bold text-xs xs:text-sm sm:text-base hover:bg-yellow-500 transition-all"
+              className="px-4 xs:px-6 sm:px-8 h-12 bg-yellow-400 text-gray-900 rounded-lg font-bold text-xs xs:text-sm sm:text-base hover:bg-yellow-500 transition-all flex items-center justify-center"
             >
               💬 카톡 상담하기
             </a>
