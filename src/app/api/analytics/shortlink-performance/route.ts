@@ -48,7 +48,9 @@ export async function GET(req: NextRequest): Promise<NextResponse<AnalyticsRespo
     const organizationId = ctx.role === 'GLOBAL_ADMIN'
       ? (searchParams.get('organizationId') || ctx.organizationId)
       : ctx.organizationId
-    const createdBy = searchParams.get('createdBy') || ctx.userId
+    const createdBy = (ctx.role === 'GLOBAL_ADMIN')
+      ? (searchParams.get('createdBy') ?? ctx.userId)
+      : ctx.userId; // non-admins can only see their own stats
     const groupBy = searchParams.get('groupBy') || 'daily' // 'daily' | 'hourly'
     const daysParam = searchParams.get('days')
     const days = daysParam ? parseInt(daysParam, 10) : 7

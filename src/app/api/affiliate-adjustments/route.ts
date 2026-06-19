@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const cursor    = searchParams.get('cursor') ? parseInt(searchParams.get('cursor')!, 10) || null : null;
-    const limit     = Math.min(100, parseInt(searchParams.get('limit') ?? '20') || 20);
+    const limit     = Math.min(100, parseInt(searchParams.get('limit') ?? '20', 10) || 20);
 
     const rawType      = searchParams.get('type');
     const rawYearMonth = searchParams.get('yearMonth')?.trim() ?? '';
@@ -147,9 +147,9 @@ export async function POST(req: NextRequest) {
       yearMonth?: unknown;
     };
 
-    const agentId   = typeof body.agentId === 'number' ? Math.floor(body.agentId) : parseInt(String(body.agentId ?? ''));
+    const agentId   = typeof body.agentId === 'number' ? Math.floor(body.agentId) : parseInt(String(body.agentId ?? ''), 10);
     const type      = typeof body.type === 'string' && ALLOWED_TYPES.has(body.type) ? body.type : null;
-    const amount    = typeof body.amount === 'number' ? Math.floor(body.amount) : parseInt(String(body.amount ?? ''));
+    const amount    = typeof body.amount === 'number' ? Math.floor(body.amount) : parseInt(String(body.amount ?? ''), 10);
     const yearMonth = typeof body.yearMonth === 'string' && YEAR_MONTH_RE.test(body.yearMonth) ? body.yearMonth : null;
     const reason    = typeof body.reason === 'string' ? body.reason.slice(0, 500) : null;
 
