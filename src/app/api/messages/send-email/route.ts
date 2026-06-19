@@ -90,8 +90,20 @@ export async function POST(req: Request) {
     `;
 
     // Nodemailer를 통한 직접 발송
+    // ResolvedEmailConfig는 'source' 필드를 가지지만 DirectEmailConfig는 그렇지 않음
+    // 타입 호환성을 위해 구조적 호환성만 검증
+    const emailConfig = {
+      senderName: config.senderName,
+      senderEmail: config.senderEmail,
+      smtpHost: config.smtpHost,
+      smtpPort: config.smtpPort,
+      smtpUsername: config.smtpUsername,
+      smtpPassword: config.smtpPassword,
+      smtpSecure: config.smtpSecure,
+    };
+
     const ok = await sendEmailWithConfig({
-      config,
+      config: emailConfig,
       to: email,
       subject,
       html: finalHtml,
