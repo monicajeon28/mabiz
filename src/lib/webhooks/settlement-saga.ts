@@ -65,9 +65,8 @@ export class SettlementSaga {
       name: 'CREATE_COMMISSION_LEDGER',
       execute: async () => {
         try {
-          const commissionAmount = Math.floor(
-            this.context.amount - this.context.netAmount
-          );
+          const commissionAmount = this.context.amount; // 총수당 (크루즈닷몰 SSoT)
+          const withholdingAmount = Math.floor(this.context.amount - this.context.netAmount);
 
           const entry = await prisma.commissionLedger.create({
             data: {
@@ -76,7 +75,7 @@ export class SettlementSaga {
               entryType: 'SETTLEMENT_COMMISSION',
               amount: commissionAmount,
               currency: 'KRW',
-              withholdingAmount: 0,
+              withholdingAmount,
               settlementId: this.context.settlementId,
               isSettled: this.context.status === 'PAID',
               notes: `정산 ${this.context.period}: ${this.context.amount.toLocaleString()}원 → ${this.context.netAmount.toLocaleString()}원`,
