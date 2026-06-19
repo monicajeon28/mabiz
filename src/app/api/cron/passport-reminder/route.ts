@@ -116,7 +116,7 @@ export async function GET(req: Request) {
 
   if (!secret) {
     logger.error("[PassportReminder] CRON_SECRET 미설정");
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ ok: false, error: "Service Unavailable" }, { status: 503 });
   }
 
   const expected = `Bearer ${secret}`;
@@ -302,6 +302,7 @@ export async function GET(req: Request) {
 
         const aligoRes = await fetch("https://apis.aligo.in/send/", {
           method: "POST",
+          signal: AbortSignal.timeout(10_000),
           headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
           body: formData.toString(),
         });

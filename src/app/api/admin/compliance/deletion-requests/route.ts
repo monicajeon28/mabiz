@@ -25,8 +25,8 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const status = url.searchParams.get('status') || undefined;
     const organizationId = url.searchParams.get('organizationId') || undefined;
-    const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'));
-    const limit = Math.min(100, parseInt(url.searchParams.get('limit') || '20') || 20);
+    const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
+    const limit = Math.min(100, parseInt(url.searchParams.get('limit') || '20', 10) || 20);
     const skip = (page - 1) * limit;
 
     const where = {

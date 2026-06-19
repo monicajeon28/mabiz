@@ -56,7 +56,13 @@ export async function POST(req: Request) {
     const authHeader = req.headers.get('Authorization');
     const cronSecret = authHeader?.replace('Bearer ', '');
     const envSecret = process.env.CRON_SECRET;
-    if (!envSecret || !cronSecret ||
+    if (!envSecret) {
+      return NextResponse.json(
+        { error: 'Service Unavailable' },
+        { status: 503 }
+      );
+    }
+    if (!cronSecret ||
         cronSecret.length !== envSecret.length ||
         !timingSafeEqual(Buffer.from(cronSecret), Buffer.from(envSecret))) {
       return NextResponse.json(

@@ -20,7 +20,7 @@ export async function GET(req: Request) {
   if (!secret) {
     const msg = "CRON_SECRET 환경변수 미설정";
     logger.error("[CronScheduledEmail] 인증 실패", { reason: msg });
-    return NextResponse.json({ ok: false }, { status: 401 });
+    return NextResponse.json({ ok: false }, { status: 503 });
   }
 
   const expected = `Bearer ${secret}`;

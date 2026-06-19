@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 import { logContractAction } from "@/lib/contract-audit-log";
 import { sendReSignCompletedEmail } from "@/lib/contract-modification-emails";
 
@@ -160,7 +161,7 @@ export async function POST(
           appliedLenses: modRequest.lensApplied || ["L2", "L6", "L7", "L10"],
         }).catch((err) => {
           // 로깅만 하고 계속 진행 (이메일 실패는 비블로킹)
-          console.warn("[Re-sign Email Send Error]", err instanceof Error ? err.message : String(err));
+          logger.warn("[Re-sign Email Send Error]", { error: err instanceof Error ? err.message : String(err) });
         });
       }
 
@@ -177,7 +178,7 @@ export async function POST(
       });
     } catch (txError) {
       // 트랜잭션 실패 = 자동 롤백
-      console.error("[AUTO_RESIGN_TRANSACTION_ERROR]", {
+      logger.error("[AUTO_RESIGN_TRANSACTION_ERROR]", {
         error: txError instanceof Error ? txError.message : String(txError),
         contractId,
         modificationRequestId: body.modificationRequestId,
@@ -207,7 +208,7 @@ export async function POST(
     }
   } catch (error) {
     // 트랜잭션 외부 에러 (요청 검증 단계)
-    console.error("[AUTO_RESIGN_ERROR]", error instanceof Error ? error.message : String(error));
+    logger.error("[AUTO_RESIGN_ERROR]", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: "요청 처리 중 오류가 발생했습니다." },
       { status: 500 }

@@ -97,8 +97,8 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const period = searchParams.get('period'); // YYYY-MM
     const status = searchParams.get('status'); // DRAFT|APPROVED|LOCKED|PAID
-    const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
-    const limit = Math.min(100, parseInt(searchParams.get('limit') || '20') || 20);
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const limit = Math.min(100, parseInt(searchParams.get('limit') || '20', 10) || 20);
     const offset = (page - 1) * limit;
 
     // 쿼리 조건 — 개별 조건 조각을 모아 WHERE ... AND ... 로 조립
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
       const [year, month] = period.split('-');
       if (/^\d{4}$/.test(year) && /^\d{2}$/.test(month)) {
         const startDate = new Date(`${period}-01`);
-        const endDate = new Date(parseInt(year), parseInt(month), 0);
+        const endDate = new Date(parseInt(year, 10), parseInt(month, 10), 0);
         conditionFragments.push(
           Prisma.sql`ms."periodStart" >= ${startDate} AND ms."periodEnd" <= ${endDate}`
         );

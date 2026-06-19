@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import { logger } from '@/lib/logger';
 
 /**
@@ -43,7 +44,7 @@ export function validateCronSecret(req: Request): CronValidationResult {
           message: 'CRON_SECRET 환경변수가 설정되지 않았습니다.',
           code: 'MISSING_CRON_SECRET',
         },
-        { status: 500 }
+        { status: 503 }
       ),
     };
   }
@@ -51,7 +52,10 @@ export function validateCronSecret(req: Request): CronValidationResult {
   // 1. Bearer 토큰 형식 (표준)
   const authHeader = req.headers.get('authorization');
   if (authHeader) {
-    if (authHeader === `Bearer ${cronSecret}`) {
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    const tokenBuf = Buffer.from(token, 'utf8');
+    const secretBuf = Buffer.from(cronSecret, 'utf8');
+    if (tokenBuf.byteLength === secretBuf.byteLength && timingSafeEqual(tokenBuf, secretBuf)) {
       return { ok: true };
     }
     logger.warn('[CRON] Bearer 토큰 인증 실패', {
@@ -73,9 +77,13 @@ export function validateCronSecret(req: Request): CronValidationResult {
 
   // 2. 레거시 형식 지원 (x-vercel-cron-secret 헤더)
   const vecelCronSecret = req.headers.get('x-vercel-cron-secret');
-  if (vecelCronSecret === cronSecret) {
-    logger.log('[CRON] 레거시 형식 인증 성공 (x-vercel-cron-secret)');
-    return { ok: true };
+  if (vecelCronSecret) {
+    const legacyBuf = Buffer.from(vecelCronSecret, 'utf8');
+    const legacySecretBuf = Buffer.from(cronSecret, 'utf8');
+    if (legacyBuf.byteLength === legacySecretBuf.byteLength && timingSafeEqual(legacyBuf, legacySecretBuf)) {
+      logger.log('[CRON] 레거시 형식 인증 성공 (x-vercel-cron-secret)');
+      return { ok: true };
+    }
   }
 
   // 3. 인증 실패

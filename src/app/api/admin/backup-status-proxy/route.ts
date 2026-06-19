@@ -21,12 +21,13 @@ export async function GET() {
     const secret = process.env.CRON_SECRET;
     if (!secret) {
       logger.error('[backup-status-proxy] CRON_SECRET 미설정');
-      return NextResponse.json({ ok: false, message: '서버 설정 오류입니다.' }, { status: 500 });
+      return NextResponse.json({ ok: false, message: '서버 설정 오류입니다.' }, { status: 503 });
     }
 
     const baseUrl = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
     const res = await fetch(`${baseUrl}/api/cron/health-check`, {
       headers: { 'x-cron-secret': secret },
+      signal: AbortSignal.timeout(10_000),
       cache: 'no-store',
     });
 

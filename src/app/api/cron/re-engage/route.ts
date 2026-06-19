@@ -40,7 +40,7 @@ export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret) {
     logger.warn("[Cron/re-engage] CRON_SECRET 환경변수 미설정");
-    return NextResponse.json({ ok: false }, { status: 401 });
+    return NextResponse.json({ ok: false }, { status: 503 });
   }
   const auth = req.headers.get("authorization") ?? "";
   const expected = `Bearer ${secret}`;

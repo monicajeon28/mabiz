@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
 
   if (!secret) {
     logger.warn("[Cron/DeltaSms] CRON_SECRET 환경변수 미설정. 프로덕션에서는 필수입니다.");
-    return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
+    return NextResponse.json({ ok: false, error: "SERVICE_UNAVAILABLE" }, { status: 503 });
   }
 
   // Bearer 토큰 검증 (timing-safe 비교)

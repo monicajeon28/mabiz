@@ -76,8 +76,8 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const profileId = searchParams.get('profileId');
-    const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
-    const limit = Math.min(100, parseInt(searchParams.get('limit') || '20') || 20);
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const limit = Math.min(100, parseInt(searchParams.get('limit') || '20', 10) || 20);
     const offset = (page - 1) * limit;
 
     if (!profileId) {
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const profileIdNum = parseInt(profileId);
+    const profileIdNum = parseInt(profileId, 10);
 
     const startTime = Date.now();
 
