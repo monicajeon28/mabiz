@@ -18,28 +18,36 @@ export function TrendChart({ trend, loading }: TrendChartProps) {
           ))}
         </div>
       ) : trend.length ? (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {trend.map((day) => (
-            <div key={day.date} className="flex items-center gap-2">
-              <span className="text-sm text-gray-600 w-16 shrink-0">
-                {day.date.slice(5)}
+            <div key={day.date} className="flex items-center gap-3">
+              <span className="text-base text-gray-700 font-medium w-20 shrink-0">
+                {day.date.slice(5)}일
               </span>
               <div
-                className="flex-1 bg-gray-100 rounded h-6 relative"
+                className="flex-1 bg-gray-100 rounded h-8 relative"
                 role="img"
-                aria-label={`${day.date}: ${day.count}건`}
+                aria-label={`${day.date.slice(5)}일: ${day.count}명`}
               >
                 <div
-                  className="bg-navy-600 rounded h-6 transition-all"
+                  className="bg-navy-600 rounded h-8 transition-all flex items-center justify-end pr-3"
                   style={{
                     width: `${maxCount > 0 ? (day.count / maxCount) * 100 : 0}%`,
                   }}
                   aria-hidden="true"
-                />
+                >
+                  {day.count > 0 && (
+                    <span className="text-white text-base font-bold">
+                      {day.count}
+                    </span>
+                  )}
+                </div>
               </div>
-              <span className="text-sm font-medium w-6 text-right shrink-0">
-                {day.count}
-              </span>
+              {day.count === 0 && (
+                <span className="text-base font-bold text-gray-700 w-12 text-right shrink-0">
+                  {day.count}
+                </span>
+              )}
             </div>
           ))}
         </div>
