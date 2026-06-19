@@ -38,7 +38,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Missing Bearer token' }, { status: 401 });
   }
   const token = authHeader.slice(7);
-  if (token.length === 0 || token.length !== secret.length || !timingSafeEqual(Buffer.from(token), Buffer.from(secret))) {
+  const tokenBuf = Buffer.from(token, 'utf8');
+  const secretBuf = Buffer.from(secret, 'utf8');
+  if (tokenBuf.byteLength === 0 || tokenBuf.byteLength !== secretBuf.byteLength || !timingSafeEqual(tokenBuf, secretBuf)) {
     logger.warn('[MemberWebhook] 인증 실패');
     return NextResponse.json({ ok: false, error: 'Authentication failed' }, { status: 401 });
   }
@@ -47,7 +49,9 @@ export async function POST(req: NextRequest) {
   const body = await req.text();
   const signature = req.headers.get('x-signature') ?? '';
   const expected = createHmac('sha256', secret).update(body).digest('hex');
-  if (signature.length !== expected.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) {
+  const sigBuf = Buffer.from(signature, 'utf8');
+  const expBuf = Buffer.from(expected, 'utf8');
+  if (sigBuf.byteLength !== expBuf.byteLength || !timingSafeEqual(sigBuf, expBuf)) {
     logger.warn('[MemberWebhook] 서명 불일치');
     return NextResponse.json({ ok: false, error: 'Invalid signature' }, { status: 403 });
   }
