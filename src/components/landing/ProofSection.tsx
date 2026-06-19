@@ -152,18 +152,18 @@ export default function ProofSection() {
           </div>
 
           {/* Testimonial selector */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             {testimonials.map((testimonial) => (
               <button
                 key={testimonial.id}
                 onClick={() => handleTestimonialClick(testimonial.id)}
-                className={`w-full text-left p-4 rounded-lg transition-all transform hover:scale-102 ${
+                className={`w-full text-left px-4 h-12 rounded-lg transition-all transform hover:scale-102 flex items-center ${
                   activeTestimonial === testimonial.id
                     ? 'bg-blue-500 border-2 border-white shadow-lg'
                     : 'bg-white/10 border-2 border-white/20 hover:bg-white/20'
                 }`}
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between w-full">
                   <div>
                     <p className="font-bold text-white text-sm">{testimonial.name}</p>
                     <p className="text-xs text-gray-300">{testimonial.role}</p>

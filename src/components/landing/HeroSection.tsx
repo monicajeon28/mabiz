@@ -72,16 +72,16 @@ export default function HeroSection() {
             </div>
 
             {/* Primary CTA */}
-            <div className="pt-6 xs:pt-7 flex flex-col xs:flex-row gap-2 xs:gap-3 sm:gap-4">
+            <div className="pt-6 xs:pt-7 flex flex-col xs:flex-row gap-3 sm:gap-4">
               <button
                 onClick={handleCTAClick}
-                className="px-4 xs:px-6 sm:px-8 py-3 xs:py-4 text-sm xs:text-base bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-lg font-bold text-white transition-all transform hover:scale-105 active:scale-95 shadow-lg"
+                className="px-4 xs:px-6 sm:px-8 h-12 text-sm xs:text-base bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-lg font-bold text-white transition-all transform hover:scale-105 active:scale-95 shadow-lg"
               >
                 신청만 해도 10-30% 할인
               </button>
               <button
                 onClick={handleCTAClick}
-                className="px-4 xs:px-6 sm:px-8 py-3 xs:py-4 text-sm xs:text-base border-2 border-white text-white hover:bg-white/10 rounded-lg font-bold transition-all"
+                className="px-4 xs:px-6 sm:px-8 h-12 text-sm xs:text-base border-2 border-white text-white hover:bg-white/10 rounded-lg font-bold transition-all"
               >
                 무료 상담받기
               </button>
