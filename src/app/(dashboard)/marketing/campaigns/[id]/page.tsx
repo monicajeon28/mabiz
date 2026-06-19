@@ -185,7 +185,7 @@ export default function CampaignDetailPage() {
         <div>
           <h1 className="text-3xl font-bold">{campaign.title}</h1>
           <p className="text-gray-600 mt-2">
-            생성일: {new Date(campaign.createdAt).toLocaleString('ko-KR')}
+            📅 만든 날짜: {new Date(campaign.createdAt).toLocaleString('ko-KR')}
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -201,7 +201,7 @@ export default function CampaignDetailPage() {
             variant="outline"
             onClick={() => router.push(`/marketing/campaigns/${campaignId}/variants`)}
           >
-            🔬 A/B 테스트
+            🔬 메시지 비교
           </Button>
           {['PENDING', 'DRAFT'].includes(campaign.status) && (
             <Button

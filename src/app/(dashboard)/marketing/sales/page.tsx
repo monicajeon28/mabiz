@@ -20,11 +20,11 @@ function RecentPaymentTable({ recent, loading }: { recent: RecentRow[], loading:
       <table className="w-full">
         <thead className="bg-gray-50">
           <tr>
-            <th scope="col" className="text-left px-4 py-3 text-base font-medium text-gray-600">주문번호</th>
-            <th scope="col" className="text-left px-4 py-3 text-base font-medium text-gray-600">구매자</th>
-            <th scope="col" className="text-right px-4 py-3 text-base font-medium text-gray-600">금액</th>
-            <th scope="col" className="text-center px-4 py-3 text-base font-medium text-gray-600">상태</th>
-            <th scope="col" className="text-left px-4 py-3 text-base font-medium text-gray-600">결제일</th>
+            <th scope="col" className="text-left px-4 py-3 text-base font-medium text-gray-600">📋 주문번호</th>
+            <th scope="col" className="text-left px-4 py-3 text-base font-medium text-gray-600">👤 구매자</th>
+            <th scope="col" className="text-right px-4 py-3 text-base font-medium text-gray-600">💵 금액</th>
+            <th scope="col" className="text-center px-4 py-3 text-base font-medium text-gray-600">📊 상태</th>
+            <th scope="col" className="text-left px-4 py-3 text-base font-medium text-gray-600">📅 결제일</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
@@ -136,35 +136,35 @@ function AdminPersonalSalesSection({ sales }: { sales: AdminPersonalSales }) {
       <div className="px-6 py-4 border-b border-purple-100 flex items-center gap-3">
         <User className="w-5 h-5 text-purple-600 shrink-0" />
         <div>
-          <h2 className="text-xl font-bold text-gray-900">내 링크 이번 달 매출</h2>
-          <p className="text-base text-gray-500 mt-0.5">관리자 본인이 직접 만든 랜딩페이지에서 발생한 매출입니다</p>
+          <h2 className="text-xl font-bold text-gray-900">👤 내가 만든 링크 - 이번 달 매출</h2>
+          <p className="text-base text-gray-500 mt-0.5">당신이 직접 만든 랜딩페이지에서 발생한 매출이에요</p>
           {/* [API-SALES-005] 이중 집계 안내: 관리자 링크 매출은 대리점 합계와 별도로 집계됩니다 */}
-          <p className="text-sm text-purple-600 mt-0.5">※ 아래 대리점별 합계와 별도로 집계되는 금액입니다</p>
+          <p className="text-sm text-purple-600 mt-0.5">※ 아래 대리점 매출과 별개로 집계돼요</p>
         </div>
       </div>
       <div className="px-6 py-5">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* 카드 1: 이번 달 매출 */}
           <div className="bg-white rounded-xl border border-purple-100 p-4">
-            <p className="text-base text-gray-500 mb-1">이번 달 매출</p>
+            <p className="text-base text-gray-500 mb-1">💵 이번 달 매출</p>
             <p className="text-2xl font-bold text-gray-900">{formatAmount(sales.totalRevenue)}</p>
             <p className="text-sm text-gray-400 mt-1">결제 완료 {sales.paidCount}건</p>
           </div>
           {/* 카드 2: 환불 금액 */}
           <div className="bg-white rounded-xl border border-purple-100 p-4">
-            <p className="text-base text-gray-500 mb-1">환불 금액</p>
+            <p className="text-base text-gray-500 mb-1">↩️ 반품/환불</p>
             <p className="text-2xl font-bold text-red-600">
               {sales.totalRefund > 0 ? formatAmount(sales.totalRefund) : '없음'}
             </p>
             {sales.totalRefund > 0 && (
-              <p className="text-sm text-red-400 mt-1">이번 달 환불 처리된 금액</p>
+              <p className="text-sm text-red-400 mt-1">이번 달 반품된 금액이에요</p>
             )}
           </div>
           {/* 카드 3: 순매출 */}
           <div className="bg-white rounded-xl border border-purple-100 p-4">
-            <p className="text-base text-gray-500 mb-1">순매출</p>
+            <p className="text-base text-gray-500 mb-1">✅ 실제 매출</p>
             <p className="text-2xl font-bold text-green-700">{formatAmount(sales.netRevenue)}</p>
-            <p className="text-sm text-gray-400 mt-1">환불 차감 후 실제 매출</p>
+            <p className="text-sm text-gray-400 mt-1">반품을 뺀 실제 매출</p>
           </div>
         </div>
       </div>
@@ -180,16 +180,16 @@ function OrgBreakdownSection({ orgBreakdown }: { orgBreakdown: OrgBreakdown[] })
         <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
           <Building2 className="w-5 h-5 text-blue-600 shrink-0" />
           <div>
-            <h2 className="text-xl font-bold text-gray-900">대리점별 이번 달 매출</h2>
-            <p className="text-base text-gray-500 mt-0.5">각 대리점 소속 판매원이 이번 달 성사시킨 매출을 확인하세요</p>
+            <h2 className="text-xl font-bold text-gray-900">🏢 대리점별 이번 달 매출</h2>
+            <p className="text-base text-gray-500 mt-0.5">각 대리점 팀원들이 이번 달 성사시킨 매출을 보여줘요</p>
             {/* [LIB-TYPES-008 / LIB-TYPES-NEW-002] orgBreakdownBasis 귀속 기준 안내 */}
-            <p className="text-sm text-blue-500 mt-0.5">※ 판매원 소속 대리점 기준으로 집계됩니다</p>
+            <p className="text-sm text-blue-500 mt-0.5">※ 팀원들 소속 대리점 기준으로 집계돼요</p>
           </div>
         </div>
         <div className="flex flex-col items-center gap-3 py-12">
           <Building2 className="w-10 h-10 text-gray-300" />
           <p className="text-base font-medium text-gray-500">이번 달 대리점 실적이 없어요</p>
-          <p className="text-base text-gray-500">대리점에서 결제가 발생하면 여기에 표시됩니다</p>
+          <p className="text-base text-gray-500">대리점에서 결제가 생기면 여기에 나타나요</p>
         </div>
       </div>
     );
@@ -206,10 +206,10 @@ function OrgBreakdownSection({ orgBreakdown }: { orgBreakdown: OrgBreakdown[] })
       <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
         <Building2 className="w-5 h-5 text-blue-600 shrink-0" />
         <div>
-          <h2 className="text-xl font-bold text-gray-900">대리점별 이번 달 매출</h2>
-          <p className="text-base text-gray-500 mt-0.5">각 대리점 소속 판매원이 이번 달 성사시킨 매출을 확인하세요</p>
+          <h2 className="text-xl font-bold text-gray-900">🏢 대리점별 이번 달 매출</h2>
+          <p className="text-base text-gray-500 mt-0.5">각 대리점 팀원들이 이번 달 성사시킨 매출을 보여줘요</p>
           {/* [LIB-TYPES-008 / LIB-TYPES-NEW-002] orgBreakdownBasis 귀속 기준 안내 */}
-          <p className="text-sm text-blue-500 mt-0.5">※ 판매원 소속 대리점 기준으로 집계됩니다 (랜딩페이지 소유 기준 아님)</p>
+          <p className="text-sm text-blue-500 mt-0.5">※ 팀원들 소속 대리점 기준 (랜딩페이지 만든 사람이 아님)</p>
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -217,10 +217,10 @@ function OrgBreakdownSection({ orgBreakdown }: { orgBreakdown: OrgBreakdown[] })
           <thead className="bg-gray-50">
             <tr>
               <th scope="col" className="text-left px-6 py-3 text-base font-medium text-gray-600">대리점 이름</th>
-              <th scope="col" className="text-right px-6 py-3 text-base font-medium text-gray-600">이번 달 매출</th>
-              <th scope="col" className="text-right px-6 py-3 text-base font-medium text-gray-600">결제 건수</th>
-              <th scope="col" className="text-right px-6 py-3 text-base font-medium text-gray-600">환불</th>
-              <th scope="col" className="text-right px-6 py-3 text-base font-medium text-gray-600">순매출</th>
+              <th scope="col" className="text-right px-6 py-3 text-base font-medium text-gray-600">💵 이번 달 매출</th>
+              <th scope="col" className="text-right px-6 py-3 text-base font-medium text-gray-600">개수</th>
+              <th scope="col" className="text-right px-6 py-3 text-base font-medium text-gray-600">↩️ 반품</th>
+              <th scope="col" className="text-right px-6 py-3 text-base font-medium text-gray-600">✅ 실제 매출</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -237,7 +237,7 @@ function OrgBreakdownSection({ orgBreakdown }: { orgBreakdown: OrgBreakdown[] })
           {/* 전체 합계 행 */}
           <tfoot className="bg-blue-50 border-t-2 border-blue-200">
             <tr>
-              <td className="px-6 py-4 text-base font-bold text-blue-900">전체 합계</td>
+              <td className="px-6 py-4 text-base font-bold text-blue-900">🎯 전체 합계</td>
               <td className="px-6 py-4 text-right text-base font-bold text-blue-900">{formatAmount(totalRevenue)}</td>
               <td className="px-6 py-4 text-right text-base font-bold text-blue-900">{totalCount}건</td>
               <td className="px-6 py-4 text-right text-base font-bold text-red-700">
@@ -258,10 +258,10 @@ function AccessDeniedView() {
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex flex-col items-center justify-center py-24 gap-4">
         <Lock className="w-16 h-16 text-gray-300" />
-        <h1 className="text-xl font-bold text-gray-700">접근 권한이 없습니다</h1>
+        <h1 className="text-xl font-bold text-gray-700">🔒 접근할 수 없어요</h1>
         <p className="text-base text-gray-500 text-center max-w-sm">
-          이 페이지는 대리점장 또는 관리자만 이용할 수 있습니다.<br />
-          권한이 필요하면 관리자에게 문의해 주세요.
+          이 페이지는 대리점장이나 관리자만 볼 수 있어요.<br />
+          권한이 필요하면 관리자에게 말씀해주세요.
         </p>
       </div>
     </div>
@@ -348,10 +348,10 @@ export default function MarketingSalesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            {isGlobalAdmin ? '전체 랜딩페이지 매출 관리' : '랜딩페이지 매출 관리'}
+            {isGlobalAdmin ? '💰 모든 랜딩페이지 매출 관리' : '💰 랜딩페이지 매출 관리'}
           </h1>
           {summary && (
-            <p className="text-base text-gray-600 mt-1">{formatMonth(summary.month)} 기준 매출 현황입니다</p>
+            <p className="text-base text-gray-600 mt-1">{formatMonth(summary.month)}의 매출 현황이에요</p>
           )}
         </div>
         <button
@@ -363,10 +363,10 @@ export default function MarketingSalesPage() {
           disabled={loading}
           aria-busy={loading}
           className="p-3 min-w-[48px] min-h-[48px] hover:bg-gray-100 rounded-lg transition-colors focus:ring-2 focus:ring-offset-1 focus:ring-blue-600 flex items-center justify-center gap-2"
-          aria-label="새로고침"
+          aria-label="새로 읽기"
         >
           <RefreshCw className={cn("w-5 h-5 text-gray-500", loading && "animate-spin")} />
-          <span className="hidden sm:inline text-base text-gray-600">새로고침</span>
+          <span className="hidden sm:inline text-base text-gray-600">새로 읽기</span>
         </button>
       </div>
 
@@ -400,20 +400,20 @@ export default function MarketingSalesPage() {
       ) : summary ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <KpiCard
-            label={isGlobalAdmin ? '전체 이번 달 매출' : '이번 달 매출'}
+            label={isGlobalAdmin ? '💵 모든 매출' : '💵 매출'}
             value={formatAmount(summary.totalRevenue)}
-            sub={`결제완료 ${summary.paidCount}건`}
+            sub={`✅ 결제 완료 ${summary.paidCount}건`}
             color="bg-white border-gray-200"
           />
           <KpiCard
-            label="결제 건수"
+            label="📊 결제 건수"
             value={`${summary.paidCount}건`}
             color="bg-blue-50 border-blue-100"
           />
           <KpiCard
-            label="순매출"
+            label="✅ 실제 매출"
             value={formatAmount(summary.netRevenue)}
-            sub={summary.totalRefund > 0 ? `환불 ${formatAmount(summary.totalRefund)}` : undefined}
+            sub={summary.totalRefund > 0 ? `↩️ 반품 ${formatAmount(summary.totalRefund)}` : undefined}
             color="bg-green-50 border-green-100"
           />
         </div>
@@ -476,16 +476,16 @@ export default function MarketingSalesPage() {
       {/* 랜딩페이지별 매출 기여 */}
       <div className="bg-white rounded-xl border border-gray-200">
         <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="text-xl font-bold text-gray-900">랜딩페이지별 매출 기여</h2>
-          <p className="text-base text-gray-500 mt-1">어떤 랜딩페이지에서 매출이 발생했는지 확인하세요</p>
+          <h2 className="text-xl font-bold text-gray-900">📄 랜딩페이지별 매출</h2>
+          <p className="text-base text-gray-500 mt-1">어떤 페이지에서 가장 많은 매출이 났는지 보세요</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th scope="col" className="text-left px-4 py-3 text-base font-medium text-gray-600">랜딩페이지</th>
-                <th scope="col" className="text-right px-4 py-3 text-base font-medium text-gray-600">매출</th>
-                <th scope="col" className="text-right px-4 py-3 text-base font-medium text-gray-600">건수</th>
+                <th scope="col" className="text-left px-4 py-3 text-base font-medium text-gray-600">📄 페이지</th>
+                <th scope="col" className="text-right px-4 py-3 text-base font-medium text-gray-600">💵 매출</th>
+                <th scope="col" className="text-right px-4 py-3 text-base font-medium text-gray-600">개수</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -501,8 +501,8 @@ export default function MarketingSalesPage() {
                   <td colSpan={3} className="text-center py-10">
                     <div className="flex flex-col items-center gap-3">
                       <FileText className="w-10 h-10 text-gray-300" />
-                      <p className="text-base font-medium text-gray-500">아직 랜딩페이지 매출이 없어요</p>
-                      <p className="text-base text-gray-500">랜딩페이지를 만들고 고객에게 공유해 보세요</p>
+                      <p className="text-base font-medium text-gray-500">아직 매출이 없어요</p>
+                      <p className="text-base text-gray-500">페이지를 고객에게 공유하면 매출이 여기에 나타나요</p>
                     </div>
                   </td>
                 </tr>
@@ -525,8 +525,8 @@ export default function MarketingSalesPage() {
       {/* 최근 결제 내역 */}
       <div className="bg-white rounded-xl border border-gray-200">
         <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="text-xl font-bold text-gray-900">최근 결제 내역</h2>
-          <p className="text-base text-gray-500 mt-1">최근 6개월간 결제 내역을 확인하세요</p>
+          <h2 className="text-xl font-bold text-gray-900">🛒 최근 결제 내역</h2>
+          <p className="text-base text-gray-500 mt-1">최근 고객들의 결제 내역을 확인해보세요</p>
         </div>
 
         {/* 모바일 카드 */}
@@ -553,7 +553,7 @@ export default function MarketingSalesPage() {
                 disabled={page <= 1}
                 className="px-4 py-3 min-h-[48px] border border-gray-300 rounded-lg text-base hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                이전
+                ← 이전
               </button>
               <div className="flex items-center gap-1">
                 {[...Array(Math.min(5, paging.totalPages))].map((_, i) => {
@@ -598,10 +598,10 @@ export default function MarketingSalesPage() {
                 disabled={page >= paging.totalPages}
                 className="px-4 py-3 min-h-[48px] border border-gray-300 rounded-lg text-base hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                다음
+                다음 →
               </button>
               <span className="text-base text-gray-600 ml-2">
-                페이지 {page} / {paging.totalPages}
+                {page} / {paging.totalPages}
               </span>
             </div>
           );

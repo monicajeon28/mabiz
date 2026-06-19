@@ -10,7 +10,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
     const ctx = await getMabizSession();
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
     if (ctx.role === 'FREE_SALES') {
-      return NextResponse.json({ ok: false, message: '접근 권한이 없습니다.' }, { status: 403 });
+      return NextResponse.json({ ok: false, message: '이 기능을 사용할 권한이 없어요.' }, { status: 403 });
     }
 
     const { id } = await context.params;
