@@ -154,7 +154,10 @@ export async function POST(req: Request) {
           // 에디터 고도화 필드
           ...(rest.description      ? { description: rest.description }            : {}),
           ...(rest.buttonTitle      ? { buttonTitle: rest.buttonTitle }             : {}),
-          ...(rest.completionPageUrl ? { completionPageUrl: rest.completionPageUrl } : {}),
+          ...(rest.completionPageUrl ? { completionPageUrl: (() => {
+            try { const u = new URL(rest.completionPageUrl); return ['http:', 'https:'].includes(u.protocol) ? rest.completionPageUrl : null; }
+            catch { return null; }
+          })() } : {}),
           ...(rest.headerScript     ? { headerScript: sanitizeHeaderScript(rest.headerScript) } : {}),
           ...(rest.exposureTitle    ? { exposureTitle: rest.exposureTitle }         : {}),
           ...(rest.exposureImage    ? { exposureImage: rest.exposureImage }         : {}),
