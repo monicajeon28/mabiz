@@ -241,11 +241,15 @@ export default function ContactsPage() {
     setShareResult("");
     setShareTarget("");
     setShareSearch("");
+    shareAbortRef.current?.abort();
+    const ctrl = new AbortController();
+    shareAbortRef.current = ctrl;
     try {
-      const res = await fetch("/api/org/agents");
+      const res = await fetch("/api/org/agents", { signal: ctrl.signal });
       const data = await res.json();
       if (data.ok) setShareSections(data.sections ?? []);
-    } catch {
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') return;
       toast({ title: '팀원 목록 로딩 실패', variant: 'destructive' });
       return;
     }
@@ -389,11 +393,13 @@ export default function ContactsPage() {
   const [slidePanelLoadingId, setSlidePanelLoadingId] = useState<string | null>(null);
   const slidePanelAbortRef = useRef<AbortController | null>(null);
   const closePanelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shareAbortRef = useRef<AbortController | null>(null);
 
   // closePanelTimerRef cleanup (언마운트 시 메모리 누수 방지)
   useEffect(() => {
     return () => {
       if (closePanelTimerRef.current) clearTimeout(closePanelTimerRef.current);
+      shareAbortRef.current?.abort();
     };
   }, []);
 

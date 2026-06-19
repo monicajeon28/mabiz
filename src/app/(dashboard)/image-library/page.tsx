@@ -146,20 +146,20 @@ export default function ImageLibraryPage() {
   // Google Drive 함수들
   // ═══════════════════════════════════════════════════════════════════════════════
 
-  const fetchGdFolders = useCallback(async () => {
+  const fetchGdFolders = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await fetch('/api/image-library/google-drive?folders=true', { method: 'GET' });
+      const res = await fetch('/api/image-library/google-drive?folders=true', { method: 'GET', signal });
       const json = await res.json();
       if (json.ok && json.folders) {
         setGdFolders(json.folders);
         setSelectedGdFolder(prev => (!prev && json.folders.length > 0) ? json.folders[0].id : prev);
       }
-    } catch {
-      // silent
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') return;
     }
   }, []);
 
-  const fetchGdImages = useCallback(async () => {
+  const fetchGdImages = useCallback(async (signal?: AbortSignal) => {
     if (!selectedGdFolder) return;
 
     try {
@@ -170,26 +170,28 @@ export default function ImageLibraryPage() {
         limit: GOOGLE_DRIVE_LIMIT.toString(),
       });
 
-      const res = await fetch(`/api/image-library/google-drive?${params}`, { method: 'GET' });
+      const res = await fetch(`/api/image-library/google-drive?${params}`, { method: 'GET', signal });
       const json = await res.json();
       if (json.ok && json.images) {
         setGdImages(json.images);
         setGdPagination(json.pagination || { totalPages: 1, total: json.images.length });
       }
-    } catch {
-      // silent
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') return;
     } finally {
-      setGdLoading(false);
+      if (!signal?.aborted) setGdLoading(false);
     }
   }, [selectedGdFolder, gdPage]);
 
   useEffect(() => {
     if (activeTab === 'drive') {
+      const ctrl = new AbortController();
       if (gdFolders.length === 0) {
-        fetchGdFolders();
+        fetchGdFolders(ctrl.signal);
       } else {
-        fetchGdImages();
+        fetchGdImages(ctrl.signal);
       }
+      return () => ctrl.abort();
     }
   }, [activeTab, selectedGdFolder, gdPage, gdFolders.length, fetchGdFolders, fetchGdImages]);
 

@@ -586,9 +586,12 @@ export default function ContactSlidePanel({
   const loadMoreSmsLogs = useCallback(async () => {
     if (!contact || smsLoading || !smsHasMore) return;
     const nextPage = smsPage + 1;
+    loadMoreAbortRef.current?.abort();
+    const ctrl = new AbortController();
+    loadMoreAbortRef.current = ctrl;
     setSmsLoading(true);
     try {
-      const res = await fetch(`/api/contacts/${contact.id}/sms-logs?limit=20&page=${nextPage}`);
+      const res = await fetch(`/api/contacts/${contact.id}/sms-logs?limit=20&page=${nextPage}`, { signal: ctrl.signal });
       const d = await res.json();
       if (d.ok) {
         setSmsLogs(prev => [...prev, ...(d.logs ?? [])]);
@@ -596,6 +599,7 @@ export default function ContactSlidePanel({
         setSmsPage(nextPage);
       }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       logger.error("[loadMoreSmsLogs]", { err });
     } finally {
       setSmsLoading(false);
@@ -603,6 +607,8 @@ export default function ContactSlidePanel({
   }, [contact, smsLoading, smsHasMore, smsPage]);
 
   const tabFetchAbortRef = useRef<AbortController | null>(null);
+  const loadMoreAbortRef = useRef<AbortController | null>(null);
+  const onSentAbortRef = useRef<AbortController | null>(null);
   const handleTabChange = useCallback((key: TabKey) => {
     setActiveTab(key);
     if (!contact) return;
@@ -748,10 +754,13 @@ export default function ContactSlidePanel({
               onClose={() => setSmsModalMode(null)}
               onSent={() => {
                 setSmsLogs([]); setSmsHasMore(true); setSmsPage(1); setSmsLoading(true);
-                fetch(`/api/contacts/${contact.id}/sms-logs?limit=20&page=1`)
+                onSentAbortRef.current?.abort();
+                const sentCtrl = new AbortController();
+                onSentAbortRef.current = sentCtrl;
+                fetch(`/api/contacts/${contact.id}/sms-logs?limit=20&page=1`, { signal: sentCtrl.signal })
                   .then(r => r.json())
                   .then(d => { if (d.ok) { setSmsLogs(d.logs ?? []); setSmsHasMore(d.hasMore ?? false); } setSmsLoading(false); })
-                  .catch(() => setSmsLoading(false));
+                  .catch(err => { if (err instanceof Error && err.name === 'AbortError') return; setSmsLoading(false); });
               }}
             />
           )}
