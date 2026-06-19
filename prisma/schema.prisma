@@ -3131,6 +3131,10 @@ model GmPassportSubmissionGuest {
   submittedBy        Int? // 세션 userId 또는 토큰 소유자(submission.userId)
   source             String? // 'public_submit' | 'admin_ocr' | 'partner_ocr' | 'admin_manual'
   submittedAt        DateTime?
+  // Google Drive 백업 필드
+  googleDriveFileId  String? // Google Drive에 업로드된 파일 ID (WebP)
+  lastBackupAt       DateTime? // 마지막 백업 시간
+  backupStatus       String    @default("pending") // pending / success / failed
   // ⚠️ raw 부분 UNIQUE 인덱스 "guest_submission_passport_partial_uq" 존재:
   //    UNIQUE(submissionId, passportNumber) WHERE passportNumber IS NOT NULL AND passportNumber <> ''
   //    (Prisma @@unique로 표현 불가 — migrations/20260606120001_guest_passport_partial_uq)
@@ -3138,6 +3142,7 @@ model GmPassportSubmissionGuest {
 
   @@index([name])
   @@index([submissionId, groupNumber])
+  @@index([backupStatus])
   @@map("PassportSubmissionGuest")
 }
 
@@ -7609,29 +7614,29 @@ model UserEmailConfig {
 
 /// 신뢰도 점수 (판매원/파트너 신뢰도 추적)
 model TrustScore {
-  id              String    @id @default(cuid())
-  userId          String    @unique // OrganizationMember.userId
+  id     String @id @default(cuid())
+  userId String @unique // OrganizationMember.userId
 
   // 환불 통계
-  totalSales      Int       @default(0)        /// 총 판매건수
-  totalRefunds    Int       @default(0)        /// 총 환불건수
-  refundRate      Float     @default(0)        /// 환불율 (%)
+  totalSales   Int   @default(0) /// 총 판매건수
+  totalRefunds Int   @default(0) /// 총 환불건수
+  refundRate   Float @default(0) /// 환불율 (%)
 
   // 신뢰도 점수
-  trustScore      Int       @default(100)      /// 0-100 점수
-  status          String    @default("GOOD")   /// GOOD / WARNING / RESTRICTED / SUSPENDED
+  trustScore Int    @default(100) /// 0-100 점수
+  status     String @default("GOOD") /// GOOD / WARNING / RESTRICTED / SUSPENDED
 
   // 임계값 추적
-  nextThreshold   Int       @default(35)       /// 다음 상태까지 남은 환불율
-  warningCount    Int       @default(0)        /// 경고 받은 횟수
+  nextThreshold Int @default(35) /// 다음 상태까지 남은 환불율
+  warningCount  Int @default(0) /// 경고 받은 횟수
 
   // 타임스탬프
-  lastCalculatedAt DateTime @updatedAt
-  statusChangedAt DateTime? /// 상태가 마지막으로 변경된 시간
+  lastCalculatedAt DateTime  @updatedAt
+  statusChangedAt  DateTime? /// 상태가 마지막으로 변경된 시간
 
   // 관계
-  appeals         TrustAppeal[]
-  auditLogs       TrustAuditLog[]
+  appeals   TrustAppeal[]
+  auditLogs TrustAuditLog[]
 
   @@index([userId])
   @@index([status])
@@ -7640,26 +7645,26 @@ model TrustScore {
 
 /// 신뢰도 이의 제기
 model TrustAppeal {
-  id              String    @id @default(cuid())
-  trustScoreId    String
-  trustScore      TrustScore @relation(fields: [trustScoreId], references: [id], onDelete: Cascade)
+  id           String     @id @default(cuid())
+  trustScoreId String
+  trustScore   TrustScore @relation(fields: [trustScoreId], references: [id], onDelete: Cascade)
 
   // 이의 내용
-  reason          String              /// "상품 하자", "고객 요청" 등
-  evidenceUrls    String[]  @default([]) /// 증거 URL 배열
+  reason       String /// "상품 하자", "고객 요청" 등
+  evidenceUrls String[] @default([]) /// 증거 URL 배열
 
   // 상태
-  status          String    @default("PENDING") /// PENDING / APPROVED / REJECTED
-  adminReview     String?   /// 관리자 검토 의견
+  status      String  @default("PENDING") /// PENDING / APPROVED / REJECTED
+  adminReview String? /// 관리자 검토 의견
 
   // 결과
-  requestedAction String?   /// "RESTORE" 등 원하는 조치
-  appliedAction   String?   /// 실제 적용된 조치
+  requestedAction String? /// "RESTORE" 등 원하는 조치
+  appliedAction   String? /// 실제 적용된 조치
 
   // 타임스탬프
-  createdAt       DateTime  @default(now())
-  reviewedAt      DateTime?
-  reviewedBy      String?   /// 관리자 ID
+  createdAt  DateTime  @default(now())
+  reviewedAt DateTime?
+  reviewedBy String? /// 관리자 ID
 
   @@index([status])
   @@index([trustScoreId])
@@ -7668,27 +7673,44 @@ model TrustAppeal {
 
 /// 신뢰도 감사 로그
 model TrustAuditLog {
-  id              String    @id @default(cuid())
-  userId          String
-  trustScoreId    String?   /// 어느 신뢰도? (삭제된 경우 null 가능)
-  trustScore      TrustScore? @relation(fields: [trustScoreId], references: [id], onDelete: SetNull)
+  id           String      @id @default(cuid())
+  userId       String
+  trustScoreId String? /// 어느 신뢰도? (삭제된 경우 null 가능)
+  trustScore   TrustScore? @relation(fields: [trustScoreId], references: [id], onDelete: SetNull)
 
   // 변경 내용
-  eventType       String    /// "REFUND", "STATUS_CHANGE", "APPEAL", "ADMIN_ACTION"
-  previousValue   Json?     /// 이전 값
-  newValue        Json?     /// 새로운 값
+  eventType     String /// "REFUND", "STATUS_CHANGE", "APPEAL", "ADMIN_ACTION"
+  previousValue Json? /// 이전 값
+  newValue      Json? /// 새로운 값
 
   // 설명
-  description     String    /// "환불 1건 처리됨" 등
+  description String /// "환불 1건 처리됨" 등
 
   // 누가 했는가
-  triggeredBy     String?   /// 시스템 또는 사용자 ID
+  triggeredBy String? /// 시스템 또는 사용자 ID
 
   // 타임스탬프
-  createdAt       DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([eventType])
   @@index([trustScoreId])
   @@map("TrustAuditLog")
+}
+
+// Passport 파일 Google Drive 백업 로그
+model PassportBackupLog {
+  id                Int      @id @default(autoincrement())
+  guestId           Int // GmPassportSubmissionGuest.id
+  googleDriveFileId String? // Google Drive에 업로드된 파일 ID
+  backupTime        DateTime @default(now())
+  status            String // success / failed
+  errorMessage      String? // 실패 시 에러 메시지
+  retryCount        Int      @default(0) // 재시도 횟수
+  createdAt         DateTime @default(now())
+
+  @@index([status])
+  @@index([guestId])
+  @@index([createdAt])
+  @@map("PassportBackupLog")
 }
