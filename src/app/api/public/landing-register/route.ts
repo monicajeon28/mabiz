@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { normalizePhone } from '@/lib/phone-normalize';
+import { checkRateLimitAsync } from '@/lib/rate-limit';
 
 /**
  * POST /api/public/landing-register
@@ -15,6 +16,13 @@ import { normalizePhone } from '@/lib/phone-normalize';
  */
 export async function POST(req: Request) {
   try {
+    // Rate limit: 5 registrations per IP per minute (same as group-join)
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+    const rateLimitResult = await checkRateLimitAsync(`landing-register:${ip}`, 5, 60_000);
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json({ error: '잠시 후 다시 시도해 주세요' }, { status: 429 });
+    }
+
     const body = await req.json();
     const { name, phone, ref } = body as {
       name?: string;

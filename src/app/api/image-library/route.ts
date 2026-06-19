@@ -13,7 +13,12 @@ export const maxDuration = 60; // Vercel Pro: 60초
 // GET /api/image-library?q=검색어&folder=폴더
 export async function GET(req: Request) {
   try {
-    const ctx = await getAuthContext();
+    let ctx;
+    try {
+      ctx = await getAuthContext();
+    } catch {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const { searchParams } = new URL(req.url);
     const q      = searchParams.get("q");
     const folder = searchParams.get("folder");

@@ -7,6 +7,11 @@ import { hashAffiliatePassword } from "@/lib/affiliate-issuance";
 
 export const dynamic = "force-dynamic";
 
+function generateRandomPassword(): string {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  return Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
 /**
  * POST /api/affiliate-issuance/[id]/reset-password
  * GLOBAL_ADMIN 전용 — 어필리에이트 비밀번호 초기화
@@ -33,14 +38,14 @@ export async function POST(
     }
 
     // 요청 바디 파싱
-    let newPassword = "1101";
+    let newPassword = generateRandomPassword();
     try {
       const body = await req.json();
       if (body?.newPassword && typeof body.newPassword === "string") {
         newPassword = body.newPassword;
       }
     } catch {
-      // 바디 없거나 파싱 실패 시 기본값 사용
+      // 바디 없거나 파싱 실패 시 랜덤 비밀번호 사용
     }
 
     // 1. AffiliateProfile → userId 조회

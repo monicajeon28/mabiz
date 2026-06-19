@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
+import { timingSafeEqual } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
@@ -76,7 +77,7 @@ const getEmailBody = (signerName: string, daysLeft: number, signLink: string) =>
 `;
 
 export async function GET(req: NextRequest) {
-  // ─── Cron 보안 검증 ─────────────────────────────────────────────
+  // ─── Cron 보안 검증 (타이밍 공격 방지) ────────────────────────────
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     return NextResponse.json(
@@ -84,8 +85,11 @@ export async function GET(req: NextRequest) {
       { status: 503 }
     );
   }
-  const authHeader = req.headers.get('authorization');
-  if (authHeader !== `Bearer ${cronSecret}`) {
+  const authHeader = req.headers.get('authorization') ?? '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  const tokenBuf = Buffer.from(token, 'utf8');
+  const secretBuf = Buffer.from(cronSecret, 'utf8');
+  if (tokenBuf.byteLength !== secretBuf.byteLength || !timingSafeEqual(tokenBuf, secretBuf)) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
