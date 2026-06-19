@@ -81,12 +81,13 @@
 .radio-label {
   display: flex;
   align-items: center;
-  padding: 10px 12px;
+  padding: 12px 16px;
   margin-bottom: 8px;
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.2s ease;
   border: 1px solid transparent;
+  min-height: 48px;
 }
 
 .radio-label:hover {
@@ -94,10 +95,12 @@
 }
 
 .radio-label input[type='radio'] {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   margin-right: 12px;
   cursor: pointer;
+  min-width: 24px;
+  min-height: 24px;
 }
 
 .radio-label span {
@@ -123,13 +126,17 @@
   display: flex;
   align-items: center;
   cursor: pointer;
+  min-height: 44px;
+  padding: 8px 12px;
 }
 
 .checkbox-label input[type='checkbox'] {
-  width: 18px;
-  height: 18px;
-  margin-right: 10px;
+  width: 22px;
+  height: 22px;
+  margin-right: 12px;
   cursor: pointer;
+  min-width: 22px;
+  min-height: 22px;
 }
 
 .checkbox-label span {
@@ -152,12 +159,13 @@
 
 .select-group select {
   width: 100%;
-  padding: 10px;
+  padding: 12px 16px;
   border: 1px solid #cbd5e0;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 16px;
   background: #ffffff;
   cursor: pointer;
+  height: 48px;
 }
 
 .select-group select:focus {
@@ -190,13 +198,14 @@
 
 .form-field input {
   width: 100%;
-  padding: 10px;
+  padding: 12px 16px;
   border: 1px solid #cbd5e0;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 16px;
   background: #ffffff;
   box-sizing: border-box;
   transition: border-color 0.2s ease;
+  height: 48px;
 }
 
 .form-field input:focus {
@@ -225,7 +234,7 @@
 /* Button Group */
 .button-group {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   margin-top: 24px;
 }
 
@@ -245,6 +254,10 @@
   border-radius: 4px;
   cursor: pointer;
   transition: all 150ms ease;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-back {
@@ -282,6 +295,10 @@
   color: white;
   padding: 12px 16px;
   border-radius: 4px;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-cta-a:hover:not(:disabled) {
@@ -293,13 +310,14 @@
 .btn-cta-b {
   background: #ed8936;
   color: white;
-  padding: 16px 20px;
+  padding: 12px 20px;
   border-radius: 8px;
   font-size: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
+  min-height: 48px;
 }
 
 .btn-cta-b:hover:not(:disabled) {
@@ -322,10 +340,14 @@
 .btn-cta-c {
   background: #f56565;
   color: white;
-  padding: 14px 18px;
+  padding: 12px 18px;
   border-radius: 20px;
   font-weight: 700;
   animation: pulse 2s infinite;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-cta-c:hover:not(:disabled) {
@@ -412,13 +434,13 @@
   .btn-back,
   .btn-next,
   .btn-secondary {
-    padding: 14px 12px;
-    font-size: 14px;
-    min-height: 44px; /* Touch target */
+    padding: 12px 16px;
+    font-size: 16px;
+    min-height: 48px; /* Touch target */
   }
 
   .button-group {
-    gap: 8px;
+    gap: 16px;
   }
 
   .btn-cta-b {
