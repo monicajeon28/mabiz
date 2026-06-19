@@ -62,9 +62,10 @@ export async function POST(req: Request) {
     }
 
     // ref가 있는데 매칭 안 되면 에러 (점장 오타 방지)
+    // 400을 사용해 유효한 UUID인지 여부를 노출하지 않음 (org UUID 열거 방지)
     if (ref && !organizationId) {
       logger.warn('[LandingRegister] ref 매칭 실패', { ref });
-      return NextResponse.json({ ok: false, message: '잘못된 링크입니다. 정확한 링크로 다시 시도해주세요.' }, { status: 400 });
+      return NextResponse.json({ ok: false, message: '잘못된 요청입니다' }, { status: 400 });
     }
 
     // ref 없으면 기본 조직 (본사 직접 유입)

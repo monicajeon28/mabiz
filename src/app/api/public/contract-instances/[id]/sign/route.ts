@@ -2,66 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { logContractAction } from '@/lib/contract-audit-log';
+import { checkRateLimitAsync } from '@/lib/rate-limit';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-interface RateLimitRecord {
-  count: number;
-  resetTime: number;
-}
-
-const RATE_LIMIT_MAP = new Map<string, RateLimitRecord>();
-let lastCleanupTime = Date.now();
-const CLEANUP_INTERVAL = 1 * 60 * 1000; // 1분마다 정리
-
-function cleanupExpiredRecords(): void {
-  const now = Date.now();
-  if (now - lastCleanupTime < CLEANUP_INTERVAL) return;
-
-  let removedCount = 0;
-  for (const [ip, record] of RATE_LIMIT_MAP.entries()) {
-    if (now > record.resetTime) {
-      RATE_LIMIT_MAP.delete(ip);
-      removedCount++;
-    }
-  }
-
-  if (removedCount > 0) {
-    logger.log('[RateLimit] 정리 완료', {
-      removedCount,
-      mapSize: RATE_LIMIT_MAP.size,
-    });
-  }
-
-  lastCleanupTime = now;
-}
-
-function checkRateLimit(ip: string, maxRequests: number, windowMs: number): boolean {
-  cleanupExpiredRecords(); // ← 매 요청마다 체크
-
-  const now = Date.now();
-  const record = RATE_LIMIT_MAP.get(ip);
-
-  if (!record || now > record.resetTime) {
-    RATE_LIMIT_MAP.set(ip, { count: 1, resetTime: now + windowMs });
-    return true;
-  }
-
-  if (record.count >= maxRequests) return false;
-  record.count++;
-  return true;
-}
-
 export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0] ?? 'unknown';
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
 
-    // Rate limit: IP당 5회/분
-    if (!checkRateLimit(ip, 5, 60000)) {
-      return NextResponse.json({ ok: false, message: '요청 제한 초과' }, { status: 429 });
+    // Rate limit: IP당 5회/분 (Redis-backed, serverless-safe)
+    const rl = await checkRateLimitAsync(`sign:${ip}`, 5, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json({ error: '잠시 후 다시 시도해 주세요' }, { status: 429 });
     }
 
     const body = (await req.json()) as {
