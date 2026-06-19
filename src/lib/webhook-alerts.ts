@@ -243,6 +243,7 @@ export async function sendAlertNotifications(
           const response = await fetch(channels.slack, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            signal: AbortSignal.timeout(8_000),
             body: JSON.stringify({
               text: `🚨 ${alert.title}`,
               blocks: [

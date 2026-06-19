@@ -106,6 +106,7 @@ export async function sendPnrSmsForReservation(reservationId: number): Promise<P
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
       body: form.toString(),
+      signal: AbortSignal.timeout(10_000),
     });
     const json = (await res.json()) as { result_code: string; message?: string };
 

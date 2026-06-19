@@ -588,6 +588,7 @@ export async function provisionAffiliateAccounts(
           'X-Internal-Secret': process.env.CRUISEDOT_WEBHOOK_SECRET ?? '',
         },
         body: JSON.stringify({ affiliates: affiliatePayload, contractId }),
+        signal: AbortSignal.timeout(15_000),
       });
       if (cruisedotRes.ok) {
         logger.info('[AFFILIATE-PROVISION] ✅ 크루즈닷 어필리에이트 등록 성공', {
