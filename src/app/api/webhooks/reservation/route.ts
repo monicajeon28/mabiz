@@ -20,11 +20,11 @@ export async function POST(req: NextRequest) {
   }
 
   const authHeader = req.headers.get('authorization') ?? '';
-  const token = authHeader.replace('Bearer ', '');
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
 
   if (
     token.length !== secret.length ||
-    !timingSafeEqual(Buffer.from(token), Buffer.from(secret))
+    !timingSafeEqual(Buffer.from(token, 'utf8'), Buffer.from(secret, 'utf8'))
   ) {
     logger.error('[ReservationWebhook] 인증 실패');
     return NextResponse.json({ ok: false }, { status: 401 });

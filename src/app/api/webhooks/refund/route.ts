@@ -48,8 +48,8 @@ export async function POST(req: NextRequest) {
   const token = authHeader.slice(7);
   const secretStr: string = secret;
   if (
-    token.length !== secretStr.length ||
-    !timingSafeEqual(Buffer.from(token), Buffer.from(secretStr))
+    Buffer.byteLength(token, 'utf8') !== Buffer.byteLength(secretStr, 'utf8') ||
+    !timingSafeEqual(Buffer.from(token, 'utf8'), Buffer.from(secretStr, 'utf8'))
   ) {
     logger.warn('[RefundWebhook] Bearer 인증 실패');
     return NextResponse.json({ ok: false }, { status: 401 });
@@ -63,8 +63,8 @@ export async function POST(req: NextRequest) {
   }
   const expectedSig = createHmac('sha256', secretStr).update(rawBody).digest('hex');
   if (
-    signature.length !== expectedSig.length ||
-    !timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))
+    Buffer.byteLength(signature, 'hex') !== Buffer.byteLength(expectedSig, 'hex') ||
+    !timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSig, 'hex'))
   ) {
     logger.warn('[RefundWebhook] HMAC 서명 검증 실패');
     return NextResponse.json({ ok: false }, { status: 403 });
