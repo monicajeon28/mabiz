@@ -21,8 +21,10 @@ export async function GET(req: Request, { params }: Params) {
 
     // 쿼리 파라미터 파싱
     const url = new URL(req.url);
-    const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 1000);
-    const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0'));
+    const rawLimit = parseInt(url.searchParams.get('limit') || '50', 10);
+    const limit = Math.min(Number.isNaN(rawLimit) ? 50 : rawLimit, 1000);
+    const rawOffset = parseInt(url.searchParams.get('offset') || '0', 10);
+    const offset = Math.max(0, Number.isNaN(rawOffset) ? 0 : rawOffset);
     const action = url.searchParams.get('action');
 
     // Contact 존재 여부 + 권한 검사

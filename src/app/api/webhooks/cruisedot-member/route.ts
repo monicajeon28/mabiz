@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
 
   if (!secret) {
     logger.error('[MemberWebhook] CRUISEDOT_WEBHOOK_SECRET 미설정');
-    return NextResponse.json({ ok: false, error: 'Webhook not configured' }, { status: 500 });
+    return NextResponse.json({ ok: false, error: 'Webhook not configured' }, { status: 503 });
   }
 
   // Bearer 토큰 검증

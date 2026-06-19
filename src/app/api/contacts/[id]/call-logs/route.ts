@@ -22,6 +22,9 @@ export async function GET(_req: Request, { params }: Params) {
     const ctx = await getAuthContext();
     const { id } = await params;
 
+    if (ctx.role !== 'GLOBAL_ADMIN' && !ctx.organizationId) {
+      return NextResponse.json({ ok: false, error: '조직 정보가 없습니다.' }, { status: 403 });
+    }
     const contactWhere = ctx.role === 'GLOBAL_ADMIN'
       ? { id }
       : { id, organizationId: ctx.organizationId! };
@@ -72,6 +75,9 @@ export async function DELETE(req: Request, { params }: Params) {
     const { searchParams } = new URL(req.url);
     const logId = searchParams.get("logId");
 
+    if (ctx.role !== 'GLOBAL_ADMIN' && !ctx.organizationId) {
+      return NextResponse.json({ ok: false, error: '조직 정보가 없습니다.' }, { status: 403 });
+    }
     const contactWhere = ctx.role === 'GLOBAL_ADMIN'
       ? { id }
       : { id, organizationId: ctx.organizationId! };
@@ -161,7 +167,7 @@ export async function PUT(req: Request, { params }: Params) {
     }
 
     // 수정
-    await prisma.callLog.updateMany({
+    const updateResult = await prisma.callLog.updateMany({
       where: { id: logId, contactId: id },
       data: {
         content: content ?? existingLog.content,
@@ -177,6 +183,7 @@ export async function PUT(req: Request, { params }: Params) {
         recoveryTime: recoveryTime !== undefined ? toOptionalInt(recoveryTime) : existingLog.recoveryTime,
       },
     });
+    if (updateResult.count === 0) return NextResponse.json({ ok: false }, { status: 404 });
     const updatedLog = await prisma.callLog.findUnique({ where: { id: logId } });
     if (!updatedLog) return NextResponse.json({ ok: false }, { status: 404 });
 
@@ -195,6 +202,9 @@ export async function POST(req: Request, { params }: Params) {
     const { id }   = await params;
     const body     = await req.json();
 
+    if (ctx.role !== 'GLOBAL_ADMIN' && !ctx.organizationId) {
+      return NextResponse.json({ ok: false, error: '조직 정보가 없습니다.' }, { status: 403 });
+    }
     const contactWhere = ctx.role === 'GLOBAL_ADMIN'
       ? { id }
       : { id, organizationId: ctx.organizationId! };
