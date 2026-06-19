@@ -97,7 +97,7 @@ export async function GET(req: Request) {
       const contact = log.sequence.contact;
 
       // 조직 SMS 설정 캐시 조회
-      if (!(contact.organizationId in smsConfigCache)) {
+      if (!Object.prototype.hasOwnProperty.call(smsConfigCache, contact.organizationId)) {
         smsConfigCache[contact.organizationId] = await resolveUserSmsConfig(contact.organizationId);
       }
       const smsConfig = smsConfigCache[contact.organizationId];

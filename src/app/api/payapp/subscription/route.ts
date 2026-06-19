@@ -23,6 +23,10 @@ export async function GET(req: Request) {
     const ctx = await getAuthContext();
     const orgId = resolveOrgId(ctx);
 
+    if (ctx.role !== 'GLOBAL_ADMIN' && ctx.role !== 'OWNER') {
+      return NextResponse.json({ ok: false, message: '권한이 없습니다.' }, { status: 403 });
+    }
+
     const url = new URL(req.url);
     const status = url.searchParams.get('status');
 

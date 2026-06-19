@@ -20,8 +20,10 @@ export async function GET(req: Request) {
 
     const search = url.searchParams.get('search');
     const status = url.searchParams.get('status');
-    const page   = Math.max(1, parseInt(url.searchParams.get('page') ?? '1'));
-    const limit  = Math.min(50, parseInt(url.searchParams.get('limit') ?? '20'));
+    const rawPage = parseInt(url.searchParams.get('page') ?? '1', 10);
+    const page = Number.isNaN(rawPage) ? 1 : Math.max(1, rawPage);
+    const rawLimit = parseInt(url.searchParams.get('limit') ?? '20', 10);
+    const limit = Number.isNaN(rawLimit) ? 20 : Math.min(50, Math.max(1, rawLimit));
 
     const VALID_STATUSES: PaymentStatus[] = ['pending', 'paid', 'completed', 'failed', 'cancelled', 'refunded', 'partial_refunded', 'refund_pending', 'pending_vbank'];
     const where: Prisma.PaymentWhereInput = {};

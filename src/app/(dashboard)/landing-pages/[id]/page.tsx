@@ -767,7 +767,7 @@ export default function EditLandingPage() {
           ...(paymentEnabled ? {
             paymentType, productName: productName || null,
             productPrice: parseInt(productPrice) || null,
-            ...(paymentType === "subscription" ? { cycleDay: parseInt(cycleDay), expireDate: expireDate || null } : {}),
+            ...(paymentType === "subscription" ? { cycleDay: parseInt(cycleDay, 10) || 1, expireDate: expireDate || null } : {}),
           } : {}),
         }),
       });

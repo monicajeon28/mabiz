@@ -86,6 +86,8 @@ export async function POST(req: NextRequest) {
 
     const organizationId = affiliateSale?.organizationId ?? null;
 
+    let pendingNotification: Parameters<typeof createRefundNotifications>[0] | null = null;
+
     await prisma.$transaction(async (tx) => {
       // COMPLETED일 때만 실제 처리
       if (status === 'COMPLETED' && affiliateSale && organizationId) {
@@ -160,15 +162,15 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          // 환불 알림 (트랜잭션 외부에서 실패해도 무관)
-          void createRefundNotifications({
+          // 환불 알림 파라미터 캡처 (트랜잭션 커밋 후 실행)
+          pendingNotification = {
             organizationId,
             orderId: bookingRef,
             customerName: contact.name,
             refundAmount,
             refundReason: reason || '환불 요청',
             type: 'full_refund',
-          }).catch((e) => logger.warn('[CrmRefundWebhook] 알림 생성 실패', { e }));
+          };
         }
       }
 
@@ -177,6 +179,12 @@ export async function POST(req: NextRequest) {
         data: { eventId, webhookType: 'crm-refund', status: 'SUCCESS' },
       });
     });
+
+    // 트랜잭션 커밋 후 알림 발송 (실패해도 무관)
+    if (pendingNotification) {
+      void createRefundNotifications(pendingNotification)
+        .catch((e) => logger.warn('[CrmRefundWebhook] 알림 생성 실패', { e }));
+    }
 
     logger.log('[CrmRefundWebhook] 처리 완료', { eventId, bookingRef, status });
     return NextResponse.json({ ok: true, eventId, bookingRef, status });

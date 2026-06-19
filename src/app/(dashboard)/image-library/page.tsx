@@ -152,14 +152,12 @@ export default function ImageLibraryPage() {
       const json = await res.json();
       if (json.ok && json.folders) {
         setGdFolders(json.folders);
-        if (json.folders.length > 0 && !selectedGdFolder) {
-          setSelectedGdFolder(json.folders[0].id);
-        }
+        setSelectedGdFolder(prev => (!prev && json.folders.length > 0) ? json.folders[0].id : prev);
       }
     } catch {
       // silent
     }
-  }, [selectedGdFolder]);
+  }, []);
 
   const fetchGdImages = useCallback(async () => {
     if (!selectedGdFolder) return;

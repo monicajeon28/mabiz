@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from "react";
 import Link from "next/link";
 import { Search, Plus, Phone, MessageSquare, CheckCircle, Clock, XCircle, Upload, X, FileSpreadsheet } from "lucide-react";
 import { logger } from "@/lib/logger";
@@ -130,12 +130,17 @@ export default function InquiriesPage() {
     return () => ctrl.abort();
   }, [fetchContacts]);
 
+  const slidePanelAbortRef = useRef<AbortController | null>(null);
+
   // 행 클릭 시 전체 고객 정보를 받아와 패널 열기
   const openSlidePanel = useCallback(async (contactId: string) => {
+    slidePanelAbortRef.current?.abort();
+    const ctrl = new AbortController();
+    slidePanelAbortRef.current = ctrl;
     setSlidePanelLoadingId(contactId);
     setSlidePanelError(null);
     try {
-      const res = await fetch(`/api/contacts/${contactId}`);
+      const res = await fetch(`/api/contacts/${contactId}`, { signal: ctrl.signal });
       const data = await res.json();
       if (data.ok && data.contact) {
         setSlidePanelContact(data.contact as FullContact);
@@ -144,6 +149,7 @@ export default function InquiriesPage() {
         setSlidePanelError('고객 정보를 불러오지 못했습니다');
       }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       logger.error('[openSlidePanel failed]', { err });
       setSlidePanelError('네트워크 오류가 발생했습니다');
     } finally {
