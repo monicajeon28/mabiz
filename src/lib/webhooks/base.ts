@@ -34,9 +34,12 @@ function verifySignature(payload: string, signature: string, secret: string): bo
     .update(payload)
     .digest('hex');
 
-  return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(expectedSignature)
+  return (
+    Buffer.from(signature, 'hex').byteLength === Buffer.from(expectedSignature, 'hex').byteLength &&
+    crypto.timingSafeEqual(
+      Buffer.from(signature, 'hex'),
+      Buffer.from(expectedSignature, 'hex')
+    )
   );
 }
 

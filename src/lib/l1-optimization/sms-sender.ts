@@ -172,6 +172,7 @@ async function sendViaAligo(params: {
         msg: params.message,
         msg_type: params.isLongMessage ? 'LMS' : 'SMS',
       }).toString(),
+      signal: AbortSignal.timeout(10_000),
     });
 
     const data = await response.json() as any;

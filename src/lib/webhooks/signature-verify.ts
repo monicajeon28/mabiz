@@ -15,10 +15,10 @@ export const signatureVerify = {
 
   verify: (payload: string, signature: string): boolean => {
     const expected = signatureVerify.sign(payload);
-    if (signature.length !== expected.length) return false;
+    if (Buffer.from(signature, 'hex').byteLength !== Buffer.from(expected, 'hex').byteLength) return false;
     return crypto.timingSafeEqual(
-      Buffer.from(signature),
-      Buffer.from(expected)
+      Buffer.from(signature, 'hex'),
+      Buffer.from(expected, 'hex')
     );
   },
 

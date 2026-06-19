@@ -240,6 +240,7 @@ async function retryDLQEntry(entry: Awaited<ReturnType<typeof getPendingDLQEntri
           'Authorization': `Bearer ${webhookSecret}`,
         },
         body: formData.toString(),
+        signal: AbortSignal.timeout(30_000),
       });
     } else {
       // JSON (기본)
@@ -250,6 +251,7 @@ async function retryDLQEntry(entry: Awaited<ReturnType<typeof getPendingDLQEntri
           'Authorization': `Bearer ${webhookSecret}`,
         },
         body: JSON.stringify(entry.payload),
+        signal: AbortSignal.timeout(30_000),
       });
     }
 

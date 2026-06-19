@@ -11,6 +11,7 @@
 
 import { prisma } from "./prisma";
 import { evaluateAutoApproval } from "./contract-modification-rules";
+import { logger } from '@/lib/logger';
 
 export interface MediationQuestion {
   situation: string; // "상황 이해" - 현재 상태 파악
@@ -93,7 +94,7 @@ export async function makeAutoApprovalDecision(
     };
   } catch (error) {
     // 오류 발생 시 안전하게 PENDING으로 처리
-    console.error("[AutoApprovalDecision] Error:", error);
+    logger.error("[AutoApprovalDecision] Error:", error);
     return {
       status: "PENDING",
       evaluation: {
@@ -376,7 +377,7 @@ function formatDate(dateStr: string): string {
  */
 function formatPrice(priceStr: string): string {
   try {
-    const price = parseInt(priceStr) || 0;
+    const price = parseInt(priceStr, 10) || 0;
     return `${price.toLocaleString()}원`;
   } catch {
     return priceStr;

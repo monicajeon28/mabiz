@@ -40,7 +40,7 @@ async function checkRollbackLimit(): Promise<{
     const counterKey = `crm:rollback:count:${dateKey}`;
 
     const countStr = await getCache<string>(counterKey);
-    const count = countStr ? parseInt(countStr) : 0;
+    const count = countStr ? parseInt(countStr, 10) : 0;
 
     if (count >= 3) {
       logger.error("[Verify] 롤백 3회 이상 감지", { count, dateKey });
