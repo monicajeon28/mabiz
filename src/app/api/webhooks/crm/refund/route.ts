@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   const secret = process.env.CRUISEDOT_WEBHOOK_SECRET;
   if (!secret) {
     logger.error('[CrmRefundWebhook] CRUISEDOT_WEBHOOK_SECRET 미설정');
-    return NextResponse.json({ ok: false }, { status: 500 });
+    return NextResponse.json({ ok: false }, { status: 503 });
   }
 
   const body = await req.text();

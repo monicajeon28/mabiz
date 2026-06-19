@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
   const secret = process.env.PARTNER_CONTRACT_WEBHOOK_SECRET;
   if (!secret) {
     logger.error('[ContractSignedWebhook] PARTNER_CONTRACT_WEBHOOK_SECRET 미설정');
-    return NextResponse.json({ ok: false }, { status: 500 });
+    return NextResponse.json({ ok: false }, { status: 503 });
   }
 
   // ── 2. Raw body 읽기 (서명 검증 전 반드시 buffer로) ─────────────────
@@ -120,7 +120,8 @@ export async function POST(req: NextRequest) {
 
   // ── 6. GLOBAL_ADMIN 이메일 알림 (비차단) ───────────────────────────
   if (result.created) {
-    const createdAt = new Date(signedAt).toLocaleString('ko-KR', {
+    const parsedSignedAt = signedAt ? Date.parse(String(signedAt)) : NaN;
+    const createdAt = (!isNaN(parsedSignedAt) ? new Date(parsedSignedAt) : new Date()).toLocaleString('ko-KR', {
       timeZone: 'Asia/Seoul',
       year: 'numeric', month: 'long', day: 'numeric',
       hour: '2-digit', minute: '2-digit',

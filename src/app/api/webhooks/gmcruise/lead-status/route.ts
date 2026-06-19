@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   const secret = process.env.MABIZ_LEAD_STATUS_WEBHOOK_SECRET;
   if (!secret) {
     logger.error('[LeadStatusWebhook] MABIZ_LEAD_STATUS_WEBHOOK_SECRET 미설정');
-    return NextResponse.json({ ok: false }, { status: 500 });
+    return NextResponse.json({ ok: false }, { status: 503 });
   }
 
   const authHeader = req.headers.get('authorization') ?? '';
@@ -28,9 +28,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
   const token = authHeader.slice(7);
+  const tokenBuf = Buffer.from(token, 'utf8');
+  const secretBuf = Buffer.from(secret, 'utf8');
   if (
-    token.length !== secret.length ||
-    !timingSafeEqual(Buffer.from(token), Buffer.from(secret))
+    tokenBuf.byteLength !== secretBuf.byteLength ||
+    !timingSafeEqual(tokenBuf, secretBuf)
   ) {
     logger.error('[LeadStatusWebhook] 인증 실패');
     return NextResponse.json({ ok: false }, { status: 401 });
