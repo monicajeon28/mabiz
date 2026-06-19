@@ -14,7 +14,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
 
     // Rate limit: IP당 5회/분 (Redis-backed, serverless-safe)
-    const rl = await checkRateLimitAsync(`sign:${ip}`, 5, 60_000);
+    // strictMode: Redis 불가 시 fail-closed — 민감한 공개 서명 엔드포인트
+    const rl = await checkRateLimitAsync(`sign:${ip}`, 5, 60_000, { strictMode: true });
     if (!rl.allowed) {
       return NextResponse.json({ error: '잠시 후 다시 시도해 주세요' }, { status: 429 });
     }

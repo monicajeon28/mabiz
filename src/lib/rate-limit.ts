@@ -12,6 +12,7 @@
  */
 
 import { rlIncr, rlTtl } from '@/lib/redis';
+import { logger } from '@/lib/logger';
 
 // ─── 메모리 폴백 저장소 ─────────────────────────────────────────────────────
 interface RateLimitEntry {
@@ -79,7 +80,8 @@ function checkRateLimitMemory(
 export async function checkRateLimitAsync(
   identifier: string,
   maxRequests: number,
-  windowMs: number = 60_000
+  windowMs: number = 60_000,
+  options?: { strictMode?: boolean }
 ): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
   const windowSec = Math.ceil(windowMs / 1000);
   const key = `rate_limit:${identifier}`;
@@ -103,7 +105,14 @@ export async function checkRateLimitAsync(
     };
   }
 
-  // 2순위: 메모리 폴백 (Redis 오류)
+  // 2순위: Redis 오류
+  if (options?.strictMode) {
+    // 민감한 엔드포인트: Redis 불가 시 fail-closed (거부)
+    logger.warn('[rate-limit] Redis unavailable, fail-closed (strictMode)', { key });
+    return { allowed: false, remaining: 0, resetAt: Date.now() + windowMs };
+  }
+
+  // 비민감 엔드포인트: 메모리 폴백 (기존 동작 유지)
   return checkRateLimitMemory(identifier, maxRequests, windowMs);
 }
 
