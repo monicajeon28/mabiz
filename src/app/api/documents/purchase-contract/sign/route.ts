@@ -576,7 +576,7 @@ export async function POST(req: Request) {
   </table>` : ''}
   <div class="signature-box">
     <p><strong>서명자:</strong> ${escHtml(signerName)}</p>
-    <img src="${typeof data.signatureImage === 'string' ? data.signatureImage : ''}" alt="전자서명" style="max-width:300px;border:1px solid #eee;margin-top:8px;" />
+    <img src="${(() => { const sig = typeof data.signatureImage === 'string' ? data.signatureImage : ''; if (sig && !sig.startsWith('data:image/') && !sig.startsWith('https://')) { logger.warn('[sign] Invalid signatureImage format rejected'); return ''; } return sig; })()}" alt="전자서명" style="max-width:300px;border:1px solid #eee;margin-top:8px;" />
   </div>
   <div class="footer">이 문서는 마비즈 CRM에서 자동 생성된 전자 계약서입니다. 생성일시: ${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</div>
 </body>

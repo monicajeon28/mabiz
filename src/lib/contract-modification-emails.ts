@@ -52,8 +52,8 @@ export async function sendSystemEmail({
     // 대체: .env의 기본 SMTP 설정 사용
     if (!emailConfig) {
       logger.warn("[ContractEmail] Organization email config not found, using default SMTP");
-      // 기본 설정으로 발송 (대체 수단)
-      return true;
+      // 설정 없으면 발송 실패로 처리
+      return false;
     }
 
     const success = await sendEmail({
