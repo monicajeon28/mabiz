@@ -188,10 +188,11 @@ export default function MarketingDashboardPage() {
         </div>
       )}
 
-      {/* ━━━ 요약 카드 4개 ━━━ */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      {/* ━━━ 요약 카드 5개 ━━━ */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
         {loading ? (
           <>
+            <SkeletonCard />
             <SkeletonCard />
             <SkeletonCard />
             <SkeletonCard />
@@ -221,6 +222,13 @@ export default function MarketingDashboardPage() {
               value={`${data.summary.purchaseRate}%`}
               sub={`구매 ${data.summary.totalPurchased}건`}
               icon={<TrendingUp className="w-5 h-5 text-navy-600" />}
+            />
+            <KpiCard
+              title="월별 비교"
+              value={data.summary.thisMonthRegistrations ?? 0}
+              sub={`지난 달 ${data.summary.lastMonthRegistrations ?? 0}명`}
+              icon={<TrendingUp className="w-5 h-5 text-navy-600" />}
+              delta={data.summary.registrationDelta}
             />
           </>
         ) : null}
