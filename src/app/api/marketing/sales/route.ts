@@ -19,7 +19,33 @@ export async function GET(req: NextRequest) {
     if (ctx.role !== 'GLOBAL_ADMIN' && !ctx.organizationId) {
       return NextResponse.json({ ok: false, message: '조직 정보가 없어요. 관리자에게 문의해주세요.' }, { status: 403 });
     }
-    const orgId = resolveOrgIdOrNull(ctx);
+
+    // ── 권한 로직: organizationId 파라미터 처리 (관리자가 특정 조직 선택)
+    let orgId: string | null = null;
+    const selectedOrgIdParam = new URL(req.url).searchParams.get('organizationId');
+
+    if (ctx.role === 'OWNER') {
+      // 대리점장: 자신의 조직만 조회
+      orgId = ctx.organizationId || null;
+    } else if (ctx.role === 'GLOBAL_ADMIN') {
+      if (selectedOrgIdParam) {
+        // 관리자가 특정 조직 선택
+        const org = await prisma.organization.findUnique({
+          where: { id: selectedOrgIdParam },
+          select: { id: true },
+        });
+        if (!org) {
+          return NextResponse.json({ ok: false, message: '유효하지 않은 조직입니다.' }, { status: 403 });
+        }
+        orgId = org.id;
+      } else {
+        // 관리자가 organizationId 없으면 전체 조직 데이터 조회
+        orgId = null;
+      }
+    } else {
+      // OWNER(대리점장) 또는 AGENT
+      orgId = resolveOrgIdOrNull(ctx);
+    }
 
     // [API-SALES-GLOBALADMIN-AUDIT-001] GLOBAL_ADMIN cross-org 매출 읽기 감사 로그
     if (ctx.role === 'GLOBAL_ADMIN') {

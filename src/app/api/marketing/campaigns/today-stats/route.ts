@@ -28,6 +28,33 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // ── 권한 로직: organizationId 파라미터 처리 (관리자가 특정 조직 선택)
+    let orgIdFilter: string | null = null;
+    const selectedOrgIdParam = new URL(req.url).searchParams.get('organizationId');
+
+    if (ctx.role === 'OWNER') {
+      // 대리점장: 자신의 조직만 조회
+      orgIdFilter = ctx.organizationId || null;
+    } else if (ctx.role === 'GLOBAL_ADMIN') {
+      if (selectedOrgIdParam) {
+        // 관리자가 특정 조직 선택
+        const org = await prisma.organization.findUnique({
+          where: { id: selectedOrgIdParam },
+          select: { id: true },
+        });
+        if (!org) {
+          return NextResponse.json({ ok: false, message: '유효하지 않은 조직입니다.' }, { status: 403 });
+        }
+        orgIdFilter = org.id;
+      } else {
+        // 관리자가 organizationId 없으면 전체 조직 데이터 조회
+        orgIdFilter = null;
+      }
+    } else {
+      // OWNER/AGENT
+      orgIdFilter = ctx.organizationId || null;
+    }
+
     const today = new Date();
     const todayStart = startOfDay(today);
     const todayEnd = endOfDay(today);
@@ -39,14 +66,14 @@ export async function GET(req: NextRequest) {
       },
     };
 
-    // GLOBAL_ADMIN: 모든 캠페인 조회
-    // OWNER/AGENT: 소속 조직 캠페인만 조회
-    const campaignWhere = ctx.role === 'GLOBAL_ADMIN'
-      ? baseWhere
-      : { ...baseWhere, organizationId: ctx.organizationId! };
+    // branchManagerId 파라미터 또는 organizationId로 필터
+    const campaignWhere = orgIdFilter
+      ? { ...baseWhere, organizationId: orgIdFilter }
+      : baseWhere;
 
-    const logWhere = ctx.role === 'GLOBAL_ADMIN'
+    const logWhere = orgIdFilter
       ? {
+          organizationId: orgIdFilter,
           sourceType: 'CAMPAIGN' as const,
           campaignId: { not: null },
           scheduledAt: {
@@ -55,7 +82,6 @@ export async function GET(req: NextRequest) {
           },
         }
       : {
-          organizationId: ctx.organizationId!,
           sourceType: 'CAMPAIGN' as const,
           campaignId: { not: null },
           scheduledAt: {
@@ -81,9 +107,9 @@ export async function GET(req: NextRequest) {
     // Prisma StringFilter.in은 mutable string[]을 요구하므로 변수로 선언해 readonly 타입 오류 방지.
     const staleThreshold = new Date(Date.now() - 30 * 60 * 1000);
     const sendingStatusFilter: string[] = ['SENDING'];
-    const sendingWhere = ctx.role === 'GLOBAL_ADMIN'
-      ? { status: { in: sendingStatusFilter }, updatedAt: { gte: staleThreshold } }
-      : { status: { in: sendingStatusFilter }, organizationId: ctx.organizationId!, updatedAt: { gte: staleThreshold } };
+    const sendingWhere = orgIdFilter
+      ? { status: { in: sendingStatusFilter }, organizationId: orgIdFilter, updatedAt: { gte: staleThreshold } }
+      : { status: { in: sendingStatusFilter }, updatedAt: { gte: staleThreshold } };
     const campaigns = await prisma.crmMarketingCampaign.findMany({
       where: sendingWhere,
       select: {

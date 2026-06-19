@@ -5,7 +5,7 @@ import { logger } from '@/lib/logger';
 import { checkRateLimitAsync } from '@/lib/rate-limit';
 
 // ── GET /api/marketing/campaigns/[id]/track — 추적 데이터 조회 ─────────
-export async function GET(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const ctx = await getMabizSession();
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
@@ -15,10 +15,34 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
 
     const { id } = await context.params;
 
+    // ── 권한 로직: organizationId 파라미터 처리 (관리자가 특정 조직 선택)
+    let orgIdFilter: string | undefined;
+    const selectedOrgIdParam = new URL(req.url).searchParams.get('organizationId');
+
+    if (ctx.role === 'OWNER') {
+      // 대리점장: 자신의 조직만 조회
+      orgIdFilter = ctx.organizationId ?? undefined;
+    } else if (ctx.role === 'GLOBAL_ADMIN') {
+      if (selectedOrgIdParam) {
+        // 관리자가 특정 조직 선택
+        const org = await prisma.organization.findUnique({
+          where: { id: selectedOrgIdParam },
+          select: { id: true },
+        });
+        if (!org) {
+          return NextResponse.json({ ok: false, message: '유효하지 않은 조직입니다.' }, { status: 403 });
+        }
+        orgIdFilter = org.id;
+      } else {
+        // 관리자가 organizationId 없으면 제한 없음
+        orgIdFilter = undefined;
+      }
+    }
+
     const campaign = await prisma.crmMarketingCampaign.findFirst({
       where: {
         id,
-        organizationId: ctx.organizationId ?? undefined,
+        organizationId: orgIdFilter,
       },
     });
 
