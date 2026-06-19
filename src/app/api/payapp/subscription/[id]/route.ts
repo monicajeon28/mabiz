@@ -120,8 +120,10 @@ export async function DELETE(req: Request, { params }: Params) {
     let cancelReason = '';
     try {
       const body = await req.json();
-      cancelReason = body.reason ?? '';
-    } catch { /* body 없으면 무시 */ }
+      cancelReason = body?.reason ?? '';
+    } catch (bodyErr) {
+      logger.debug('[PayApp/Subscription] DELETE body 파싱 무시 (body 없음)', { bodyErr });
+    }
 
     const sub = await prisma.payAppSubscription.findFirst({
       where: { id, organizationId: orgId },
