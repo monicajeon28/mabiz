@@ -13,11 +13,11 @@ export async function GET(req: NextRequest) {
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
     // API-SALES-001: OWNER + GLOBAL_ADMIN만 허용. FREE_SALES·AGENT 완전 차단
     if (ctx.role === 'FREE_SALES' || ctx.role === 'AGENT') {
-      return NextResponse.json({ ok: false, message: '접근 권한이 없습니다.' }, { status: 403 });
+      return NextResponse.json({ ok: false, message: '이 기능을 사용할 권한이 없어요.' }, { status: 403 });
     }
     // GLOBAL_ADMIN은 organizationId가 null이어도 전체 조회 허용
     if (ctx.role !== 'GLOBAL_ADMIN' && !ctx.organizationId) {
-      return NextResponse.json({ ok: false, message: '조직 정보가 없습니다.' }, { status: 403 });
+      return NextResponse.json({ ok: false, message: '조직 정보가 없어요. 관리자에게 문의해주세요.' }, { status: 403 });
     }
     const orgId = resolveOrgIdOrNull(ctx);
 

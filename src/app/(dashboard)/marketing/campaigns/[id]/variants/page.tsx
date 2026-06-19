@@ -101,12 +101,12 @@ export default function VariantPage() {
       const data = await res.json();
 
       if (!data.ok) {
-        toast({ title: 'Variant 생성 실패', description: data.error || '다시 시도해주세요.', variant: 'destructive' });
+        toast({ title: '메시지 생성 실패', description: data.error || '다시 시도해주세요.', variant: 'destructive' });
         return;
       }
 
       setVariants([...variants, data.variant]);
-      toast({ title: `Variant ${variantKey} 생성 완료` });
+      toast({ title: `메시지 ${variantKey} 생성 완료` });
       // UI-VARIANTS-009: AbortController로 refetch 취소 가능하게 변경
       if (mountedRef.current) {
         mutationCtrlRef.current?.abort();
@@ -134,12 +134,12 @@ export default function VariantPage() {
       const data = await res.json();
 
       if (!data.ok) {
-        toast({ title: 'Variant 수정 실패', description: data.error || '다시 시도해주세요.', variant: 'destructive' });
+        toast({ title: '메시지 수정 실패', description: data.error || '다시 시도해주세요.', variant: 'destructive' });
         return;
       }
 
       setVariants(variants.map(v => (v.variantKey === variantKey ? data.variant : v)));
-      toast({ title: `Variant ${variantKey} 수정 완료` });
+      toast({ title: `메시지 ${variantKey} 수정 완료` });
       if (mountedRef.current) {
         mutationCtrlRef.current?.abort();
         mutationCtrlRef.current = new AbortController();
@@ -164,12 +164,12 @@ export default function VariantPage() {
       const data = await res.json();
 
       if (!data.ok) {
-        toast({ title: 'Variant 삭제 실패', description: data.error || '다시 시도해주세요.', variant: 'destructive' });
+        toast({ title: '메시지 삭제 실패', description: data.error || '다시 시도해주세요.', variant: 'destructive' });
         return;
       }
 
       setVariants(variants.filter(v => v.variantKey !== variantKey));
-      toast({ title: `Variant ${variantKey} 삭제 완료` });
+      toast({ title: `메시지 ${variantKey} 삭제 완료` });
       if (mountedRef.current) {
         mutationCtrlRef.current?.abort();
         mutationCtrlRef.current = new AbortController();
@@ -198,16 +198,17 @@ export default function VariantPage() {
     <div className="space-y-6 p-6">
       {/* 헤더 */}
       <div>
-        <h1 className="text-3xl font-bold">🔬 A/B 테스트 관리</h1>
+        <h1 className="text-3xl font-bold">🔬 메시지 A/B 테스트</h1>
         <p className="text-gray-600 mt-2">
           {campaign?.title} — <span className="font-semibold">{campaign ? STATUS_LABEL[campaign.status] : ''}</span>
         </p>
+        <p className="text-sm text-gray-500 mt-1">두 가지 메시지를 보내서 어느 것이 더 효과적인지 비교하세요</p>
       </div>
 
-      {/* DRAFT 아님 경고 — API와 일치: DRAFT만 Variant 수정 가능 */}
+      {/* DRAFT 아님 경고 — API와 일치: DRAFT만 메시지 수정 가능 */}
       {campaign?.status !== 'DRAFT' && (
         <div className="border border-yellow-200 bg-yellow-50 text-yellow-800 p-4 rounded">
-          발송 중이거나 완료된 캠페인입니다. Variant를 수정할 수 없습니다. 새 캠페인을 만들어주세요.
+          이미 발송 중이거나 완료된 캠페인입니다. 메시지를 수정할 수 없습니다. 새로 만들어주세요.
         </div>
       )}
 
@@ -218,13 +219,13 @@ export default function VariantPage() {
             onClick={() => setActiveTab('manage')}
             className={`px-4 py-2 border-b-2 transition ${activeTab === 'manage' ? 'border-blue-500 text-blue-600 font-semibold' : 'border-transparent text-gray-600 hover:text-gray-900'}`}
           >
-            ✏️ Variant 관리
+            ✏️ 메시지 편집
           </button>
           <button
             onClick={() => setActiveTab('stats')}
             className={`px-4 py-2 border-b-2 transition ${activeTab === 'stats' ? 'border-blue-500 text-blue-600 font-semibold' : 'border-transparent text-gray-600 hover:text-gray-900'}`}
           >
-            📊 성과 분석
+            📊 결과 확인
           </button>
         </div>
 
@@ -259,7 +260,7 @@ export default function VariantPage() {
               <VariantStats stats={stats} onRefresh={loadData} />
             ) : (
               <div className="border border-gray-200 bg-gray-50 text-gray-600 p-4 rounded">
-                발송 이력이 없어서 통계를 표시할 수 없습니다.
+                아직 발송한 내역이 없어서 결과를 보여줄 수 없어요. 메시지를 발송한 후 다시 확인해주세요.
               </div>
             )}
           </div>
