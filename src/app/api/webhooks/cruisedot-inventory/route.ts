@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, duplicate: true });
     }
 
-    // 재고 동기화 트랜잭션
+    // 재고 동기화 트랜잭션 (GAP-4: 멱등성 기록을 트랜잭션 내부로 이동)
     await prisma.$transaction(
       async (tx) => {
         if (inventorySnapshot) {
@@ -194,23 +194,40 @@ export async function POST(req: NextRequest) {
               },
             });
           } else {
-            logger.warn('[InventorySyncWebhook] CabinInventory 레코드 없음 — 증감 스킵', {
+            // GAP-5: 레코드 없으면 스킵 대신 신규 생성
+            const initialBooked = action === 'decrement' ? quantity : 0;
+            await tx.cabinInventory.create({
+              data: {
+                organizationId,
+                tripCode:    productCode,
+                tripName:    productCode,
+                cabinType,
+                totalCount:  0,
+                bookedCount: initialBooked,
+                status:      'AVAILABLE',
+              },
+            });
+            logger.log('[InventorySyncWebhook] CabinInventory 신규 생성 (snapshot 없음)', {
               organizationId,
               productCode,
               cabinType,
             });
           }
         }
+
+        // GAP-4: 멱등성 기록을 트랜잭션 내부에서 원자적으로 처리
+        await tx.processedWebhookEvent.create({
+          data: {
+            eventId,
+            webhookType: 'cruisedot-inventory',
+            status:      'SUCCESS',
+            errorMessage: null,
+            processedAt:  new Date(),
+          },
+        });
       },
       { isolationLevel: 'Serializable' }
     );
-
-    // 멱등성 기록
-    await recordProcessedWebhookEvent(prisma, {
-      eventId,
-      webhookType: 'cruisedot-inventory',
-      context: '[InventorySyncWebhook] SUCCESS 기록 실패',
-    });
 
     logger.log('[InventorySyncWebhook] 처리 완료', { eventId, productCode, action, quantity });
     return NextResponse.json({ ok: true });
