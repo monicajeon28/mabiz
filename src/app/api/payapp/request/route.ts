@@ -183,13 +183,15 @@ export async function POST(req: Request) {
     });
 
     if (!result.ok) {
-      await prisma.payAppPayment.updateMany({ where: { orderId }, data: { status: 'failed' } });
+      const r = await prisma.payAppPayment.updateMany({ where: { orderId }, data: { status: 'failed' } });
+      if (r.count === 0) logger.error('[PayApp/Request] failed 상태 저장 누락', { orderId });
       return NextResponse.json({ ok: false, message: result.error }, { status: 502 });
     }
 
     // mulNo 업데이트 (PayApp으로부터 수신한 주문번호 기록)
     if (result.mulNo) {
-      await prisma.payAppPayment.updateMany({ where: { orderId }, data: { mulNo: result.mulNo } });
+      const r = await prisma.payAppPayment.updateMany({ where: { orderId }, data: { mulNo: result.mulNo } });
+      if (r.count === 0) logger.error('[PayApp/Request] mulNo 저장 누락', { orderId, mulNo: result.mulNo });
     }
 
     logger.log('[PayApp/Request] 일반결제 요청', {
