@@ -6,6 +6,7 @@
  */
 
 import crypto from 'crypto';
+import { logger } from '@/lib/logger';
 
 // 환경변수에서 암호화 키 로드 (32바이트 = 256bit)
 function getEncryptionKey(): Buffer {
@@ -49,7 +50,7 @@ export function encryptPassport(passportNumber: string): { encryptedData: string
       iv: iv.toString('base64'),
     };
   } catch (error) {
-    console.error('여권번호 암호화 실패:', error);
+    logger.error('[passport-encryption] 암호화/복호화 실패', { error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -75,7 +76,7 @@ export function decryptPassport(encryptedData: string, iv: string): string {
 
     return decrypted.toString('utf-8');
   } catch (error) {
-    console.error('여권번호 복호화 실패:', error);
+    logger.error('[passport-encryption] 암호화/복호화 실패', { error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }

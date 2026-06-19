@@ -30,9 +30,13 @@ export async function GET(req: NextRequest) {
     }
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // 인증 체크: GLOBAL_ADMIN만 접근 허용
     const ctx = await getAuthContext().catch(() => null);
     if (!ctx?.userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 });
+    }
+    if (ctx.role !== 'GLOBAL_ADMIN') {
+      return NextResponse.json({ error: '권한이 없습니다' }, { status: 403 });
     }
 
     const searchParams = req.nextUrl.searchParams;
@@ -46,10 +50,21 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // GLOBAL_ADMIN은 쿼리파라미터로 org 선택 가능, 그 외에는 자신의 org만
+    const organizationId = searchParams.get('organizationId') || ctx.organizationId || '';
+
+    if (!organizationId) {
+      return NextResponse.json(
+        { error: 'organizationId is required' },
+        { status: 400 }
+      );
+    }
+
     // ab_test_assignments 테이블에서 A/B 할당 정보
     const { data: assignments, error: assignError } = await supabase
       .from('ab_test_assignments')
       .select('contact_id, variant, test_type, created_at')
+      .eq('organization_id', organizationId)
       .gte('created_at', fromDate)
       .lte('created_at', toDate);
 
@@ -59,6 +74,7 @@ export async function GET(req: NextRequest) {
     const { data: campaignEvents, error: eventError } = await supabase
       .from('campaign_events')
       .select('contact_id, event_type, created_at, variant')
+      .eq('organization_id', organizationId)
       .gte('created_at', fromDate)
       .lte('created_at', toDate);
 

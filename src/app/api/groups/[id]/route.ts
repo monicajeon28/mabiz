@@ -315,7 +315,7 @@ export async function PATCH(req: Request, { params }: Params) {
     }
 
     const updated = await prisma.contactGroup.update({
-      where: { id: groupId },
+      where: { id: groupId, organizationId: effectiveOrgId },
       data: updateData,
       select: { id: true, name: true, description: true, funnelId: true, updatedAt: true },
     });

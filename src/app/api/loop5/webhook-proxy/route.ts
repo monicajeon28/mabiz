@@ -49,8 +49,9 @@ export async function POST(req: NextRequest) {
     const expected = createHmac('sha256', secret).update(bodyText).digest('hex');
     let sigValid = false;
     try {
-      sigValid = signature.length === expected.length &&
-        timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expected, 'hex'));
+      const sigBuf = Buffer.from(signature, 'hex');
+      const expBuf = Buffer.from(expected, 'hex');
+      sigValid = sigBuf.byteLength === expBuf.byteLength && timingSafeEqual(sigBuf, expBuf);
     } catch { sigValid = false; }
 
     if (!sigValid) {

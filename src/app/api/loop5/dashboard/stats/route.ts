@@ -73,6 +73,11 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(fromDate) || !dateRegex.test(toDate)) {
+      return NextResponse.json({ error: '날짜 형식은 YYYY-MM-DD여야 합니다' }, { status: 400 });
+    }
+
     // 날짜 범위를 ISO 형식으로 정규화 (INDEX 활용)
     const from = new Date(fromDate);
     const to = new Date(toDate);
