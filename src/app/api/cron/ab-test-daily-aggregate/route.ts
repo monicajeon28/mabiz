@@ -15,6 +15,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { analyzeABTest } from "@/lib/analytics/sms-ab-test-statistics";
 import { detectWinner, updateTestResults } from "@/lib/services/ab-test-automation";
@@ -201,8 +202,11 @@ export async function GET(request: NextRequest) {
     if (!expectedToken) {
       return NextResponse.json({ error: "CRON_SECRET 환경변수 미설정" }, { status: 503 });
     }
-    const authHeader = request.headers.get("Authorization");
-    if (authHeader !== `Bearer ${expectedToken}`) {
+    const authHeader = request.headers.get("Authorization") ?? "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+    const tokenBuf = Buffer.from(token, "utf8");
+    const expectedBuf = Buffer.from(expectedToken, "utf8");
+    if (tokenBuf.byteLength !== expectedBuf.byteLength || !timingSafeEqual(tokenBuf, expectedBuf)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -260,7 +264,7 @@ export async function GET(request: NextRequest) {
       completedTests: completedCount,
       errorCount,
       successCount,
-      avgExecutionTimeMs: Math.round(executionTimeMs / activeTests.length),
+      avgExecutionTimeMs: activeTests.length > 0 ? Math.round(executionTimeMs / activeTests.length) : 0,
       failedTestIds,
       status: status as "SUCCESS" | "PARTIAL" | "FAILED",
       notes: `Processed ${successCount}/${activeTests.length} tests. ${winnersDetected} winners detected.`,
@@ -290,7 +294,7 @@ export async function GET(request: NextRequest) {
       },
       results: results.slice(0, 10), // Return first 10 for brevity
       totalResultsCount: results.length,
-      logId: logEntry.id,
+      logId: logEntry?.id ?? null,
     });
   } catch (error) {
     logger.error("[GET /api/cron/ab-test-daily-aggregate] Fatal error", {

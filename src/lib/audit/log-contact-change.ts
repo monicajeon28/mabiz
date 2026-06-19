@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 export interface LogContactChangeOpts {
   contactId: string;
@@ -30,8 +31,7 @@ export async function logContactChange(opts: LogContactChangeOpts): Promise<void
       },
     });
   } catch (err) {
-    console.error('[logContactChange] 실패:', {
-      contactId: opts.contactId,
+    logger.error('[logContactChange] 실패', {
       action: opts.action,
       fieldChanged: opts.fieldChanged,
       error: err instanceof Error ? err.message : String(err),
