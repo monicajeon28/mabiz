@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
 
     for (const table of relatedTables) {
       const countResult = await client.query(`SELECT COUNT(*) as count FROM "${table}"`);
-      const rowCount = parseInt(countResult.rows[0]?.count ?? 0);
+      const rowCount = parseInt(String(countResult.rows[0]?.count ?? 0), 10);
 
       const columnsResult = await client.query(`
         SELECT column_name

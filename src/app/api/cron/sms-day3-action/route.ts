@@ -169,6 +169,7 @@ ${isVip ? '⭐ VIP 멤버님께 감사드립니다!' : '🎁 처음 고객님은
 
         const res = await fetch('https://apis.aligo.in/send/', {
           method: 'POST',
+          signal: AbortSignal.timeout(10_000),
           body: new URLSearchParams({
             key: config.key,
             user_id: config.userId,

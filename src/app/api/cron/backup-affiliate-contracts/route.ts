@@ -33,6 +33,10 @@ function verifySecret(req: NextRequest): boolean {
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
 
+  if (!process.env.CRON_SECRET) {
+    return NextResponse.json({ ok: false }, { status: 503 });
+  }
+
   if (!verifySecret(req)) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }

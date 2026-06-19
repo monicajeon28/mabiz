@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     for (const table of allTables) {
       try {
         const countResult = await client.query(`SELECT COUNT(*) as count FROM "${table}"`);
-        const count = parseInt(countResult.rows[0].count ?? 0);
+        const count = parseInt(String(countResult.rows[0].count ?? 0), 10);
 
         const sizeResult = await client.query(`
           SELECT pg_size_pretty(pg_total_relation_size('${table}')) as size

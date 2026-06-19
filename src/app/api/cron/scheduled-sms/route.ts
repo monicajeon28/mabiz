@@ -16,7 +16,7 @@ export async function GET(req: Request) {
 
   if (!secret) {
     logger.error("[CronScheduledSms] CRON_SECRET 환경변수 미설정");
-    return NextResponse.json({ ok: false }, { status: 401 });
+    return NextResponse.json({ ok: false }, { status: 503 });
   }
 
   const expected = `Bearer ${secret}`;

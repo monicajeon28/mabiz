@@ -170,6 +170,7 @@ export async function POST(req: Request) {
 
         const res = await fetch('https://apis.aligo.in/send/', {
           method: 'POST',
+          signal: AbortSignal.timeout(10_000),
           body: new URLSearchParams({
             key: config.key,
             user_id: config.userId,

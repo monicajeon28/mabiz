@@ -2,6 +2,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import {
@@ -28,10 +29,15 @@ export async function POST(req: NextRequest) {
   const startTime = Date.now();
   try {
     // Cron 보안: Authorization 헤더 확인
-    const authHeader = req.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
-
-    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    if (!cronSecret) {
+      return NextResponse.json({ ok: false, error: 'CRON_SECRET 미설정' }, { status: 503 });
+    }
+    const authHeader = req.headers.get('authorization') ?? '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    const tokenBuf = Buffer.from(token, 'utf8');
+    const secretBuf = Buffer.from(cronSecret, 'utf8');
+    if (tokenBuf.byteLength !== secretBuf.byteLength || !timingSafeEqual(tokenBuf, secretBuf)) {
       logger.warn('[Cron] Backup Passport - Unauthorized access attempt');
       return NextResponse.json(
         { ok: false, error: 'Unauthorized' },

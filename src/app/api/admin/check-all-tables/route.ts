@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     const tableStats: Record<string, number> = {};
     for (const table of allTables) {
       const countResult = await client.query(`SELECT COUNT(*) as count FROM "${table}"`);
-      tableStats[table] = parseInt(countResult.rows[0].count ?? 0);
+      tableStats[table] = parseInt(String(countResult.rows[0].count ?? 0), 10);
     }
 
     // News/Community 관련 테이블만 따로 표시

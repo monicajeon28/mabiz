@@ -192,7 +192,7 @@ export async function GET(req: Request) {
           failed: item._sum.failedCount || 0,
         })),
         hourlyTrend: Object.entries(hourlyTrend).map(([hour, data]) => ({
-          hour: parseInt(hour),
+          hour: parseInt(hour, 10),
           total: data.total,
           sent: data.sent,
           failed: data.failed,

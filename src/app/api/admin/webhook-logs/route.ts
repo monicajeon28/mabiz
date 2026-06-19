@@ -25,8 +25,8 @@ export async function GET(request: NextRequest) {
 
     const sp = request.nextUrl.searchParams;
     const tab = sp.get('tab') || 'events';
-    const page = Math.max(1, parseInt(sp.get('page') || '1'));
-    const limit = Math.min(100, parseInt(sp.get('limit') || '20') || 20);
+    const page = Math.max(1, parseInt(sp.get('page') || '1', 10));
+    const limit = Math.min(100, parseInt(sp.get('limit') || '20', 10) || 20);
     const skip = (page - 1) * limit;
     const typeFilter = sp.get('type') || undefined;
 

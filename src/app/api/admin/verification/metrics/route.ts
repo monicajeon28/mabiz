@@ -467,7 +467,7 @@ async function getRecoveryStatusMetric(): Promise<{
 
     return {
       last_rollback: lastRollbackStr
-        ? new Date(parseInt(lastRollbackStr as string)).toISOString()
+        ? new Date(parseInt(lastRollbackStr as string, 10)).toISOString()
         : null,
       last_recovery_attempt: lastRecoveryStr as string | null,
       feature_flag_enabled: featureFlagStr === "true",

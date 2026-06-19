@@ -43,7 +43,7 @@ function validateCronRequest(req: NextRequest): {
   const cronSecret = process.env.CRON_SECRET;
 
   if (!cronSecret) {
-    return { valid: false, error: "Unauthorized: CRON_SECRET not configured" };
+    return { valid: false, error: "SERVICE_UNAVAILABLE: CRON_SECRET not configured" };
   }
   const expectedAuth = `Bearer ${cronSecret}`;
   if (
@@ -95,9 +95,10 @@ export async function POST(req: NextRequest) {
     const validation = validateCronRequest(req);
     if (!validation.valid) {
       logger.warn("[Cron] 요청 검증 실패: " + validation.error);
+      const status = validation.error?.startsWith("SERVICE_UNAVAILABLE") ? 503 : 400;
       return NextResponse.json(
         { error: validation.error },
-        { status: 400 }
+        { status }
       );
     }
 
