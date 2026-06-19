@@ -65,7 +65,7 @@ export async function GET() {
             isActive: true,
             id: { not: ctx.userId },
           },
-          select: { id: true, displayName: true, phone: true, role: true, organization: { select: { name: true } } },
+          select: { id: true, displayName: true, role: true, organization: { select: { name: true } } },
           take: 50,
         }),
         prisma.organizationMember.findMany({
@@ -74,7 +74,7 @@ export async function GET() {
             role: { in: ["AGENT", "SALES_AGENT"] },
             isActive: true,
           },
-          select: { id: true, displayName: true, phone: true, role: true, organization: { select: { name: true } } },
+          select: { id: true, displayName: true, role: true, organization: { select: { name: true } } },
           take: 50,
         }),
       ]);
@@ -83,7 +83,7 @@ export async function GET() {
         targets.push({
           id: m.id,
           displayName: m.displayName ?? "이름없음",
-          loginId: m.phone ?? m.id,
+          loginId: m.id,
           role: m.role === "OWNER" ? "대리점장" : m.role === "AGENT" || m.role === "SALES_AGENT" ? "판매원" : "지점장",
           orgName: m.organization.name,
         });
