@@ -200,7 +200,7 @@ export async function POST(req: NextRequest) {
           type: 'PURCHASED',
           affiliateCode: affiliateCode || null,
           lastPaymentStatus: status === 'CONFIRMED' ? 'paid' : 'pending',
-          lastPaymentAt: status === 'CONFIRMED' ? new Date(timestamp) : undefined,
+          lastPaymentAt: status === 'CONFIRMED' ? new Date(timestamp ?? Date.now()) : undefined,
           // 출처 분류: 어필리에이트 구매면 'affiliate', HQ 직접구매면 'user'
           sourceType: isDirectPurchase ? 'user' : 'affiliate',
           channel: 'b2c',
@@ -266,8 +266,8 @@ export async function POST(req: NextRequest) {
           smsDay7Sent?: boolean;
         } = {
           lastPaymentStatus: paymentStatus,
-          lastPaymentAt: status === 'CONFIRMED' ? new Date(timestamp) : undefined,
-          lastRefundedAt: status === 'REFUNDED' ? new Date(timestamp) : undefined,
+          lastPaymentAt: status === 'CONFIRMED' ? new Date(timestamp ?? Date.now()) : undefined,
+          lastRefundedAt: status === 'REFUNDED' ? new Date(timestamp ?? Date.now()) : undefined,
           paymentStatusNote:
             status === 'REFUNDED'
               ? `환불완료: ${refundAmount ? refundAmount.toLocaleString() + '원' : '금액미상'}`
@@ -304,7 +304,7 @@ export async function POST(req: NextRequest) {
             refundAmount ? `금액: ${refundAmount.toLocaleString()}원` : null,
             reason ? `사유: ${reason}` : null,
             `이벤트ID: ${eventId}`,
-            `처리일시: ${new Date(timestamp).toLocaleString('ko-KR')}`,
+            `처리일시: ${new Date(timestamp ?? Date.now()).toLocaleString('ko-KR')}`,
           ]
             .filter(Boolean)
             .join('\n');

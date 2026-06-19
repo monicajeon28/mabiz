@@ -42,7 +42,11 @@ export async function POST(req: NextRequest) {
 
   // Bearer Token 검증
   const authHeader = req.headers.get('authorization') ?? '';
-  const token = authHeader.replace('Bearer ', '');
+  if (!authHeader.startsWith('Bearer ')) {
+    logger.warn('[SettlementWebhook] 인증 실패');
+    return NextResponse.json({ ok: false }, { status: 401 });
+  }
+  const token = authHeader.slice(7);
 
   if (token.length !== secretStr.length || !timingSafeEqual(Buffer.from(token), Buffer.from(secretStr))) {
     logger.warn('[SettlementWebhook] 인증 실패');
@@ -268,6 +272,10 @@ export async function POST(req: NextRequest) {
     if (status === 'PAID') {
       const commissionAmount = Math.floor(amount - calculatedNetAmount);
 
+      // SMS 알림: netAmount 없으면 0원 발송 방지
+      if (netAmount === undefined || netAmount === null) {
+        logger.warn('[SettlementWebhook] netAmount 누락 — 정산 SMS 발송 건너뜀', { profileIdInt, period });
+      } else {
       // SMS 알림: 파트너에게 정산 완료 안내
       try {
         const gmUser = await prisma.gmUser.findUnique({
@@ -282,6 +290,7 @@ export async function POST(req: NextRequest) {
       } catch (smsErr) {
         logger.warn('[SettlementWebhook] 정산 SMS 발송 실패', { partnerId: profileIdInt, error: String(smsErr) });
       }
+      } // end netAmount guard
 
       logger.log('[SettlementWebhook] 알림 발송 완료', {
         partnerId: profileIdInt,

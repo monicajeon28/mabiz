@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
 
   const { contractRef, ownerName, ownerPhone, ownerEmail, orgName, signedAt, eventId } = payload;
 
-  if (!contractRef || !ownerName || !ownerPhone || !orgName) {
+  if (!contractRef || !ownerName || !ownerPhone || !orgName || !eventId) {
     return NextResponse.json(
       { ok: false, message: 'contractRef, ownerName, ownerPhone, orgName 필수' },
       { status: 400 }
@@ -88,20 +88,18 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 5-0. eventId 멱등성 체크 ────────────────────────────────────────
-  if (eventId) {
-    const alreadyProcessed = await prisma.processedWebhookEvent.findUnique({
-      where: {
-        eventId_webhookType: {
-          eventId,
-          webhookType: 'gmcruise-contract-signed',
-        },
+  const alreadyProcessed = await prisma.processedWebhookEvent.findUnique({
+    where: {
+      eventId_webhookType: {
+        eventId,
+        webhookType: 'gmcruise-contract-signed',
       },
-      select: { eventId: true },
-    });
-    if (alreadyProcessed) {
-      logger.log('[ContractSignedWebhook] 중복 이벤트 무시', { eventId });
-      return NextResponse.json({ ok: true, duplicate: true });
-    }
+    },
+    select: { eventId: true },
+  });
+  if (alreadyProcessed) {
+    logger.log('[ContractSignedWebhook] 중복 이벤트 무시', { eventId });
+    return NextResponse.json({ ok: true, duplicate: true });
   }
 
   // ── 5. Organization 생성 (idempotent) ──────────────────────────────

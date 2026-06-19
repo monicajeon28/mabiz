@@ -22,7 +22,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 
-  const token = (req.headers.get('authorization') ?? '').replace('Bearer ', '');
+  const authHeader = req.headers.get('authorization') ?? '';
+  if (!authHeader.startsWith('Bearer ')) {
+    logger.error('[LeadStatusWebhook] 인증 실패');
+    return NextResponse.json({ ok: false }, { status: 401 });
+  }
+  const token = authHeader.slice(7);
   if (
     token.length !== secret.length ||
     !timingSafeEqual(Buffer.from(token), Buffer.from(secret))
