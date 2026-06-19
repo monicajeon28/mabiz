@@ -8,6 +8,7 @@
  */
 
 import prisma from "@/lib/prisma";
+import { logger } from '@/lib/logger';
 
 // ─── 이벤트별 점수 ────────────────────────────────────────────
 export const SCORE = {
@@ -55,6 +56,6 @@ export async function addLeadScore(
     });
   } catch (err) {
     // 점수 업데이트 실패는 메인 로직을 막지 않음
-    console.warn('[LeadScore] 업데이트 실패', { contactId, event, error: err instanceof Error ? err.message : String(err) });
+    logger.warn('[LeadScore] 업데이트 실패', { contactId, event, error: err instanceof Error ? err.message : String(err) });
   }
 }

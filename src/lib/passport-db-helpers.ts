@@ -6,6 +6,7 @@
  */
 
 import { encryptPassport, decryptPassport, maskPassport } from './passport-encryption';
+import { logger } from '@/lib/logger';
 
 /**
  * 여권번호를 암호화해서 저장할 형식으로 변환
@@ -44,7 +45,7 @@ export function decryptPassportFromDb(
   try {
     return decryptPassport(encryptedPassport, iv);
   } catch (error) {
-    console.error('여권번호 복호화 실패:', error);
+    logger.error('[passport-encryption] 암호화/복호화 실패', { error: error instanceof Error ? error.message : String(error) });
     return null;
   }
 }
