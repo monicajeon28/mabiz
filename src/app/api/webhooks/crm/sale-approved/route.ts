@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
 
   const { eventId, saleId, reservationId, status, rejectionReason, timestamp } = payload;
 
-  if (!eventId || !reservationId || !status || !['APPROVED', 'REJECTED'].includes(status)) {
+  if (!eventId || !reservationId || !status || !timestamp || !['APPROVED', 'REJECTED'].includes(status)) {
     return NextResponse.json({ ok: false, message: '필수 필드 누락' }, { status: 400 });
   }
 

@@ -14,6 +14,11 @@ export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
     const orgId = resolveOrgId(ctx);
+
+    if (ctx.role !== 'GLOBAL_ADMIN' && ctx.role !== 'OWNER') {
+      return NextResponse.json({ ok: false, message: '환불 권한이 없습니다.' }, { status: 403 });
+    }
+
     const body = await req.json();
 
     const { paymentId, reason, partcancel = false, cancelprice } = body as {
@@ -145,7 +150,7 @@ export async function POST(req: Request) {
 
     try {
       await prisma.payAppPayment.update({
-        where: { id: paymentId },
+        where: { id: paymentId, organizationId: orgId },
         data: {
           status: isFullyRefunded ? 'refunded' : 'partial_refunded',
           refundedAt: new Date(),

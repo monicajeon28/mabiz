@@ -3119,7 +3119,8 @@ model GmPassportSubmissionGuest {
   groupNumber        Int
   name               String
   phone              String?
-  passportNumber     String?
+  passportNumber     String? // AES-256 암호화됨 (base64)
+  passportIV         String? // 초기화벡터 (base64, 암호화 해제 필수)
   nationality        String?
   dateOfBirth        DateTime?
   passportExpiryDate DateTime?
@@ -4011,7 +4012,8 @@ model CruiseProductInquiry {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @default(now())
   message            String?
-  passportNumber     String?
+  passportNumber     String? // AES-256 암호화됨 (base64)
+  passportIV         String? // 초기화벡터 (base64, 암호화 해제 필수)
   createdByAdminId   Int?
   createdByProfileId Int?
   email              String?

@@ -143,10 +143,9 @@ export default function FunnelSmsNewPage() {
     }
 
     setSaving(true);
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 10_000);
     try {
-      const ac = new AbortController();
-      const timer = setTimeout(() => ac.abort(), 10_000);
-
       const adPrefix = "(광고)";
       const titleWithAd = isAdvertisement && !header.title.startsWith(adPrefix)
         ? `${adPrefix}${header.title}`
@@ -174,8 +173,6 @@ export default function FunnelSmsNewPage() {
         body: JSON.stringify(body),
         signal: ac.signal,
       });
-      clearTimeout(timer);
-
       const d = await res.json() as {
         ok: boolean;
         data?: { id: string };
@@ -197,6 +194,7 @@ export default function FunnelSmsNewPage() {
       setSaveError(message);
       showError(message);
     } finally {
+      clearTimeout(timer);
       setSaving(false);
     }
   };
