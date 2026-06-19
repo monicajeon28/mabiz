@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
   try {
     // 인증 (CRON_SECRET 미설정 시 fail-closed)
     if (!CRON_SECRET) {
-      return NextResponse.json({ error: 'MISCONFIGURED' }, { status: 500 });
+      return NextResponse.json({ error: 'MISCONFIGURED' }, { status: 503 });
     }
     const authHeader = request.headers.get('authorization');
     if (authHeader !== `Bearer ${CRON_SECRET}`) {

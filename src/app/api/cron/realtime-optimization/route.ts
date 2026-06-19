@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
         );
         return NextResponse.json(
           { ok: false, error: "Unauthorized" },
-          { status: 500 }
+          { status: 503 }
         );
       }
 

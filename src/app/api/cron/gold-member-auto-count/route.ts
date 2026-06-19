@@ -60,7 +60,7 @@ function calcExpectedPayments(startDate: Date, paymentDay: number, today: Date):
 export async function GET(req: Request) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
-    return NextResponse.json({ ok: false, error: "CRON_SECRET 환경변수 미설정" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "CRON_SECRET 환경변수 미설정" }, { status: 503 });
   }
 
   // P0-1: 타이밍 공격 방지 — timingSafeEqual 사용

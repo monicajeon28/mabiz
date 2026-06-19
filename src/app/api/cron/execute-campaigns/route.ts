@@ -29,7 +29,7 @@ export async function GET(req: Request) {
   if (process.env.NODE_ENV === "production") {
     if (!secret) {
       logger.warn("[Cron/ExecuteCampaigns] CRON_SECRET 미설정");
-      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 500 });
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 503 });
     }
     const expected = `Bearer ${secret}`;
     if (auth.length !== expected.length || !timingSafeEqual(Buffer.from(auth), Buffer.from(expected))) {

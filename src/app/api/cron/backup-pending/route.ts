@@ -17,7 +17,7 @@ export async function GET(req: Request) {
     // Cron 보안 — CRON_SECRET 미설정 시 fail-closed (500)
     const envSecret = process.env.CRON_SECRET;
     if (!envSecret) {
-      return NextResponse.json({ ok: false, message: 'CRON_SECRET 환경변수 미설정' }, { status: 500 });
+      return NextResponse.json({ ok: false, message: 'CRON_SECRET 환경변수 미설정' }, { status: 503 });
     }
     const cronSecret = req.headers.get('x-vercel-cron-secret');
     if (cronSecret !== envSecret) {

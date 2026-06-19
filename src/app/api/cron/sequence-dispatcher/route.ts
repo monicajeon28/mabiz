@@ -12,7 +12,7 @@ const BATCH_LIMIT = 200;
 export async function POST(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
-    return NextResponse.json({ ok: false, error: 'CRON_SECRET not configured' }, { status: 500 });
+    return NextResponse.json({ ok: false, error: 'CRON_SECRET not configured' }, { status: 503 });
   }
   const authHeader = req.headers.get('authorization') ?? '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';

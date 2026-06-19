@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   if (process.env.NODE_ENV === 'production') {
     if (!secret) {
       logger.warn('[CronDLQ] CRON_SECRET 미설정');
-      return NextResponse.json({ ok: false }, { status: 500 });
+      return NextResponse.json({ ok: false }, { status: 503 });
     }
 
     // [보안] Vercel Cron 인증

@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
   if (!cronSecret) {
     return NextResponse.json(
       { ok: false, error: 'CRON_SECRET 미설정' },
-      { status: 500 }
+      { status: 503 }
     );
   }
   const authHeader = req.headers.get('authorization');
