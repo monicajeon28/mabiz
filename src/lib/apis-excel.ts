@@ -80,6 +80,7 @@ export type ApisTrip = {
   departureDate: Date;
   cruiseName: string | null;
   packageName: string | null;
+  spreadsheetId?: string | null;
 };
 
 export type ApisData = {

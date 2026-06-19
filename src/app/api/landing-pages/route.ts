@@ -160,9 +160,9 @@ export async function POST(req: Request) {
             paymentEnabled: true,
             paymentType: rest.paymentType ?? null,
             productName: rest.productName ?? null,
-            productPrice: rest.productPrice ? parseInt(rest.productPrice) : null,
+            productPrice: rest.productPrice ? parseInt(rest.productPrice, 10) : null,
             ...(rest.paymentType === 'subscription' ? {
-              cycleDay: rest.cycleDay ? parseInt(rest.cycleDay) : null,
+              cycleDay: rest.cycleDay ? parseInt(rest.cycleDay, 10) : null,
               expireDate: rest.expireDate ? new Date(rest.expireDate) : null,
             } : {}),
           } : {}),

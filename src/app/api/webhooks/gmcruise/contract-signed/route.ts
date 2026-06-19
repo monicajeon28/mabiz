@@ -52,9 +52,9 @@ interface ContractSignedPayload {
 export async function POST(req: NextRequest) {
   // ── 1. 환경변수 확인 ────────────────────────────────────────────────
   const secret = process.env.PARTNER_CONTRACT_WEBHOOK_SECRET;
-  if (!secret) {
-    logger.error('[ContractSignedWebhook] PARTNER_CONTRACT_WEBHOOK_SECRET 미설정');
-    return NextResponse.json({ ok: false }, { status: 503 });
+  if (!secret || secret.length < 16) {
+    logger.error('[ContractSignedWebhook] PARTNER_CONTRACT_WEBHOOK_SECRET 미설정 또는 길이 부족');
+    return NextResponse.json({ error: 'PARTNER_CONTRACT_WEBHOOK_SECRET 미설정 또는 길이 부족' }, { status: 503 });
   }
 
   // ── 2. Raw body 읽기 (서명 검증 전 반드시 buffer로) ─────────────────

@@ -14,7 +14,7 @@ export async function GET(
     const ctx = await getAuthContext();
     const orgId = ctx.organizationId;
     if (!orgId) {
-      return NextResponse.json({ ok: false, message: '조직 정보 없음' }, { status: 400 });
+      return NextResponse.json({ ok: false, message: '조직 정보 없음' }, { status: 401 });
     }
 
     const { id } = await params;
@@ -53,7 +53,7 @@ export async function PATCH(
     const ctx = await getAuthContext();
     const orgId = ctx.organizationId;
     if (!orgId) {
-      return NextResponse.json({ ok: false, message: '조직 정보 없음' }, { status: 400 });
+      return NextResponse.json({ ok: false, message: '조직 정보 없음' }, { status: 401 });
     }
 
     const { id } = await params;
@@ -114,7 +114,7 @@ export async function DELETE(
     const ctx = await getAuthContext();
     const orgId = ctx.organizationId;
     if (!orgId) {
-      return NextResponse.json({ ok: false, message: '조직 정보 없음' }, { status: 400 });
+      return NextResponse.json({ ok: false, message: '조직 정보 없음' }, { status: 401 });
     }
 
     const { id } = await params;
