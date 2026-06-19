@@ -237,13 +237,16 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // 인스턴스 업데이트
-    await prisma.contractInstance.updateMany({
+    const updateResult = await prisma.contractInstance.updateMany({
       where: { id, ...(organizationId ? { organizationId } : {}) },
       data: {
         ...(status && { status }),
         ...(status === "SIGNED" && { signedAt: new Date() }),
       },
     });
+    if (updateResult.count === 0) {
+      return NextResponse.json({ ok: false, error: "계약서를 찾을 수 없습니다" }, { status: 404 });
+    }
     const updatedInstance = await prisma.contractInstance.findUnique({
       where: { id },
       include: { template: { select: { name: true } } },

@@ -627,7 +627,7 @@ export async function POST(req: Request) {
             generatedData: previousGeneratedData,
           },
         });
-        if (contactRollback) {
+        if (contactRollback && contactRollback.previousStatus) {
           await tx.contact.update({
             where: { id: contactRollback.contactId },
             data: { status: contactRollback.previousStatus },

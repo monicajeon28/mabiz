@@ -158,7 +158,8 @@ function DbShareModal({ contact, onClose, onShared }: { contact: { id: string; n
   const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
-    fetch("/api/contacts/share-targets")
+    const ctrl = new AbortController();
+    fetch("/api/contacts/share-targets", { signal: ctrl.signal })
       .then(r => {
         if (r.status === 403) {
           setTargets([]);
@@ -171,8 +172,9 @@ function DbShareModal({ contact, onClose, onShared }: { contact: { id: string; n
         if (d && d.ok) setTargets(d.targets ?? []);
         else if (d) setTargets([]);
       })
-      .catch(() => setTargets([]))
+      .catch(err => { if (err?.name !== 'AbortError') setTargets([]); })
       .finally(() => setLoading(false));
+    return () => ctrl.abort();
   }, []);
 
   const filteredTargets = useMemo(() => {
@@ -309,6 +311,7 @@ function AffiliateTab({
   } | null>(null);
   const [afLoading, setAfLoading] = useState(true);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [affiliateRefreshKey, setAffiliateRefreshKey] = useState(0);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -323,7 +326,7 @@ function AffiliateTab({
       })
       .finally(() => setAfLoading(false));
     return () => ctrl.abort();
-  }, [contactId]);
+  }, [contactId, affiliateRefreshKey]);
 
   const hasManager = !!(affiliateInfo?.manager || affiliateInfo?.agent);
 
@@ -372,13 +375,7 @@ function AffiliateTab({
           contact={{ id: contactId, name: contactName }}
           onClose={() => setShowShareModal(false)}
           onShared={() => {
-            setAffiliateInfo(null);
-            setAfLoading(true);
-            fetch(`/api/contacts/${contactId}/affiliate-info`)
-              .then(r => r.json())
-              .then(d => { if (d.ok) setAffiliateInfo(d.data); })
-              .catch(err => logger.error("[AffiliateTab onShared]", { err, contactId }))
-              .finally(() => setAfLoading(false));
+            setAffiliateRefreshKey(k => k + 1);
           }}
         />
       )}
@@ -535,13 +532,18 @@ export default function ContactSlidePanel({
   useEffect(() => {
     if (activeTab !== "funnel" || funnelLoadedRef.current) return;
     funnelLoadedRef.current = true;
-    fetch("/api/funnels")
+    const ctrl = new AbortController();
+    fetch("/api/funnels", { signal: ctrl.signal })
       .then(r => r.json())
       .then(d => {
         if (d.ok) setFunnels(d.funnels ?? []);
         else setFunnelError("자동 메시지를 불러올 수 없습니다.");
       })
-      .catch(() => setFunnelError("자동 메시지 불러오기 실패. 다시 시도하세요."));
+      .catch(err => {
+        if (err?.name === 'AbortError') { funnelLoadedRef.current = false; return; }
+        setFunnelError("자동 메시지 불러오기 실패. 다시 시도하세요.");
+      });
+    return () => ctrl.abort();
   }, [activeTab]);
 
   const handleFunnelEnroll = useCallback(async () => {

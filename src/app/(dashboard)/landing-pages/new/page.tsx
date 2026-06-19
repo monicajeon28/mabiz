@@ -632,7 +632,7 @@ ${footerBlock}
         ...(paymentEnabled ? {
           paymentEnabled: true, paymentType, productName,
           productPrice: parseInt(productPrice) || 0,
-          ...(paymentType === "subscription" ? { cycleDay: parseInt(cycleDay), expireDate } : {}),
+          ...(paymentType === "subscription" ? { cycleDay: parseInt(cycleDay, 10) || 1, expireDate } : {}),
         } : {}),
         // Phase C: 블록 에디터 데이터 저장
         ...(blocks.length > 0 ? {
@@ -731,6 +731,11 @@ ${footerBlock}
     }
   };
 
+  const escapeHtml = (text: string): string =>
+    String(text)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+
   // 블록 기반 페이지 HTML 생성
   const buildBlocksHtml = useCallback((): string => {
     if (blocks.length === 0) return "";
@@ -820,11 +825,13 @@ ${footerBlock}
         case "timer": {
           const timerBlock = block as any;
           if (timerBlock.data.enabled) {
+            const timerId = JSON.stringify(String(timerBlock.id));
+            const timerDeadline = JSON.stringify(String(timerBlock.data.deadline || ''));
             html += `<div style="text-align:center;margin:24px 0;padding:20px;background:#fff3cd;border-radius:8px">
-              <p style="margin:0 0 10px;color:#856404">${timerBlock.data.title || "마감까지"}</p>
-              <div id="timer-${timerBlock.id}" style="font-size:24px;font-weight:bold;color:#dc3545">계산 중...</div>
+              <p style="margin:0 0 10px;color:#856404">${escapeHtml(timerBlock.data.title || "마감까지")}</p>
+              <div id="timer-${escapeHtml(timerBlock.id)}" style="font-size:24px;font-weight:bold;color:#dc3545">계산 중...</div>
               <script>
-                const deadline = new Date('${timerBlock.data.deadline}').getTime();
+                const deadline = new Date(${timerDeadline}).getTime();
                 setInterval(() => {
                   const now = new Date().getTime();
                   const diff = deadline - now;
@@ -833,7 +840,7 @@ ${footerBlock}
                     const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
                     const mins = Math.floor((diff / 1000 / 60) % 60);
                     const secs = Math.floor((diff / 1000) % 60);
-                    document.getElementById('timer-${timerBlock.id}').textContent = days + '일 ' + hours + '시간 ' + mins + '분 ' + secs + '초';
+                    document.getElementById(${timerId}).textContent = days + '일 ' + hours + '시간 ' + mins + '분 ' + secs + '초';
                   }
                 }, 1000);
               </script>
@@ -851,8 +858,8 @@ ${footerBlock}
                 .map(
                   (item: any) =>
                     `<div style="padding:12px;border:1px solid #e5e7eb;border-radius:8px">
-                  <p style="margin:0 0 8px;font-size:14px;color:#555">"${item.text}"</p>
-                  <p style="margin:0;font-size:12px;font-weight:bold;color:#333">- ${item.author}${item.role ? " (" + item.role + ")" : ""}</p>
+                  <p style="margin:0 0 8px;font-size:14px;color:#555">"${escapeHtml(item.text || '')}"</p>
+                  <p style="margin:0;font-size:12px;font-weight:bold;color:#333">- ${escapeHtml(item.author || '')}${item.role ? " (" + escapeHtml(item.role) + ")" : ""}</p>
                 </div>`
                 )
                 .join("")}
@@ -870,8 +877,8 @@ ${footerBlock}
                 .map(
                   (item: any) =>
                     `<details style="padding:12px;border:1px solid #e5e7eb;border-radius:8px">
-                  <summary style="font-weight:bold;cursor:pointer">Q. ${item.question}</summary>
-                  <p style="margin:8px 0 0;color:#555">A. ${item.answer}</p>
+                  <summary style="font-weight:bold;cursor:pointer">Q. ${escapeHtml(item.question || '')}</summary>
+                  <p style="margin:8px 0 0;color:#555">A. ${escapeHtml(item.answer || '')}</p>
                 </details>`
                 )
                 .join("")}
@@ -1571,7 +1578,7 @@ ${footerBlock}
                 srcDoc={previewHtml}
                 className="w-full h-full border-0"
                 title="실시간 미리보기"
-                sandbox="allow-scripts allow-same-origin"
+                sandbox="allow-scripts"
                 style={{ display: "block" }}
               />
             </div>
