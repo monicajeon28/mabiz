@@ -291,7 +291,7 @@ function PersonalEmailForm({ role }: { role: UserRole }) {
               <input
                 type="number"
                 value={form.smtpPort}
-                onChange={(e) => setForm({ ...form, smtpPort: parseInt(e.target.value) || 587 })}
+                onChange={(e) => setForm({ ...form, smtpPort: parseInt(e.target.value, 10) || 587 })}
                 className="w-full h-12 px-4 border border-gray-200 rounded-lg text-base focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
               />
             </div>

@@ -260,7 +260,7 @@ export async function processSendingWebhook(
     logger.error("[WebhookExecution] 통합 처리 실패", {
       eventId,
       sendingId,
-      error,
+      error: error instanceof Error ? error.message : String(error),
     });
     throw error;
   }

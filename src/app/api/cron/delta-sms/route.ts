@@ -51,31 +51,19 @@ export async function GET(req: NextRequest) {
   // P0 #3: CRON_SECRET 환경변수 절대 로그 출력 금지
   // P0 #4: 상태코드 401로 통일 (500은 웹훅 재시도 유발)
 
-  if (!secret || process.env.NODE_ENV === "production") {
-    if (!secret) {
-      logger.warn(
-        "[Cron/DeltaSms] CRON_SECRET 환경변수 미설정. 프로덕션에서는 필수입니다."
-      );
-      return NextResponse.json(
-        { ok: false, error: "UNAUTHORIZED" },
-        { status: 401 }
-      );
-    }
+  if (!secret) {
+    logger.warn("[Cron/DeltaSms] CRON_SECRET 환경변수 미설정. 프로덕션에서는 필수입니다.");
+    return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
   }
 
   // Bearer 토큰 검증 (timing-safe 비교)
-  if (secret) {
-    const expected = `Bearer ${secret}`;
-    if (
-      auth.length !== expected.length ||
-      !timingSafeEqual(Buffer.from(auth), Buffer.from(expected))
-    ) {
-      logger.warn("[Cron/DeltaSms] 인증 실패");
-      return NextResponse.json(
-        { ok: false, error: "UNAUTHORIZED" },
-        { status: 401 }
-      );
-    }
+  const expected = `Bearer ${secret}`;
+  if (
+    auth.length !== expected.length ||
+    !timingSafeEqual(Buffer.from(auth), Buffer.from(expected))
+  ) {
+    logger.warn("[Cron/DeltaSms] 인증 실패");
+    return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
   }
 
   try {

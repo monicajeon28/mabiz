@@ -23,6 +23,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { logger } from "@/lib/logger";
 import { sendScheduledMessages } from "@/lib/batch-processing/send-scheduled-messages";
 import { prisma } from "@/lib/prisma";
@@ -38,14 +39,18 @@ function validateCronRequest(req: NextRequest): {
   orgId?: string;
 } {
   // 1. Authorization 헤더 확인 (Vercel Cron 또는 내부 요청)
-  const authHeader = req.headers.get("authorization");
+  const authHeader = req.headers.get("authorization") ?? "";
   const cronSecret = process.env.CRON_SECRET;
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return {
-      valid: false,
-      error: "Unauthorized: Invalid CRON_SECRET",
-    };
+  if (!cronSecret) {
+    return { valid: false, error: "Unauthorized: CRON_SECRET not configured" };
+  }
+  const expectedAuth = `Bearer ${cronSecret}`;
+  if (
+    authHeader.length !== expectedAuth.length ||
+    !timingSafeEqual(Buffer.from(authHeader), Buffer.from(expectedAuth))
+  ) {
+    return { valid: false, error: "Unauthorized: Invalid CRON_SECRET" };
   }
 
   // 2. 쿼리 파라미터 검증
@@ -200,8 +205,17 @@ export async function GET(req: NextRequest) {
     return POST(req);
   }
 
-  // 배치 실행 로그 조회
+  // 배치 실행 로그 조회 (인증 필수)
   if (action === "status") {
+    const cronSecret2 = process.env.CRON_SECRET;
+    const authHdr = req.headers.get("authorization") ?? "";
+    if (!cronSecret2) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const exp2 = `Bearer ${cronSecret2}`;
+    if (authHdr.length !== exp2.length || !timingSafeEqual(Buffer.from(authHdr), Buffer.from(exp2))) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     try {
       const logs = await prisma.batchExecutionLog.findMany({
         where: {},

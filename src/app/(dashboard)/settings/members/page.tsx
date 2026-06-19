@@ -250,6 +250,7 @@ export default function MembersPage() {
   const [pwCopied,        setPwCopied]        = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
+  const pwFetchAbortRef = useRef<AbortController | null>(null);
 
   const fetchAll = useCallback(async () => {
     abortRef.current?.abort();
@@ -333,10 +334,13 @@ export default function MembersPage() {
     setCurrentPassword(null);
     setPwCopied(false);
     // 현재 비밀번호 즉시 조회
-    fetch(`/api/admin/members/${member.id}/password`)
+    pwFetchAbortRef.current?.abort();
+    const ctrl = new AbortController();
+    pwFetchAbortRef.current = ctrl;
+    fetch(`/api/admin/members/${member.id}/password`, { signal: ctrl.signal })
       .then(r => r.json())
       .then(d => { if (d.ok) setCurrentPassword(d.hasPassword ? '(비밀번호 설정됨)' : '(미설정)'); })
-      .catch(() => { setCurrentPassword('(조회 실패)'); });
+      .catch((e: unknown) => { if ((e as Error)?.name !== 'AbortError') setCurrentPassword('(조회 실패)'); });
   }
 
   async function handleResetPassword(memberId: string) {

@@ -53,14 +53,14 @@ export async function GET(req: NextRequest) {
     if (ctx.role === 'FREE_SALES') return NextResponse.json({ ok: false, error: '권한이 없습니다.' }, { status: 403 });
 
     const { searchParams } = new URL(req.url);
-    const page   = Math.max(1, parseInt(searchParams.get('page')  ?? '1')  || 1);
-    const limit  = Math.min(100, parseInt(searchParams.get('limit') ?? '20') || 20);
+    const page   = Math.max(1, parseInt(searchParams.get('page')  ?? '1',  10) || 1);
+    const limit  = Math.min(100, parseInt(searchParams.get('limit') ?? '20', 10) || 20);
     const offset = (page - 1) * limit;
 
     const rawStatus  = searchParams.get('status');
     const rawAgentId = searchParams.get('agentId');
     const status     = rawStatus && ALLOWED_STATUSES.has(rawStatus) ? rawStatus : null;
-    const agentId    = rawAgentId ? parseInt(rawAgentId) || null : null;
+    const agentId    = rawAgentId ? parseInt(rawAgentId, 10) || null : null;
 
     const conditions: Prisma.Sql[] = [];
 

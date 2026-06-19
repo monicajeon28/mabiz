@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
 
     const type      = rawType && ALLOWED_TYPES.has(rawType) ? rawType : null;
     const yearMonth = YEAR_MONTH_RE.test(rawYearMonth) ? rawYearMonth : null;
-    const agentId   = rawAgentId ? parseInt(rawAgentId) || null : null;
+    const agentId   = rawAgentId ? parseInt(rawAgentId, 10) || null : null;
 
     const conditions: Prisma.Sql[] = [];
 

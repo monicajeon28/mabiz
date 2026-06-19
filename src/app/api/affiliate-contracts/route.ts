@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
     const rawStatus  = searchParams.get('status');
     const rawType    = searchParams.get('type');
 
-    const agentIdFilter = rawAgentId ? parseInt(rawAgentId) || null : null;
+    const agentIdFilter = rawAgentId ? parseInt(rawAgentId, 10) || null : null;
     const statusFilter  = rawStatus && ALLOWED_STATUSES.has(rawStatus) ? rawStatus : null;
     const typeFilter    = rawType   && ALLOWED_TYPES.has(rawType)      ? rawType   : null;
 

@@ -81,7 +81,12 @@ export async function sendSystemEmail(params: SystemEmailParams): Promise<boolea
     logger.log('[SystemEmail] 발송 성공', { to: params.to, subject: params.subject });
     return true;
   } catch (err) {
-    logger.error('[SystemEmail] 발송 실패', { err, to: params.to });
+    logger.error('[SystemEmail] 발송 실패', {
+      err: err instanceof Error ? err.message : String(err),
+      to: Array.isArray(params.to)
+        ? params.to.map((a: string) => a.slice(0, 3) + '***')
+        : String(params.to).slice(0, 3) + '***',
+    });
     return false;
   }
 }

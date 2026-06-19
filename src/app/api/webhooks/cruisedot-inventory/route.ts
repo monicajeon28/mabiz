@@ -63,7 +63,11 @@ export async function POST(req: NextRequest) {
 
   // Bearer Token 검증
   const authHeader = req.headers.get('authorization') ?? '';
-  const token = authHeader.replace('Bearer ', '');
+  if (!authHeader.startsWith('Bearer ')) {
+    logger.warn('[InventorySyncWebhook] 인증 실패');
+    return NextResponse.json({ ok: false, error: '인증 실패' }, { status: 401 });
+  }
+  const token = authHeader.slice(7);
 
   if (
     token.length !== secret.length ||
@@ -232,7 +236,7 @@ export async function POST(req: NextRequest) {
     logger.log('[InventorySyncWebhook] 처리 완료', { eventId, productCode, action, quantity });
     return NextResponse.json({ ok: true });
   } catch (err) {
-    logger.error('[InventorySyncWebhook] 처리 실패', { err, eventId });
+    logger.error('[InventorySyncWebhook] 처리 실패', { error: err instanceof Error ? err.message : String(err), eventId });
 
     await recordProcessedWebhookEvent(prisma, {
       eventId,

@@ -377,7 +377,7 @@ function DetailView({
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {paginatedCustomers.map((customer, i) => (
-                      <tr key={`${customer.customerName}-${i}`} className="hover:bg-gray-50 transition-colors">
+                      <tr key={`customer-${startIdx + i}`} className="hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 font-medium text-gray-900">{maskCustomerName(customer.customerName)}</td>
                         <td className="px-4 py-3 text-gray-700 max-w-[200px] truncate">{customer.productName}</td>
                         <td className="px-4 py-3 text-right text-gray-700">₩{formatWon(customer.amount)}</td>

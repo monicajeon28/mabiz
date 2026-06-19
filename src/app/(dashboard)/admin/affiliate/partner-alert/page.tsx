@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   AlertTriangle,
   AlertCircle,
@@ -72,6 +72,7 @@ export default function PartnerAlertPage() {
   const [stats, setStats] = useState<SmsStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
+  const sendSmsAbortRef = useRef<AbortController | null>(null);
 
   const load = useCallback((signal?: AbortSignal, loadCursor?: string | null) => {
     setLoading(true);
@@ -138,16 +139,23 @@ export default function PartnerAlertPage() {
     const ctrl = new AbortController();
     load(ctrl.signal, cursor);
     loadStats(ctrl.signal);
-    return () => ctrl.abort();
+    return () => {
+      ctrl.abort();
+      sendSmsAbortRef.current?.abort();
+    };
   }, [load, loadStats, cursor]);
 
   const handleSendSms = async (partnerId: string) => {
+    sendSmsAbortRef.current?.abort();
+    const ctrl = new AbortController();
+    sendSmsAbortRef.current = ctrl;
     setSendingId(partnerId);
     try {
       const r = await fetch(`/api/affiliate/partner-alert`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ partnerId, day: selectedDay }),
+        signal: ctrl.signal,
       });
 
       const d = await r.json();

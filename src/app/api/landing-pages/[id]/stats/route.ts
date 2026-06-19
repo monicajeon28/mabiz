@@ -106,11 +106,11 @@ export async function GET(_req: Request, { params }: Params) {
       note: { purchased: 'phone 기반 근사치', emailSent: 'contactId 기반 — 해당 신청자에게 발송된 전체 이메일' },
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('401') || msg.includes('Unauthorized')) {
+    const isUnauth = err instanceof Error && err.message === 'UNAUTHORIZED';
+    if (isUnauth) {
       return NextResponse.json({ ok: false }, { status: 401 });
     }
-    logger.error('[LandingStats] 조회 실패', { err });
+    logger.error('[LandingStats] 조회 실패', { err: err instanceof Error ? err.message : String(err) });
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 }

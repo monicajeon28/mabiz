@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
           email: payload.email || existingContact.email,
           segment,
           autoSegment: segment.toLowerCase(),
-          ageInYears: payload.ageRange ? parseInt(payload.ageRange) : existingContact.ageInYears,
+          ageInYears: payload.ageRange ? (parseInt(payload.ageRange, 10) || undefined) : existingContact.ageInYears,
           tags: [
             ...new Set([
               ...existingContact.tags,
@@ -181,7 +181,7 @@ export async function POST(request: NextRequest) {
           email: payload.email,
           segment,
           autoSegment: segment.toLowerCase(),
-          ageInYears: payload.ageRange ? parseInt(payload.ageRange) : undefined,
+          ageInYears: payload.ageRange ? (parseInt(payload.ageRange, 10) || undefined) : undefined,
           type: 'LEAD',
           channel: 'loop5-form',
           tags: ['loop5', segment, 'form-submission', variant],

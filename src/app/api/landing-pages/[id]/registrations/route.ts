@@ -20,8 +20,8 @@ export async function GET(req: Request, { params }: Params) {
     if (!page) return NextResponse.json({ ok: false }, { status: 404 });
 
     const { searchParams } = new URL(req.url);
-    const pageNum = Math.max(1, parseInt(searchParams.get("page") ?? "1"));
-    const limit   = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") ?? "20")));
+    const pageNum = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
+    const limit   = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") ?? "20", 10)));
     const skip    = (pageNum - 1) * limit;
 
     const [registrations, total] = await Promise.all([
