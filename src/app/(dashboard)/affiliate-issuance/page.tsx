@@ -20,10 +20,10 @@ import {
 type AffiliateType = 'BRANCH_MANAGER' | 'SALES_AGENT' | 'PRE_SALES' | 'HQ';
 
 const TYPE_LABELS: Record<AffiliateType, string> = {
-  BRANCH_MANAGER: '대리점장 (BRANCH_MANAGER)',
-  SALES_AGENT: '판매원 (SALES_AGENT)',
-  PRE_SALES: '프리세일즈 (PRE_SALES)',
-  HQ: '본사 (HQ)',
+  BRANCH_MANAGER: '대리점장',
+  SALES_AGENT: '판매원',
+  PRE_SALES: '프리세일즈',
+  HQ: '본사',
 };
 
 const TYPE_BADGE: Record<string, string> = {
@@ -66,7 +66,7 @@ type AffiliateProfile = {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 mt-6 first:mt-0">
+    <h2 className="text-base font-semibold text-gray-700 mb-3 mt-6 first:mt-0">
       {children}
     </h2>
   );
@@ -108,7 +108,6 @@ function IssuanceForm() {
   const [bankAccount, setBankAccount] = useState('');
   const [bankAccountHolder, setBankAccountHolder] = useState('');
   const [withholdingRate, setWithholdingRate] = useState('3.3');
-  const [agentCommissionRate, setAgentCommissionRate] = useState('');
   const [guarantorName, setGuarantorName] = useState('');
   const [guarantorId, setGuarantorId] = useState('');
   const [landingSlug, setLandingSlug] = useState('');
@@ -175,9 +174,6 @@ function IssuanceForm() {
         bankAccount: bankAccount.trim() || undefined,
         bankAccountHolder: bankAccountHolder.trim() || undefined,
         withholdingRate: withholdingRate ? parseFloat(withholdingRate) : 3.3,
-        agentCommissionRate: agentCommissionRate
-          ? parseInt(agentCommissionRate, 10)
-          : undefined,
         guarantorName: guarantorName.trim() || undefined,
         guarantorId: guarantorId.trim() ? parseInt(guarantorId.trim(), 10) : undefined,
         landingSlug: landingSlug.trim() || undefined,
@@ -221,7 +217,6 @@ function IssuanceForm() {
     setBankAccount('');
     setBankAccountHolder('');
     setWithholdingRate('3.3');
-    setAgentCommissionRate('');
     setGuarantorName('');
     setGuarantorId('');
     setLandingSlug('');
@@ -291,7 +286,7 @@ function IssuanceForm() {
             </div>
 
             <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-green-200">
-              <span className="text-gray-500">Profile ID</span>
+              <span className="text-gray-500">프로필 ID</span>
               <span className="font-mono text-xs text-gray-600">{result.profileId}</span>
             </div>
 
@@ -331,7 +326,7 @@ function IssuanceForm() {
             <SectionTitle>기본 정보</SectionTitle>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="역할 (type)" required>
+              <Field label="역할" required>
                 <select
                   value={type}
                   onChange={e => setType(e.target.value as AffiliateType)}
@@ -345,7 +340,7 @@ function IssuanceForm() {
                 </select>
               </Field>
 
-              <Field label="이름 (name)" required>
+              <Field label="이름" required>
                 <input
                   type="text"
                   value={name}
@@ -355,7 +350,7 @@ function IssuanceForm() {
                 />
               </Field>
 
-              <Field label="표시명 (displayName)">
+              <Field label="표시명">
                 <input
                   type="text"
                   value={displayName}
@@ -365,7 +360,7 @@ function IssuanceForm() {
                 />
               </Field>
 
-              <Field label="닉네임 (nickname)">
+              <Field label="닉네임">
                 <input
                   type="text"
                   value={nickname}
@@ -375,7 +370,7 @@ function IssuanceForm() {
                 />
               </Field>
 
-              <Field label="연락처 (contactPhone)">
+              <Field label="연락처">
                 <input
                   type="text"
                   value={contactPhone}
@@ -385,7 +380,7 @@ function IssuanceForm() {
                 />
               </Field>
 
-              <Field label="이메일 (contactEmail)">
+              <Field label="이메일">
                 <input
                   type="email"
                   value={contactEmail}
@@ -402,7 +397,7 @@ function IssuanceForm() {
             <SectionTitle>정산 정보</SectionTitle>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="은행명 (bankName)">
+              <Field label="은행명">
                 <input
                   type="text"
                   value={bankName}
@@ -412,7 +407,7 @@ function IssuanceForm() {
                 />
               </Field>
 
-              <Field label="계좌번호 (bankAccount)">
+              <Field label="계좌번호">
                 <input
                   type="text"
                   value={bankAccount}
@@ -422,7 +417,7 @@ function IssuanceForm() {
                 />
               </Field>
 
-              <Field label="예금주 (bankAccountHolder)">
+              <Field label="예금주">
                 <input
                   type="text"
                   value={bankAccountHolder}
@@ -432,31 +427,24 @@ function IssuanceForm() {
                 />
               </Field>
 
-              <Field label="원천징수율 % (withholdingRate)">
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="100"
+              <Field label="원천징수율">
+                <select
                   value={withholdingRate}
                   onChange={e => setWithholdingRate(e.target.value)}
-                  placeholder="3.3"
-                  className={inputCls}
-                />
+                  className={inputCls + ' bg-white'}
+                >
+                  <option value="3.3">3.3% (사업소득)</option>
+                  <option value="8.8">8.8% (기타소득)</option>
+                  <option value="0">0% (면세)</option>
+                </select>
+                <p className="text-xs text-gray-400 mt-1">
+                  사업소득 3.3% 적용이 일반적입니다.
+                </p>
               </Field>
 
-              <Field label="수당율 % (agentCommissionRate)">
-                <input
-                  type="number"
-                  step="1"
-                  min="0"
-                  max="100"
-                  value={agentCommissionRate}
-                  onChange={e => setAgentCommissionRate(e.target.value)}
-                  placeholder="선택 — 비워두면 기본값 적용"
-                  className={inputCls}
-                />
-              </Field>
+              <div className="col-span-full rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-700">
+                💡 수당은 크루즈닷몰 상품별 설정에 따라 자동 적용됩니다.
+              </div>
             </div>
           </div>
 
@@ -465,7 +453,7 @@ function IssuanceForm() {
             <SectionTitle>계약 정보</SectionTitle>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="보증인 이름 (guarantorName)">
+              <Field label="보증인 이름">
                 <input
                   type="text"
                   value={guarantorName}
@@ -475,7 +463,7 @@ function IssuanceForm() {
                 />
               </Field>
 
-              <Field label="보증인 ID (guarantorId)">
+              <Field label="보증인">
                 <input
                   type="number"
                   value={guarantorId}
@@ -485,7 +473,7 @@ function IssuanceForm() {
                 />
               </Field>
 
-              <Field label="랜딩 슬러그 (landingSlug)">
+              <Field label="랜딩 주소 (선택)">
                 <input
                   type="text"
                   value={landingSlug}
@@ -498,7 +486,7 @@ function IssuanceForm() {
                 </p>
               </Field>
 
-              <Field label="계약 서명일 (contractSignedAt)">
+              <Field label="계약 서명일">
                 <input
                   type="datetime-local"
                   value={contractSignedAt}
@@ -510,7 +498,7 @@ function IssuanceForm() {
                 </p>
               </Field>
 
-              <Field label="서명 텍스트 / 서명 ID (contractSignature)">
+              <Field label="계약 서명">
                 <input
                   type="text"
                   value={contractSignature}
@@ -520,7 +508,7 @@ function IssuanceForm() {
                 />
               </Field>
 
-              <Field label="계약 버전 (contractVersion)">
+              <Field label="계약 버전">
                 <input
                   type="text"
                   value={contractVersion}
@@ -531,7 +519,7 @@ function IssuanceForm() {
               </Field>
 
               {needsManager && (
-                <Field label="소속 대리점장 (managerProfileId)">
+                <Field label="소속 대리점장">
                   {managersLoading ? (
                     <div className={inputCls + ' flex items-center gap-2 text-gray-400'}>
                       <Loader2 size={14} className="animate-spin" />
@@ -624,6 +612,9 @@ function AffiliateListTab() {
   const [resetLoadingId, setResetLoadingId] = useState<number | null>(null);
   const [resetMsg, setResetMsg] = useState<{ id: number; msg: string; ok: boolean } | null>(null);
   const resetMsgTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [statusChangeLoadingId, setStatusChangeLoadingId] = useState<number | null>(null);
+  const [statusChangeMsg, setStatusChangeMsg] = useState<{ id: number; msg: string; ok: boolean } | null>(null);
+  const statusMsgTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     qRef.current = q;
@@ -632,6 +623,7 @@ function AffiliateListTab() {
   useEffect(() => {
     return () => {
       if (resetMsgTimerRef.current !== null) clearTimeout(resetMsgTimerRef.current);
+      if (statusMsgTimerRef.current !== null) clearTimeout(statusMsgTimerRef.current);
     };
   }, []);
 
@@ -676,6 +668,13 @@ function AffiliateListTab() {
     return () => controller.abort();
   }, [fetchList]);
 
+  const isFirstSearchRender = useRef(true);
+  useEffect(() => {
+    if (isFirstSearchRender.current) { isFirstSearchRender.current = false; return; }
+    const timer = setTimeout(() => { fetchList(); }, 300);
+    return () => clearTimeout(timer);
+  }, [q]); // eslint-disable-line react-hooks/exhaustive-deps
+
   async function handleResetPassword(profile: AffiliateProfile) {
     const ok = window.confirm(
       `"${profile.displayName || profile.name}" (${profile.mallUserId}) 의 비밀번호를 초기화하시겠습니까?\n초기 비밀번호: 1101`
@@ -700,6 +699,37 @@ function AffiliateListTab() {
       setResetLoadingId(null);
       if (resetMsgTimerRef.current !== null) clearTimeout(resetMsgTimerRef.current);
       resetMsgTimerRef.current = setTimeout(() => setResetMsg(null), 4000);
+    }
+  }
+
+  async function handleStatusChange(profile: AffiliateProfile, newStatus: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED') {
+    const labels: Record<string, string> = { ACTIVE: '활성', INACTIVE: '비활성', SUSPENDED: '정지' };
+    const ok = window.confirm(
+      `"${profile.displayName || profile.name}" 상태를 "${labels[newStatus]}"로 변경하시겠습니까?`
+    );
+    if (!ok) return;
+
+    setStatusChangeLoadingId(profile.id);
+    setStatusChangeMsg(null);
+    try {
+      const res = await fetch(`/api/affiliate-issuance/${profile.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setStatusChangeMsg({ id: profile.id, msg: data.error ?? '변경 실패', ok: false });
+      } else {
+        setStatusChangeMsg({ id: profile.id, msg: `"${labels[newStatus]}"으로 변경되었습니다`, ok: true });
+        fetchList();
+      }
+    } catch {
+      setStatusChangeMsg({ id: profile.id, msg: '네트워크 오류', ok: false });
+    } finally {
+      setStatusChangeLoadingId(null);
+      if (statusMsgTimerRef.current !== null) clearTimeout(statusMsgTimerRef.current);
+      statusMsgTimerRef.current = setTimeout(() => setStatusChangeMsg(null), 4000);
     }
   }
 
@@ -785,6 +815,20 @@ function AffiliateListTab() {
         </div>
       )}
 
+      {/* 상태변경 토스트 */}
+      {statusChangeMsg && (
+        <div
+          className={`rounded-xl px-4 py-3 text-sm flex items-center gap-2 ${
+            statusChangeMsg.ok
+              ? 'bg-green-50 border border-green-200 text-green-700'
+              : 'bg-red-50 border border-red-200 text-red-700'
+          }`}
+        >
+          {statusChangeMsg.ok ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
+          {statusChangeMsg.msg}
+        </div>
+      )}
+
       {/* 에러 */}
       {listError && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 flex items-start gap-2">
@@ -833,7 +877,7 @@ function AffiliateListTab() {
                           TYPE_BADGE[p.type] ?? 'bg-gray-100 text-gray-700'
                         }`}
                       >
-                        {p.type}
+                        {TYPE_LABELS[p.type as AffiliateType] ?? p.type}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -864,18 +908,33 @@ function AffiliateListTab() {
                       {formatDate(p.createdAt)}
                     </td>
                     <td className="px-4 py-3">
-                      <button
-                        onClick={() => handleResetPassword(p)}
-                        disabled={resetLoadingId === p.id}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-50 text-xs transition whitespace-nowrap"
-                      >
-                        {resetLoadingId === p.id ? (
-                          <Loader2 size={12} className="animate-spin" />
-                        ) : (
-                          <RefreshCw size={12} />
-                        )}
-                        비밀번호 초기화
-                      </button>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          onClick={() => handleResetPassword(p)}
+                          disabled={resetLoadingId === p.id}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-50 text-xs transition whitespace-nowrap"
+                        >
+                          {resetLoadingId === p.id ? (
+                            <Loader2 size={12} className="animate-spin" />
+                          ) : (
+                            <RefreshCw size={12} />
+                          )}
+                          비밀번호 초기화
+                        </button>
+
+                        <select
+                          value={p.status}
+                          disabled={statusChangeLoadingId === p.id}
+                          onChange={e =>
+                            handleStatusChange(p, e.target.value as 'ACTIVE' | 'INACTIVE' | 'SUSPENDED')
+                          }
+                          className="text-xs border border-gray-300 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 transition"
+                        >
+                          <option value="ACTIVE">활성</option>
+                          <option value="INACTIVE">비활성</option>
+                          <option value="SUSPENDED">정지</option>
+                        </select>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -961,7 +1020,7 @@ export default function AffiliateIssuancePage() {
         <div>
           <h1 className="text-xl font-bold text-gray-900">어필리에이트 발급</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            어필리에이트 계정 생성 및 관리 (GLOBAL_ADMIN 전용)
+            어필리에이트 계정 생성 및 관리 (관리자 전용)
           </p>
         </div>
       </div>
