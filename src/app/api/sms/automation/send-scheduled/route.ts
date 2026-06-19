@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { sendSms, getOrgSmsConfig } from '@/lib/aligo';
 import { logger } from '@/lib/logger';
@@ -46,12 +47,13 @@ export async function GET(request: NextRequest) {
   try {
     // Vercel Cron 시크릿 검증 (필수)
     const cronSecret = process.env.CRON_SECRET;
-    if (!cronSecret) {
-      return NextResponse.json({ error: 'MISCONFIGURED' }, { status: 500 });
-    }
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
+    if (!cronSecret) return NextResponse.json({ error: 'CRON_SECRET 미설정' }, { status: 503 });
+    const authHeader = request.headers.get('authorization') ?? '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    const tokenBuf = Buffer.from(token, 'utf8');
+    const secretBuf = Buffer.from(cronSecret, 'utf8');
+    if (tokenBuf.byteLength !== secretBuf.byteLength || !timingSafeEqual(tokenBuf, secretBuf)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // 발송 대기 중이고, 스케줄된 시간이 현재 시간 이전인 메시지 조회

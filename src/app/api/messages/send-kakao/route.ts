@@ -94,7 +94,7 @@ export async function POST(req: Request) {
     }
 
     // 발송 이력 저장 (fire-and-forget)
-    (async () => {
+    void (async () => {
       try {
         await prisma.adminMessage.create({
           data: {
@@ -107,7 +107,7 @@ export async function POST(req: Request) {
           },
         });
       } catch (err) {
-        logger.error('[kakao/send] 이력 저장 실패', { err });
+        logger.error('[send-kakao] 히스토리 저장 실패', { error: err instanceof Error ? err.message : String(err) });
       }
     })();
 

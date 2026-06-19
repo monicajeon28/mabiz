@@ -152,6 +152,15 @@ export async function POST(request: NextRequest) {
       ? { key: smsConfigRecord.aligoKey, userId: smsConfigRecord.aligoUserId, sender: smsConfigRecord.senderPhone }
       : null;
 
+    // 수신자 수 한도 검증 (리소스 남용 방지)
+    const MAX_RECIPIENTS = 500;
+    if (recipients.length > MAX_RECIPIENTS) {
+      return NextResponse.json(
+        { error: `최대 ${MAX_RECIPIENTS}명까지 한 번에 발송 가능합니다` },
+        { status: 400 },
+      );
+    }
+
     // 배치 처리로 SMS 실제 발송 (50건씩)
     const batchSize = 50;
     for (let i = 0; i < recipients.length; i += batchSize) {

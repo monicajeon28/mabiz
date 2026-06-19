@@ -10,6 +10,7 @@ import {
   TRUST_SCORE_MESSAGES,
 } from '@/types/trust-score';
 import prisma from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 // Prisma 타입 확장 (마이그레이션 전)
 const getTrustScorePrisma = () => (prisma as any).trustScore;
@@ -164,7 +165,7 @@ export async function recalculateTrustScore(userId: string) {
       previousStatus,
     };
   } catch (error) {
-    console.error(`[TrustScore] 재계산 실패: ${userId}`, error);
+    logger.error(`[TrustScore] 재계산 실패: ${userId}`, error);
     throw error;
   }
 }
@@ -194,7 +195,7 @@ export async function createAuditLog(data: {
       },
     });
   } catch (error) {
-    console.error('[TrustScore] 로그 생성 실패:', error);
+    logger.error('[TrustScore] 로그 생성 실패:', error);
     throw error;
   }
 }
@@ -246,7 +247,7 @@ export async function recalculateAllTrustScores() {
     const duration = Date.now() - startTime;
     const message = `[TrustScore] 일일 재계산 완료: ${updateCount}명 업데이트, ${changeCount}명 상태 변경 (${duration}ms)`;
 
-    console.log(message);
+    logger.info(message);
 
     return {
       success: true,
@@ -256,7 +257,7 @@ export async function recalculateAllTrustScores() {
       message,
     };
   } catch (error) {
-    console.error('[TrustScore] 일일 재계산 실패:', error);
+    logger.error('[TrustScore] 일일 재계산 실패:', error);
     throw error;
   }
 }
@@ -331,7 +332,7 @@ export async function applyAppealApproval(
       newRefundRate: updated.refundRate,
     };
   } catch (error) {
-    console.error(`[TrustScore] 이의 승인 실패: ${appealId}`, error);
+    logger.error(`[TrustScore] 이의 승인 실패: ${appealId}`, error);
     throw error;
   }
 }

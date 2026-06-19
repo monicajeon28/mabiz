@@ -15,7 +15,7 @@ export async function GET(
     const { id: partnerId } = await params;
 
     const { searchParams } = new URL(req.url);
-    const page = Math.max(1, parseInt(searchParams.get('page') ?? '1'));
+    const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
     const limit = 20;
     const offset = (page - 1) * limit;
 
