@@ -3,18 +3,6 @@ import { createClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
 import { getMabizSession } from '@/lib/auth';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !supabaseServiceKey) {
-  throw new Error('Missing Supabase configuration: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
-}
-
-const supabase = createClient(
-  supabaseUrl,
-  supabaseServiceKey
-);
-
 const SEGMENT_MAPPING: Record<string, string> = {
   'A': '신혼부부',
   'B': '가족',
@@ -26,6 +14,13 @@ const SEGMENT_MAPPING: Record<string, string> = {
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
   try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return NextResponse.json({ error: 'Supabase 설정 오류' }, { status: 503 });
+    }
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
     // 인증 검증 — 미인증 요청 차단 (IDOR 방지)
     const ctx = await getMabizSession();
     if (!ctx) {

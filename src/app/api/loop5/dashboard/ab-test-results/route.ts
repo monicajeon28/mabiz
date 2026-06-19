@@ -3,18 +3,6 @@ import { createClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
 import { getAuthContext } from '@/lib/rbac';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !supabaseServiceKey) {
-  throw new Error('Missing Supabase configuration: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
-}
-
-const supabase = createClient(
-  supabaseUrl,
-  supabaseServiceKey
-);
-
 // 신뢰도 계산 (Chi-square 추정)
 function calculateConfidence(variant1Clicks: number, variant1Total: number, variant2Clicks: number, variant2Total: number): number {
   if (variant1Total < 30 || variant2Total < 30) return 0;
@@ -35,6 +23,13 @@ function calculateConfidence(variant1Clicks: number, variant1Total: number, vari
 
 export async function GET(req: NextRequest) {
   try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return NextResponse.json({ error: 'Supabase 설정 오류' }, { status: 503 });
+    }
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
     const ctx = await getAuthContext().catch(() => null);
     if (!ctx?.userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
