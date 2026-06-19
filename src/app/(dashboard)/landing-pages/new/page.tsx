@@ -101,11 +101,43 @@ const IMAGE_FIELDS_BY_FORMAT: Record<PageFormat, Array<{ name: string; required:
 };
 
 // CTA 심리학 맵 (API 스키마와 일치: default/urgent/explore/reserve)
-const CTA_PSYCHOLOGY_MAP: Record<string, { emoji: string; text: string; psychology: string }> = {
-  default: { emoji: '✓', text: '신청하기', psychology: '기본 액션' },
-  urgent:  { emoji: '⚡', text: '지금 신청하기', psychology: '긴박감' },
-  explore: { emoji: '👑', text: '제한된 자리 예약', psychology: '희소성' },
-  reserve: { emoji: '🔥', text: '마감 전 신청', psychology: '손실회피' },
+const CTA_PSYCHOLOGY_MAP: Record<string, { emoji: string; text: string; psychology: string; description: string; bgColor: string; borderColor: string; hoverBgColor: string }> = {
+  default: {
+    emoji: '✓',
+    text: '신청하기',
+    psychology: '기본 액션',
+    description: '모든 방문자를 위한 표준 신청 버튼입니다.',
+    bgColor: 'bg-gray-100',
+    borderColor: 'border-gray-300',
+    hoverBgColor: 'hover:bg-gray-200',
+  },
+  urgent:  {
+    emoji: '⚡',
+    text: '지금 신청하기',
+    psychology: '긴박감',
+    description: '긴급함과 즉시 행동 필요성을 강조합니다. 마감 임박, 한정 시간 오퍼에 최적입니다.',
+    bgColor: 'bg-red-50',
+    borderColor: 'border-red-300',
+    hoverBgColor: 'hover:bg-red-100',
+  },
+  explore: {
+    emoji: '👑',
+    text: '제한된 자리 예약',
+    psychology: '희소성',
+    description: '한정된 자리 또는 수량이 있음을 암시합니다. FOMO 심리로 즉시 결정을 유도합니다.',
+    bgColor: 'bg-yellow-50',
+    borderColor: 'border-yellow-300',
+    hoverBgColor: 'hover:bg-yellow-100',
+  },
+  reserve: {
+    emoji: '🔥',
+    text: '마감 전 신청',
+    psychology: '손실회피',
+    description: '마감 시간을 강조하여 기회를 놓칠 수 있다는 두려움을 유발합니다.',
+    bgColor: 'bg-orange-50',
+    borderColor: 'border-orange-300',
+    hoverBgColor: 'hover:bg-orange-100',
+  },
 };
 
 // Day 0-3 SMS 템플릿
@@ -363,12 +395,22 @@ export default function NewLandingPage() {
   ${productName ? `<p style="font-size:12px;color:#666;margin:3px 0 0">${productName}</p>` : ""}
 </div>` : "";
 
+    // CTA 타입별 버튼 색상
+    const buttonColorMap: Record<string, string> = {
+      default: '#9CA3AF', // 회색
+      urgent: '#EF4444',  // 빨강
+      explore: '#FBBF24', // 노랑
+      reserve: '#F97316', // 주황
+    };
+    const buttonColor = buttonColorMap[ctaType] || '#1E2D4E';
+    const displayButtonTitle = buttonTitle || CTA_PSYCHOLOGY_MAP[ctaType]?.text || "신청하기";
+
     const formBlock = fieldHtmls.length > 0 || paymentEnabled ? `
 <div style="max-width:480px;margin:0 auto;padding:28px 20px 48px;background:#fff;font-family:-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif">
   <form>
     ${fieldHtmls.join("\n    ")}
     ${paymentBlock}
-    <button type="submit" style="width:100%;padding:15px;background:#1E2D4E;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;margin-top:6px">${buttonTitle || "신청하기"}</button>
+    <button type="submit" style="width:100%;padding:15px;background:${buttonColor};color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;margin-top:6px">${displayButtonTitle}</button>
   </form>
 </div>` : "";
 
@@ -451,7 +493,7 @@ ${commentBlock}
 ${footerBlock}
 </body>
 </html>`;
-  }, [editorMode, html, images, formFields, additionalFields, paymentEnabled, productName, productPrice, paymentType, buttonTitle, headerScript, commentEnabled, commentCount, commentDateFrom, commentDateTo, footer]);
+  }, [editorMode, html, images, formFields, additionalFields, paymentEnabled, productName, productPrice, paymentType, buttonTitle, headerScript, commentEnabled, commentCount, commentDateFrom, commentDateTo, footer, ctaType]);
 
   // state 변경 시 즉시 재계산 — srcDoc prop 변경으로 브라우저가 iframe 재렌더링
   const previewHtml = useMemo(() => buildPreviewHtml(), [buildPreviewHtml]);
@@ -1165,20 +1207,31 @@ ${footerBlock}
               {Object.entries(CTA_PSYCHOLOGY_MAP).map(([key, value]) => (
                 <label
                   key={key}
-                  className="flex items-center p-3 border-2 rounded-lg hover:bg-gray-50 cursor-pointer transition"
-                  style={{ borderColor: ctaType === key ? '#f59e0b' : '#e5e7eb' }}
+                  className={`flex flex-col p-4 border-2 rounded-lg cursor-pointer transition ${
+                    ctaType === key
+                      ? `${value.bgColor} ${value.borderColor} shadow-md`
+                      : `border-gray-200 hover:${value.borderColor}`
+                  }`}
                 >
-                  <input
-                    type="radio"
-                    name="cta"
-                    value={key}
-                    checked={ctaType === key}
-                    onChange={(e) => setCtaType(e.target.value)}
-                    className="mr-3 w-4 h-4 accent-yellow-400"
-                  />
-                  <span className="text-lg mr-2">{value.emoji}</span>
-                  <div className="flex-1">
-                    <span className="text-sm font-semibold text-gray-700">{value.text}</span>
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="radio"
+                      name="cta"
+                      value={key}
+                      checked={ctaType === key}
+                      onChange={(e) => setCtaType(e.target.value)}
+                      className="mt-1 w-4 h-4 accent-amber-400 shrink-0"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-lg">{value.emoji}</span>
+                        <span className="font-semibold text-gray-800">{value.text}</span>
+                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-white border border-gray-200 text-gray-600">
+                          {value.psychology}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-600 ml-6">{value.description}</p>
+                    </div>
                   </div>
                 </label>
               ))}
