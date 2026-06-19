@@ -227,3 +227,14 @@ export async function listSubFolders(
 
   return (res.data.files ?? []) as Array<{ id: string; name: string }>;
 }
+
+/**
+ * Google Drive 파일 삭제
+ */
+export async function deleteDriveFile(fileId: string): Promise<void> {
+  const drive = getDriveClient();
+  await drive.files.delete({
+    fileId,
+    supportsAllDrives: true,
+  });
+}

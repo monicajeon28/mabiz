@@ -5,7 +5,7 @@
  * - 탑승객 0명(빈 명단)이면 폴더·파일을 만들지 않고 skip → 빈 명단 덮어쓰기로 인한 데이터 소실 차단
  */
 import prisma from '@/lib/prisma';
-import { findOrCreateFolder, uploadXlsxIdempotent } from '@/lib/drive-client';
+import { findOrCreateFolder, uploadXlsxIdempotent, deleteDriveFile } from '@/lib/drive-client';
 import { fetchApisData, buildApisWorkbook, APIS_HEADERS } from '@/lib/apis-excel';
 import { logger } from '@/lib/logger';
 
@@ -47,6 +47,27 @@ export async function uploadApisToDrive(productCode: string): Promise<UploadApis
   // trip.id === 0 (CruiseProduct 폴백, 실제 Trip 레코드 없음) 또는 탑승객 0명이면
   // 폴더·파일을 만들지 않고 skip → 기존 Drive 명단을 빈 양식으로 덮어쓰지 않음
   if (trip.id === 0 || travelerCount === 0) {
+    // 탑승객 0명이고 기존 파일이 있으면 삭제
+    if (travelerCount === 0 && trip.id !== 0) {
+      try {
+        const existingTrip = await prisma.gmTrip.findUnique({
+          where: { id: trip.id },
+          select: { spreadsheetId: true },
+        });
+        if (existingTrip?.spreadsheetId) {
+          await deleteDriveFile(existingTrip.spreadsheetId);
+          logger.info('APIS Drive 파일 삭제', { productCode, tripId: trip.id, fileId: existingTrip.spreadsheetId });
+          // DB에서 spreadsheetId 제거
+          await prisma.gmTrip.update({
+            where: { id: trip.id },
+            data: { spreadsheetId: null },
+          });
+        }
+      } catch (err) {
+        logger.error('APIS Drive 파일 삭제 실패', { productCode, tripId: trip.id, err });
+        // 삭제 실패해도 계속 진행
+      }
+    }
     return { skipped: true, travelerCount };
   }
 
