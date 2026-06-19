@@ -5,7 +5,6 @@ import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, canDelete } from "@/l
 import { logger } from "@/lib/logger";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
 import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
-import { IMAGE_FIELDS_BY_FORMAT, CTA_PSYCHOLOGY_MAP } from "@/lib/landing-page-constants";
 
 const PatchSchema = z.object({
   title:          z.string().min(1).max(200).optional(),
@@ -118,7 +117,7 @@ export async function PATCH(req: Request, { params }: Params) {
       headerScript, exposureTitle, exposureImage, infoCollection, formConfig,
       paymentEnabled, paymentType, productName, productPrice, cycleDay, expireDate,
       regEmailEnabled, regEmailSubject, regEmailContent,
-      pageFormat, ctaType, imageFieldConfig, companyName,
+      pageFormat, ctaType, imageFieldConfig,
       blocksConfig, smsDayRange,
     } = parsed.data;
     const sanitizedContent = htmlContent !== undefined ? sanitizeHtml(htmlContent) : undefined;
