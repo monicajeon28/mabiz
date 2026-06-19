@@ -1,4 +1,4 @@
-﻿import Link from 'next/link';
+import Link from 'next/link';
 import type { TopPage } from '@/types/marketing';
 
 interface TopPagesTableProps {
@@ -11,7 +11,7 @@ function TopPagesSkeletonLoader() {
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-gray-600 text-sm border-b border-gray-100">
+          <tr className="text-gray-600 text-base border-b border-gray-100">
             <th scope="col" className="text-left font-medium pb-2 pr-4">페이지명</th>
             <th scope="col" className="text-right font-medium pb-2 px-3">방문</th>
             <th scope="col" className="text-right font-medium pb-2 px-3">등록</th>
@@ -36,7 +36,7 @@ function TopPagesSkeletonLoader() {
 export function TopPagesTable({ topPages, loading }: TopPagesTableProps) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-      <h2 className="text-base font-semibold text-navy-900 mb-4">
+      <h2 className="text-lg font-bold text-navy-900 mb-4">
         상위 랜딩페이지 {topPages.length ? `TOP ${topPages.length}` : ''}
       </h2>
       {loading ? (
@@ -45,7 +45,7 @@ export function TopPagesTable({ topPages, loading }: TopPagesTableProps) {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-gray-600 text-sm border-b border-gray-100">
+              <tr className="text-gray-600 text-base border-b border-gray-100">
                 <th scope="col" className="text-left font-medium pb-2 pr-4">
                   페이지명
                 </th>
@@ -62,13 +62,18 @@ export function TopPagesTable({ topPages, loading }: TopPagesTableProps) {
               </tr>
             </thead>
             <tbody>
-              {topPages.map((page) => (
+              {topPages.map((page, index) => (
                 <tr
                   key={page.id}
                   className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors"
                 >
-                  <td className="py-3 pr-4 font-medium text-navy-900 max-w-[200px] truncate">
-                    {page.title}
+                  <td className="py-3 pr-4 font-medium text-navy-900 text-base">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg w-6">
+                        {index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `${index + 1}.`}
+                      </span>
+                      <span className="max-w-[200px] truncate">{page.title}</span>
+                    </div>
                   </td>
                   <td className="py-3 px-3 text-right text-gray-600">
                     {page.viewCount.toLocaleString()}
@@ -76,18 +81,23 @@ export function TopPagesTable({ topPages, loading }: TopPagesTableProps) {
                   <td className="py-3 px-3 text-right text-gray-600">
                     {page.registrations.toLocaleString()}
                   </td>
-                  <td className="py-3 px-3 text-right">
-                    <span
-                      className={`font-semibold ${
-                        page.conversionRate >= 5
-                          ? "text-green-600"
-                          : page.conversionRate >= 2
-                          ? "text-yellow-600"
-                          : "text-gray-600"
-                      }`}
-                    >
-                      {page.conversionRate}%
-                    </span>
+                  <td className="py-3 px-3">
+                    <div className="text-right">
+                      <div
+                        className={`font-semibold text-base ${
+                          page.conversionRate >= 5
+                            ? "text-green-600"
+                            : page.conversionRate >= 2
+                            ? "text-yellow-600"
+                            : "text-gray-600"
+                        }`}
+                      >
+                        {page.conversionRate}%
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        방문 {Math.round(page.viewCount / (page.registrations || 1))}명 중 1명 등록
+                      </div>
+                    </div>
                   </td>
                   <td className="py-3 pl-3 text-right">
                     <Link
