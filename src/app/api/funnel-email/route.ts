@@ -66,8 +66,10 @@ export async function GET(req: Request) {
     // FunnelEmail 테이블 존재 여부 확인 (마이그레이션 미적용 환경 대비)
     try {
       await prisma.funnelEmail.count({ where: { id: 'probe' } });
-    } catch {
-      logger.warn('[GET /api/funnel-email] FunnelEmail 테이블 없음 - 빈 데이터 반환');
+    } catch (err) {
+      logger.warn('[funnel-email] DB probe 실패 — FunnelEmail 테이블 미존재 가능성', {
+        error: err instanceof Error ? err.message : String(err)
+      });
       return NextResponse.json({ ok: true, data: [], total: 0, page, pageSize });
     }
 

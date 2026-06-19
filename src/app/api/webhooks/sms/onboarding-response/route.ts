@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   const secret = process.env.MABIZ_ONBOARDING_WEBHOOK_SECRET;
   if (!secret) {
     logger.error('[OnboardingWebhook] MABIZ_ONBOARDING_WEBHOOK_SECRET 미설정');
-    return NextResponse.json({ ok: false }, { status: 500 });
+    return NextResponse.json({ ok: false }, { status: 503 });
   }
 
   const token = (req.headers.get('authorization') ?? '').replace('Bearer ', '');

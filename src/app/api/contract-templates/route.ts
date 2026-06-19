@@ -12,8 +12,8 @@ export async function GET(req: Request) {
     const orgId = resolveOrgId(ctx);
 
     const { searchParams } = new URL(req.url);
-    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1"));
-    const limit = Math.min(100, parseInt(searchParams.get("limit") ?? "20"));
+    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
+    const limit = Math.min(100, parseInt(searchParams.get("limit") ?? "20", 10));
     const status = searchParams.get("status");
     const category = searchParams.get("category");
 

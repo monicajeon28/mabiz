@@ -21,7 +21,7 @@ export async function GET(
     const ctx = await getMabizSession();
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
 
-    const profileId = parseInt(params.id);
+    const profileId = parseInt(params.id, 10);
     if (isNaN(profileId) || profileId <= 0) {
       return NextResponse.json({ ok: false, error: '유효하지 않은 ID' }, { status: 400 });
     }
@@ -78,7 +78,7 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: '권한 없음' }, { status: 403 });
     }
 
-    const profileId = parseInt(params.id);
+    const profileId = parseInt(params.id, 10);
     if (isNaN(profileId) || profileId <= 0) {
       return NextResponse.json({ ok: false, error: '유효하지 않은 ID' }, { status: 400 });
     }
