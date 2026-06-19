@@ -13,9 +13,6 @@ import {
   validateImage,
   optimizePassportImage,
   optimizePassportImagesBatch,
-  getOptimizedFullBuffer,
-  getOptimizedThumbBuffer,
-  getOptimizedArchiveBuffer,
 } from './image-optimization';
 
 describe('image-optimization', () => {
@@ -32,11 +29,11 @@ describe('image-optimization', () => {
         0xff, 0xd9, // JPEG footer
       ]);
 
-      const result = await validateImage(buffer);
+      const _result = await validateImage(buffer);
 
-      expect(result.valid).toBe(true);
-      expect(result.error).toBeUndefined();
-      expect(result.size).toBe(buffer.length);
+      expect(_result.valid).toBe(true);
+      expect(_result.error).toBeUndefined();
+      expect(_result.size).toBe(buffer.length);
     });
 
     test('파일 크기 초과 (11MB)', async () => {
