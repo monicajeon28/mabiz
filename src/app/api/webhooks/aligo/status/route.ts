@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    if (token.length !== webhookSecret.length || !timingSafeEqual(Buffer.from(token), Buffer.from(webhookSecret))) {
+    if (Buffer.byteLength(token, 'utf8') !== Buffer.byteLength(webhookSecret, 'utf8') || !timingSafeEqual(Buffer.from(token, 'utf8'), Buffer.from(webhookSecret, 'utf8'))) {
       logger.warn("[AligoStatusWebhook] Bearer token 불일치");
       return NextResponse.json(
         { ok: false, error: "Unauthorized" },
@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
       .update(queryString)
       .digest("hex");
 
-    if (signature.length !== expectedSignature.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+    if (Buffer.byteLength(signature, 'hex') !== Buffer.byteLength(expectedSignature, 'hex') || !timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSignature, 'hex'))) {
       logger.warn("[AligoStatusWebhook] 서명 불일치", {
         expected: expectedSignature.substring(0, 8),
         actual: signature.substring(0, 8),

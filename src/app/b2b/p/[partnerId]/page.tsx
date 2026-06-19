@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, memo } from 'react';
+import DOMPurify from 'dompurify';
 import { useParams } from 'next/navigation';
 import { ArrowRight, X, Loader2, CheckCircle2, Ship, Phone, User } from 'lucide-react';
 import { L6TimingBanner } from '@/components/b2b/L6TimingBanner';
@@ -33,7 +34,10 @@ const PACKAGE_OPTIONS = [
 
 // ─── 메모이즈된 HTML 렌더러 ──────────────────────────────────
 const TemplateHtml = memo(function TemplateHtml({ html }: { html: string }) {
-  return <div dangerouslySetInnerHTML={{ __html: html }} />;
+  // DOMPurify로 XSS 방지: DB에서 가져온 htmlContent는 입력 시 sanitize되지만
+  // 렌더링 시점에도 이중 방어 (Defense-in-Depth)
+  const clean = DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+  return <div dangerouslySetInnerHTML={{ __html: clean }} />;
 });
 
 // ─── 신청 폼 컴포넌트 ──────────────────────────────────────

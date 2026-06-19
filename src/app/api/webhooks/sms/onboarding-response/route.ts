@@ -43,8 +43,8 @@ export async function POST(req: NextRequest) {
 
   const token = (req.headers.get('authorization') ?? '').replace('Bearer ', '');
   if (
-    token.length !== secret.length ||
-    !timingSafeEqual(Buffer.from(token), Buffer.from(secret))
+    Buffer.byteLength(token, 'utf8') !== Buffer.byteLength(secret, 'utf8') ||
+    !timingSafeEqual(Buffer.from(token, 'utf8'), Buffer.from(secret, 'utf8'))
   ) {
     logger.error('[OnboardingWebhook] 인증 실패');
     return NextResponse.json({ ok: false }, { status: 401 });

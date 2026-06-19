@@ -48,6 +48,8 @@ function buildFetchOptions(
   const { headers, query, ...restOptions } = options;
 
   return {
+    // 15초 타임아웃: 무한 대기 방지 (호출자가 signal을 전달하면 덮어씌워짐)
+    signal: AbortSignal.timeout(15_000),
     ...restOptions,
     headers: {
       'Content-Type': 'application/json',

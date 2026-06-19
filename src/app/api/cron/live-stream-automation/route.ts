@@ -12,23 +12,25 @@
  * - Day 3: A (Action) - 행동 유도 (긴급성)
  */
 
+import { timingSafeEqual } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendSmsViaAligo } from '@/lib/sms-service';
 import { logLiveStreamEvent } from '@/lib/live-stream/tracking';
 import { logger } from '@/lib/logger';
 
-// Cron 인증 토큰 (미설정 시 fail-closed)
-const CRON_SECRET = process.env.CRON_SECRET;
-
 export async function POST(request: NextRequest) {
   try {
     // 인증 (CRON_SECRET 미설정 시 fail-closed)
-    if (!CRON_SECRET) {
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret) {
       return NextResponse.json({ error: 'MISCONFIGURED' }, { status: 503 });
     }
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${CRON_SECRET}`) {
+    const authHeader = request.headers.get('authorization') ?? '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    const tokenBuf = Buffer.from(token, 'utf8');
+    const expectedBuf = Buffer.from(cronSecret, 'utf8');
+    if (tokenBuf.byteLength !== expectedBuf.byteLength || !timingSafeEqual(tokenBuf, expectedBuf)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

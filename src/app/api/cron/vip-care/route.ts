@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
@@ -15,13 +16,16 @@ const BATCH_SIZE = 100;
 const MAX_DURATION_MS = 250_000; // 250s (Vercel 타임아웃 전 안전 종료)
 
 export async function GET(req: Request) {
-  // Cron 보안 검증 — CRON_SECRET 미설정 시 fail-closed (500)
+  // Cron 보안 검증 — CRON_SECRET 미설정 시 fail-closed (503)
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     return NextResponse.json({ ok: false, error: "CRON_SECRET 환경변수 미설정" }, { status: 503 });
   }
-  const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${cronSecret}`) {
+  const authHeader = req.headers.get("authorization") ?? "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  const tokenBuf = Buffer.from(token, "utf8");
+  const expectedBuf = Buffer.from(cronSecret, "utf8");
+  if (tokenBuf.byteLength !== expectedBuf.byteLength || !timingSafeEqual(tokenBuf, expectedBuf)) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 

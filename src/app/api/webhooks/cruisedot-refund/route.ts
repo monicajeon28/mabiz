@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('authorization') ?? '';
   const token = authHeader.replace('Bearer ', '');
 
-  if (token.length !== secret.length || !timingSafeEqual(Buffer.from(token), Buffer.from(secret))) {
+  if (Buffer.byteLength(token, 'utf8') !== Buffer.byteLength(secret, 'utf8') || !timingSafeEqual(Buffer.from(token, 'utf8'), Buffer.from(secret, 'utf8'))) {
     logger.warn('[RefundWebhook] 인증 실패');
     return NextResponse.json({ ok: false }, { status: 401 });
   }
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     .update(body)
     .digest('hex');
 
-  if (signature.length !== expectedSignature.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+  if (Buffer.byteLength(signature, 'hex') !== Buffer.byteLength(expectedSignature, 'hex') || !timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSignature, 'hex'))) {
     logger.warn('[RefundWebhook] 서명 검증 실패');
     return NextResponse.json({ ok: false }, { status: 403 });
   }
