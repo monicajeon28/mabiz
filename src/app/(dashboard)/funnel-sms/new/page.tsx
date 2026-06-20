@@ -222,7 +222,7 @@ export default function FunnelSmsNewPage() {
           <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
           <div className="flex-1">
             <p className="text-base font-bold text-amber-900 mb-2">📋 광고성 메시지 법규 안내</p>
-            <ul className="text-xs text-amber-800 space-y-1 mb-3">
+            <ul className="text-sm text-amber-900 space-y-1 mb-3">
               <li>• <strong>야간(오후 9시 ~ 오전 8시) 광고성 문자 발송 금지</strong> — 이 시간에는 자동으로 차단됩니다</li>
               <li>• 광고성 메시지는 제목에 <strong>"(광고)"</strong> 표기 및 <strong>무료수신거부 번호</strong> 포함 필수</li>
               <li>• 수신 동의 고객에게만 발송하세요</li>
