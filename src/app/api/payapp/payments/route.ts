@@ -6,8 +6,9 @@ import { logger } from '@/lib/logger';
 
 /**
  * GET /api/payapp/payments
- * 결제 내역 목록 + 통계
+ * 랜딩페이지 결제 내역 목록 + 통계
  * 필터: status, search(이름/전화), month(YYYY-MM)
+ * RBAC: GLOBAL_ADMIN=전체, OWNER=본인조직, AGENT=본인이 만든 결제만
  * 페이지네이션: page, limit
  */
 export async function GET(req: Request) {
@@ -27,6 +28,8 @@ export async function GET(req: Request) {
     // Where 조건 구성
     const where: Record<string, unknown> = {};
     if (orgId) where.organizationId = orgId;
+    // AGENT: 본인이 생성한 결제만 조회 (다른 판매원 결제 노출 방지)
+    if (ctx.role === 'AGENT') where.createdByUserId = ctx.userId;
     if (status) where.status = status;
     if (search) {
       where.OR = [
@@ -55,21 +58,23 @@ export async function GET(req: Request) {
       prisma.payAppPayment.count({ where: whereClause }),
     ]);
 
-    // 통계 (DB 레벨 집계 — 메모리 효율)
+    // 통계 (DB 레벨 집계 — 메모리 효율, AGENT 필터 동일 적용)
     const orgFilter = orgId ? { organizationId: orgId } : {};
+    const agentFilter = ctx.role === 'AGENT' ? { createdByUserId: ctx.userId } : {};
+    const statsBase = { ...orgFilter, ...agentFilter };
     const [paidAgg, refundAgg, pendingAgg] = await Promise.all([
       prisma.payAppPayment.aggregate({
-        where: { ...orgFilter, status: 'paid' },
+        where: { ...statsBase, status: 'paid' },
         _sum: { amount: true },
         _count: true,
       }),
       prisma.payAppPayment.aggregate({
-        where: { ...orgFilter, status: { in: ['refunded', 'partial_refunded'] } },
+        where: { ...statsBase, status: { in: ['refunded', 'partial_refunded'] } },
         _sum: { refundAmount: true },
         _count: true,
       }),
       prisma.payAppPayment.aggregate({
-        where: { ...orgFilter, status: { in: ['pending', 'waiting'] } },
+        where: { ...statsBase, status: { in: ['pending', 'waiting'] } },
         _sum: { amount: true },
         _count: true,
       }),
