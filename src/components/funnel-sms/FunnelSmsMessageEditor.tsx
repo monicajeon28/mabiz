@@ -17,12 +17,14 @@ interface Props {
   sendMinute: number;
 }
 
-const DAY_EXPLANATIONS: Record<number, string> = {
-  0: "신청 직후 즉시 발송",
-  1: "신청 다음날 오전 10시",
-  2: "신청 2일 후 오전 10시",
-  3: "신청 3일 후 오전 10시",
-};
+function getDayExplanation(daysAfter: number, sendHour: number, sendMinute: number): string {
+  if (daysAfter === 0) {
+    return "신청 직후 즉시 발송";
+  }
+  const timeStr = `${String(sendHour).padStart(2, '0')}:${String(sendMinute).padStart(2, '0')}`;
+  const dayLabel = daysAfter === 1 ? "다음날" : `${daysAfter}일 후`;
+  return `신청 ${dayLabel} ${timeStr}`;
+}
 
 const VARIABLES_HELP = [
   { label: '[이름]', description: '고객 이름' },
@@ -196,12 +198,12 @@ export default function FunnelSmsMessageEditor({ message, onChange, sendHour, se
               {[0, 1, 2, 3].map(day => (
                 <div key={day} className="flex items-start gap-1">
                   <span className="font-semibold">Day {day}:</span>
-                  <span>{DAY_EXPLANATIONS[day] || `신청 ${day}일 후 오전 10시`}</span>
+                  <span>{getDayExplanation(day, sendHour, sendMinute)}</span>
                 </div>
               ))}
             </div>
             <p className="text-xs text-blue-700 mt-2 pt-2 border-t border-blue-200">
-              💡 Day 0은 신청 직후 즉시, Day 1-3은 해당 날짜 오전 10시에 자동 발송됩니다.
+              💡 Day 0은 신청 직후 즉시, Day 1-3은 해당 날짜 {String(sendHour).padStart(2, '0')}:{String(sendMinute).padStart(2, '0')}에 자동 발송됩니다.
             </p>
           </div>
         </div>
