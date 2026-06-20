@@ -135,7 +135,7 @@ interface FunnelSmsListResponse {
 
 // ─── 예약 대기 탭 타입 ────────────────────────────────────────────────────
 
-type ScheduledStatus = "PENDING" | "SENDING" | "SENT" | "FAILED" | "CANCELLED" | "NIGHT_BLOCKED";
+type ScheduledStatus = "PENDING" | "SENDING" | "SENT" | "FAILED" | "CANCELLED" | "PAUSED" | "NIGHT_BLOCKED";
 
 interface ScheduledItem {
   id: string;
@@ -223,6 +223,7 @@ const CHANNEL_LABELS: Record<string, string> = {
 const SCHEDULED_STATUS_INFO: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   PENDING:       { label: "예약됨",    color: "bg-blue-100 text-blue-700",     icon: <AlarmClock className="w-3.5 h-3.5" /> },
   SENDING:       { label: "발송 중",   color: "bg-yellow-100 text-yellow-700", icon: <Clock className="w-3.5 h-3.5" /> },
+  PAUSED:        { label: "일시정지",  color: "bg-orange-100 text-orange-700", icon: <Clock className="w-3.5 h-3.5" /> },
   SENT:          { label: "발송 완료", color: "bg-green-100 text-green-700",   icon: <CheckCircle className="w-3.5 h-3.5" /> },
   FAILED:        { label: "실패",      color: "bg-red-100 text-red-700",       icon: <XCircle className="w-3.5 h-3.5" /> },
   CANCELLED:     { label: "취소됨",    color: "bg-gray-100 text-gray-500",     icon: <X className="w-3.5 h-3.5" /> },
@@ -962,7 +963,7 @@ export default function SmsLogsPage() {
             <div className="space-y-3">
               {scheduledList.map((item) => {
                 const info = SCHEDULED_STATUS_INFO[item.status] ?? SCHEDULED_STATUS_INFO.PENDING;
-                const canCancel = item.status === "PENDING" || item.status === "NIGHT_BLOCKED";
+                const canCancel = item.status === "PENDING" || item.status === "NIGHT_BLOCKED" || item.status === "PAUSED";
                 return (
                   <div key={item.id} className="bg-white border border-gray-200 rounded-xl p-4">
                     <div className="flex items-start gap-3">
@@ -999,7 +1000,7 @@ export default function SmsLogsPage() {
                         )}
                       </div>
 
-                      {/* 취소 버튼 (PENDING/NIGHT_BLOCKED만) */}
+                      {/* 취소 버튼 (PENDING/PAUSED/NIGHT_BLOCKED만) */}
                       {canCancel && (
                         <button
                           onClick={() => cancelScheduled(item.id)}
