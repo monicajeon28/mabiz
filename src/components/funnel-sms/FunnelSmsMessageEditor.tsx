@@ -128,10 +128,16 @@ export default function FunnelSmsMessageEditor({ message, onChange, sendHour, se
   /** content 변경 + msgType 자동 동기화 */
   const handleContentChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const next = e.target.value;
-    const nextType: 'SMS' | 'LMS' = getEucKrBytes(next) > SMS_LIMIT ? 'LMS' : 'SMS';
-    onChange('content', next);
-    if (nextType !== message.msgType) onChange('msgType', nextType);
-  }, [message.msgType, onChange]);
+    // 전각 공백 및 다양한 공백 패턴도 빈 문자열로 간주
+    const isTrimmedEmpty = /^\s*$/.test(next);
+    if (!isTrimmedEmpty) {
+      const nextType: 'SMS' | 'LMS' = getEucKrBytes(next) > SMS_LIMIT ? 'LMS' : 'SMS';
+      onChange('content', next);
+      if (nextType !== message.msgType) onChange('msgType', nextType);
+    } else if (next !== message.content) {
+      onChange('content', next);
+    }
+  }, [message.msgType, onChange, message.content]);
 
   const previewDate = getPreviewDate(message.daysAfter);
   const timeStr = `${String(sendHour).padStart(2, '0')}:${String(sendMinute).padStart(2, '0')}`;

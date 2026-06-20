@@ -153,8 +153,20 @@ export default function FunnelSmsNewPage() {
       showError(message);
       return;
     }
-    if (messages.some((m) => !m.content.trim())) {
-      const message = "모든 회차의 메시지 내용을 입력해주세요.";
+    if (messages.some((m) => !m.content.trim() || m.content.length > 2000)) {
+      const message = "모든 회차의 메시지 내용을 입력해주세요. (최대 2000자)";
+      setSaveError(message);
+      showError(message);
+      return;
+    }
+    if (isAdvertisement && !header.arsNum?.trim()) {
+      const message = "광고성 메시지는 080 수신거부 번호를 반드시 입력해야 합니다.";
+      setSaveError(message);
+      showError(message);
+      return;
+    }
+    if (isAdvertisement && (header.sendHour >= 22 || header.sendHour < 8)) {
+      const message = "광고성 메시지는 야간(오후 9시 ~ 오전 8시)에 발송할 수 없습니다. 발송 시간을 변경하세요.";
       setSaveError(message);
       showError(message);
       return;
