@@ -338,8 +338,8 @@ export default function FunnelSmsNewPage() {
         </div>
 
         {/* 오른쪽: 폰 미리보기 */}
-        <div className="hidden lg:block">
-          <div className="sticky top-6">
+        <div>
+          <div className="lg:sticky lg:top-6">
             <p className="text-xs font-medium text-gray-500 mb-3 text-center">미리보기 (1회차)</p>
             <FunnelSmsPhonePreview content={messages[0]?.content ?? ""} />
           </div>
