@@ -221,7 +221,7 @@ export default function FunnelSmsNewPage() {
         <div className="flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="text-sm font-bold text-amber-900 mb-2">📋 광고성 메시지 법규 안내</p>
+            <p className="text-base font-bold text-amber-900 mb-2">📋 광고성 메시지 법규 안내</p>
             <ul className="text-xs text-amber-800 space-y-1 mb-3">
               <li>• <strong>야간(오후 9시 ~ 오전 8시) 광고성 문자 발송 금지</strong> — 이 시간에는 자동으로 차단됩니다</li>
               <li>• 광고성 메시지는 제목에 <strong>"(광고)"</strong> 표기 및 <strong>무료수신거부 번호</strong> 포함 필수</li>
@@ -253,7 +253,7 @@ export default function FunnelSmsNewPage() {
         <div className="lg:col-span-2 space-y-6">
           {/* 기본 정보 */}
           <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h2 className="text-sm font-semibold text-gray-700 mb-4">기본 정보</h2>
+            <h2 className="text-base font-semibold text-gray-700 mb-4">기본 정보</h2>
             <FunnelSmsHeader
               value={header}
               onChange={handleHeaderChange}
@@ -269,7 +269,7 @@ export default function FunnelSmsNewPage() {
 
           {/* 메시지 회차 타임라인 */}
           <div className="space-y-0">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">메시지 회차</h2>
+            <h2 className="text-base font-semibold text-gray-700 mb-3">메시지 회차</h2>
             {messages.map((m, i) => (
               <div key={m.order}>
                 <div className="bg-white rounded-xl border border-gray-200 p-5">
