@@ -216,7 +216,8 @@ export default function FunnelSmsNewPage() {
       }
     } catch (err) {
       logger.error("[FunnelSmsNewPage] handleSave", { err });
-      const message = "저장 중 오류가 발생했습니다.";
+      const isTimeout = err instanceof Error && err.name === "AbortError";
+      const message = isTimeout ? "저장 시간이 초과되었습니다. 네트워크를 확인하세요." : "저장 중 오류가 발생했습니다.";
       setSaveError(message);
       showError(message);
     } finally {
