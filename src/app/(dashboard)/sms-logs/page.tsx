@@ -18,6 +18,9 @@ import {
   Send,
   Clock,
   Users,
+  AlarmClock,
+  X,
+  Trash2,
 } from "lucide-react";
 import ABTestDashboard from "./components/ab-test-dashboard";
 import { logger } from "@/lib/logger";
@@ -130,6 +133,23 @@ interface FunnelSmsListResponse {
   data: { id: string; title: string }[];
 }
 
+// ─── 예약 대기 탭 타입 ────────────────────────────────────────────────────
+
+type ScheduledStatus = "PENDING" | "SENDING" | "SENT" | "FAILED" | "CANCELLED" | "NIGHT_BLOCKED";
+
+interface ScheduledItem {
+  id: string;
+  contactId: string | null;
+  groupId: string | null;
+  message: string;
+  scheduledAt: string;
+  status: ScheduledStatus;
+  sentAt: string | null;
+  sentCount: number;
+  failedCount: number;
+  createdAt: string;
+}
+
 // ─── 상수 ──────────────────────────────────────────────────────────────────
 
 const STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
@@ -199,6 +219,24 @@ const CHANNEL_LABELS: Record<string, string> = {
   EMAIL: "이메일",
   PUSH: "푸시",
 };
+
+const SCHEDULED_STATUS_INFO: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+  PENDING:       { label: "예약됨",    color: "bg-blue-100 text-blue-700",     icon: <AlarmClock className="w-3.5 h-3.5" /> },
+  SENDING:       { label: "발송 중",   color: "bg-yellow-100 text-yellow-700", icon: <Clock className="w-3.5 h-3.5" /> },
+  SENT:          { label: "발송 완료", color: "bg-green-100 text-green-700",   icon: <CheckCircle className="w-3.5 h-3.5" /> },
+  FAILED:        { label: "실패",      color: "bg-red-100 text-red-700",       icon: <XCircle className="w-3.5 h-3.5" /> },
+  CANCELLED:     { label: "취소됨",    color: "bg-gray-100 text-gray-500",     icon: <X className="w-3.5 h-3.5" /> },
+  NIGHT_BLOCKED: { label: "야간 대기", color: "bg-purple-100 text-purple-700", icon: <Clock className="w-3.5 h-3.5" /> },
+};
+
+const SCHEDULED_FILTER_OPTIONS = [
+  { value: "",               label: "전체" },
+  { value: "PENDING",        label: "예약됨" },
+  { value: "SENT",           label: "발송 완료" },
+  { value: "FAILED",         label: "실패" },
+  { value: "CANCELLED",      label: "취소됨" },
+  { value: "NIGHT_BLOCKED",  label: "야간 대기" },
+];
 
 // ─── 유틸리티 ──────────────────────────────────────────────────────────────
 
@@ -284,7 +322,7 @@ export default function SmsLogsPage() {
 
   // 탭
   const [activeTab, setActiveTab] = useState<
-    "logs" | "funnel" | "stats" | "abtest"
+    "logs" | "scheduled" | "funnel" | "stats" | "abtest"
   >("logs");
 
   // 데이터
@@ -320,6 +358,14 @@ export default function SmsLogsPage() {
   const [funnelLoading, setFunnelLoading] = useState<boolean>(false);
   const [funnelError, setFunnelError] = useState<string | null>(null);
 
+  // ── 예약 대기 탭 상태 ──
+  const [scheduledList, setScheduledList] = useState<ScheduledItem[]>([]);
+  const [scheduledFilter, setScheduledFilter] = useState<string>("PENDING");
+  const [scheduledLoading, setScheduledLoading] = useState(false);
+  const [scheduledError, setScheduledError] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState<string | null>(null);
+  const [csrfToken, setCsrfToken] = useState("");
+
   // 로딩 / 에러
   const [logsLoading, setLogsLoading] = useState<boolean>(true);
   const [statsLoading, setStatsLoading] = useState<boolean>(false);
@@ -343,6 +389,16 @@ export default function SmsLogsPage() {
     };
   }, []);
 
+  // CSRF 토큰 로드
+  useEffect(() => {
+    const ctrl = new AbortController();
+    fetch("/api/csrf-token", { signal: ctrl.signal })
+      .then(r => r.json())
+      .then(d => { if (d.ok && d.token) setCsrfToken(d.token); })
+      .catch(e => { if (e instanceof Error && e.name === "AbortError") return; });
+    return () => ctrl.abort();
+  }, []);
+
   // URL 쿼리 초기화 (?tab=funnel&funnelSmsId=) — T6 딥링크 연동
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -350,6 +406,7 @@ export default function SmsLogsPage() {
     const tab = sp.get("tab");
     if (
       tab === "logs" ||
+      tab === "scheduled" ||
       tab === "funnel" ||
       tab === "stats" ||
       tab === "abtest"
@@ -480,6 +537,53 @@ export default function SmsLogsPage() {
     }
   }, [days, pageSize, funnelPage, funnelSmsId, funnelGroupId, funnelRound, funnelStatus]);
 
+  // 예약 대기 목록 불러오기
+  const fetchScheduled = useCallback(async () => {
+    setScheduledLoading(true);
+    setScheduledError(null);
+    try {
+      const params = new URLSearchParams();
+      if (scheduledFilter) params.set("status", scheduledFilter);
+      const res = await fetch(`/api/scheduled-sms?${params.toString()}`);
+      if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
+      const data = await res.json();
+      if (data.ok) setScheduledList(data.list ?? []);
+      else throw new Error(data.message ?? "조회 실패");
+    } catch (e) {
+      setScheduledError(e instanceof Error ? e.message : "데이터를 불러올 수 없습니다.");
+    } finally {
+      setScheduledLoading(false);
+    }
+  }, [scheduledFilter]);
+
+  // 예약 취소 (PENDING/NIGHT_BLOCKED 상태만)
+  const cancelScheduled = async (id: string) => {
+    setCancelling(id);
+    setScheduledError(null);
+    try {
+      const res = await fetch(`/api/scheduled-sms?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: csrfToken ? { "X-CSRF-Token": csrfToken } : {},
+      });
+      const data = await res.json();
+      if (data.ok) {
+        if (scheduledFilter === "") {
+          setScheduledList(prev => prev.map(item =>
+            item.id === id ? { ...item, status: "CANCELLED" as ScheduledStatus } : item
+          ));
+        } else {
+          setScheduledList(prev => prev.filter(item => item.id !== id));
+        }
+      } else {
+        setScheduledError(data.message ?? "취소 실패");
+      }
+    } catch {
+      setScheduledError("네트워크 오류가 발생했습니다.");
+    } finally {
+      setCancelling(null);
+    }
+  };
+
   // 탭/필터 변경 시 데이터 로드
   useEffect(() => {
     if (activeTab === "logs") fetchLogs();
@@ -492,6 +596,14 @@ export default function SmsLogsPage() {
   useEffect(() => {
     if (activeTab === "funnel") fetchFunnelHistory();
   }, [activeTab, fetchFunnelHistory]);
+
+  // 예약 대기: 탭 활성 시 불러오기 + 30초 자동 갱신
+  useEffect(() => {
+    if (activeTab !== "scheduled") return;
+    fetchScheduled();
+    const timer = setInterval(fetchScheduled, 30000);
+    return () => clearInterval(timer);
+  }, [activeTab, fetchScheduled]);
 
   // 필터 변경 시 페이지 1로 리셋
   const applyFilter = (type: "status" | "days" | "pageSize", value: string | number) => {
@@ -545,10 +657,11 @@ export default function SmsLogsPage() {
       <div className="flex gap-1 mb-6 bg-gray-100 rounded-xl p-1 w-fit">
         {(
           [
-            { key: "logs", label: "발송 기록", icon: <MessageSquare className="w-3.5 h-3.5" /> },
-            { key: "funnel", label: "자동문자 회차별", icon: <Send className="w-3.5 h-3.5" /> },
-            { key: "stats", label: "분석", icon: <BarChart2 className="w-3.5 h-3.5" /> },
-            { key: "abtest", label: "효과 테스트", icon: <TrendingUp className="w-3.5 h-3.5" /> },
+            { key: "logs",      label: "발송 기록",      icon: <MessageSquare className="w-3.5 h-3.5" /> },
+            { key: "scheduled", label: "예약 대기",       icon: <AlarmClock className="w-3.5 h-3.5" /> },
+            { key: "funnel",    label: "자동문자 회차별", icon: <Send className="w-3.5 h-3.5" /> },
+            { key: "stats",     label: "분석",           icon: <BarChart2 className="w-3.5 h-3.5" /> },
+            { key: "abtest",    label: "효과 테스트",    icon: <TrendingUp className="w-3.5 h-3.5" /> },
           ] as const
         ).map((tab) => (
           <button
@@ -801,6 +914,106 @@ export default function SmsLogsPage() {
                 다음
                 <ChevronRight className="w-4 h-4" />
               </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── 탭: 예약 대기 ─────────────────────────────────────────────── */}
+      {activeTab === "scheduled" && (
+        <>
+          {/* 상태 필터 */}
+          <div className="flex gap-2 mb-4 flex-wrap">
+            {SCHEDULED_FILTER_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setScheduledFilter(opt.value)}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  scheduledFilter === opt.value
+                    ? "bg-gray-900 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+            <span className="ml-auto text-xs text-gray-400 self-center">30초마다 자동 갱신</span>
+          </div>
+
+          {/* 에러 */}
+          {scheduledError && (
+            <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700 mb-4 flex items-center justify-between gap-2">
+              <span>{scheduledError}</span>
+              <button onClick={() => setScheduledError(null)} className="text-red-400 hover:text-red-600 shrink-0">✕</button>
+            </div>
+          )}
+
+          {scheduledLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)}
+            </div>
+          ) : scheduledList.length === 0 ? (
+            <div className="text-center py-16 text-gray-600">
+              <AlarmClock className="w-12 h-12 mx-auto mb-3 opacity-20" />
+              <p className="text-sm">예약된 발송이 없습니다.</p>
+              <p className="text-sm mt-1">문자 CRM에서 예약 발송을 등록해 보세요.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {scheduledList.map((item) => {
+                const info = SCHEDULED_STATUS_INFO[item.status] ?? SCHEDULED_STATUS_INFO.PENDING;
+                const canCancel = item.status === "PENDING" || item.status === "NIGHT_BLOCKED";
+                return (
+                  <div key={item.id} className="bg-white border border-gray-200 rounded-xl p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        {/* 상태 + 예약 시각 */}
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          <span className={`flex items-center gap-1 text-sm font-medium px-2 py-0.5 rounded-full ${info.color}`}>
+                            {info.icon} {info.label}
+                          </span>
+                          <span className="text-sm text-gray-500">
+                            🕐 {new Date(item.scheduledAt).toLocaleString("ko-KR")}
+                          </span>
+                          {item.sentAt && (
+                            <span className="text-sm text-green-600 font-medium">
+                              ✅ 완료: {new Date(item.sentAt).toLocaleString("ko-KR")}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* 수신 대상 */}
+                        <p className="text-sm text-gray-500 mb-1">
+                          {item.contactId ? "👤 개별 고객" : item.groupId ? "👥 그룹 전체" : ""}
+                        </p>
+
+                        {/* 메시지 미리보기 */}
+                        <p className="text-sm text-gray-700 line-clamp-2">{item.message}</p>
+
+                        {/* 발송 결과 */}
+                        {(item.sentCount > 0 || item.failedCount > 0) && (
+                          <p className="text-sm text-gray-600 mt-1">
+                            ✅ {item.sentCount}건 성공
+                            {item.failedCount > 0 && ` · ❌ ${item.failedCount}건 실패`}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* 취소 버튼 (PENDING/NIGHT_BLOCKED만) */}
+                      {canCancel && (
+                        <button
+                          onClick={() => cancelScheduled(item.id)}
+                          disabled={cancelling === item.id}
+                          className="shrink-0 flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          {cancelling === item.id ? "취소 중..." : "취소"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </>

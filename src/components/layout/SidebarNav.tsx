@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Users, Users2, MessageSquare, GitBranch,
   FileText, Wrench, Database, Link2, Settings, LogOut,
-  AlarmClock, TrendingUp, Building2, ClipboardList, CreditCard,
+  TrendingUp, Building2, ClipboardList, CreditCard,
   BookOpen, FolderOpen, BarChart2, BarChart,
   Calculator, Phone, ShoppingBag, Award, Star, Receipt, Stamp, Images, Tag, UserPlus,
 } from "lucide-react";
@@ -71,7 +71,6 @@ const navSections: NavSection[] = [
       { href: "/marketing",             icon: BarChart2,    label: "마케팅 대시보드",    roles: ["GLOBAL_ADMIN", "OWNER"] },
       { href: "/marketing/sales",       icon: TrendingUp,   label: "랜딩 매출관리",      roles: ["GLOBAL_ADMIN", "OWNER"] },
       { href: "/messages",              icon: MessageSquare,label: "문자 CRM" },
-      { href: "/messages/scheduled",    icon: AlarmClock,   label: "예약 발송" },
       { href: "/sms-logs",              icon: ClipboardList,label: "발송 기록" },
       { href: "/funnel-sms",            icon: GitBranch,    label: "자동문자",           roles: ["GLOBAL_ADMIN", "OWNER"] },
       { href: "/funnel-email",          icon: FileText,     label: "자동이메일",          roles: ["GLOBAL_ADMIN", "OWNER"] },
