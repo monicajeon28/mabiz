@@ -2235,9 +2235,11 @@ model ScheduledKakao {
   organizationId     String
   contactId          String?
   groupId            String?
-  message            String
+  message            String?              // 폴백용 텍스트 메시지 (템플릿 미사용시)
+  templateCode       String?              // Aligo 카카오톡 템플릿 코드 (예: "REPLY_INQUIRY")
+  variables          String?              // JSON 문자열: 템플릿 변수 (예: {"name":"김철수","date":"2026-06-20"})
   scheduledAt        DateTime
-  status             String    @default("PENDING")
+  status             String    @default("PENDING") // PENDING | SENDING | SENT | FAILED | NIGHT_BLOCKED | PAUSED | CANCELLED
   sentAt             DateTime?
   sentCount          Int       @default(0)
   failedCount        Int       @default(0)

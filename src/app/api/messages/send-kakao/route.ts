@@ -5,11 +5,13 @@ import { normalizePhone } from '@/lib/import-utils';
 import { logger } from '@/lib/logger';
 
 interface KakaoSendRequest {
-  phone: string;
+  phone?: string;
+  groupId?: string;           // 그룹 선택시
   content: string;
-  tplCode?: string;
+  tplCode?: string;           // 템플릿 코드
   subject?: string;
   scheduledTime?: string;
+  variables?: Record<string, string>; // 템플릿 변수 (예: {name: "철수", date: "06-20"})
 }
 
 interface AligoKakaoResponse {
@@ -30,11 +32,12 @@ export async function POST(req: Request) {
     const orgId = resolveOrgId(ctx);
 
     const body: KakaoSendRequest = await req.json();
-    const { phone, content, tplCode, subject, scheduledTime } = body;
+    const { phone, groupId, content, tplCode, subject, scheduledTime, variables } = body;
 
-    if (!phone || !content) {
+    // 즉시 발송시 phone, 예약/그룹 발송시 groupId 필수
+    if (!content || (!phone && !groupId)) {
       return NextResponse.json(
-        { ok: false, message: '필수 필드 누락' },
+        { ok: false, message: '필수 필드 누락 (content, phone 또는 groupId)' },
         { status: 400 }
       );
     }
@@ -42,12 +45,16 @@ export async function POST(req: Request) {
     const kakaoTplCode = tplCode || process.env.ALIGO_KAKAO_TPL_CODE || 'EXAM';
     const kakaoSubject = subject || process.env.ALIGO_KAKAO_SUBJECT || '알림';
 
-    const normalizedPhone = normalizePhone(phone);
-    if (!normalizedPhone) {
-      return NextResponse.json(
-        { ok: false, message: '유효하지 않은 전화번호' },
-        { status: 400 }
-      );
+    let normalizedPhone: string | null = null;
+    if (phone) {
+      normalizedPhone = normalizePhone(phone);
+      if (!normalizedPhone && !scheduledTime) {
+        // 즉시 발송시만 전화번호 필수
+        return NextResponse.json(
+          { ok: false, message: '유효하지 않은 전화번호' },
+          { status: 400 }
+        );
+      }
     }
 
     // 예약 발송인 경우 DB 저장
@@ -64,14 +71,24 @@ export async function POST(req: Request) {
         await prisma.scheduledKakao.create({
           data: {
             organizationId: orgId,
+            contactId: undefined,      // 개별 발송이면 phone으로, 그룹 발송이면 groupId로
+            groupId: groupId || undefined,
             message: content,
+            templateCode: tplCode || undefined,
+            variables: variables ? JSON.stringify(variables) : undefined,
             scheduledAt,
             status: 'PENDING',
             createdByUserId: ctx.userId,
           },
         });
 
-        logger.log('[kakao/schedule] 예약 등록 완료', { phone: normalizedPhone, scheduledAt, orgId });
+        logger.log('[kakao/schedule] 예약 등록 완료', {
+          phone: normalizedPhone,
+          groupId,
+          scheduledAt,
+          orgId,
+          templateCode: tplCode,
+        });
         const response: KakaoSendResponse = {
           ok: true,
           message: '카카오톡 발송이 예약되었습니다',
@@ -105,18 +122,19 @@ export async function POST(req: Request) {
       );
     }
 
+    const params = new URLSearchParams();
+    params.append('key', aligoKey);
+    params.append('user_id', aligoUserId);
+    params.append('senderkey', aligoKakaoSenderKey);
+    params.append('tpl_code', kakaoTplCode);
+    params.append('receiver', normalizedPhone || '');
+    params.append('subject', kakaoSubject);
+    params.append('message', content);
+    params.append('failover', 'true');
+
     const res = await fetch('https://apis.aligo.in/send/', {
       method: 'POST',
-      body: new URLSearchParams({
-        key: aligoKey,
-        user_id: aligoUserId,
-        senderkey: aligoKakaoSenderKey,
-        tpl_code: kakaoTplCode,
-        receiver: normalizedPhone,
-        subject: kakaoSubject,
-        message: content,
-        failover: 'true', // SMS 폴백
-      }),
+      body: params,
     });
 
     const data: AligoKakaoResponse = await res.json();
