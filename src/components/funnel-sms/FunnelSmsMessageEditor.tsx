@@ -171,7 +171,7 @@ export default function FunnelSmsMessageEditor({ message, onChange, sendHour, se
             <button
               type="button"
               onClick={() => setShowDayHelp(!showDayHelp)}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-100"
               title="발송 시점 설명"
               aria-label="발송 시점 도움말"
             >
@@ -233,7 +233,7 @@ export default function FunnelSmsMessageEditor({ message, onChange, sendHour, se
             <button
               type="button"
               onClick={() => setShowVariablesHelp(!showVariablesHelp)}
-              className="text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1"
+              className="p-2 text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1 rounded-lg hover:bg-gray-100"
               title="사용 가능한 변수 목록"
               aria-label="변수 도움말"
             >
