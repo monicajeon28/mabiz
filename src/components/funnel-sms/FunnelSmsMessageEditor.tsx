@@ -169,7 +169,7 @@ export default function FunnelSmsMessageEditor({ message, onChange, sendHour, se
               title="발송 시점 설명"
               aria-label="발송 시점 도움말"
             >
-              <HelpCircle className="w-4 h-4" />
+              <HelpCircle className="w-5 h-5 text-gray-500" />
             </button>
           </div>
           <input
@@ -222,16 +222,17 @@ export default function FunnelSmsMessageEditor({ message, onChange, sendHour, se
       <div>
         {/* 변수 버튼 툴바 */}
         <div className="flex items-center gap-1.5 flex-wrap mb-2">
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-gray-400 mr-1">삽입:</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-600 font-medium">변수 삽입:</span>
             <button
               type="button"
               onClick={() => setShowVariablesHelp(!showVariablesHelp)}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1"
               title="사용 가능한 변수 목록"
               aria-label="변수 도움말"
             >
-              <HelpCircle className="w-3 h-3" />
+              <HelpCircle className="w-4 h-4" />
+              <span className="text-xs text-gray-600 hover:text-gray-800">도움말</span>
             </button>
           </div>
 
@@ -328,12 +329,19 @@ export default function FunnelSmsMessageEditor({ message, onChange, sendHour, se
           onChange={handleContentChange}
           onClick={() => setShowProductLinks(false)}
           placeholder="메시지 내용을 입력하세요."
-          className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 resize-none ${
-            overLimit ? 'border-red-400 focus:ring-red-400' : 'border-gray-300 focus:ring-blue-500'
+          disabled={overLimit}
+          className={`w-full border rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 resize-none max-h-64 ${
+            overLimit ? 'border-red-400 focus:ring-red-400 bg-red-50 cursor-not-allowed' : 'border-gray-300 focus:ring-blue-500'
           }`}
         />
 
-        {/* 바이트 카운터 */}
+        {/* 바이트 카운터 + 초과 경고 */}
+        {overLimit && (
+          <div className="mt-2 bg-red-50 border border-red-300 rounded-lg px-3 py-2 flex items-center gap-2">
+            <span className="text-sm font-medium text-red-700">문자 길이 초과</span>
+            <span className="text-sm text-red-600">{bytes - LMS_LIMIT}B 초과되어 발송할 수 없습니다.</span>
+          </div>
+        )}
         <div className="mt-1 flex items-center justify-between">
           <span className="text-xs text-gray-400">
             {message.daysAfter === 0 ? '즉시 발송' : `발송: ${timeStr}`}
