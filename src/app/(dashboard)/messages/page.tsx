@@ -623,27 +623,47 @@ function SmsForm() {
           })()}
 
           {/* 스케줄링 옵션 */}
-          <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-            <div className="flex items-center gap-4 mb-3">
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                <input type="radio" name="sms-schedule" value="now" checked={scheduleMode === "now"}
-                  onChange={() => setScheduleMode("now")} className="rounded" />
-                즉시 발송
+          <div className={`mt-4 p-4 border-2 rounded-lg transition-all ${
+            scheduleMode === "scheduled"
+              ? "bg-blue-50 border-blue-300"
+              : "bg-gray-50 border-gray-200"
+          }`}>
+            <p className="text-base font-semibold text-gray-900 mb-3">발송 시간</p>
+            <div className="flex items-center gap-6 mb-4">
+              <label className="flex items-center gap-3 text-base font-medium text-gray-700 cursor-pointer">
+                <input
+                  type="radio"
+                  name="sms-schedule"
+                  value="now"
+                  checked={scheduleMode === "now"}
+                  onChange={() => setScheduleMode("now")}
+                  className="w-5 h-5 rounded accent-blue-600"
+                />
+                지금 바로 발송
               </label>
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                <input type="radio" name="sms-schedule" value="scheduled" checked={scheduleMode === "scheduled"}
-                  onChange={() => setScheduleMode("scheduled")} className="rounded" />
-                예약 발송
+              <label className="flex items-center gap-3 text-base font-medium text-gray-700 cursor-pointer">
+                <input
+                  type="radio"
+                  name="sms-schedule"
+                  value="scheduled"
+                  checked={scheduleMode === "scheduled"}
+                  onChange={() => setScheduleMode("scheduled")}
+                  className="w-5 h-5 rounded accent-blue-600"
+                />
+                예약해서 발송
               </label>
             </div>
             {scheduleMode === "scheduled" && (
-              <input
-                type={supportsDatetimeLocal() ? "datetime-local" : "text"}
-                value={scheduledTime}
-                onChange={(e) => setScheduledTime(e.target.value)}
-                placeholder="2026-05-28 14:00"
-                className="w-full px-2 py-1.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
-              />
+              <div className="space-y-3">
+                <input
+                  type={supportsDatetimeLocal() ? "datetime-local" : "text"}
+                  value={scheduledTime}
+                  onChange={(e) => setScheduledTime(e.target.value)}
+                  placeholder="2026-06-20 14:00"
+                  className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg text-base bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <p className="text-sm text-gray-600">💡 예: 2026-06-20 (내일), 14:00 (오후 2시)</p>
+              </div>
             )}
           </div>
 
@@ -1090,40 +1110,68 @@ function EmailForm() {
         </div>
 
         {/* 발송 시간 */}
-        <div className="rounded-xl border bg-white p-4">
-          <p className="text-sm font-semibold text-gray-500 mb-3">발송 시간</p>
-          <div className="flex gap-2 mb-3">
+        <div className={`rounded-xl border-2 p-4 transition-all ${
+          sendMode === "schedule"
+            ? "bg-blue-50 border-blue-300"
+            : "bg-white border-gray-200"
+        }`}>
+          <p className="text-base font-semibold text-gray-900 mb-4">발송 시간</p>
+          <div className="flex gap-3 mb-4">
             <button onClick={() => setSendMode("now")}
-              className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-sm font-medium border transition-all ${sendMode === "now" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600"}`}>
-              <Zap className="w-3.5 h-3.5" /> 즉시 발송
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-base font-semibold border-2 transition-all min-h-[48px] ${
+                sendMode === "now"
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-700 border-gray-300 hover:border-blue-300"
+              }`}>
+              <Zap className="w-5 h-5" />
+              지금 바로 발송
             </button>
             <button onClick={() => setSendMode("schedule")}
-              className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-sm font-medium border transition-all ${sendMode === "schedule" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600"}`}>
-              <Clock className="w-3.5 h-3.5" /> 예약 발송
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-base font-semibold border-2 transition-all min-h-[48px] ${
+                sendMode === "schedule"
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-700 border-gray-300 hover:border-blue-300"
+              }`}>
+              <Clock className="w-5 h-5" />
+              예약해서 발송
             </button>
           </div>
           {sendMode === "schedule" && (
             supportsDatetimeLocal() ? (
-              <input type="datetime-local" value={scheduledAt} onChange={e => setScheduledAt(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm" />
+              <div className="space-y-3">
+                <input
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={e => setScheduledAt(e.target.value)}
+                  className="w-full border-2 border-blue-300 rounded-lg px-4 py-3 text-base bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <p className="text-sm text-gray-600">💡 예: 2026-06-20 (내일), 14:00 (오후 2시)</p>
+              </div>
             ) : (
               // Fallback UI for Safari/IE
-              <div className="space-y-2">
-                <input type="date" value={scheduledAt.split("T")?.[0] ?? ""}
+              <div className="space-y-3">
+                <input
+                  type="date"
+                  value={scheduledAt.split("T")?.[0] ?? ""}
                   onChange={e => {
                     const date = e.target.value;
                     const time = scheduledAt.split("T")?.[1] ?? "00:00";
                     setScheduledAt(date ? `${date}T${time}` : "");
                   }}
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
-                  placeholder="날짜" />
-                <input type="time" value={scheduledAt.split("T")?.[1] ?? ""}
+                  className="w-full border-2 border-blue-300 rounded-lg px-4 py-3 text-base bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="날짜 선택"
+                />
+                <input
+                  type="time"
+                  value={scheduledAt.split("T")?.[1] ?? ""}
                   onChange={e => {
                     const date = scheduledAt.split("T")?.[0] ?? new Date().toISOString().split("T")[0];
                     setScheduledAt(`${date}T${e.target.value}`);
                   }}
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
-                  placeholder="시간" />
+                  className="w-full border-2 border-blue-300 rounded-lg px-4 py-3 text-base bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="시간 선택"
+                />
+                <p className="text-sm text-gray-600">💡 예: 2026-06-20 (내일), 14:00 (오후 2시)</p>
               </div>
             )
           )}
@@ -1284,10 +1332,16 @@ function KakaoForm() {
   const [content, setContent] = useState('');
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [sendModeKakao, setSendModeKakao] = useState<'now' | 'scheduled'>('now');
+  const [scheduledTimeKakao, setScheduledTimeKakao] = useState('');
 
   async function handleSend() {
     if (!phone.trim() || !content.trim()) {
       setResult({ ok: false, message: '전화번호와 내용을 입력하세요' });
+      return;
+    }
+    if (sendModeKakao === 'scheduled' && !scheduledTimeKakao) {
+      setResult({ ok: false, message: '예약 시간을 입력하세요' });
       return;
     }
     setSending(true);
@@ -1296,11 +1350,20 @@ function KakaoForm() {
       const res = await fetch('/api/messages/send-kakao', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, content }),
+        body: JSON.stringify({
+          phone,
+          content,
+          scheduledTime: sendModeKakao === 'scheduled' ? scheduledTimeKakao : undefined,
+        }),
       });
       const data = await res.json() as { ok: boolean; message: string };
       setResult(data);
-      if (data.ok) { setPhone(''); setContent(''); }
+      if (data.ok) {
+        setPhone('');
+        setContent('');
+        setScheduledTimeKakao('');
+        setSendModeKakao('now');
+      }
     } catch {
       setResult({ ok: false, message: '발송 실패' });
     } finally {
@@ -1317,6 +1380,47 @@ function KakaoForm() {
       <p className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
         알림톡 발송을 위해 알리고 카카오 채널 연동이 필요합니다. (ALIGO_KAKAO_SENDER_KEY 환경변수)
       </p>
+
+      {/* 발송 시간 선택 */}
+      <div className="rounded-xl border bg-white p-4">
+        <p className="text-sm font-semibold text-gray-500 mb-3">발송 방식</p>
+        <div className="flex gap-2 mb-3">
+          <button onClick={() => setSendModeKakao('now')}
+            className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-sm font-medium border transition-all ${sendModeKakao === 'now' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600'}`}>
+            <Zap className="w-3.5 h-3.5" /> 즉시 발송
+          </button>
+          <button onClick={() => setSendModeKakao('scheduled')}
+            className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-sm font-medium border transition-all ${sendModeKakao === 'scheduled' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600'}`}>
+            <Clock className="w-3.5 h-3.5" /> 예약 발송
+          </button>
+        </div>
+        {sendModeKakao === 'scheduled' && (
+          supportsDatetimeLocal() ? (
+            <input type="datetime-local" value={scheduledTimeKakao} onChange={e => setScheduledTimeKakao(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm" />
+          ) : (
+            // Fallback UI for Safari/IE
+            <div className="space-y-2">
+              <input type="date" value={scheduledTimeKakao.split("T")?.[0] ?? ""}
+                onChange={e => {
+                  const date = e.target.value;
+                  const time = scheduledTimeKakao.split("T")?.[1] ?? "00:00";
+                  setScheduledTimeKakao(date ? `${date}T${time}` : "");
+                }}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+                placeholder="날짜" />
+              <input type="time" value={scheduledTimeKakao.split("T")?.[1] ?? ""}
+                onChange={e => {
+                  const date = scheduledTimeKakao.split("T")?.[0] ?? new Date().toISOString().split("T")[0];
+                  setScheduledTimeKakao(`${date}T${e.target.value}`);
+                }}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+                placeholder="시간" />
+            </div>
+          )
+        )}
+      </div>
+
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">전화번호</label>
         <input
@@ -1349,7 +1453,7 @@ function KakaoForm() {
           disabled={sending}
           className="px-5 py-2 bg-yellow-400 hover:bg-yellow-500 disabled:opacity-50 text-black font-semibold rounded-xl text-sm transition-colors"
         >
-          {sending ? '발송 중...' : '알림톡 발송'}
+          {sending ? '발송 중...' : sendModeKakao === 'scheduled' ? '예약 발송' : '알림톡 발송'}
         </button>
         <a href="https://open.kakao.com/o/plREDDUh" target="_blank" rel="noopener noreferrer"
           className="text-sm text-gray-500 hover:text-gray-700 underline">
