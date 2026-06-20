@@ -240,14 +240,25 @@ export default function ImageLibraryPage() {
   // ═══════════════════════════════════════════════════════════════════════════════
 
   const downloadLocalAsset = (asset: ImageAsset) => {
-    if (!asset.driveFileId) return;
-    const url = `/api/image-library/download?id=${asset.driveFileId}&name=${encodeURIComponent(asset.title)}`;
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = asset.title.replace(/\.[^.]+$/, '') + '_watermark.png';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    // Google Drive 파일
+    if (asset.driveFileId) {
+      const url = `/api/image-library/download?id=${asset.driveFileId}&name=${encodeURIComponent(asset.title)}`;
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = asset.title.replace(/\.[^.]+$/, '') + '_watermark.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } else {
+      // 로컬 파일
+      const url = `/api/image-library/${asset.id}/download`;
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = asset.title.replace(/\.[^.]+$/, '') + '_watermark.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
   };
 
   const downloadGdAsset = (image: GoogleDriveImage) => {
