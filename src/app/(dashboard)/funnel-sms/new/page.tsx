@@ -171,6 +171,12 @@ export default function FunnelSmsNewPage() {
       showError(message);
       return;
     }
+    if (header.senderPhone?.trim() && !smsDefaults.connected) {
+      const message = "발신번호를 입력했으나 알리고가 연결되지 않았습니다. 설정 > SMS에서 먼저 연결하세요.";
+      setSaveError(message);
+      showError(message);
+      return;
+    }
     if (header.senderPhone?.trim() && smsDefaults.connected && !smsDefaults.senderVerified) {
       const message = "발신번호 인증이 완료되지 않아 자동문자를 저장할 수 없습니다. 설정 > SMS에서 발신번호 인증을 먼저 완료하세요.";
       setSaveError(message);
