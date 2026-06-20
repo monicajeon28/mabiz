@@ -135,10 +135,10 @@ export default function FunnelSmsMessageEditor({ message, onChange, sendHour, se
   const timeStr = `${String(sendHour).padStart(2, '0')}:${String(sendMinute).padStart(2, '0')}`;
 
   const simpleVars = [
-    { label: '[이름]', variable: '[이름]' },
-    { label: '[전화번호]', variable: '[전화번호]' },
-    { label: '[날짜]', variable: '[날짜]' },
-    { label: '[담당자]', variable: '[담당자]' },
+    { label: '[이름]', variable: '{{name}}' },
+    { label: '[전화번호]', variable: '{{phone}}' },
+    { label: '[날짜]', variable: '{{date}}' },
+    { label: '[담당자]', variable: '{{agent}}' },
   ];
 
   return (
