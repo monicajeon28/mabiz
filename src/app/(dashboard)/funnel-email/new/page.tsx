@@ -65,6 +65,9 @@ export default function FunnelEmailNewPage() {
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [imageUrls, setImageUrls] = useState<string[]>([""]);
+  const [imageUploading, setImageUploading] = useState<boolean[]>([false]);
+  const [imageErrors, setImageErrors] = useState<string[]>([""]);
 
   const handleHeaderChange = (field: keyof HeaderState, value: string | number) => {
     setSaveError(null);
@@ -97,6 +100,9 @@ export default function FunnelEmailNewPage() {
         previewText: "",
       },
     ]);
+    setImageUrls((prev) => [...prev, ""]);
+    setImageUploading((prev) => [...prev, false]);
+    setImageErrors((prev) => [...prev, ""]);
   };
 
   const removeMessage = (index: number) => {
@@ -106,6 +112,72 @@ export default function FunnelEmailNewPage() {
     }
     setMessages((prev) =>
       prev.filter((_, i) => i !== index).map((m, i) => ({ ...m, order: i + 1 }))
+    );
+    setImageUrls((prev) => prev.filter((_, i) => i !== index));
+    setImageUploading((prev) => prev.filter((_, i) => i !== index));
+    setImageErrors((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  function replaceOrInsertImg(html: string, imgTag: string): string {
+    if (/<img[^>]*alt="이메일 이미지"[^>]*\/?>/i.test(html)) {
+      return html.replace(/<img[^>]*alt="이메일 이미지"[^>]*\/?>/gi, imgTag);
+    }
+    return html + "\n" + imgTag;
+  }
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setImageErrors((prev) => prev.map((v, i) => (i === index ? "5MB 이하 이미지만 가능해요" : v)));
+      return;
+    }
+
+    setImageUploading((prev) => prev.map((v, i) => (i === index ? true : v)));
+    setImageErrors((prev) => prev.map((v, i) => (i === index ? "" : v)));
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/funnel-email/images", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json() as { ok: boolean; url?: string; message?: string };
+
+      if (!data.ok) throw new Error(data.message ?? "업로드 실패");
+
+      const url = data.url ?? "";
+      setImageUrls((prev) => prev.map((v, i) => (i === index ? url : v)));
+
+      const imgTag = `<img src="${url}" alt="이메일 이미지" style="max-width:100%;height:auto;display:block;margin:16px auto;" />`;
+      setMessages((prev) =>
+        prev.map((msg, i) =>
+          i === index
+            ? { ...msg, bodyHtml: replaceOrInsertImg(msg.bodyHtml, imgTag) }
+            : msg
+        )
+      );
+    } catch (err) {
+      setImageErrors((prev) =>
+        prev.map((v, i) => (i === index ? (err instanceof Error ? err.message : "업로드 실패") : v))
+      );
+    } finally {
+      setImageUploading((prev) => prev.map((v, i) => (i === index ? false : v)));
+      e.target.value = "";
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setImageUrls((prev) => prev.map((v, i) => (i === index ? "" : v)));
+    setMessages((prev) =>
+      prev.map((msg, i) =>
+        i === index
+          ? { ...msg, bodyHtml: msg.bodyHtml.replace(/<img[^>]*alt="이메일 이미지"[^>]*\/?>/gi, "") }
+          : msg
+      )
     );
   };
 
@@ -417,6 +489,38 @@ export default function FunnelEmailNewPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         이메일 내용 <span className="text-red-500">*</span>
                       </label>
+
+                      {/* 이미지 업로드 섹션 */}
+                      <div className="mb-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-sm font-medium text-gray-700">이미지 (1장)</span>
+                          <span className="text-xs text-gray-400">이메일 본문에 자동으로 삽입돼요</span>
+                        </div>
+
+                        {/* 현재 이미지 미리보기 */}
+                        {imageUrls[i] && (
+                          <div className="relative mb-2 inline-block">
+                            <img src={imageUrls[i]} alt="이메일 이미지" className="max-h-32 rounded-lg border border-gray-200 object-contain" />
+                            <button
+                              type="button"
+                              onClick={() => removeImage(i)}
+                              className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600"
+                            >✕</button>
+                          </div>
+                        )}
+
+                        {/* 업로드 버튼 */}
+                        <label className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors w-fit">
+                          <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, i)} disabled={imageUploading[i]} />
+                          {imageUploading[i] ? (
+                            <span className="text-sm text-gray-500">업로드 중...</span>
+                          ) : (
+                            <span className="text-sm text-gray-600">{imageUrls[i] ? "🔄 이미지 교체" : "📷 이미지 추가"}</span>
+                          )}
+                        </label>
+                        {imageErrors[i] && <p className="text-xs text-red-500 mt-1">{imageErrors[i]}</p>}
+                      </div>
+
                       <textarea
                         value={m.bodyHtml}
                         onChange={(e) => handleMessageChange(i, "bodyHtml", e.target.value)}
