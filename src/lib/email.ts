@@ -2,6 +2,26 @@ import { logger } from "@/lib/logger";
 import { createTransport, type Transporter } from "nodemailer";
 import { encrypt, decrypt } from "@/lib/crypto";
 
+/** HTML → 순수 텍스트 변환 (멀티파트 발송으로 스팸 점수 감소) */
+function htmlToText(html: string): string {
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<\/div>/gi, "\n")
+    .replace(/<\/tr>/gi, "\n")
+    .replace(/<\/td>/gi, " ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 if (!process.env.EMAIL_ENCRYPT_KEY || process.env.EMAIL_ENCRYPT_KEY.length < 32) {
   const msg = '[FATAL] EMAIL_ENCRYPT_KEY 미설정 또는 32자 미만 — 이메일 암호화 불가';
   logger.error(msg);
@@ -56,6 +76,17 @@ export async function sendEmail(params: SendEmailParams): Promise<boolean> {
       to,
       subject,
       html,
+      text: htmlToText(html),
+      headers: {
+        'X-Mailer': '',
+        'X-Priority': '3',
+      },
+      list: {
+        unsubscribe: {
+          url: `mailto:${senderEmail}?subject=unsubscribe`,
+          comment: '수신거부',
+        },
+      },
     });
 
     logger.log("[Email] 발송 성공", { to, subject });
@@ -136,6 +167,17 @@ export async function sendEmailWithConfig(params: {
       to,
       subject,
       html,
+      text: htmlToText(html),
+      headers: {
+        'X-Mailer': '',
+        'X-Priority': '3',
+      },
+      list: {
+        unsubscribe: {
+          url: `mailto:${config.senderEmail}?subject=unsubscribe`,
+          comment: '수신거부',
+        },
+      },
     });
     logger.log("[Email] 발송 성공 (sendEmailWithConfig)", { to, subject });
     return true;
