@@ -172,6 +172,7 @@ export async function POST(req: Request) {
         mulNo: null,
         status: 'pending',
         landingPageId: landingPageId ?? null,
+        createdByUserId: ctx.userId, // RBAC: 생성자 추적 (AGENT 본인결제 필터용)
       },
     });
 

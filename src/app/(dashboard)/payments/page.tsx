@@ -82,6 +82,7 @@ export default function PaymentsPage() {
   const [loading, setLoading]   = useState(true);
   const [filter, setFilter]     = useState("");
   const [search, setSearch]     = useState("");
+  const [month, setMonth]       = useState("");
   const [refunding, setRefunding] = useState<string | null>(null);
   const [refundReason, setRefundReason] = useState("");
 
@@ -104,6 +105,7 @@ export default function PaymentsPage() {
       const params = new URLSearchParams({ page: String(p), limit: "20" });
       if (filter) params.set("status", filter);
       if (search) params.set("search", search);
+      if (month) params.set("month", month);
 
       const res = await fetch(`/api/payapp/payments?${params}`);
       const data = await res.json();
@@ -118,7 +120,7 @@ export default function PaymentsPage() {
       logger.error("[payments] load 실패", err);
     }
     setLoading(false);
-  }, [filter, search]);
+  }, [filter, search, month]);
 
   useEffect(() => { if (tab === "payments") load(1); }, [load, tab]);
 
@@ -203,9 +205,16 @@ export default function PaymentsPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
           <CreditCard className="w-6 h-6" />
-          결제 관리
+          랜딩페이지 결제
         </h1>
-        <button onClick={() => tab === "payments" ? load(page) : loadSubscriptions()} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+        <button
+          onClick={() => {
+            if (tab === "payments") load(page);
+            else if (tab === "mall") loadMallPayments(mallPage);
+            else loadSubscriptions();
+          }}
+          className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+        >
           <RefreshCw className="w-4 h-4" /> 새로고침
         </button>
       </div>
@@ -216,7 +225,7 @@ export default function PaymentsPage() {
           onClick={() => setTab("payments")}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === "payments" ? "bg-white text-navy-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
         >
-          <CreditCard className="w-4 h-4 inline mr-1.5" />결제 내역
+          <CreditCard className="w-4 h-4 inline mr-1.5" />랜딩페이지 결제
         </button>
         {isAdmin && (
           <button
@@ -266,7 +275,7 @@ export default function PaymentsPage() {
       )}
 
       {/* 필터 + 검색 */}
-      <div className="flex gap-3 mb-4">
+      <div className="flex flex-wrap gap-3 mb-4">
         <select value={filter} onChange={(e) => setFilter(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
           <option value="">전체 상태</option>
           <option value="paid">결제완료</option>
@@ -276,16 +285,28 @@ export default function PaymentsPage() {
           <option value="cancelled">취소</option>
         </select>
         <input
+          type="month"
+          value={month}
+          onChange={(e) => setMonth(e.target.value)}
+          className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+          title="월별 필터"
+        />
+        <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="이름, 전화번호, 상품명 검색"
-          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500"
+          className="flex-1 min-w-[180px] border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500"
           onKeyDown={(e) => e.key === "Enter" && load(1)}
         />
         <button onClick={() => load(1)} className="bg-navy-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy-700">
           검색
         </button>
+        {month && (
+          <button onClick={() => setMonth("")} className="text-sm text-gray-500 hover:text-gray-700 px-2">
+            월 초기화
+          </button>
+        )}
       </div>
 
       {/* 결제 목록 */}
