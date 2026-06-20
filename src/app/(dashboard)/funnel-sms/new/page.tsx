@@ -191,6 +191,14 @@ export default function FunnelSmsNewPage() {
         body: JSON.stringify(body),
         signal: ac.signal,
       });
+
+      if (!res.ok) {
+        const errMsg = `저장에 실패했습니다 (${res.status})`;
+        setSaveError(errMsg);
+        showError(errMsg);
+        return;
+      }
+
       const d = await res.json() as {
         ok: boolean;
         data?: { id: string };
