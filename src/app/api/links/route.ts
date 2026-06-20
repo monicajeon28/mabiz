@@ -65,6 +65,7 @@ export async function POST(req: Request) {
         // PROD 환경: 엄격한 화이트리스트
         const allowedHosts = process.env.ALLOWED_DOMAINS?.split(',').map(d => d.trim()) || [
           'cruisedot.co.kr',
+          'www.cruisedot.co.kr',
           'app.cruisedot.co.kr',
           'landing.cruisedot.co.kr',
         ];
