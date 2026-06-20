@@ -97,7 +97,7 @@ export default function FunnelSmsHeader({ value, onChange, onDefaultsChange }: P
           value={value.title}
           onChange={(e) => onChange('title', e.target.value)}
           placeholder="예) 크루즈 여행 관심 고객 시퀀스"
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <p className="mt-1 text-xs text-gray-400 text-right">{value.title.length}/100</p>
       </div>
@@ -123,13 +123,13 @@ export default function FunnelSmsHeader({ value, onChange, onDefaultsChange }: P
             value={value.senderPhone ?? ''}
             onChange={(e) => onChange('senderPhone', e.target.value)}
             placeholder={defaults.connected ? '' : '알리고 연결 후 자동 입력됩니다'}
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           {defaults.connected && defaults.senderVerified && defaults.senderPhone && (
             <button
               type="button"
               onClick={fillSenderPhone}
-              className="shrink-0 px-3 py-2 text-xs font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
+              className="shrink-0 px-3 py-2.5 text-xs font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
             >
               자동입력
             </button>
@@ -153,7 +153,7 @@ export default function FunnelSmsHeader({ value, onChange, onDefaultsChange }: P
           value={value.category ?? ''}
           onChange={(e) => onChange('category', e.target.value)}
           placeholder="예) 크루즈, 여행, VIP"
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
@@ -166,7 +166,7 @@ export default function FunnelSmsHeader({ value, onChange, onDefaultsChange }: P
           <select
             value={value.sendHour}
             onChange={(e) => onChange('sendHour', Number(e.target.value))}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {HOURS.map((h) => (
               <option key={h} value={h}>
@@ -178,7 +178,7 @@ export default function FunnelSmsHeader({ value, onChange, onDefaultsChange }: P
           <select
             value={value.sendMinute}
             onChange={(e) => onChange('sendMinute', Number(e.target.value))}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {MINUTES.map((m) => (
               <option key={m} value={m}>
@@ -209,13 +209,13 @@ export default function FunnelSmsHeader({ value, onChange, onDefaultsChange }: P
             value={value.arsNum ?? ''}
             onChange={(e) => onChange('arsNum', e.target.value)}
             placeholder={defaults.connected ? '예) 08012345678' : '알리고 연결 후 자동 입력됩니다'}
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           {defaults.connected && defaults.senderVerified && defaults.arsNum && (
             <button
               type="button"
               onClick={fillArsNum}
-              className="shrink-0 px-3 py-2 text-xs font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
+              className="shrink-0 px-3 py-2.5 text-xs font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
             >
               자동입력
             </button>
@@ -234,7 +234,7 @@ export default function FunnelSmsHeader({ value, onChange, onDefaultsChange }: P
           value={value.description ?? ''}
           onChange={(e) => onChange('description', e.target.value)}
           placeholder="이 퍼널의 목적이나 대상 고객을 설명해주세요."
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+          className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
         />
         <p className="mt-1 text-xs text-gray-400 text-right">
           {(value.description ?? '').length}/500
