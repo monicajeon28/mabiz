@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useRef } from "react";
-import { AlarmClock, X, CheckCircle, Clock, XCircle, Pause, Play, RotateCcw } from "lucide-react";
+import { AlarmClock, X, CheckCircle, Clock, XCircle, Pause, Play, RotateCcw, Eye, ChevronDown } from "lucide-react";
 
 type ScheduledItem = {
   id: string;
@@ -36,6 +36,8 @@ export default function ScheduledSmsPage() {
   const [csrfToken, setCsrfToken] = useState("");
   // P1-14: filterRef — doAction 내 스테일 클로저 방지
   const filterRef = useRef(filter);
+  // P3: 드롭다운 메뉴 상태
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   // P1-13: CSRF 토큰 로드
   useEffect(() => {
@@ -107,6 +109,7 @@ export default function ScheduledSmsPage() {
   const doAction = async (id: string, action: "pause" | "resume" | "retry") => {
     setActing(id);
     setActionError(null);
+    setOpenMenuId(null);
     try {
       // P1-13: CSRF 헤더 추가
       const res = await fetch("/api/scheduled-sms", {
@@ -126,6 +129,11 @@ export default function ScheduledSmsPage() {
     } finally {
       setActing(null);
     }
+  };
+
+  const handleCancel = (id: string) => {
+    setOpenMenuId(null);
+    cancel(id);
   };
 
   return (
@@ -223,35 +231,88 @@ export default function ScheduledSmsPage() {
                     )}
                   </div>
 
-                  {/* 액션 버튼 */}
-                  <div className="flex items-center gap-1 shrink-0">
-                    {/* 일시정지 (PENDING/NIGHT_BLOCKED) */}
-                    {(item.status === "PENDING" || item.status === "NIGHT_BLOCKED") && (
-                      <button onClick={() => doAction(item.id, "pause")} disabled={acting === item.id || cancelling === item.id}
-                        className="p-1.5 text-gray-600 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors" title="일시정지">
-                        <Pause className="w-4 h-4" />
-                      </button>
-                    )}
-                    {/* 재개 (PAUSED) */}
-                    {item.status === "PAUSED" && (
-                      <button onClick={() => doAction(item.id, "resume")} disabled={acting === item.id || cancelling === item.id}
-                        className="p-1.5 text-gray-600 hover:text-green-500 hover:bg-green-50 rounded-lg transition-colors" title="재개">
-                        <Play className="w-4 h-4" />
-                      </button>
-                    )}
-                    {/* 재발송 (FAILED) */}
-                    {item.status === "FAILED" && (
-                      <button onClick={() => doAction(item.id, "retry")} disabled={acting === item.id || cancelling === item.id}
-                        className="p-1.5 text-gray-600 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="재발송">
-                        <RotateCcw className="w-4 h-4" />
-                      </button>
-                    )}
-                    {/* 취소 (PENDING/PAUSED/NIGHT_BLOCKED) */}
-                    {(item.status === "PENDING" || item.status === "PAUSED" || item.status === "NIGHT_BLOCKED") && (
-                      <button onClick={() => cancel(item.id)} disabled={cancelling === item.id || acting === item.id}
-                        className="p-1.5 text-gray-600 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40" title="취소">
-                        <X className="w-4 h-4" />
-                      </button>
+                  {/* 액션 드롭다운 */}
+                  <div className="relative shrink-0">
+                    <button
+                      onClick={() => setOpenMenuId(openMenuId === item.id ? null : item.id)}
+                      disabled={acting === item.id || cancelling === item.id}
+                      className="h-10 px-3 text-base font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-40 flex items-center gap-1"
+                    >
+                      조작
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+
+                    {/* 드롭다운 메뉴 */}
+                    {openMenuId === item.id && (
+                      <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-300 rounded-lg shadow-lg z-10">
+                        {/* 미리보기 (모든 상태) */}
+                        <button
+                          onClick={() => {
+                            setOpenMenuId(null);
+                            // TODO: 미리보기 모달 구현
+                          }}
+                          className="w-full px-4 py-3 text-base text-left text-gray-700 hover:bg-gray-50 border-b border-gray-200 flex items-center gap-2"
+                        >
+                          <Eye className="w-4 h-4" /> 미리보기
+                        </button>
+
+                        {/* 발송 시간 변경 (PENDING만) */}
+                        {item.status === "PENDING" && (
+                          <button
+                            onClick={() => {
+                              setOpenMenuId(null);
+                              // TODO: 시간 변경 모달 구현
+                            }}
+                            className="w-full px-4 py-3 text-base text-left text-gray-700 hover:bg-gray-50 border-b border-gray-200 flex items-center gap-2"
+                          >
+                            <Clock className="w-4 h-4" /> 발송 시간 변경
+                          </button>
+                        )}
+
+                        {/* 일시정지 (PENDING/NIGHT_BLOCKED만) */}
+                        {(item.status === "PENDING" || item.status === "NIGHT_BLOCKED") && (
+                          <button
+                            onClick={() => doAction(item.id, "pause")}
+                            disabled={acting === item.id || cancelling === item.id}
+                            className="w-full px-4 py-3 text-base text-left text-gray-700 hover:bg-gray-50 border-b border-gray-200 flex items-center gap-2 disabled:opacity-40"
+                          >
+                            <Pause className="w-4 h-4" /> 일시정지
+                          </button>
+                        )}
+
+                        {/* 재개 (PAUSED만) */}
+                        {item.status === "PAUSED" && (
+                          <button
+                            onClick={() => doAction(item.id, "resume")}
+                            disabled={acting === item.id || cancelling === item.id}
+                            className="w-full px-4 py-3 text-base text-left text-gray-700 hover:bg-gray-50 border-b border-gray-200 flex items-center gap-2 disabled:opacity-40"
+                          >
+                            <Play className="w-4 h-4" /> 재개
+                          </button>
+                        )}
+
+                        {/* 재발송 (FAILED만) */}
+                        {item.status === "FAILED" && (
+                          <button
+                            onClick={() => doAction(item.id, "retry")}
+                            disabled={acting === item.id || cancelling === item.id}
+                            className="w-full px-4 py-3 text-base text-left text-gray-700 hover:bg-gray-50 border-b border-gray-200 flex items-center gap-2 disabled:opacity-40"
+                          >
+                            <RotateCcw className="w-4 h-4" /> 재발송
+                          </button>
+                        )}
+
+                        {/* 취소 (PENDING/PAUSED/NIGHT_BLOCKED/FAILED) */}
+                        {(item.status === "PENDING" || item.status === "PAUSED" || item.status === "NIGHT_BLOCKED" || item.status === "FAILED") && (
+                          <button
+                            onClick={() => handleCancel(item.id)}
+                            disabled={cancelling === item.id || acting === item.id}
+                            className="w-full px-4 py-3 text-base text-left text-red-600 hover:bg-red-50 flex items-center gap-2 disabled:opacity-40"
+                          >
+                            <X className="w-4 h-4" /> 취소
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
