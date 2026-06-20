@@ -23,12 +23,14 @@ type ClickStats = {
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "";
 
-const QUICK_URLS = [
-  { label: '🚢 크루즈닷 메인',   url: 'https://www.cruisedot.co.kr' },
-  { label: '⭐ 골드 멤버십',      url: 'https://www.cruisedot.co.kr/gold' },
-  { label: '🇯🇵 일본 크루즈',    url: 'https://www.cruisedot.co.kr/mall?cat=japan' },
-  { label: '🇪🇺 지중해 크루즈',  url: 'https://www.cruisedot.co.kr/mall?cat=mediterranean' },
-];
+// 어필리에이트 코드를 붙인 빠른 링크 목록 (code가 없으면 기본 URL 사용)
+function buildQuickUrls(affiliateCode: string | null) {
+  const ref = affiliateCode ? `?ref=${affiliateCode}` : '';
+  return [
+    { label: '🚢 크루즈닷 메인',  url: `https://www.cruisedot.co.kr/${ref}`,       desc: '크루즈닷 홈페이지' },
+    { label: '⭐ 골드 멤버십',     url: `https://www.cruisedot.co.kr/gold${ref}`,   desc: '골드 멤버십 안내' },
+  ];
+}
 
 export default function LinksPage() {
   const [links,         setLinks]         = useState<ShortLink[]>([]);
@@ -41,6 +43,7 @@ export default function LinksPage() {
   const [clickStats,    setClickStats]    = useState<Record<string, ClickStats>>({});
   const [loadingClicks, setLoadingClicks] = useState<string | null>(null);
   const [openClickId,   setOpenClickId]   = useState<string | null>(null);
+  const [affiliateCode, setAffiliateCode] = useState<string | null>(null);
 
   // 그룹 연결
   const [linkToGroup,    setLinkToGroup]    = useState(false);
@@ -71,6 +74,14 @@ export default function LinksPage() {
     if (isMounted) {
       load(controller.signal);
     }
+
+    // 어필리에이트 코드 로드 (빠른 링크에 자동 붙이기용)
+    fetch('/api/my/affiliate')
+      .then(r => r.json())
+      .then((d: { ok: boolean; affiliateCode?: string | null }) => {
+        if (d.ok && d.affiliateCode) setAffiliateCode(d.affiliateCode);
+      })
+      .catch(() => {});
 
     return () => {
       isMounted = false;
@@ -150,17 +161,36 @@ export default function LinksPage() {
       </div>
 
       {/* 빠른 생성 */}
-      <div className="bg-gray-50 rounded-xl p-4 mb-6">
-        <p className="text-sm font-medium text-gray-500 mb-3">빠른 링크 생성</p>
-        <div className="flex flex-wrap gap-2">
-          {QUICK_URLS.map((q) => (
-            <button key={q.url}
+      <div className="bg-blue-50 border border-blue-100 rounded-xl p-5 mb-6">
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-base font-semibold text-blue-900">⚡ 빠른 링크 생성</p>
+          {affiliateCode && (
+            <span className="text-sm text-blue-700 bg-blue-100 px-3 py-1 rounded-full font-medium">
+              내 코드: <strong>{affiliateCode}</strong>
+            </span>
+          )}
+        </div>
+        <p className="text-sm text-blue-600 mb-4">
+          버튼을 누르면 <strong>내 어필리에이트 코드가 자동으로 붙은</strong> 링크가 만들어져요
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {buildQuickUrls(affiliateCode).map((q) => (
+            <button
+              key={q.label}
               onClick={() => { setTargetUrl(q.url); setTitle(q.label); setShowForm(true); }}
-              className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-blue-300">
-              {q.label}
+              className="flex items-center gap-3 px-4 py-3 bg-white border border-blue-200 rounded-xl text-left hover:border-blue-400 hover:bg-blue-50 transition-colors min-h-[56px]"
+            >
+              <span className="text-2xl">{q.label.split(' ')[0]}</span>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">{q.label.split(' ').slice(1).join(' ')}</p>
+                <p className="text-xs text-gray-500">{q.desc}</p>
+              </div>
             </button>
           ))}
         </div>
+        {!affiliateCode && (
+          <p className="text-xs text-gray-500 mt-3">※ 어필리에이트 코드가 없으면 기본 링크로 생성됩니다</p>
+        )}
       </div>
 
       {/* 생성 폼 */}
