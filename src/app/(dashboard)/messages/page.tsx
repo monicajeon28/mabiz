@@ -69,7 +69,17 @@ function supportsDatetimeLocal(): boolean {
 
 // ─── 메인 컴포넌트 ───────────────────────────────────────────────
 export default function MessagesPage() {
-  const [tab, setTab] = useState<"sms" | "email" | "kakao">("sms");
+  const [channels, setChannels] = useState<Set<"sms" | "email" | "kakao">>(new Set(["sms"]));
+
+  const toggleChannel = (channel: "sms" | "email" | "kakao") => {
+    const newChannels = new Set(channels);
+    if (newChannels.has(channel)) {
+      newChannels.delete(channel);
+    } else {
+      newChannels.add(channel);
+    }
+    setChannels(newChannels);
+  };
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
@@ -78,40 +88,58 @@ export default function MessagesPage() {
       {/* 50대 친화적 사용 순서 안내 */}
       <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 mb-5 text-sm text-blue-700 flex-wrap">
         <span className="font-semibold whitespace-nowrap">📋 사용 순서:</span>
-        <span>① 수신 그룹 선택</span>
+        <span>① 채널 선택</span>
         <span className="text-blue-300">→</span>
-        <span>② 메시지 작성</span>
+        <span>② 수신 그룹 선택</span>
         <span className="text-blue-300">→</span>
-        <span>③ 발송 전 확인하기</span>
+        <span>③ 메시지 작성</span>
         <span className="text-blue-300">→</span>
         <span>④ 최종 발송</span>
       </div>
 
-      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-6 w-fit">
-        <button onClick={() => setTab("sms")}
-          className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all ${tab === "sms" ? "bg-white shadow text-blue-600" : "text-gray-500 hover:text-gray-700"}`}>
-          <MessageSquare className="w-4 h-4" /> SMS
-        </button>
-        <button onClick={() => setTab("email")}
-          className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all ${tab === "email" ? "bg-white shadow text-blue-600" : "text-gray-500 hover:text-gray-700"}`}>
-          <Mail className="w-4 h-4" /> 이메일
-        </button>
-        <button onClick={() => setTab("kakao")}
-          className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all ${tab === "kakao" ? "bg-white shadow text-blue-600" : "text-gray-500 hover:text-gray-700"}`}>
-          <MessageCircle className="w-4 h-4" /> 카카오
-        </button>
+      <div className="flex gap-3 mb-6 flex-wrap">
+        <label className="flex items-center gap-2 px-4 py-2 border-2 rounded-lg cursor-pointer transition-all"
+          style={{
+            borderColor: channels.has("sms") ? "#2563eb" : "#e5e7eb",
+            backgroundColor: channels.has("sms") ? "#eff6ff" : "#ffffff",
+          }}>
+          <input type="checkbox" checked={channels.has("sms")} onChange={() => toggleChannel("sms")}
+            className="w-4 h-4 rounded cursor-pointer" />
+          <MessageSquare className="w-4 h-4" />
+          <span className="text-sm font-medium">SMS</span>
+        </label>
+        <label className="flex items-center gap-2 px-4 py-2 border-2 rounded-lg cursor-pointer transition-all"
+          style={{
+            borderColor: channels.has("email") ? "#2563eb" : "#e5e7eb",
+            backgroundColor: channels.has("email") ? "#eff6ff" : "#ffffff",
+          }}>
+          <input type="checkbox" checked={channels.has("email")} onChange={() => toggleChannel("email")}
+            className="w-4 h-4 rounded cursor-pointer" />
+          <Mail className="w-4 h-4" />
+          <span className="text-sm font-medium">이메일</span>
+        </label>
+        <label className="flex items-center gap-2 px-4 py-2 border-2 rounded-lg cursor-pointer transition-all"
+          style={{
+            borderColor: channels.has("kakao") ? "#2563eb" : "#e5e7eb",
+            backgroundColor: channels.has("kakao") ? "#eff6ff" : "#ffffff",
+          }}>
+          <input type="checkbox" checked={channels.has("kakao")} onChange={() => toggleChannel("kakao")}
+            className="w-4 h-4 rounded cursor-pointer" />
+          <MessageCircle className="w-4 h-4" />
+          <span className="text-sm font-medium">카카오</span>
+        </label>
       </div>
 
-      {/* P2-6: 선택된 탭만 렌더링 (나머지는 lazy load) */}
-      {tab === "sms"   && <SmsTab />}
-      {tab === "email" && <EmailTab />}
-      {tab === "kakao" && <KakaoTab />}
+      {/* P2-6: 선택된 채널만 렌더링 */}
+      {channels.has("sms")   && <SmsForm />}
+      {channels.has("email") && <EmailForm />}
+      {channels.has("kakao") && <KakaoForm />}
     </div>
   );
 }
 
-// ─── SMS 탭 ─────────────────────────────────────────────────────
-function SmsTab() {
+// ─── SMS 폼 ─────────────────────────────────────────────────────
+function SmsForm() {
   const [smsConfig,      setSmsConfig]      = useState<SmsConfig>(null);
   const [configLoading,  setConfigLoading]  = useState(true);
   const [groups,         setGroups]         = useState<Group[]>([]);
@@ -227,7 +255,7 @@ function SmsTab() {
       setDryRunResult(null);
       setRateLimitStatus(null);
       showSuccess(`"${d.group!.name}" 그룹이 생성되었습니다.`);
-    } catch (_err) {
+    } catch {
       showError("그룹 생성 중 오류가 발생했습니다.");
     } finally {
       setCreatingGroup(false);
@@ -790,8 +818,8 @@ function SmsTab() {
   );
 }
 
-// ─── 이메일 탭 ───────────────────────────────────────────────────
-function EmailTab() {
+// ─── 이메일 폼 ───────────────────────────────────────────────────
+function EmailForm() {
   const [emailConfig,   setEmailConfig]   = useState<EmailConfig>(null);
   const [configLoading, setConfigLoading] = useState(true);
   const [senderName,    setSenderName]    = useState("");
@@ -847,7 +875,7 @@ function EmailTab() {
       .finally(() => clearTimeout(timeoutId));
   }, [imagesLoaded, imageLoadError]);
 
-  const insertImage = (url: string) => {
+  const _insertImage = (url: string) => {
     if (!url) return;
     // P1-11: URL 검증 — http(s):// 로 시작하지 않으면 early return
     if (!url.startsWith('https://') && !url.startsWith('http://')) return;
@@ -1250,8 +1278,8 @@ function EmailTab() {
 }
 
 
-// ─── 카카오톡 탭 ───────────────────────────────────────────
-function KakaoTab() {
+// ─── 카카오톡 폼 ───────────────────────────────────────────
+function KakaoForm() {
   const [phone, setPhone] = useState('');
   const [content, setContent] = useState('');
   const [sending, setSending] = useState(false);
