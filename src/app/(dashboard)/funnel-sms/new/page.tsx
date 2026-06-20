@@ -78,6 +78,7 @@ export default function FunnelSmsNewPage() {
     senderPhone: "",
     arsNum: "",
   });
+  const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
 
   const handleHeaderChange = (field: keyof HeaderState, value: string | number) => {
     setSaveError(null);
@@ -109,6 +110,23 @@ export default function FunnelSmsNewPage() {
         msgType: "SMS",
       },
     ]);
+  };
+
+  const handleDeleteClick = (index: number) => {
+    if (messages.length <= 1) {
+      showError("최소 1개의 회차가 필요합니다.");
+      return;
+    }
+    setPendingDeleteIndex(index);
+  };
+
+  const confirmDelete = () => {
+    if (pendingDeleteIndex !== null) {
+      setMessages((prev) =>
+        prev.filter((_, i) => i !== pendingDeleteIndex).map((m, i) => ({ ...m, order: i + 1 }))
+      );
+      setPendingDeleteIndex(null);
+    }
   };
 
   const removeMessage = (index: number) => {
@@ -285,8 +303,8 @@ export default function FunnelSmsNewPage() {
                     </div>
                     {messages.length > 1 && (
                       <button
-                        onClick={() => removeMessage(i)}
-                        className="text-red-400 hover:text-red-600 p-1 rounded transition-colors"
+                        onClick={() => handleDeleteClick(i)}
+                        className="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded transition-colors"
                         aria-label={`${m.order}회차 삭제`}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -345,6 +363,30 @@ export default function FunnelSmsNewPage() {
           </div>
         </div>
       </div>
+
+      {/* 삭제 확인 모달 */}
+      {pendingDeleteIndex !== null && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">이 회차를 삭제하시겠습니까?</h3>
+            <p className="text-sm text-gray-600 mb-6">Day {messages[pendingDeleteIndex]?.daysAfter}의 메시지 내용이 삭제됩니다.</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setPendingDeleteIndex(null)}
+                className="px-4 py-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 transition"
+              >
+                취소
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+              >
+                삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
