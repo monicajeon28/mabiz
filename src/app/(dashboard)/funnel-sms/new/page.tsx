@@ -79,6 +79,7 @@ export default function FunnelSmsNewPage() {
     arsNum: "",
   });
   const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
+  const [lastRequestId, setLastRequestId] = useState<string | null>(null);
 
   const handleHeaderChange = (field: keyof HeaderState, value: string | number) => {
     setSaveError(null);
@@ -140,6 +141,11 @@ export default function FunnelSmsNewPage() {
   };
 
   const handleSave = async () => {
+    // 중복 제출 방지: 이미 저장 중이면 즉시 반환
+    if (saving) {
+      return;
+    }
+
     setSaveError(null);
     if (!header.title.trim()) {
       const message = "자동문자 제목을 입력해주세요.";
@@ -160,7 +166,11 @@ export default function FunnelSmsNewPage() {
       return;
     }
 
+    // 저장 상태 설정 및 요청 ID 생성
     setSaving(true);
+    const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+    setLastRequestId(requestId);
+
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), 10_000);
     try {
@@ -215,14 +225,17 @@ export default function FunnelSmsNewPage() {
         showError(errMsg);
       }
     } catch (err) {
-      logger.error("[FunnelSmsNewPage] handleSave", { err });
+      logger.error("[FunnelSmsNewPage] handleSave", { err, requestId });
       const isTimeout = err instanceof Error && err.name === "AbortError";
       const message = isTimeout ? "저장 시간이 초과되었습니다. 네트워크를 확인하세요." : "저장 중 오류가 발생했습니다.";
       setSaveError(message);
       showError(message);
     } finally {
       clearTimeout(timer);
-      setSaving(false);
+      // 현재 요청 ID가 일치할 때만 저장 상태 해제
+      if (lastRequestId === requestId) {
+        setSaving(false);
+      }
     }
   };
 
