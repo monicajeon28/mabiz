@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   Copy,
   Trash2,
@@ -249,6 +250,7 @@ function CreateGroupModal({
 
 // ─── 메인 페이지 ───────────────────────────────────────────────────────────────
 export default function GroupsPage() {
+  const router = useRouter();
   // 데이터
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -658,7 +660,10 @@ export default function GroupsPage() {
         {/* ═══ 상단 버튼바 1행 ════════════════════════════════════════════ */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
-            <button className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
+            <button
+              onClick={() => router.push('/funnel-sms')}
+              className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+            >
               <Network className="w-4 h-4" />
               자동화 흐름
             </button>

@@ -31,7 +31,7 @@ export async function POST(req: Request, { params }: Params) {
     // IDOR 보안: organizationId 체크
     const group = await prisma.contactGroup.findFirst({
       where: { id: groupId, organizationId: orgId },
-      select: { id: true, name: true, funnelId: true },
+      select: { id: true, name: true, funnelId: true, funnelSmsId: true, funnelSmsIds: true },
     });
 
     if (!group) {
@@ -78,19 +78,27 @@ export async function POST(req: Request, { params }: Params) {
       },
     });
 
-    // 퍼널이 연결되어 있으면 자동 시작
+    // 퍼널 문자(FunnelSms) 자동 시작
+    const hasFunnelSms = group.funnelSmsIds.length > 0 || !!group.funnelSmsId;
+    if (hasFunnelSms) {
+      const { triggerGroupFunnelSms } = await import('@/lib/funnel-sms-trigger');
+      triggerGroupFunnelSms({
+        contactId: contact.id,
+        groupId,
+        organizationId: orgId,
+        anchorDate: member.addedAt,
+      }).catch((e) => logger.error('[GroupJoin] FunnelSms 트리거 실패', {
+        error: e instanceof Error ? e.message : String(e),
+      }));
+    }
+
+    // 이메일 퍼널이 연결되어 있으면 로깅
     if (group.funnelId) {
-      try {
-        // 퍼널 시작 로직 (필요한 경우 구현)
-        logger.log('[GroupJoin] Funnel auto-start', {
-          groupId,
-          funnelId: group.funnelId,
-          contactId: contact.id,
-        });
-      } catch (funnelErr) {
-        logger.error('[GroupJoin] Funnel auto-start failed', { funnelErr });
-        // 퍼널 시작 실패해도 가입은 성공
-      }
+      logger.log('[GroupJoin] Funnel auto-start', {
+        groupId,
+        funnelId: group.funnelId,
+        contactId: contact.id,
+      });
     }
 
     // 성공 로깅 (L10 렌즈: 즉시 구매 추적)

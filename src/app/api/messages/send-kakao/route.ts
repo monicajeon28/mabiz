@@ -9,6 +9,7 @@ interface KakaoSendRequest {
   content: string;
   tplCode?: string;
   subject?: string;
+  scheduledTime?: string;
 }
 
 interface AligoKakaoResponse {
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
     const orgId = resolveOrgId(ctx);
 
     const body: KakaoSendRequest = await req.json();
-    const { phone, content, tplCode, subject } = body;
+    const { phone, content, tplCode, subject, scheduledTime } = body;
 
     if (!phone || !content) {
       return NextResponse.json(
@@ -47,6 +48,44 @@ export async function POST(req: Request) {
         { ok: false, message: '유효하지 않은 전화번호' },
         { status: 400 }
       );
+    }
+
+    // 예약 발송인 경우 DB 저장
+    if (scheduledTime) {
+      try {
+        const scheduledAt = new Date(scheduledTime);
+        if (isNaN(scheduledAt.getTime())) {
+          return NextResponse.json(
+            { ok: false, message: '유효하지 않은 날짜 형식' },
+            { status: 400 }
+          );
+        }
+
+        await prisma.scheduledKakao.create({
+          data: {
+            organizationId: orgId,
+            message: content,
+            scheduledAt,
+            status: 'PENDING',
+            createdByUserId: ctx.userId,
+          },
+        });
+
+        logger.log('[kakao/schedule] 예약 등록 완료', { phone: normalizedPhone, scheduledAt, orgId });
+        const response: KakaoSendResponse = {
+          ok: true,
+          message: '카카오톡 발송이 예약되었습니다',
+        };
+        return NextResponse.json(response);
+      } catch (err) {
+        logger.error('[kakao/schedule]', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return NextResponse.json(
+          { ok: false, message: '예약 저장 실패' },
+          { status: 500 }
+        );
+      }
     }
 
     // Aligo 카카오 알림톡 API 호출

@@ -2230,6 +2230,29 @@ model AdminMessage {
   @@index([organizationId, channel])
 }
 
+model ScheduledKakao {
+  id                 String    @id @default(cuid())
+  organizationId     String
+  contactId          String?
+  groupId            String?
+  message            String
+  scheduledAt        DateTime
+  status             String    @default("PENDING")
+  sentAt             DateTime?
+  sentCount          Int       @default(0)
+  failedCount        Int       @default(0)
+  createdByUserId    String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  pausedAt           DateTime?
+  pausedBy           String?
+  failureReason      String?
+
+  @@index([organizationId, status])
+  @@index([organizationId, scheduledAt])
+  @@index([status, createdAt(sort: Desc)])
+}
+
 model Partner {
   id               String    @id @default(cuid())
   organizationId   String

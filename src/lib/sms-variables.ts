@@ -177,11 +177,24 @@ export function validateSmsVariables(
  * @param variables 변수 매핑 (예: { name: "김철수" })
  * @returns 치환된 메시지
  */
+// 편집기가 삽입하는 한글 대괄호 변수 → {{변수}} 정규화 (하위 호환)
+const KOREAN_BRACKET_VAR_MAP: Record<string, string> = {
+  '[이름]':    '{{name}}',
+  '[전화번호]': '{{phone}}',
+  '[날짜]':    '{{date}}',
+  '[담당자]':  '{{agent}}',
+};
+
 export function renderSmsTemplate(
   template: string,
   variables: Record<string, string | null | undefined>
 ): string {
   let result = template;
+
+  // [이름] 등 한글 대괄호 변수 → {{name}} 형식으로 선행 정규화
+  for (const [kr, en] of Object.entries(KOREAN_BRACKET_VAR_MAP)) {
+    result = result.split(kr).join(en);
+  }
 
   // {{변수}} 패턴 치환 (정규식)
   result = result.replace(/\{\{([^}]+)\}\}/g, (match, varKey) => {

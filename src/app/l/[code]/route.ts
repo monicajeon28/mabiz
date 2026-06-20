@@ -89,12 +89,16 @@ export async function GET(req: Request, { params }: Params) {
   // 클릭 시 그룹 자동 배정 (contactId + autoGroupId 있을 때)
   if (link.contactId && link.autoGroupId) {
     const { triggerGroupFunnel } = await import('@/lib/funnel-trigger');
+    const { triggerGroupFunnelSms } = await import('@/lib/funnel-sms-trigger');
     prisma.contact.update({
       where: { id: link.contactId },
       data: { groups: { connect: { id: link.autoGroupId } } },
     }).then(() =>
       triggerGroupFunnel({ contactId: link.contactId!, groupId: link.autoGroupId!, organizationId: link.organizationId })
-    ).catch((e) => logger.log('[ShortLink] 그룹 배정 실패', { error: e instanceof Error ? e.message : String(e) }));
+    ).then(() => {
+      triggerGroupFunnelSms({ contactId: link.contactId!, groupId: link.autoGroupId!, organizationId: link.organizationId })
+        .catch((e) => logger.log('[ShortLink] FunnelSms 트리거 실패', { error: e instanceof Error ? e.message : String(e) }));
+    }).catch((e) => logger.log('[ShortLink] 그룹 배정 실패', { error: e instanceof Error ? e.message : String(e) }));
   }
 
   logger.log('[ShortLink] 클릭', { code, contactId: link.contactId ?? '없음', variant, abTestId });
