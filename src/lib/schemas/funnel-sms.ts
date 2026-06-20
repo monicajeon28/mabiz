@@ -23,12 +23,19 @@ export const CreateFunnelSmsSchema = z.object({
   category: z.string().max(50).nullish(),
   description: z.string().max(500).nullish(),
   sendHour: z.number().int().min(0).max(23).default(10),
-  sendMinute: z.number().int().min(0).max(59).default(0),
+  sendMinute: z.number().int().min(0).max(59).refine((val) => [0, 15, 30, 45].includes(val), { message: '분은 0, 15, 30, 45 중 하나여야 합니다.' }),
   arsNum: z.string().max(20).nullish(),
   messages: z
     .array(FunnelSmsMessageSchema)
     .min(1, '메시지를 최소 1개 이상 등록하세요.')
-    .max(FUNNEL_SMS_MAX_MESSAGES, `메시지는 최대 ${FUNNEL_SMS_MAX_MESSAGES}개까지 등록할 수 있습니다.`),
+    .max(FUNNEL_SMS_MAX_MESSAGES, `메시지는 최대 ${FUNNEL_SMS_MAX_MESSAGES}개까지 등록할 수 있습니다.`)
+    .refine(
+      (messages) => {
+        const daysAfterSet = new Set(messages.map((m) => m.daysAfter));
+        return daysAfterSet.size === messages.length;
+      },
+      { message: '각 회차의 날짜는 중복될 수 없습니다.' }
+    ),
 });
 
 export const UpdateFunnelSmsSchema = CreateFunnelSmsSchema
@@ -42,7 +49,14 @@ export const ReplaceMessagesSchema = z.object({
   messages: z
     .array(FunnelSmsMessageSchema)
     .min(1)
-    .max(FUNNEL_SMS_MAX_MESSAGES, `메시지는 최대 ${FUNNEL_SMS_MAX_MESSAGES}개까지 등록할 수 있습니다.`),
+    .max(FUNNEL_SMS_MAX_MESSAGES, `메시지는 최대 ${FUNNEL_SMS_MAX_MESSAGES}개까지 등록할 수 있습니다.`)
+    .refine(
+      (messages) => {
+        const daysAfterSet = new Set(messages.map((m) => m.daysAfter));
+        return daysAfterSet.size === messages.length;
+      },
+      { message: '각 회차의 날짜는 중복될 수 없습니다.' }
+    ),
 });
 
 export const ListFunnelSmsQuerySchema = z.object({
