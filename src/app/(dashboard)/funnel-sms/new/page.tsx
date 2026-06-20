@@ -211,7 +211,7 @@ export default function FunnelSmsNewPage() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
-          <h1 className="text-xl font-bold text-gray-900">새 자동문자 만들기</h1>
+          <h1 className="text-2xl font-bold text-gray-900">새 자동문자 만들기</h1>
           <p className="text-sm text-gray-500">신청 후 자동으로 발송될 문자 시퀀스를 설정합니다.</p>
         </div>
       </div>
