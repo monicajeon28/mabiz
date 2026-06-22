@@ -17,6 +17,10 @@ import {
   PassportOcrUnreadable,
 } from '@/lib/passport-ocr';
 import { toKstDateString } from '@/lib/passport-date';
+import {
+  uploadOcrDataToGoogleDrive,
+  generateBackupFileName,
+} from '@/lib/passport-google-drive-backup';
 
 const MAX_OCR_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -452,7 +456,7 @@ export async function POST(req: NextRequest) {
             isSubmitted: false,
             tokenExpiresAt: { gt: new Date() },
           },
-          select: { id: true },
+          select: { id: true, userId: true },
         });
 
         if (submission) {
@@ -492,6 +496,36 @@ export async function POST(req: NextRequest) {
             const uploadedUrl = driveResponse.data.webViewLink || `https://drive.google.com/file/d/${uploadedFileId}/view`;
 
             if (uploadedFileId) {
+              // Phase 1C M1: ImageAsset 생성 (OCR 메타데이터 저장)
+              let imageAssetId: string | null = null;
+              try {
+                // ⚠️ GmPassportSubmission에는 organizationId가 없음.
+                // 임시: 'global' 사용 (Passport는 조직별 격리 미적용 시스템)
+                // TODO: 나중에 organizationId를 GmPassportSubmission에 추가하거나,
+                //       userId를 통해 조직을 유추하는 로직 추가
+                const imageAsset = await prisma.imageAsset.create({
+                  data: {
+                    organizationId: 'global', // 임시 기본값
+                    originalFileName: safeFileName,
+                    driveFileId: uploadedFileId,
+                    drivePath: `passport_submission_${submission.id}/${safeFileName}`,
+                    mimeType: 'image/webp',
+                    fileSize: BigInt(webpBuffer.length),
+                    uploadedBy: submission.userId?.toString() || 'system',
+                    category: 'passport',
+                    tags: ['passport', 'guest', submission.id.toString()],
+                    processingStatus: 'SUCCESS',
+                    webpDriveFileId: uploadedFileId, // WebP는 이미 변환됨
+                  },
+                });
+                imageAssetId = imageAsset.id;
+                logger.info('[Passport Scan] ImageAsset 생성 성공:', { imageAssetId });
+              } catch (assetError) {
+                const err = assetError as Record<string, unknown>;
+                logger.warn('[Passport Scan] ImageAsset 생성 실패 (무시됨):', err);
+                // ImageAsset 생성 실패는 로그만 기록
+              }
+
               // 경쟁 상태 방지: PostgreSQL jsonb 원자 연산으로 배열에 직접 append
               // read-modify-write 패턴 대신 DB 레벨 원자적 업데이트 사용
               const newEntry = JSON.stringify({
@@ -500,6 +534,8 @@ export async function POST(req: NextRequest) {
                 fileId: uploadedFileId,
                 uploadedAt: new Date().toISOString(),
                 source: 'scan',
+                imageAssetId, // Phase 1C M1: ImageAsset FK 저장
+                ocrData: normalizedData, // Phase 1C M1: OCR 데이터 저장 (나중에 guest.ocrRawData로 복사)
               });
               await prisma.$executeRaw`
                 UPDATE "GmPassportSubmission"
@@ -510,6 +546,40 @@ export async function POST(req: NextRequest) {
                 )
                 WHERE id = ${submission.id}
               `;
+
+              // Phase 1C M1: OCR JSON을 Google Drive에 별도 업로드 (비동기, 실패해도 무시)
+              if (imageAssetId) {
+                try {
+                  const ocrFileName = generateBackupFileName(
+                    'unknown_guest', // Guest 이름을 모르므로 unknown_guest 사용
+                    'unknown', // Passport 번호를 모르므로 unknown 사용
+                    new Date()
+                  ).replace('.webp', '_ocr.json');
+
+                  const accessToken = process.env.GOOGLE_OAUTH_ACCESS_TOKEN || '';
+                  if (accessToken) {
+                    const ocrFileId = await uploadOcrDataToGoogleDrive(
+                      normalizedData as unknown as Record<string, unknown>,
+                      ocrFileName,
+                      accessToken
+                    );
+                    logger.info('[Passport Scan] OCR JSON 업로드 성공:', { ocrFileId });
+
+                    // imageAsset에 ocrFileId 저장
+                    const currentAsset = await prisma.imageAsset.findUnique({ where: { id: imageAssetId } });
+                    const currentTags = currentAsset?.tags || [];
+                    await prisma.imageAsset.update({
+                      where: { id: imageAssetId },
+                      data: {
+                        tags: [...currentTags, `ocr:${ocrFileId}`],
+                      },
+                    });
+                  }
+                } catch (ocrUploadError) {
+                  const err = ocrUploadError as Record<string, unknown>;
+                  logger.warn('[Passport Scan] OCR JSON 업로드 실패 (무시됨):', err);
+                }
+              }
 
               uploadedFileInfo = {
                 fileId: uploadedFileId,

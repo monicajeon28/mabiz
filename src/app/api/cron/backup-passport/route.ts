@@ -9,6 +9,8 @@ import {
   uploadPassportToGoogleDrive,
   deleteOldBackups,
   generateBackupFileName,
+  downloadFileFromGoogleDrive,
+  uploadOcrDataToGoogleDrive,
 } from '@/lib/passport-google-drive-backup';
 
 /**
@@ -47,7 +49,7 @@ export async function POST(req: NextRequest) {
 
     logger.info('[Cron] Backup Passport - 시작');
 
-    // 1. 24시간 내 업로드된 여권 게스트 조회 (googleDriveFileId 없는 것)
+    // 1. 24시간 내 업로드된 여권 게스트 조회 (googleDriveFileId 없는 것) + imageAsset FK 포함
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const pendingGuests = await prisma.gmPassportSubmissionGuest.findMany({
       where: {
@@ -59,12 +61,14 @@ export async function POST(req: NextRequest) {
           not: null, // 여권번호가 있는 것만
         },
       },
-      select: {
-        id: true,
-        name: true,
-        passportNumber: true,
-        submittedAt: true,
-        submissionId: true,
+      include: {
+        imageAsset: {
+          select: {
+            id: true,
+            driveFileId: true,
+            mimeType: true,
+          },
+        },
       },
       orderBy: { submittedAt: 'asc' },
     });
@@ -77,15 +81,23 @@ export async function POST(req: NextRequest) {
     let successCount = 0;
     let failureCount = 0;
 
+    const accessToken = process.env.GOOGLE_OAUTH_ACCESS_TOKEN || '';
+    if (!accessToken) {
+      logger.warn('[Cron] Backup Passport - GOOGLE_OAUTH_ACCESS_TOKEN not set, skipping backup');
+      return NextResponse.json({
+        ok: false,
+        error: 'GOOGLE_OAUTH_ACCESS_TOKEN not set',
+        message: 'Passport backup skipped',
+      }, { status: 503 });
+    }
+
     for (const guest of pendingGuests) {
       try {
-        // 조직 Google OAuth 토큰 조회
-        // ⚠️ 임시: 현재 Passport는 조직 단위 Google Drive 백업을 지원하지 않으므로
-        // 나중에 환경변수 또는 조직별 설정에서 가져올 예정
-        const accessToken = process.env.GOOGLE_OAUTH_ACCESS_TOKEN || '';
-
-        if (!accessToken) {
-          throw new Error('GOOGLE_OAUTH_ACCESS_TOKEN not set');
+        // Phase 1C M1: imageAsset에서 WebP 파일 ID 조회
+        if (!guest.imageAsset?.driveFileId) {
+          logger.warn(`[Cron] Backup Passport - 게스트 ${guest.id} imageAsset 없음, 스킵`);
+          failureCount++;
+          continue;
         }
 
         // 파일명 생성
@@ -95,15 +107,16 @@ export async function POST(req: NextRequest) {
           guest.submittedAt || new Date()
         );
 
-        // ⚠️ 실제 구현: 여권 파일 Buffer를 DB에서 조회하거나, GCS/Drive에서 다운로드해야 함
-        // 현재는 메타데이터만 저장 가능 (파일 버퍼는 별도 구조 필요)
-        // TODO: 실제 WebP 파일 버퍼를 Document 또는 별도 테이블에서 조회
+        // Phase 1C M1: 실제 WebP 파일을 Google Drive에서 다운로드
+        logger.info(`[Cron] Backup Passport - WebP 다운로드 시작: ${guest.imageAsset.driveFileId}`);
+        const webpBuffer = await downloadFileFromGoogleDrive(
+          guest.imageAsset.driveFileId,
+          accessToken
+        );
 
-        // 더미 버퍼로 테스트 (실제 구현 시 제거)
-        const dummyBuffer = Buffer.from('dummy passport image');
-
+        // 다운로드한 WebP를 백업 폴더에 업로드
         const result = await uploadPassportToGoogleDrive(
-          dummyBuffer,
+          webpBuffer,
           fileName,
           guest.name || 'unknown',
           guest.passportNumber || '',
@@ -111,11 +124,30 @@ export async function POST(req: NextRequest) {
         );
 
         if (result.success) {
+          // Phase 1C M1: OCR JSON도 함께 백업 (있으면)
+          let ocrFileId: string | null = null;
+          if (guest.ocrRawData && typeof guest.ocrRawData === 'object') {
+            try {
+              const ocrFileName = fileName.replace('.webp', '_ocr.json');
+              ocrFileId = await uploadOcrDataToGoogleDrive(
+                guest.ocrRawData as Record<string, unknown>,
+                ocrFileName,
+                accessToken
+              );
+              logger.info(`[Cron] Backup Passport - OCR JSON 백업 성공: ${ocrFileId}`);
+            } catch (ocrErr) {
+              const err = ocrErr as Record<string, unknown>;
+              logger.warn(`[Cron] Backup Passport - OCR JSON 백업 실패 (무시됨):`, err);
+              // OCR JSON 백업 실패는 무시하고 계속
+            }
+          }
+
           // 성공: DB 업데이트
           await prisma.gmPassportSubmissionGuest.update({
             where: { id: guest.id },
             data: {
               googleDriveFileId: result.googleDriveFileId,
+              googleDriveFileIdOcr: ocrFileId, // Phase 1C M1: OCR JSON 파일 ID 저장
               lastBackupAt: result.backupAt,
               backupStatus: 'success',
             },
@@ -134,7 +166,7 @@ export async function POST(req: NextRequest) {
 
           successCount++;
           logger.info(
-            `[Cron] Backup Passport - 성공: ${guest.name} (fileId: ${result.googleDriveFileId})`
+            `[Cron] Backup Passport - 성공: ${guest.name} (fileId: ${result.googleDriveFileId}, ocrFileId: ${ocrFileId})`
           );
         } else {
           // 실패: DB 업데이트

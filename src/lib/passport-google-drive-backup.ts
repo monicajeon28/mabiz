@@ -331,6 +331,110 @@ export async function listPassportBackups(
 }
 
 /**
+ * Google Drive에서 파일 다운로드
+ *
+ * 입력:
+ * - fileId: Google Drive 파일 ID
+ * - accessToken: Google OAuth 액세스 토큰
+ *
+ * 출력:
+ * - 파일 버퍼
+ *
+ * 기능:
+ * - 3회 재시도 (지수 백오프)
+ * - 타임아웃: 30초
+ */
+export async function downloadFileFromGoogleDrive(
+  fileId: string,
+  accessToken: string
+): Promise<Buffer> {
+  try {
+    logger.info(`[downloadFileFromGoogleDrive] 시작: fileId=${fileId}`);
+
+    const auth = createAuthClient(accessToken);
+    const drive = google.drive({ version: 'v3', auth });
+
+    const buffer = await retryWithBackoff(async () => {
+      const res = await drive.files.get(
+        { fileId, alt: 'media' },
+        { responseType: 'arraybuffer' }
+      );
+      return Buffer.from(res.data as ArrayBuffer);
+    });
+
+    logger.info(`[downloadFileFromGoogleDrive] 완료: ${buffer.length} bytes`);
+    return buffer;
+  } catch (err) {
+    logger.error('[downloadFileFromGoogleDrive]', err);
+    throw new Error('Google Drive 파일 다운로드 실패');
+  }
+}
+
+/**
+ * OCR JSON 데이터를 Google Drive에 업로드
+ *
+ * 입력:
+ * - ocrData: OCR 추출 결과 (JSON 객체)
+ * - fileName: 파일명 (예: passport_20260619_kim_m12345678_ocr.json)
+ * - accessToken: Google OAuth 액세스 토큰
+ *
+ * 출력:
+ * - Google Drive 파일 ID
+ *
+ * 기능:
+ * - /마비즈CRM-여권백업/YYYY-MM/ 폴더에 업로드
+ * - 3회 재시도 (지수 백오프)
+ */
+export async function uploadOcrDataToGoogleDrive(
+  ocrData: Record<string, unknown>,
+  fileName: string,
+  accessToken: string
+): Promise<string> {
+  const now = new Date();
+  const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  try {
+    logger.info(`[uploadOcrDataToGoogleDrive] 시작: ${fileName}`);
+
+    // 년월별 폴더 찾기/생성
+    const folderId = await retryWithBackoff(() =>
+      getOrCreateBackupFolder(yearMonth, accessToken)
+    );
+
+    const auth = createAuthClient(accessToken);
+    const drive = google.drive({ version: 'v3', auth });
+
+    // OCR JSON을 파일로 업로드
+    const jsonBuffer = Buffer.from(JSON.stringify(ocrData, null, 2), 'utf8');
+
+    const fileId = await retryWithBackoff(async () => {
+      const createRes = await drive.files.create({
+        requestBody: {
+          name: fileName,
+          mimeType: 'application/json',
+          parents: [folderId],
+          appProperties: {
+            type: 'passport_ocr_data',
+          },
+        },
+        media: {
+          mimeType: 'application/json',
+          body: jsonBuffer,
+        },
+        fields: 'id',
+      });
+      return (createRes as { data: { id?: string } }).data.id!;
+    });
+
+    logger.info(`[uploadOcrDataToGoogleDrive] 완료: fileId=${fileId}`);
+    return fileId;
+  } catch (err) {
+    logger.error('[uploadOcrDataToGoogleDrive]', err);
+    throw new Error('Google Drive OCR 데이터 업로드 실패');
+  }
+}
+
+/**
  * 생성된 파일명 헬퍼
  * 외부에서 파일명 미리 생성할 때 사용
  */

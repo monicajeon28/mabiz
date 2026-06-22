@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import { checkRateLimitAsync } from '@/lib/rate-limit';
 import { writeTravelerWithAudit, TravelerNotFound } from '@/lib/apis-traveler-write';
@@ -57,9 +58,34 @@ async function syncSubmissionGuestsBestEffort(
   if (!reservation.mainUserId || !reservation.tripId) return;
   const submission = await prisma.gmPassportSubmission.findUnique({
     where: { userId_tripId: { userId: reservation.mainUserId, tripId: reservation.tripId } },
-    select: { id: true },
+    select: { id: true, extraData: true },
   });
   if (!submission) return;
+
+  // Phase 1C M1: extraData에서 imageAssetId와 ocrData 맵 준비
+  const extraData = submission.extraData && typeof submission.extraData === 'object'
+    ? (submission.extraData as Record<string, unknown>)
+    : {};
+  const passportFiles = Array.isArray(extraData?.passportFiles) ? extraData.passportFiles : [];
+
+  // passportNo → imageAssetId/ocrData 맵 생성
+  const passportToAssetMap = new Map<string, { imageAssetId?: string; ocrData?: Record<string, unknown> }>();
+  for (const file of passportFiles) {
+    if (typeof file === 'object' && file !== null) {
+      const f = file as Record<string, unknown>;
+      const ocrData = f.ocrData as Record<string, unknown> | undefined;
+      // passportNo를 normalizationPassportNo로 정규화
+      if (ocrData?.passportNo) {
+        const normalizedNo = normalizePassportNo(String(ocrData.passportNo));
+        if (normalizedNo) {
+          passportToAssetMap.set(normalizedNo, {
+            imageAssetId: f.imageAssetId as string | undefined,
+            ocrData,
+          });
+        }
+      }
+    }
+  }
 
   const seenGuestPassports = new Set<string>();
   for (const td of travelers) {
@@ -76,7 +102,16 @@ async function syncSubmissionGuestsBestEffort(
 
     // 여권번호 AES-256 암호화
     const passportData = preparePassportForDb(passportNo);
-    const guestData = {
+
+    // Phase 1C M1: passportFiles에서 imageAssetId와 ocrData 조회
+    const assetInfo = passportToAssetMap.get(passportNo);
+
+    // Phase 1C M1: ocrRawData를 Prisma.InputJsonValue로 변환
+    const ocrJsonValue: Prisma.InputJsonValue | undefined = assetInfo?.ocrData
+      ? (assetInfo.ocrData as Prisma.InputJsonValue)
+      : undefined;
+
+    const baseGuestData = {
       name: td.korName,
       phone: td.phone || null,
       passportNumber: passportData.passportNumber, // 암호화됨
@@ -87,17 +122,41 @@ async function syncSubmissionGuestsBestEffort(
       submittedBy: actorUserId,
       source: 'public_submit',
       submittedAt: new Date(),
+      imageAssetId: assetInfo?.imageAssetId || null, // Phase 1C M1: ImageAsset FK
+      backupStatus: assetInfo?.imageAssetId ? 'pending' : 'pending', // Phase 1C M1: 백업 대기 상태
     };
+
+    const guestDataForUpdate = {
+      ...baseGuestData,
+      ...(ocrJsonValue !== undefined && { ocrRawData: ocrJsonValue }), // Phase 1C M1: OCR 데이터 저장
+    };
+
     const existing = await prisma.gmPassportSubmissionGuest.findFirst({
       where: { submissionId: submission.id, passportNumber: passportNo },
       select: { id: true },
     });
     if (existing) {
-      await prisma.gmPassportSubmissionGuest.updateMany({ where: { id: existing.id, submissionId: submission.id }, data: guestData });
+      await prisma.gmPassportSubmissionGuest.updateMany({ where: { id: existing.id, submissionId: submission.id }, data: guestDataForUpdate });
     } else {
       try {
         await prisma.gmPassportSubmissionGuest.create({
-          data: { submissionId: submission.id, groupNumber: (td.roomNumber as number) || 1, ...guestData },
+          data: {
+            submissionId: submission.id,
+            groupNumber: (td.roomNumber as number) || 1,
+            name: baseGuestData.name,
+            phone: baseGuestData.phone,
+            passportNumber: baseGuestData.passportNumber,
+            passportIV: baseGuestData.passportIV,
+            nationality: baseGuestData.nationality,
+            dateOfBirth: baseGuestData.dateOfBirth,
+            passportExpiryDate: baseGuestData.passportExpiryDate,
+            submittedBy: baseGuestData.submittedBy,
+            source: baseGuestData.source,
+            submittedAt: baseGuestData.submittedAt,
+            imageAssetId: baseGuestData.imageAssetId,
+            backupStatus: baseGuestData.backupStatus,
+            ...(ocrJsonValue !== undefined && { ocrRawData: ocrJsonValue }), // Phase 1C M1: OCR 데이터 저장
+          },
         });
       } catch (e) {
         // 동시 생성 충돌(부분 UNIQUE) → 재조회 update 폴백
@@ -106,7 +165,7 @@ async function syncSubmissionGuestsBestEffort(
             where: { submissionId: submission.id, passportNumber: passportNo },
             select: { id: true },
           });
-          if (dup) await prisma.gmPassportSubmissionGuest.updateMany({ where: { id: dup.id, submissionId: submission.id }, data: guestData });
+          if (dup) await prisma.gmPassportSubmissionGuest.updateMany({ where: { id: dup.id, submissionId: submission.id }, data: guestDataForUpdate });
         } else {
           throw e;
         }
