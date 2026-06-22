@@ -11,6 +11,7 @@ import {
   generateBackupFileName,
   downloadFileFromGoogleDrive,
   uploadOcrDataToGoogleDrive,
+  refreshTripGoogleAccessToken,
 } from '@/lib/passport-google-drive-backup';
 
 /**
@@ -49,7 +50,11 @@ export async function POST(req: NextRequest) {
 
     logger.info('[Cron] Backup Passport - 시작');
 
-    // 1. 24시간 내 업로드된 여권 게스트 조회 (googleDriveFileId 없는 것) + imageAsset FK 포함
+    // M2-2: 여권 파일이 있는 경우 Google Drive 업로드 시도
+    let successCount = 0;
+    let failureCount = 0;
+
+    // 1. 24시간 내 업로드된 여권 게스트 조회 (googleDriveFileId 없는 것)
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const pendingGuests = await prisma.gmPassportSubmissionGuest.findMany({
       where: {
@@ -69,6 +74,12 @@ export async function POST(req: NextRequest) {
             mimeType: true,
           },
         },
+        // M2-2: submission 포함하여 trip 정보 조회
+        submission: {
+          select: {
+            tripId: true,
+          },
+        },
       },
       orderBy: { submittedAt: 'asc' },
     });
@@ -77,22 +88,60 @@ export async function POST(req: NextRequest) {
       `[Cron] Backup Passport - ${pendingGuests.length}개 게스트 발견`
     );
 
-    // 2. 여권 파일이 있는 경우 Google Drive 업로드 시도
-    let successCount = 0;
-    let failureCount = 0;
+    // M2-2: Org 레벨 accessToken (fallback용)
+    const orgAccessToken = process.env.GOOGLE_OAUTH_ACCESS_TOKEN || '';
 
-    const accessToken = process.env.GOOGLE_OAUTH_ACCESS_TOKEN || '';
-    if (!accessToken) {
-      logger.warn('[Cron] Backup Passport - GOOGLE_OAUTH_ACCESS_TOKEN not set, skipping backup');
-      return NextResponse.json({
-        ok: false,
-        error: 'GOOGLE_OAUTH_ACCESS_TOKEN not set',
-        message: 'Passport backup skipped',
-      }, { status: 503 });
-    }
+    // M2-2: Trip별 토큰 캐시 (같은 Trip의 guests 처리 시 재사용)
+    const tripTokenCache = new Map<number, string>();
 
     for (const guest of pendingGuests) {
       try {
+        // M2-2: Trip 정보 조회
+        const tripId = guest.submission?.tripId;
+        if (!tripId) {
+          logger.warn(
+            `[Cron] Backup Passport - 게스트 ${guest.id} submission 또는 tripId 없음, 스킵`
+          );
+          failureCount++;
+          continue;
+        }
+
+        // M2-2: Trip별 토큰 조회 (캐시 사용)
+        let accessToken: string;
+        if (tripTokenCache.has(tripId)) {
+          accessToken = tripTokenCache.get(tripId)!;
+        } else {
+          try {
+            const tokenInfo = await refreshTripGoogleAccessToken(
+              tripId,
+              undefined // organizationId 필요시 추가
+            );
+            accessToken = tokenInfo.accessToken;
+            tripTokenCache.set(tripId, accessToken);
+            logger.info(
+              `[Cron] Backup Passport - Trip ${tripId} token refreshed (cached)`
+            );
+          } catch (tokenErr) {
+            const tokenErrObj = tokenErr instanceof Error
+              ? { message: tokenErr.message }
+              : { error: String(tokenErr) };
+            logger.warn(
+              `[Cron] Backup Passport - Trip ${tripId} token refresh failed, using org fallback`,
+              tokenErrObj
+            );
+            // Fallback: Org 레벨 토큰
+            accessToken = orgAccessToken;
+            if (!accessToken) {
+              logger.error(
+                `[Cron] Backup Passport - No accessToken for Trip ${tripId}, skipping guest ${guest.id}`
+              );
+              failureCount++;
+              continue;
+            }
+            tripTokenCache.set(tripId, accessToken);
+          }
+        }
+
         // Phase 1C M1: imageAsset에서 WebP 파일 ID 조회
         if (!guest.imageAsset?.driveFileId) {
           logger.warn(`[Cron] Backup Passport - 게스트 ${guest.id} imageAsset 없음, 스킵`);
@@ -129,8 +178,9 @@ export async function POST(req: NextRequest) {
           if (guest.ocrRawData && typeof guest.ocrRawData === 'object') {
             try {
               const ocrFileName = fileName.replace('.webp', '_ocr.json');
+              const ocrData = (guest.ocrRawData || {}) as Record<string, unknown>;
               ocrFileId = await uploadOcrDataToGoogleDrive(
-                guest.ocrRawData as Record<string, unknown>,
+                ocrData,
                 ocrFileName,
                 accessToken
               );
@@ -216,12 +266,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3. 1년 초과 파일 삭제
+    // 3. 1년 초과 파일 삭제 (Org 레벨 토큰 사용)
     let deletedCount = 0;
     try {
-      const accessToken = process.env.GOOGLE_OAUTH_ACCESS_TOKEN || '';
-      if (accessToken) {
-        deletedCount = await deleteOldBackups(accessToken, 365);
+      if (orgAccessToken) {
+        deletedCount = await deleteOldBackups(orgAccessToken, 365);
       }
     } catch (err) {
       logger.warn('[Cron] Backup Passport - Old backups cleanup failed', { error: err instanceof Error ? err.message : String(err) });

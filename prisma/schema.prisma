@@ -3179,6 +3179,8 @@ model GmPassportSubmission {
   trip           GmTrip?    @relation(fields: [tripId], references: [id])
   user           GmUser     @relation(fields: [userId], references: [id], onDelete: Cascade)
   documents      Document[] @relation("PassportDocuments")
+  // M2-2: GmPassportSubmissionGuest 역관계
+  guests         GmPassportSubmissionGuest[]
 
   @@unique([userId, tripId])
   @@index([userId])
@@ -3217,6 +3219,10 @@ model GmPassportSubmissionGuest {
   googleDriveFileIdOcr    String? // OCR JSON 파일 ID (Google Drive)
   lastBackupAt            DateTime? // 마지막 백업 시간
   backupStatus            String    @default("pending") // pending / success / failed
+
+  // M2-2: GmPassportSubmission 관계 (tripId 조회용)
+  submission         GmPassportSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
   // ⚠️ raw 부분 UNIQUE 인덱스 "guest_submission_passport_partial_uq" 존재:
   //    UNIQUE(submissionId, passportNumber) WHERE passportNumber IS NOT NULL AND passportNumber <> ''
   //    (Prisma @@unique로 표현 불가 — migrations/20260606120001_guest_passport_partial_uq)
