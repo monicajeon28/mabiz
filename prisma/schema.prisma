@@ -2799,21 +2799,25 @@ model GmTrip {
 }
 
 model GmTripGoogleDriveConfig {
-  id            Int       @id @default(autoincrement())
-  tripId        Int       @unique
-  accessToken   String    // AES-256 encrypted at application level
-  refreshToken  String    // AES-256 encrypted at application level
-  expiresAt     DateTime
-  createdAt     DateTime  @default(now()) @db.Timestamp(6)
-  updatedAt     DateTime  @db.Timestamp(6)
+  id                Int       @id @default(autoincrement())
+  tripId            Int       @unique
+  accessToken       String    // AES-256 encrypted at application level
+  refreshToken      String    // AES-256 encrypted at application level
+  expiresAt         DateTime
+  createdAt         DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt         DateTime  @updatedAt @db.Timestamp(6)
+
+  // M2-4: Trip 폴더 구조 정보
+  googleFolderId    String?   // Trip 전용 폴더 ID (Org-{orgId}/Trip-{tripId})
+  googleFolderName  String?   // Trip 폴더명 (Trip-{tripId})
 
   // Soft-delete fields
-  deletedAt     DateTime? @db.Timestamp(6)
-  deletedBy     Int?
-  deletedByName String?
+  deletedAt         DateTime? @db.Timestamp(6)
+  deletedBy         Int?
+  deletedByName     String?
 
   // Relations
-  trip          GmTrip    @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  trip              GmTrip    @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
   @@index([tripId])
   @@index([deletedAt])

@@ -12,6 +12,8 @@ import {
   downloadFileFromGoogleDrive,
   uploadOcrDataToGoogleDrive,
   refreshTripGoogleAccessToken,
+  getOrCreateTripFolder,
+  uploadTripPassportFilesToGoogleDrive,
 } from '@/lib/passport-google-drive-backup';
 
 /**
