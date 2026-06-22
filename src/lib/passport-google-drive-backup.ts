@@ -13,6 +13,7 @@
 
 import { google } from 'googleapis';
 import { logger } from '@/lib/logger';
+import { encryptPII, decryptPII } from '@/lib/encryption-utils';
 import prisma from '@/lib/prisma';
 
 export interface PassportBackupResult {
@@ -283,14 +284,15 @@ export async function getOrCreateTripFolder(
     const tripFolder = await getOrCreateSubFolder(orgFolder.id, tripFolderName, accessToken);
 
     // 5. DB에 저장 (GmTripGoogleDriveConfig 업데이트 또는 생성)
+    // Note: accessToken/refreshToken은 Cron에서 설정 (암호화됨)
     await prisma.gmTripGoogleDriveConfig.upsert({
       where: { tripId },
       create: {
         tripId,
         googleFolderId: tripFolder.id,
         googleFolderName: tripFolderName,
-        accessToken: '', // Cron에서 설정
-        refreshToken: '',
+        accessToken: '', // Cron에서 설정 (암호화됨)
+        refreshToken: '', // Cron에서 설정 (암호화됨)
         expiresAt: new Date(),
       },
       update: {
@@ -732,22 +734,79 @@ export async function uploadTripPassportFilesToGoogleDrive(
 export { generateBackupFileName };
 
 /**
+ * Trip의 accessToken 조회 + 복호화 (캐시 사용)
+ * M3-1: 암호화된 토큰 안전하게 사용
+ *
+ * 로직:
+ * 1. GmTripGoogleDriveConfig에서 accessToken 조회
+ * 2. 복호화 (AES-256)
+ * 3. 만료 확인 (55분 TTL)
+ * 4. 만료되면 refreshToken으로 새 토큰 발급 + 암호화
+ *
+ * @param tripId Trip ID (숫자)
+ * @returns 복호화된 accessToken
+ */
+export async function getDecryptedTripAccessToken(
+  tripId: number
+): Promise<string> {
+  try {
+    const tripConfig = await prisma.gmTripGoogleDriveConfig.findUnique({
+      where: { tripId },
+    });
+
+    if (!tripConfig || !tripConfig.accessToken || tripConfig.deletedAt) {
+      throw new Error(`Trip ${tripId} has no accessToken`);
+    }
+
+    // 1. accessToken 복호화
+    let decryptedAccessToken: string;
+    try {
+      decryptedAccessToken = decryptPII(tripConfig.accessToken);
+    } catch (decryptErr) {
+      const decryptErrObj = decryptErr instanceof Error
+        ? { message: decryptErr.message }
+        : { error: String(decryptErr) };
+      logger.warn(
+        `[getDecryptedTripAccessToken] Trip ${tripId} accessToken 복호화 실패, 암호화되지 않은 토큰으로 시도`,
+        decryptErrObj
+      );
+      // Fallback: 이미 평문인 토큰
+      decryptedAccessToken = tripConfig.accessToken;
+    }
+
+    // 2. 토큰 만료 확인
+    if (tripConfig.expiresAt && new Date() > tripConfig.expiresAt) {
+      logger.info(`[getDecryptedTripAccessToken] Trip ${tripId} token expired, refreshing...`);
+      const { accessToken } = await refreshTripGoogleAccessToken(tripId);
+      return accessToken;
+    }
+
+    return decryptedAccessToken;
+  } catch (err) {
+    logger.error(
+      '[getDecryptedTripAccessToken] Fatal error',
+      err instanceof Error ? err.message : String(err)
+    );
+    throw err;
+  }
+}
+
+/**
  * Trip별 Google OAuth 토큰 갱신
- * M2-2: Trip 레벨 권한 격리
+ * P0-2: Trip 레벨 권한 격리 (Fallback 제거)
  *
  * 로직:
  * 1. GmTripGoogleDriveConfig에서 Trip의 refreshToken 조회
- * 2. 없으면 조직 레벨 토큰으로 fallback (M1 호환성)
- * 3. refreshToken 있으면 새 accessToken 발급
- * 4. DB에 accessToken + expiresAt(55분 TTL) 업데이트
+ * 2. refreshToken 있으면 새 accessToken 발급
+ * 3. DB에 accessToken + expiresAt(55분 TTL) 업데이트 (모두 암호화됨)
+ * 4. Trip 토큰 없으면 즉시 에러 (조직 토큰 Fallback 금지)
  *
  * @param tripId Trip ID (숫자)
- * @param organizationId 조직 ID (fallback용)
- * @returns { accessToken, expiresAt }
+ * @returns { accessToken, expiresAt } - accessToken은 복호화된 상태
+ * @throws Error - Trip 토큰이 없으면 에러 발생
  */
 export async function refreshTripGoogleAccessToken(
-  tripId: number,
-  organizationId?: string
+  tripId: number
 ): Promise<{ accessToken: string; expiresAt: Date }> {
   try {
     // 1. Trip 레벨 설정 조회
@@ -761,23 +820,40 @@ export async function refreshTripGoogleAccessToken(
       !tripConfig.deletedAt
     ) {
       try {
-        // 2. Trip refreshToken으로 새 accessToken 발급
+        // 2. refreshToken 복호화 (AES-256)
+        let decryptedRefreshToken: string;
+        try {
+          decryptedRefreshToken = decryptPII(tripConfig.refreshToken);
+        } catch (decryptErr) {
+          const decryptErrObj = decryptErr instanceof Error
+            ? { message: decryptErr.message }
+            : { error: String(decryptErr) };
+          logger.warn(
+            `[refreshTripGoogleAccessToken] Trip ${tripId} refreshToken 복호화 실패, 암호화되지 않은 토큰으로 시도`,
+            decryptErrObj
+          );
+          // Fallback: 이미 평문인 토큰이라고 가정 (마이그레이션 중)
+          decryptedRefreshToken = tripConfig.refreshToken;
+        }
+
+        // 3. Trip refreshToken으로 새 accessToken 발급
         const newAccessToken = await refreshGoogleAccessTokenInternal(
-          tripConfig.refreshToken
+          decryptedRefreshToken
         );
         const expiresAt = new Date(Date.now() + 55 * 60 * 1000); // 55분 TTL
 
-        // 3. DB 업데이트
+        // 4. DB 업데이트: accessToken 암호화하여 저장
+        const encryptedAccessToken = encryptPII(newAccessToken);
         await prisma.gmTripGoogleDriveConfig.update({
           where: { id: tripConfig.id },
           data: {
-            accessToken: newAccessToken,
+            accessToken: encryptedAccessToken,
             expiresAt,
           },
         });
 
         logger.info(
-          `[refreshTripGoogleAccessToken] Trip ${tripId} token refreshed`
+          `[refreshTripGoogleAccessToken] Trip ${tripId} token refreshed and encrypted`
         );
 
         return { accessToken: newAccessToken, expiresAt };
@@ -785,26 +861,17 @@ export async function refreshTripGoogleAccessToken(
         const errObj = err instanceof Error
           ? { message: err.message }
           : { error: String(err) };
-        logger.warn(
-          `[refreshTripGoogleAccessToken] Trip ${tripId} token refresh failed, falling back to organization level`,
+        logger.error(
+          `[refreshTripGoogleAccessToken] Trip ${tripId} token refresh failed`,
           errObj
         );
+        throw err;
       }
     }
 
-    // 4. Fallback: 조직 레벨 토큰 (M1 호환성)
-    if (organizationId) {
-      const newAccessToken =
-        process.env.GOOGLE_OAUTH_ACCESS_TOKEN || '';
-      if (!newAccessToken) {
-        throw new Error('Org-level GOOGLE_OAUTH_ACCESS_TOKEN not set');
-      }
-      const expiresAt = new Date(Date.now() + 55 * 60 * 1000);
-      return { accessToken: newAccessToken, expiresAt };
-    }
-
+    // P0-2: Trip 토큰 필수화 (Fallback 제거)
     throw new Error(
-      `Trip ${tripId} has no google drive config and organizationId not provided`
+      `Trip ${tripId} has no google drive config`
     );
   } catch (err) {
     logger.error(

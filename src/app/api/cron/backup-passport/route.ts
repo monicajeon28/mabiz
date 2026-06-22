@@ -14,6 +14,7 @@ import {
   refreshTripGoogleAccessToken,
   getOrCreateTripFolder,
   uploadTripPassportFilesToGoogleDrive,
+  getDecryptedTripAccessToken,
 } from '@/lib/passport-google-drive-backup';
 
 /**
@@ -117,23 +118,19 @@ export async function POST(req: NextRequest) {
               return { guest, accessToken: null, error: 'No tripId' };
             }
 
-            // Trip별 토큰 조회 (캐시 사용)
+            // Trip별 토큰 조회 (캐시 사용) - M3-1: 복호화됨
             let accessToken: string;
             if (tripTokenCache.has(tripId)) {
               accessToken = tripTokenCache.get(tripId)!;
             } else {
               try {
-                const tokenInfo = await refreshTripGoogleAccessToken(tripId, undefined);
-                accessToken = tokenInfo.accessToken;
+                // M3-1: 복호화된 accessToken 또는 새로 발급 + 암호화
+                accessToken = await getDecryptedTripAccessToken(tripId);
                 tripTokenCache.set(tripId, accessToken);
               } catch (_tokenErr) {
-                // Fallback: Org 레벨 토큰
-                accessToken = orgAccessToken;
-                if (!accessToken) {
-                  logger.error(`[Cron] Backup Passport - No accessToken for Trip ${tripId}, skipping guest ${guest.id}`);
-                  return { guest, accessToken: null, error: 'No accessToken' };
-                }
-                tripTokenCache.set(tripId, accessToken);
+                // P0-2: Fallback 제거 - Trip 토큰 필수화 (권한 격리)
+                logger.error(`[Cron] Backup Passport - Trip ${tripId} token refresh failed, skipping guest ${guest.id}`);
+                return { guest, accessToken: null, error: 'Trip token required' };
               }
             }
 
