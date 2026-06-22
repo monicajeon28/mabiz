@@ -10,6 +10,7 @@ import prisma from '@/lib/prisma';
 
 interface SmsLogInput {
   organizationId: string;
+  createdBy?: string; // P0-4: 발송자 userId
   contactId?: string | null;
   phone: string;
   msg: string;
@@ -29,6 +30,7 @@ export async function addSmsLog(logData: SmsLogInput): Promise<void> {
     await prisma.smsLog.create({
       data: {
         organizationId: logData.organizationId,
+        createdBy: logData.createdBy,
         contactId: logData.contactId ?? null,
         phone: logData.phone,
         contentPreview: logData.msg.slice(0, 30),

@@ -182,6 +182,7 @@ function sanitizePhoneNumber(phone: string): string {
 /**
  * Kakao 메시지 로그 기록
  * SmsLog 테이블 재활용
+ * P0-4: createdBy 필드 추가 (발송자 추적)
  */
 export async function logKakaoMessage(
   organizationId: string,
@@ -189,12 +190,14 @@ export async function logKakaoMessage(
   phoneNumber: string,
   messageId: string,
   content: string,
-  status: 'SENT' | 'FAILED'
+  status: 'SENT' | 'FAILED',
+  createdBy?: string // P0-4: 발송자 userId
 ): Promise<void> {
   try {
     await prisma.smsLog.create({
       data: {
         organizationId,
+        createdBy,
         contactId: contactId || undefined,
         phone: phoneNumber,
         contentPreview: content.substring(0, 100),

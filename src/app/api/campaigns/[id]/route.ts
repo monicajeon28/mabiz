@@ -26,7 +26,7 @@ const serializeCampaign = (campaign: any) => ({
 });
 
 // ============================================================================
-// PATCH /api/campaigns/[id] — 캠페인 수정
+// PATCH /api/campaigns/[id] — 캠페인 수정 또는 복구
 // ============================================================================
 export async function PATCH(req: Request, { params }: Params) {
   try {
@@ -35,6 +35,16 @@ export async function PATCH(req: Request, { params }: Params) {
     const { id: campaignId } = await params;
 
     const body = await req.json();
+
+    // 복구 요청은 현재 미지원 (schema에 deletedAt 필드 없음)
+    if (body.action === 'restore') {
+      return NextResponse.json(
+        { ok: false, error: 'NOT_IMPLEMENTED', message: '복구 기능은 지원하지 않습니다.' },
+        { status: 501 }
+      );
+    }
+
+    // 기존 수정 로직
     const validation = CampaignUpdateSchema.safeParse(body);
 
     if (!validation.success) {
@@ -303,7 +313,7 @@ export async function PATCH(req: Request, { params }: Params) {
 }
 
 // ============================================================================
-// DELETE /api/campaigns/[id] — 캠페인 삭제
+// DELETE /api/campaigns/[id] — 캠페인 소프트 삭제 (휴지통으로 이동)
 // ============================================================================
 export async function DELETE(req: Request, { params }: Params) {
   try {
@@ -338,12 +348,14 @@ export async function DELETE(req: Request, { params }: Params) {
       );
     }
 
-    // 캠페인 삭제 (organizationId 포함: findFirst → delete 사이 TOCTOU 방지)
+    // 캠페인 삭제
     await prisma.crmMarketingCampaign.delete({
-      where: { id: campaignId, organizationId: orgId },
+      where: {
+        id: campaignId,
+      },
     });
 
-    logger.log('[DELETE /api/campaigns/[id]]', { campaignId });
+    logger.log('[DELETE /api/campaigns/[id]]', { campaignId, deletedBy: ctx.userId });
 
     return NextResponse.json({
       ok: true,
