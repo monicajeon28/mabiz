@@ -11,9 +11,6 @@ import {
   generateBackupFileName,
   downloadFileFromGoogleDrive,
   uploadOcrDataToGoogleDrive,
-  refreshTripGoogleAccessToken,
-  getOrCreateTripFolder,
-  uploadTripPassportFilesToGoogleDrive,
   getDecryptedTripAccessToken,
 } from '@/lib/passport-google-drive-backup';
 
@@ -127,9 +124,10 @@ export async function POST(req: NextRequest) {
                 // M3-1: 복호화된 accessToken 또는 새로 발급 + 암호화
                 accessToken = await getDecryptedTripAccessToken(tripId);
                 tripTokenCache.set(tripId, accessToken);
-              } catch (_tokenErr) {
+              } catch (err) {
                 // P0-2: Fallback 제거 - Trip 토큰 필수화 (권한 격리)
-                logger.error(`[Cron] Backup Passport - Trip ${tripId} token refresh failed, skipping guest ${guest.id}`);
+                const errorMsg = err instanceof Error ? err.message : String(err);
+                logger.error(`[Cron] Backup Passport - Trip ${tripId} token refresh failed (${errorMsg}), skipping guest ${guest.id}`);
                 return { guest, accessToken: null, error: 'Trip token required' };
               }
             }
