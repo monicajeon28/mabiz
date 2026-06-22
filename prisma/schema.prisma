@@ -2790,11 +2790,34 @@ model GmTrip {
   passportSubmissions GmPassportSubmission[]
   user                GmUser                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   reservations        GmReservation[]        @relation("TripReservations")
+  googleDriveConfig   GmTripGoogleDriveConfig?
 
   @@index([createdAt])
   @@index([startDate])
   @@index([userId, status])
   @@map("Trip")
+}
+
+model GmTripGoogleDriveConfig {
+  id            Int       @id @default(autoincrement())
+  tripId        Int       @unique
+  accessToken   String    // AES-256 encrypted at application level
+  refreshToken  String    // AES-256 encrypted at application level
+  expiresAt     DateTime
+  createdAt     DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt     DateTime  @db.Timestamp(6)
+
+  // Soft-delete fields
+  deletedAt     DateTime? @db.Timestamp(6)
+  deletedBy     Int?
+  deletedByName String?
+
+  // Relations
+  trip          GmTrip    @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+  @@index([deletedAt])
+  @@map("TripGoogleDriveConfig")
 }
 
 model GmReservation {
