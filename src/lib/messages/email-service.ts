@@ -360,12 +360,14 @@ export async function logEmailMessage(
   recipientEmail: string,
   messageId: string,
   subject: string,
-  status: 'PENDING' | 'SENT' | 'FAILED'
+  status: 'PENDING' | 'SENT' | 'FAILED',
+  createdBy?: string // P0-4: 발송자 userId
 ): Promise<void> {
   try {
     await prisma.smsLog.create({
       data: {
         organizationId,
+        createdBy,
         contactId: contactId || undefined,
         phone: recipientEmail, // 이메일도 같은 필드 사용
         contentPreview: subject.substring(0, 100),

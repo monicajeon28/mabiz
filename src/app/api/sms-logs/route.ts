@@ -17,6 +17,15 @@ import { logger } from '@/lib/logger';
 export async function GET(req: NextRequest) {
   try {
     const ctx = await getAuthContext();
+
+    // P0-4: 프리세일즈는 문자 기록 조회 불가
+    if (ctx.role === 'FREE_SALES') {
+      return NextResponse.json(
+        { ok: false, message: '문자 기록 조회 권한이 없습니다' },
+        { status: 403 }
+      );
+    }
+
     let orgId: string;
     if (ctx.organizationId) {
       orgId = ctx.organizationId;
@@ -43,15 +52,27 @@ export async function GET(req: NextRequest) {
     const since = new Date();
     since.setUTCDate(since.getUTCDate() - days);
 
+    // P0-4: 역할별 필터링 로직
+    // GLOBAL_ADMIN: 모든 조직 기록
+    // OWNER: 자신 조직의 모든 기록
+    // AGENT: 자신이 발송한 기록만
+    const baseWhere: Record<string, unknown> = {
+      organizationId: orgId,
+      ...(contactId ? { contactId } : {}),
+      ...(status    ? { status }    : {}),
+      ...(channel   ? { channel }   : {}),
+      sentAt: { gte: since },
+    };
+
+    // AGENT는 자신이 발송한 기록만 조회 가능
+    if (ctx.role === 'AGENT') {
+      baseWhere.createdBy = ctx.userId;
+    }
+    // OWNER와 GLOBAL_ADMIN은 전체 조회 가능
+
     const [logs, total] = await Promise.all([
       prisma.smsLog.findMany({
-        where: {
-          organizationId: orgId,          // ← 조직 필터 강제 (IDOR 방지)
-          ...(contactId ? { contactId } : {}),
-          ...(status    ? { status }    : {}),
-          ...(channel   ? { channel }   : {}),
-          sentAt: { gte: since },
-        },
+        where: baseWhere,
         orderBy: { sentAt: 'desc' },
         skip,
         take,
@@ -66,27 +87,13 @@ export async function GET(req: NextRequest) {
           sentAt:         true,
         },
       }),
-      prisma.smsLog.count({
-        where: {
-          organizationId: orgId,
-          ...(contactId ? { contactId } : {}),
-          ...(status    ? { status }    : {}),
-          ...(channel   ? { channel }   : {}),
-          sentAt: { gte: since },
-        },
-      }),
+      prisma.smsLog.count({ where: baseWhere }),
     ]);
 
     // 요약 통계 (필터 동일하게 적용)
     const stats = await prisma.smsLog.groupBy({
       by: ['status'],
-      where: {
-        organizationId: orgId,
-        ...(contactId ? { contactId } : {}),
-        ...(status    ? { status }    : {}),
-        ...(channel   ? { channel }   : {}),
-        sentAt: { gte: since },
-      },
+      where: baseWhere,
       _count: { status: true },
     });
 
@@ -97,7 +104,7 @@ export async function GET(req: NextRequest) {
       blocked: stats.find(s => s.status === 'BLOCKED')?._count.status ?? 0,
     };
 
-    logger.log('[SmsLog] 조회', { orgId, total, page, pageSize: take, days });
+    logger.log('[SmsLog] 조회', { orgId, role: ctx.role, total, page, pageSize: take, days });
 
     return NextResponse.json({
       ok: true,

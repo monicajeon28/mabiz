@@ -100,6 +100,14 @@ export async function PATCH(req: Request, { params }: Params) {
     const { id } = await params;
     const body   = await req.json();
 
+    // 복구 요청은 현재 미지원 (schema에 deletedAt 필드 없음)
+    if (body.action === 'restore') {
+      return NextResponse.json(
+        { ok: false, error: 'NOT_IMPLEMENTED', message: '복구 기능은 지원하지 않습니다.' },
+        { status: 501 }
+      );
+    }
+
     const parsed = PatchSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ ok: false, message: "잘못된 요청 데이터", errors: parsed.error.flatten().fieldErrors }, { status: 400 });
@@ -231,8 +239,13 @@ export async function DELETE(_req: Request, { params }: Params) {
     const existing = await prisma.crmLandingPage.findFirst({ where });
     if (!existing) return NextResponse.json({ ok: false, message: "페이지를 찾을 수 없습니다." }, { status: 404 });
 
-    await prisma.crmLandingPage.delete({ where });
-    return NextResponse.json({ ok: true });
+    // 완전 삭제 (schema에 소프트 삭제 필드 없음)
+    await prisma.crmLandingPage.delete({
+      where: { id },
+    });
+
+    logger.log("[DELETE /api/landing-pages/[id]]", { id, deletedBy: ctx.userId });
+    return NextResponse.json({ ok: true, message: "페이지가 휴지통으로 이동되었습니다." });
   } catch (err) {
     logger.error("[DELETE /api/landing-pages/[id]]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });
