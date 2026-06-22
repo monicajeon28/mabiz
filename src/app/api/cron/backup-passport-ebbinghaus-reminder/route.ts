@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import {
+  findBackupReminderTargets,
+  enrichTargetsWithContactInfo,
+  sendPassportBackupSms,
+  updateReminderLogAfterSend,
+  PASSPORT_BACKUP_SMS_TEMPLATES,
+} from '@/lib/passport-backup-reminder-sms';
 
 /**
  * M4-3: Ebbinghaus 망각곡선 기반 OCR 백업 상기 알림
@@ -25,13 +31,14 @@ export async function POST(req: NextRequest) {
   const startTime = Date.now();
 
   try {
-    // 1. 보안: CRON_SECRET 검증
+    // 1. 보안: CRON_SECRET 검증 (MABIZ_BACKUP_CRON_SECRET 또는 CRON_SECRET)
     const secret = req.headers.get('Authorization')?.replace('Bearer ', '');
-    if (secret !== process.env.MABIZ_BACKUP_CRON_SECRET) {
+    const expectedSecret = process.env.MABIZ_BACKUP_CRON_SECRET || process.env.CRON_SECRET;
+    if (!expectedSecret || secret !== expectedSecret) {
+      logger.warn('[ebbinghaus-reminder] 권한 없음', { secret: secret?.substring(0, 10) });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const now = new Date();
     const results = {
       day1: { sent: 0, failed: 0 },
       day3: { sent: 0, failed: 0 },
@@ -40,152 +47,140 @@ export async function POST(req: NextRequest) {
     };
 
     // Day 1: 24시간 경과 (1일)
-    const day1Reminders = await prisma.passportBackupReminderLog.findMany({
-      where: {
-        day1Sent: false,
-        firstBackupAt: {
-          lte: new Date(now.getTime() - 24 * 60 * 60 * 1000), // 24시간 이상 전
-        },
-      },
-      take: 50, // 배치
-    });
+    const day1Targets = await findBackupReminderTargets(1);
+    const day1Enriched = await enrichTargetsWithContactInfo(day1Targets);
 
-    // Day 1 SMS 발송 (병렬)
-    // Note: SMS 발송을 위해서는 contactId와 실제 전화번호 조회가 필요합니다
-    // 현재는 로그만 기록하고 실제 구현은 M5에서 처리합니다
     await Promise.all(
-      day1Reminders.map(async (reminder) => {
+      day1Enriched.map(async (target) => {
         try {
-          const message = buildEbbinghausMessage('day1', '고객님');
+          const template = PASSPORT_BACKUP_SMS_TEMPLATES[1];
+          const message = template.message.replace('고객님', target.contact?.name || '고객님');
 
-          // TODO: SMS 발송 구현 (Contact에서 전화번호 조회 필요)
-          // if (reminder.contactId) {
-          //   const contact = await prisma.contact.findUnique({
-          //     where: { id: reminder.contactId },
-          //     select: { phone: true, name: true },
-          //   });
-          //   if (contact?.phone) {
-          //     await sendSMS({ ... });
-          //   }
-          // }
-
-          await prisma.passportBackupReminderLog.update({
-            where: { id: reminder.id },
-            data: {
-              day1Sent: true,
-              day1SentAt: now,
-              smsCount: { increment: 1 },
-            },
+          const result = await sendPassportBackupSms({
+            phone: target.contact!.phone,
+            message,
+            dayOffset: 1,
+            organizationId: target.organizationId,
+            reminderId: target.id,
           });
 
-          results.day1.sent++;
+          if (result.success) {
+            await updateReminderLogAfterSend({
+              reminderId: target.id,
+              dayOffset: 1,
+              success: true,
+            });
+            results.day1.sent++;
+          } else {
+            results.day1.failed++;
+          }
         } catch (err) {
-          logger.error(`[ebbinghaus-reminder] Day1 발송 실패: ${reminder.id}`, err);
+          logger.error(`[ebbinghaus-reminder] Day1 발송 예외: ${target.id}`, err);
           results.day1.failed++;
         }
       })
     );
 
     // Day 3: 72시간 경과 (3일)
-    const day3Reminders = await prisma.passportBackupReminderLog.findMany({
-      where: {
-        day3Sent: false,
-        firstBackupAt: {
-          lte: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000),
-        },
-      },
-      take: 50,
-    });
+    const day3Targets = await findBackupReminderTargets(3);
+    const day3Enriched = await enrichTargetsWithContactInfo(day3Targets);
 
     await Promise.all(
-      day3Reminders.map(async (reminder) => {
+      day3Enriched.map(async (target) => {
         try {
-          const message = buildEbbinghausMessage('day3', '고객님');
+          const template = PASSPORT_BACKUP_SMS_TEMPLATES[3];
+          const message = template.message.replace('고객님', target.contact?.name || '고객님');
 
-          // TODO: SMS 발송 구현
-
-          await prisma.passportBackupReminderLog.update({
-            where: { id: reminder.id },
-            data: {
-              day3Sent: true,
-              day3SentAt: now,
-              smsCount: { increment: 1 },
-            },
+          const result = await sendPassportBackupSms({
+            phone: target.contact!.phone,
+            message,
+            dayOffset: 3,
+            organizationId: target.organizationId,
+            reminderId: target.id,
           });
 
-          results.day3.sent++;
+          if (result.success) {
+            await updateReminderLogAfterSend({
+              reminderId: target.id,
+              dayOffset: 3,
+              success: true,
+            });
+            results.day3.sent++;
+          } else {
+            results.day3.failed++;
+          }
         } catch (err) {
-          logger.error(`[ebbinghaus-reminder] Day3 발송 실패: ${reminder.id}`, err);
+          logger.error(`[ebbinghaus-reminder] Day3 발송 예외: ${target.id}`, err);
           results.day3.failed++;
         }
       })
     );
 
     // Day 7: 7일
-    const day7Reminders = await prisma.passportBackupReminderLog.findMany({
-      where: {
-        day7Sent: false,
-        firstBackupAt: {
-          lte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
-        },
-      },
-      take: 50,
-    });
+    const day7Targets = await findBackupReminderTargets(7);
+    const day7Enriched = await enrichTargetsWithContactInfo(day7Targets);
 
     await Promise.all(
-      day7Reminders.map(async (reminder) => {
+      day7Enriched.map(async (target) => {
         try {
-          const message = buildEbbinghausMessage('day7', '고객님');
+          const template = PASSPORT_BACKUP_SMS_TEMPLATES[7];
+          const message = template.message.replace('고객님', target.contact?.name || '고객님');
 
-          // TODO: SMS 발송 구현
-
-          await prisma.passportBackupReminderLog.update({
-            where: { id: reminder.id },
-            data: {
-              day7Sent: true,
-              day7SentAt: now,
-              smsCount: { increment: 1 },
-            },
+          const result = await sendPassportBackupSms({
+            phone: target.contact!.phone,
+            message,
+            dayOffset: 7,
+            organizationId: target.organizationId,
+            reminderId: target.id,
           });
 
-          results.day7.sent++;
+          if (result.success) {
+            await updateReminderLogAfterSend({
+              reminderId: target.id,
+              dayOffset: 7,
+              success: true,
+            });
+            results.day7.sent++;
+          } else {
+            results.day7.failed++;
+          }
         } catch (err) {
-          logger.error(`[ebbinghaus-reminder] Day7 발송 실패: ${reminder.id}`, err);
+          logger.error(`[ebbinghaus-reminder] Day7 발송 예외: ${target.id}`, err);
           results.day7.failed++;
         }
       })
     );
 
     // Day 30: 30일
-    const day30Reminders = await prisma.passportBackupReminderLog.findMany({
-      where: {
-        day30Sent: false,
-        firstBackupAt: {
-          lte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
-        },
-      },
-      take: 50,
-    });
+    const day30Targets = await findBackupReminderTargets(30);
+    const day30Enriched = await enrichTargetsWithContactInfo(day30Targets);
 
     await Promise.all(
-      day30Reminders.map(async (reminder) => {
+      day30Enriched.map(async (target) => {
         try {
-          const message = buildEbbinghausMessage('day30', '고객님');
+          const template = PASSPORT_BACKUP_SMS_TEMPLATES[30];
+          const message = template.message.replace('고객님', target.contact?.name || '고객님');
 
-          // TODO: SMS 발송 구현
-
-          await prisma.passportBackupReminderLog.update({
-            where: { id: reminder.id },
-            data: {
-              day30Sent: true,
-              day30SentAt: now,
-              smsCount: { increment: 1 },
-            },
+          const result = await sendPassportBackupSms({
+            phone: target.contact!.phone,
+            message,
+            dayOffset: 30,
+            organizationId: target.organizationId,
+            reminderId: target.id,
           });
 
-          results.day30.sent++;
+          if (result.success) {
+            await updateReminderLogAfterSend({
+              reminderId: target.id,
+              dayOffset: 30,
+              success: true,
+            });
+            results.day30.sent++;
+          } else {
+            results.day30.failed++;
+          }
         } catch (err) {
-          logger.error(`[ebbinghaus-reminder] Day30 발송 실패: ${reminder.id}`, err);
+          logger.error(`[ebbinghaus-reminder] Day30 발송 예외: ${target.id}`, err);
           results.day30.failed++;
         }
       })
@@ -211,35 +206,3 @@ export async function POST(req: NextRequest) {
   }
 }
 
-/**
- * Ebbinghaus 망각곡선 기반 메시지 생성 (심리학 L6/L8)
- * 50대 친화: 16px+ 글자크기, 초등학생 수준 한글
- */
-function buildEbbinghausMessage(
-  day: 'day1' | 'day3' | 'day7' | 'day30',
-  name: string
-): string {
-  const templates = {
-    day1: `${name}님, 여권 정보가 안전하게 보관되었습니다!
-
-24시간 안에 손실되지 않도록 미리 조치했어요.
-지금 데이터가 제대로 저장되었는지 한번 확인해 보세요.`,
-
-    day3: `${name}님, 3일마다 정보를 확인하는 습관을 들여보세요.
-
-최근 여행 정보가 자동으로 지켜지고 있습니다.
-다시 한번 백업해 주시면 더 안전합니다.`,
-
-    day7: `${name}님, 이번 주 정기점검 시간입니다.
-
-여행 서류 7개가 안전하게 보관 중입니다.
-매주 한 번씩 확인하는 것이 좋습니다.`,
-
-    day30: `${name}님, 지난 한 달 백업 완료!
-
-30일간 여행 정보 30개를 완벽히 보호했습니다.
-이제 자동 백업을 활성화하면 걱정이 없습니다.`,
-  };
-
-  return templates[day];
-}
