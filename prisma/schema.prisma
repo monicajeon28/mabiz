@@ -914,6 +914,7 @@ model CrmLandingPage {
   commentEnabled    Boolean   @default(false)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime? // 소프트 삭제 (복구 가능)
   description       String?
   category          String?
   pageGroup         String?
@@ -6022,6 +6023,7 @@ model CrmMarketingCampaign {
   status           String               @default("DRAFT")
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
+  deletedAt        DateTime? // 소프트 삭제 (복구 가능)
   lensMetadata     Json?
   campaignCost     CampaignCost?
   variants         CampaignVariant[]    @relation("CampaignVariants")
