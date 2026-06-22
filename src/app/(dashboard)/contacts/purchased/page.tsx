@@ -47,6 +47,7 @@ export default function PurchasedPage() {
   const { toast } = useToast();
   const { role } = useSession();
   const canCreate = role === 'GLOBAL_ADMIN' || role === 'OWNER';
+  const canView = role !== 'FREE_SALES';
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [total, setTotal] = useState(0);
   const [q, setQ] = useState("");
@@ -222,17 +223,26 @@ export default function PurchasedPage() {
     return Array.from(set).sort();
   }, [contacts]);
 
-  if (role === 'FREE_SALES') {
-    return <div className="p-4 text-gray-500">접근 권한이 없습니다.</div>;
+  if (!canView) {
+    return (
+      <div className="p-6 max-w-5xl mx-auto">
+        <div className="text-center py-16">
+          <p className="text-4xl mb-3">🚫</p>
+          <p className="font-bold text-lg text-gray-900 mb-1">접근 권한이 없습니다</p>
+          <p className="text-sm text-gray-500">프리세일즈는 구매 고객 관리에 접근할 수 없습니다.</p>
+          <p className="text-xs text-gray-400 mt-3">대리점장 이상의 권한이 필요합니다.</p>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
 
-      {/* AGENT 안내 배너 */}
+      {/* 역할별 안내 배너 */}
       {role === 'AGENT' && (
         <div className="mb-4 px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700">
-          내게 배정되거나 공유받은 구매 고객만 표시됩니다
+          내게 배정된 구매 고객만 표시됩니다
         </div>
       )}
 

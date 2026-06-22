@@ -288,6 +288,16 @@ export function canReview(role: UserRole): boolean {
   return role === "GLOBAL_ADMIN" || role === "OWNER";
 }
 
+/** P0-6: 구매 고객 관리 조회 권한 (AGENT 이상, FREE_SALES 제외) */
+export function canViewPurchases(ctx: AuthContext): boolean {
+  return ctx.role !== "FREE_SALES";
+}
+
+/** P0-6: 구매 고객 관리 생성/수정 권한 (OWNER 이상) */
+export function canManagePurchases(ctx: AuthContext): boolean {
+  return ctx.role === "GLOBAL_ADMIN" || ctx.role === "OWNER";
+}
+
 /** 조직 ID 강제 획득 (없으면 에러) */
 export function requireOrgId(ctx: AuthContext): string {
   if (!ctx.organizationId) throw new Error("ORGANIZATION_REQUIRED");
