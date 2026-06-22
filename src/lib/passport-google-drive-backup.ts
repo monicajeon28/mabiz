@@ -191,7 +191,6 @@ export async function uploadPassportToGoogleDrive(
           appProperties: {
             type: 'passport_backup',
             guestName,
-            passportNumber: passportNumber.slice(-4),
           },
         },
         media: {
