@@ -172,6 +172,143 @@ function generateBackupFileName(
 }
 
 /**
+ * 부모 폴더 내 자식 폴더 생성/조회 (M2-4)
+ * - Google Drive API로 폴더 검색
+ * - 없으면 자동 생성
+ *
+ * @param parentFolderId 부모 폴더 ID
+ * @param folderName 생성할 폴더명
+ * @param accessToken Google Drive API 토큰
+ * @returns { id, name }
+ */
+export async function getOrCreateSubFolder(
+  parentFolderId: string,
+  folderName: string,
+  accessToken: string
+): Promise<{ id: string; name: string }> {
+  const auth = createAuthClient(accessToken);
+  const drive = google.drive({ version: 'v3', auth });
+
+  try {
+    // 1. 자식 폴더 검색
+    const listRes = await drive.files.list({
+      q: `'${parentFolderId}' in parents and name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+      spaces: 'drive',
+      pageSize: 1,
+      fields: 'files(id, name)',
+    });
+
+    if (listRes.data.files?.length) {
+      return { id: listRes.data.files[0].id!, name: listRes.data.files[0].name! };
+    }
+
+    // 2. 폴더가 없으면 생성
+    const createRes = await drive.files.create({
+      requestBody: {
+        name: folderName,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [parentFolderId],
+      },
+      fields: 'id, name',
+    });
+
+    return { id: createRes.data.id!, name: createRes.data.name! };
+  } catch (err) {
+    logger.error(`[getOrCreateSubFolder] ${folderName}`, err);
+    throw new Error(`Failed to create subfolder: ${folderName}`);
+  }
+}
+
+/**
+ * Trip별 폴더 생성 또는 조회 (M2-4)
+ * - 조직 폴더 내에서 Trip-{tripId} 폴더 생성/조회
+ * - GmTripGoogleDriveConfig.googleFolderId에 저장
+ *
+ * @param tripId Trip ID (숫자)
+ * @param organizationId Organization ID (폴더명용)
+ * @param accessToken Google Drive API 토큰
+ * @returns { folderId, folderName }
+ */
+export async function getOrCreateTripFolder(
+  tripId: number,
+  organizationId: string,
+  accessToken: string
+): Promise<{ folderId: string; folderName: string }> {
+  try {
+    // 1. DB에서 기존 폴더 조회
+    const tripConfig = await prisma.gmTripGoogleDriveConfig.findUnique({
+      where: { tripId },
+    });
+
+    if (tripConfig?.googleFolderId && !tripConfig.deletedAt) {
+      logger.info(`[getOrCreateTripFolder] Trip ${tripId} 기존 폴더 사용: ${tripConfig.googleFolderId}`);
+      return {
+        folderId: tripConfig.googleFolderId,
+        folderName: tripConfig.googleFolderName || `Trip-${tripId}`,
+      };
+    }
+
+    // 2. 루트 폴더 찾기/생성 (마비즈CRM-여권백업)
+    const auth = createAuthClient(accessToken);
+    const drive = google.drive({ version: 'v3', auth });
+
+    const rootListRes = await drive.files.list({
+      q: "name='마비즈CRM-여권백업' and trashed=false and mimeType='application/vnd.google-apps.folder'",
+      spaces: 'drive',
+      pageSize: 1,
+      fields: 'files(id)',
+    });
+
+    let rootFolderId = '';
+    if (rootListRes.data.files?.length) {
+      rootFolderId = rootListRes.data.files[0].id!;
+    } else {
+      const createRes = await drive.files.create({
+        requestBody: {
+          name: '마비즈CRM-여권백업',
+          mimeType: 'application/vnd.google-apps.folder',
+          appProperties: { type: 'passport_backup_root' },
+        },
+        fields: 'id',
+      });
+      rootFolderId = createRes.data.id!;
+    }
+
+    // 3. 조직 폴더 생성/조회 (Org-{organizationId})
+    const orgFolderName = `Org-${organizationId}`;
+    const orgFolder = await getOrCreateSubFolder(rootFolderId, orgFolderName, accessToken);
+
+    // 4. Trip 폴더 생성 (조직 폴더 내)
+    const tripFolderName = `Trip-${tripId}`;
+    const tripFolder = await getOrCreateSubFolder(orgFolder.id, tripFolderName, accessToken);
+
+    // 5. DB에 저장 (GmTripGoogleDriveConfig 업데이트 또는 생성)
+    await prisma.gmTripGoogleDriveConfig.upsert({
+      where: { tripId },
+      create: {
+        tripId,
+        googleFolderId: tripFolder.id,
+        googleFolderName: tripFolderName,
+        accessToken: '', // Cron에서 설정
+        refreshToken: '',
+        expiresAt: new Date(),
+      },
+      update: {
+        googleFolderId: tripFolder.id,
+        googleFolderName: tripFolderName,
+      },
+    });
+
+    logger.info(`[getOrCreateTripFolder] Trip ${tripId} 폴더 생성: ${tripFolder.id}`);
+
+    return { folderId: tripFolder.id, folderName: tripFolderName };
+  } catch (err) {
+    logger.error(`[getOrCreateTripFolder] Trip ${tripId}`, err);
+    throw new Error(`Failed to create trip folder for Trip ${tripId}`);
+  }
+}
+
+/**
  * WebP 파일을 Google Drive에 업로드
  *
  * 입력:
@@ -183,7 +320,7 @@ function generateBackupFileName(
  * - Google Drive 파일 ID
  *
  * 기능:
- * - /마비즈CRM-여권백업/YYYY-MM/ 폴더에 자동 업로드
+ * - M2-4: Org → Trip → 여권이미지 계층 구조에 업로드
  * - 3회 재시도 (지수 백오프)
  * - 타임아웃: 30초
  */
@@ -200,7 +337,7 @@ export async function uploadPassportToGoogleDrive(
   try {
     logger.info(`[uploadPassportToGoogleDrive] 시작: ${fileName}`);
 
-    // 년월별 폴더 찾기/생성
+    // 년월별 폴더 찾기/생성 (M1 호환성 유지)
     const folderId = await retryWithBackoff(() =>
       getOrCreateBackupFolder(yearMonth, accessToken)
     );
@@ -408,7 +545,7 @@ export async function downloadFileFromGoogleDrive(
  * - Google Drive 파일 ID
  *
  * 기능:
- * - /마비즈CRM-여권백업/YYYY-MM/ 폴더에 업로드
+ * - /마비즈CRM-여권백업/YYYY-MM/ 폴더에 업로드 (M1 호환성)
  * - 3회 재시도 (지수 백오프)
  */
 export async function uploadOcrDataToGoogleDrive(
@@ -457,6 +594,134 @@ export async function uploadOcrDataToGoogleDrive(
   } catch (err) {
     logger.error('[uploadOcrDataToGoogleDrive]', err);
     throw new Error('Google Drive OCR 데이터 업로드 실패');
+  }
+}
+
+/**
+ * M2-4: Trip 계층 구조로 여권 + OCR 파일 업로드
+ *
+ * 입력:
+ * - webpBuffer: WebP 파일 버퍼
+ * - ocrData: OCR 데이터 JSON
+ * - tripId: Trip ID (숫자)
+ * - guestId: Guest ID (숫자)
+ * - organizationId: 조직 ID
+ * - accessToken: Google Drive API 토큰
+ *
+ * 출력:
+ * - { imageFileId, ocrFileId }
+ *
+ * 폴더 구조:
+ * 마비즈CRM-여권백업/
+ * └─ Org-{organizationId}/
+ *    └─ Trip-{tripId}/
+ *       ├─ 여권이미지/
+ *       │  └─ guest-{guestId}.webp
+ *       └─ OCR데이터/
+ *          └─ guest-{guestId}.json
+ */
+export async function uploadTripPassportFilesToGoogleDrive(
+  webpBuffer: Buffer,
+  ocrData: Record<string, unknown> | null,
+  tripId: number,
+  guestId: number,
+  organizationId: string,
+  accessToken: string
+): Promise<{ imageFileId: string; ocrFileId: string | null }> {
+  try {
+    logger.info(
+      `[uploadTripPassportFilesToGoogleDrive] 시작: Trip ${tripId}, Guest ${guestId}`
+    );
+
+    // 1. Trip 폴더 생성/조회 (Org → Trip 계층)
+    const tripFolder = await getOrCreateTripFolder(tripId, organizationId, accessToken);
+
+    // 2. 서브폴더 생성 (여권이미지, OCR데이터)
+    const imageFolder = await getOrCreateSubFolder(
+      tripFolder.folderId,
+      '여권이미지',
+      accessToken
+    );
+    const ocrFolder = await getOrCreateSubFolder(
+      tripFolder.folderId,
+      'OCR데이터',
+      accessToken
+    );
+
+    // 3. 여권 이미지 파일 업로드
+    const auth = createAuthClient(accessToken);
+    const drive = google.drive({ version: 'v3', auth });
+
+    const imageFileName = `guest-${guestId}.webp`;
+    const imageFileId = await retryWithBackoff(async () => {
+      const createRes = await drive.files.create({
+        requestBody: {
+          name: imageFileName,
+          mimeType: 'image/webp',
+          parents: [imageFolder.id],
+          appProperties: {
+            type: 'passport_backup',
+            tripId: String(tripId),
+            guestId: String(guestId),
+          },
+        },
+        media: {
+          mimeType: 'image/webp',
+          body: webpBuffer,
+        },
+        fields: 'id',
+      });
+      return (createRes as { data: { id?: string } }).data.id!;
+    });
+
+    logger.info(
+      `[uploadTripPassportFilesToGoogleDrive] 이미지 업로드 완료: ${imageFileId}`
+    );
+
+    // 4. OCR 데이터 파일 업로드 (있으면)
+    let ocrFileId: string | null = null;
+    if (ocrData && typeof ocrData === 'object') {
+      try {
+        const ocrFileName = `guest-${guestId}.json`;
+        const jsonBuffer = Buffer.from(JSON.stringify(ocrData, null, 2), 'utf8');
+
+        ocrFileId = await retryWithBackoff(async () => {
+          const createRes = await drive.files.create({
+            requestBody: {
+              name: ocrFileName,
+              mimeType: 'application/json',
+              parents: [ocrFolder.id],
+              appProperties: {
+                type: 'passport_ocr_data',
+                tripId: String(tripId),
+                guestId: String(guestId),
+              },
+            },
+            media: {
+              mimeType: 'application/json',
+              body: jsonBuffer,
+            },
+            fields: 'id',
+          });
+          return (createRes as { data: { id?: string } }).data.id!;
+        });
+
+        logger.info(
+          `[uploadTripPassportFilesToGoogleDrive] OCR 업로드 완료: ${ocrFileId}`
+        );
+      } catch (ocrErr) {
+        const err = ocrErr as Record<string, unknown>;
+        logger.warn(
+          `[uploadTripPassportFilesToGoogleDrive] OCR 업로드 실패 (무시됨):`,
+          err
+        );
+      }
+    }
+
+    return { imageFileId, ocrFileId };
+  } catch (err) {
+    logger.error('[uploadTripPassportFilesToGoogleDrive]', err);
+    throw new Error('Trip 폴더 구조로 파일 업로드 실패');
   }
 }
 
