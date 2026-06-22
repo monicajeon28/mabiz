@@ -7809,6 +7809,76 @@ model PassportBackupLog {
   @@map("PassportBackupLog")
 }
 
+// M4-1: OCR 데이터 Google Drive 백업 로그
+model PassportOCRBackupLog {
+  id                   String   @id @default(cuid())
+  organizationId       String
+
+  // 여권 정보
+  passportNumber       String   // 마스킹됨 (M****78 형식)
+  passportImageId      String   @db.VarChar(50)  // GmPassportSubmissionGuest.id
+  tripId               String   @db.VarChar(50)  // Trip ID (조회/권한 검증용)
+
+  // OCR 백업 정보
+  ocrData              Json     // { name, passportNumber, expiryDate, ... }
+  googleDriveFileId    String?  // Google Drive JSON 파일 ID
+  googleDrivePath      String?  // 폴더 경로 (예: /마비즈CRM-여권백업-{organizationId}/2026-06/)
+
+  // 상태 추적
+  status               String   @default("PENDING") // PENDING | COMPLETED | FAILED | RESTORED
+  backupAttempt        Int      @default(0)         // 재시도 횟수
+  backupCompletedAt    DateTime?
+
+  // 복구 추적
+  restoredAt           DateTime?
+  restoredBy           String?  // User ID (복구한 담당자)
+  restoredContactId    String?  // Contact ID에 복구되었는지
+
+  // 감사
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([organizationId, status])
+  @@index([organizationId, backupCompletedAt])
+  @@index([tripId])
+  @@map("PassportOCRBackupLog")
+}
+
+// M4-3: Ebbinghaus 망각곡선 기반 알림 로그
+model PassportBackupReminderLog {
+  id                     String   @id @default(cuid())
+  organizationId         String
+  contactId              String?  @db.VarChar(50) // 복구 후 설정됨
+
+  // 백업 정보
+  passportOCRBackupLogId String   // PassportOCRBackupLog.id (참고용)
+
+  // Ebbinghaus 망각곡선: 1일, 3일, 7일, 30일
+  schedule               Json     // { "day1": {...}, "day3": {...}, ... }
+
+  // 발송 상태
+  day1Sent               Boolean  @default(false)
+  day1SentAt             DateTime?
+  day3Sent               Boolean  @default(false)
+  day3SentAt             DateTime?
+  day7Sent               Boolean  @default(false)
+  day7SentAt             DateTime?
+  day30Sent              Boolean  @default(false)
+  day30SentAt            DateTime?
+
+  // 추적
+  firstBackupAt          DateTime // 처음 OCR 백업한 날짜
+  smsCount               Int      @default(0) // 발송된 SMS 총 개수
+
+  // 감사
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([organizationId, firstBackupAt])
+  @@index([organizationId, day1Sent, day3Sent, day7Sent, day30Sent])
+  @@map("PassportBackupReminderLog")
+}
+
 // 마케팅 월별 매출 스냅샷 (Cron 자동 저장)
 model MarketingMonthlySalesSnapshot {
   id             String   @id @default(cuid())
