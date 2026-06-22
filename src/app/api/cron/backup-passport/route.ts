@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
                 const tokenInfo = await refreshTripGoogleAccessToken(tripId, undefined);
                 accessToken = tokenInfo.accessToken;
                 tripTokenCache.set(tripId, accessToken);
-              } catch (tokenErr) {
+              } catch (_tokenErr) {
                 // Fallback: Org 레벨 토큰
                 accessToken = orgAccessToken;
                 if (!accessToken) {
@@ -222,9 +222,9 @@ export async function POST(req: NextRequest) {
         })
       );
 
-      // Step 4: 배치 DB 업데이트 (성공한 것만)
-      const successfulUpdates = await Promise.allSettled(
-        uploadedFiles.map((result, idx) => {
+      // Step 4: 배치 DB 업데이트 (성공한 것만 - allSettled로 모두 처리)
+      await Promise.allSettled(
+        uploadedFiles.map((result, _idx) => {
           if (result.status === 'fulfilled') {
             return prisma.gmPassportSubmissionGuest.update({
               where: { id: result.value.guestId },
