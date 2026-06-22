@@ -13,6 +13,7 @@
 
 import { google } from 'googleapis';
 import { logger } from '@/lib/logger';
+import prisma from '@/lib/prisma';
 
 export interface PassportBackupResult {
   googleDriveFileId: string;
@@ -36,6 +37,32 @@ function createAuthClient(accessToken: string) {
   });
 
   return oauth2Client;
+}
+
+/**
+ * Google OAuth 토큰 내부 갱신 (refreshToken 사용)
+ * M2-2: Trip/조직 레벨 모두에서 재사용
+ */
+async function refreshGoogleAccessTokenInternal(
+  refreshToken: string
+): Promise<string> {
+  const oauth2Client = new google.auth.OAuth2(
+    process.env.GOOGLE_OAUTH_CLIENT_ID || '',
+    process.env.GOOGLE_OAUTH_CLIENT_SECRET || '',
+    process.env.GOOGLE_OAUTH_REDIRECT_URI || ''
+  );
+
+  oauth2Client.setCredentials({
+    refresh_token: refreshToken,
+  });
+
+  try {
+    const { credentials } = await oauth2Client.refreshAccessToken();
+    return credentials.access_token || '';
+  } catch (err) {
+    logger.error('[refreshGoogleAccessTokenInternal] Token refresh failed', err);
+    throw new Error('Google OAuth token refresh failed');
+  }
 }
 
 /**
@@ -438,3 +465,87 @@ export async function uploadOcrDataToGoogleDrive(
  * 외부에서 파일명 미리 생성할 때 사용
  */
 export { generateBackupFileName };
+
+/**
+ * Trip별 Google OAuth 토큰 갱신
+ * M2-2: Trip 레벨 권한 격리
+ *
+ * 로직:
+ * 1. GmTripGoogleDriveConfig에서 Trip의 refreshToken 조회
+ * 2. 없으면 조직 레벨 토큰으로 fallback (M1 호환성)
+ * 3. refreshToken 있으면 새 accessToken 발급
+ * 4. DB에 accessToken + expiresAt(55분 TTL) 업데이트
+ *
+ * @param tripId Trip ID (숫자)
+ * @param organizationId 조직 ID (fallback용)
+ * @returns { accessToken, expiresAt }
+ */
+export async function refreshTripGoogleAccessToken(
+  tripId: number,
+  organizationId?: string
+): Promise<{ accessToken: string; expiresAt: Date }> {
+  try {
+    // 1. Trip 레벨 설정 조회
+    const tripConfig = await prisma.gmTripGoogleDriveConfig.findUnique({
+      where: { tripId },
+    });
+
+    if (
+      tripConfig &&
+      tripConfig.refreshToken &&
+      !tripConfig.deletedAt
+    ) {
+      try {
+        // 2. Trip refreshToken으로 새 accessToken 발급
+        const newAccessToken = await refreshGoogleAccessTokenInternal(
+          tripConfig.refreshToken
+        );
+        const expiresAt = new Date(Date.now() + 55 * 60 * 1000); // 55분 TTL
+
+        // 3. DB 업데이트
+        await prisma.gmTripGoogleDriveConfig.update({
+          where: { id: tripConfig.id },
+          data: {
+            accessToken: newAccessToken,
+            expiresAt,
+          },
+        });
+
+        logger.info(
+          `[refreshTripGoogleAccessToken] Trip ${tripId} token refreshed`
+        );
+
+        return { accessToken: newAccessToken, expiresAt };
+      } catch (err) {
+        const errObj = err instanceof Error
+          ? { message: err.message }
+          : { error: String(err) };
+        logger.warn(
+          `[refreshTripGoogleAccessToken] Trip ${tripId} token refresh failed, falling back to organization level`,
+          errObj
+        );
+      }
+    }
+
+    // 4. Fallback: 조직 레벨 토큰 (M1 호환성)
+    if (organizationId) {
+      const newAccessToken =
+        process.env.GOOGLE_OAUTH_ACCESS_TOKEN || '';
+      if (!newAccessToken) {
+        throw new Error('Org-level GOOGLE_OAUTH_ACCESS_TOKEN not set');
+      }
+      const expiresAt = new Date(Date.now() + 55 * 60 * 1000);
+      return { accessToken: newAccessToken, expiresAt };
+    }
+
+    throw new Error(
+      `Trip ${tripId} has no google drive config and organizationId not provided`
+    );
+  } catch (err) {
+    logger.error(
+      '[refreshTripGoogleAccessToken] Fatal error',
+      err instanceof Error ? err.message : String(err)
+    );
+    throw err;
+  }
+}
