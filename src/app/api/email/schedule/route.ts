@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, resolveOrgId } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId, canReview } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { sendFunnelEmail } from "@/lib/email";
 
@@ -10,6 +10,19 @@ export async function POST(req: Request) {
   try {
     const ctx   = await getAuthContext();
     const orgId = resolveOrgId(ctx);
+
+    // [P0-3] 이메일 발송 권한 검증 (GLOBAL_ADMIN, OWNER만)
+    if (!canReview(ctx.role)) {
+      logger.warn("[POST /api/email/schedule] 권한 부족", {
+        userId: ctx.userId,
+        role: ctx.role,
+        orgId,
+      });
+      return NextResponse.json(
+        { ok: false, message: "이메일 발송 권한이 없습니다. 관리자 또는 대리점장에게 문의해주세요." },
+        { status: 403 }
+      );
+    }
 
     const body = await req.json() as {
       contactId?:  string;

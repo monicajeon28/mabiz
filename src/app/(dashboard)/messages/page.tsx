@@ -446,6 +446,23 @@ function SmsForm() {
       {/* 좌측 설정 패널 */}
       <div className="lg:col-span-1 space-y-4">
 
+        {/* [P0-1] 판매원 권한 제한 경고 */}
+        {userRole === "AGENT" && (
+          <div className="rounded-xl p-4 border border-red-300 bg-red-50">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-red-700">단체 메시지 발송 불가</p>
+                <p className="text-sm text-red-600 mt-1">
+                  판매원은 자신의 고객 목록에서만 메시지를 보낼 수 있습니다.
+                  <br />
+                  전체 고객 그룹에 발송하려면 관리자에게 요청하세요.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 알리고 연결 상태 */}
         <div className={`rounded-xl p-4 border ${smsConfig ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"}`}>
           {configLoading ? (
@@ -482,13 +499,17 @@ function SmsForm() {
             <label className="text-sm font-semibold text-gray-500 flex items-center gap-1">
               <Users className="w-3.5 h-3.5" /> 수신 그룹
             </label>
-            <a href="/groups" className="text-sm text-blue-600 hover:text-blue-800 font-medium">
-              그룹 관리 →
-            </a>
+            {userRole !== "AGENT" && (
+              <a href="/groups" className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                그룹 관리 →
+              </a>
+            )}
           </div>
-          <select value={selectedGroup}
+          <select
+            value={selectedGroup}
             onChange={e => { setSelectedGroup(e.target.value); setDryRunResult(null); setRateLimitStatus(null); }}
-            className="w-full border rounded-lg px-3 py-2 text-sm">
+            disabled={userRole === "AGENT"}
+            className={`w-full border rounded-lg px-3 py-2 text-sm ${userRole === "AGENT" ? "bg-gray-100 cursor-not-allowed opacity-50" : ""}`}>
             <option value="">그룹 선택...</option>
             {groups.map(g => (
               <option key={g.id} value={g.id}>{g.name} ({g._count.members}명)</option>
@@ -751,9 +772,11 @@ function SmsForm() {
 
         {/* 미리보기 & 발송 */}
         <div className="rounded-xl border bg-white p-4">
-          <button onClick={doDryRun} disabled={!selectedGroup || !message.trim() || message.length > 90}
+          <button
+            onClick={doDryRun}
+            disabled={userRole === "AGENT" || !selectedGroup || !message.trim() || message.length > 90}
             className="w-full py-2.5 border-2 border-blue-300 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed mb-3">
-            {message.length > 90 ? '90자 이하로 줄여주세요' : '발송 전 확인하기'}
+            {userRole === "AGENT" ? "판매원은 단체 발송 불가" : message.length > 90 ? '90자 이하로 줄여주세요' : '발송 전 확인하기'}
           </button>
 
           {selectedGroup && rateLimitStatus && (

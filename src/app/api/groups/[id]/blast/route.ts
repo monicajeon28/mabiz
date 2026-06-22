@@ -45,6 +45,12 @@ function personalizeMessage(template: string, ctx: PersonalizeContext): string {
  *
  * body: { message: string; dryRun?: boolean }
  * dryRun=true → 실제 발송 없이 대상 인원만 반환
+ *
+ * 권한 규칙:
+ * - GLOBAL_ADMIN: 모든 그룹 발송 가능
+ * - OWNER(대리점장): 자신의 그룹만 발송 가능
+ * - AGENT(판매원): 그룹 발송 불가
+ * - FREE_SALES: 접근 불가
  */
 export async function POST(req: Request, { params }: Params) {
   try {
@@ -55,6 +61,15 @@ export async function POST(req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, message: '조직 정보 없음. 관리자에게 문의하세요.' }, { status: 403 });
     }
     const { id: groupId } = await params;
+
+    // [P0-1] 역할 기반 권한 검증 (판매원은 단체발송 불가)
+    if (ctx.role === "AGENT" || ctx.role === "FREE_SALES") {
+      logger.warn('[GroupBlast] 권한 부족', { userId: ctx.userId, role: ctx.role });
+      return NextResponse.json({
+        ok: false,
+        message: '단체 메시지 발송은 관리자와 대리점장만 가능합니다. 자신의 고객 목록에서 개별 발송하세요.',
+      }, { status: 403 });
+    }
 
     const { message, dryRun = false, scheduledTime } = await req.json();
 
@@ -79,10 +94,23 @@ export async function POST(req: Request, { params }: Params) {
     // [보안] 그룹 소유권 검증 (IDOR 방지 — 조항 3)
     const group = await prisma.contactGroup.findFirst({
       where: { id: groupId, organizationId: orgId },
-      select: { id: true, name: true },
+      select: { id: true, name: true, ownerId: true },
     });
     if (!group) {
       return NextResponse.json({ ok: false, message: '그룹을 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    // [P0-2] 대리점장의 그룹 발송 권한 검증 (자신의 그룹만 발송 가능)
+    if (ctx.role === "OWNER" && group.ownerId && group.ownerId !== ctx.userId) {
+      logger.warn('[GroupBlast] 그룹 소유권 불일치', {
+        userId: ctx.userId,
+        groupOwnerId: group.ownerId,
+        groupId,
+      });
+      return NextResponse.json({
+        ok: false,
+        message: '다른 사용자의 그룹에는 발송할 수 없습니다.',
+      }, { status: 403 });
     }
 
     const optedOutPhones = await prisma.smsOptOut.findMany({
