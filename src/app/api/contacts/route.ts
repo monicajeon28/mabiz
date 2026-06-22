@@ -32,13 +32,6 @@ export async function GET(req: Request) {
     const ctx = await getAuthContext();
     const { searchParams } = new URL(req.url);
 
-    if (ctx.role === 'FREE_SALES') {
-      // NOTE: API layer에서 FREE_SALES early return({ ok: true, contacts: [] })으로
-      // buildContactWhere의 FREE_SALES_NO_ACCESS throw는 실제 도달하지 않는 dead path.
-      // 이중 방어 패턴이므로 안전하지만 rbac.ts FREE_SALES 경로는 문서화 목적으로 유지.
-      return NextResponse.json({ ok: true, contacts: [], total: 0, page: 1, limit: 20 });
-    }
-
     // T-013: GET rate limiting — 고객 목록 스크래핑 방지 (분당 60회)
     const rlGet = await checkRateLimitAsync(
       `contacts:get:${ctx.userId}`,
@@ -54,6 +47,19 @@ export async function GET(req: Request) {
 
     const rawType  = searchParams.get("type");
     const customerOnly = searchParams.get("customerOnly") === "true";
+
+    // P0-6: 구매관리 권한 검사
+    // customerOnly=true (구매 고객 탭) 또는 type=CUSTOMER일 때: FREE_SALES 제외
+    const isPurchaseQuery = customerOnly ||
+                           (rawType && (rawType.toLowerCase() === 'customer' || rawType === '구매완료'));
+
+    if (isPurchaseQuery && ctx.role === 'FREE_SALES') {
+      // NOTE: API layer에서 FREE_SALES early return({ ok: true, contacts: [] })으로
+      // buildContactWhere의 FREE_SALES_NO_ACCESS throw는 실제 도달하지 않는 dead path.
+      // 이중 방어 패턴이므로 안전하지만 rbac.ts FREE_SALES 경로는 문서화 목적으로 유지.
+      return NextResponse.json({ ok: true, contacts: [], total: 0, page: 1, limit: 20 });
+    }
+
     // customerOnly=true: "CUSTOMER"(영문) + "구매완료"(한글) 모두 포함
     const type = customerOnly ? undefined : rawType;
     const visibility = searchParams.get("visibility"); // Team-B: SHARED | ADMIN_ONLY
