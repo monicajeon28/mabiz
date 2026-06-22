@@ -2572,7 +2572,7 @@ model ContactFunnelState {
 }
 
 model ImageAsset {
-  id                   String                @id @default(dbgenerated("gen_random_uuid()"))
+  id                   String                      @id @default(dbgenerated("gen_random_uuid()"))
   organizationId       String
   originalFileName     String
   driveFileId          String
@@ -2584,14 +2584,16 @@ model ImageAsset {
   tags                 String[]
   category             String?
   uploadedBy           String
-  uploadedAt           DateTime              @default(now()) @db.Timestamptz(6)
-  lastAccessedAt       DateTime?             @db.Timestamptz(6)
+  uploadedAt           DateTime                    @default(now()) @db.Timestamptz(6)
+  lastAccessedAt       DateTime?                   @db.Timestamptz(6)
   webpDriveFileId      String?
-  processedAt          DateTime?             @db.Timestamptz(6)
-  processingStatus     String                @default("PENDING")
-  orientation          Int                   @default(1)
-  organization         Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  processedAt          DateTime?                   @db.Timestamptz(6)
+  processingStatus     String                      @default("PENDING")
+  orientation          Int                         @default(1)
+  organization         Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   crmLandingPageImages CrmLandingPageImage[]
+  // Phase 1B: Passport 여권 이미지 역참조
+  passportGuests       GmPassportSubmissionGuest[] @relation("PassportImageAsset")
 
   @@unique([organizationId, driveFileId])
   @@index([organizationId, category])
@@ -3181,10 +3183,16 @@ model GmPassportSubmissionGuest {
   submittedBy        Int? // 세션 userId 또는 토큰 소유자(submission.userId)
   source             String? // 'public_submit' | 'admin_ocr' | 'partner_ocr' | 'admin_manual'
   submittedAt        DateTime?
+
+  // Option A: ImageAsset FK (거장단 선택)
+  imageAssetId       String? // 원본 여권 이미지 (ImageAsset 참조)
+  imageAsset         ImageAsset? @relation("PassportImageAsset", fields: [imageAssetId], references: [id], onDelete: SetNull)
+
   // Google Drive 백업 필드
-  googleDriveFileId  String? // Google Drive에 업로드된 파일 ID (WebP)
-  lastBackupAt       DateTime? // 마지막 백업 시간
-  backupStatus       String    @default("pending") // pending / success / failed
+  googleDriveFileId       String? // WebP 파일 ID (Google Drive)
+  googleDriveFileIdOcr    String? // OCR JSON 파일 ID (Google Drive)
+  lastBackupAt            DateTime? // 마지막 백업 시간
+  backupStatus            String    @default("pending") // pending / success / failed
   // ⚠️ raw 부분 UNIQUE 인덱스 "guest_submission_passport_partial_uq" 존재:
   //    UNIQUE(submissionId, passportNumber) WHERE passportNumber IS NOT NULL AND passportNumber <> ''
   //    (Prisma @@unique로 표현 불가 — migrations/20260606120001_guest_passport_partial_uq)
@@ -3192,7 +3200,8 @@ model GmPassportSubmissionGuest {
 
   @@index([name])
   @@index([submissionId, groupNumber])
-  @@index([backupStatus])
+  @@index([imageAssetId])
+  @@index([backupStatus, lastBackupAt])
   @@map("PassportSubmissionGuest")
 }
 
