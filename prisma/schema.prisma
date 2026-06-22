@@ -98,6 +98,7 @@ model Organization {
   googleDriveAccessToken     String? // OAuth 액세스 토큰 (암호화됨)
   googleDriveFolderId        String? // 백업 폴더 ID (root folder: 마비즈CRM-Backup)
   contactBackups             ContactBackup[]
+  contactBackupRestoreLogs   ContactBackupRestoreLog[]
   // Email Funnel (Group별 SMTP 설정 + Day 0-3 자동화)
   groupEmailConfigs          GroupEmailConfig[]
   groupEmailFunnels          GroupEmailFunnel[]
@@ -490,6 +491,7 @@ model Contact {
   createdBy  String? // 판매원 ID (Contact 작성자)
   managerId  String? // 대리점장 ID (Contact 관리자)
   sharedWith ContactSharing[]  @relation("contactSharedWith")
+  backupRestoreLogs ContactBackupRestoreLog[]
 
   @@unique([phone, organizationId])
   @@unique([bookingRef, organizationId], map: "uq_contact_booking_org") // P0-ISS-02: UPSERT 멱등성
@@ -586,6 +588,27 @@ model ContactBackup {
   @@index([organizationId, backupAt(sort: Desc)])
   @@index([organizationId, status])
   @@index([backupType])
+}
+
+model ContactBackupRestoreLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  contactId      String       // 복구된 Contact ID
+  backupId       String?      // 복구 대상 백업 ID
+  restoredBy     String       // 복구한 사용자 ID
+  restoredByName String?      // 복구한 사용자 이름
+  restoredAt     DateTime     @default(now())
+  status         String       @default("SUCCESS") // SUCCESS, FAILED
+  errorMessage   String?      // 실패 시 에러메시지
+  restoredFields String?      // JSON: 복구된 필드 목록
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact      Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  // 인덱스
+  @@index([organizationId, restoredAt(sort: Desc)])
+  @@index([contactId])
+  @@index([status])
 }
 
 model ContactSharing {
@@ -1136,6 +1159,7 @@ model Unsubscribed {
 model SmsLog {
   id                String    @id @default(cuid())
   organizationId    String
+  createdBy         String?   // P0-4: 발송자 userId (역할별 필터링용)
   contactId         String?
   passportRequestId String? // 여권 요청 ID (여권 독촉 SMS 추적용)
   phone             String
@@ -1162,6 +1186,7 @@ model SmsLog {
   cost              Int? // SMS 비용 (센트 단위)
 
   @@index([organizationId, sentAt])
+  @@index([organizationId, createdBy]) // P0-4: 역할별 필터링 인덱스
   @@index([contactId, sentAt])
   @@index([passportRequestId, sentAt])
   @@index([msgId]) // Aligo msgId로 배송 상태 조회용
