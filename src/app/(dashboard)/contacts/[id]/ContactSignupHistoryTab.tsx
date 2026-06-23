@@ -45,16 +45,18 @@ export default function ContactSignupHistoryTab({ contact }: { contact: Contact 
         const nextSignup = signups[idx + 1];
         const nextDate = isSignupWithDate(nextSignup) ? nextSignup.date : null;
 
+        // signupDate를 한 번만 생성
+        const signupDate = new Date(date);
+
         const daysDiff = nextDate
           ? (() => {
-              const curTime = new Date(date).getTime();
+              const curTime = signupDate.getTime();
               const nxtTime = new Date(nextDate).getTime();
               if (isNaN(curTime) || isNaN(nxtTime)) return null;
               return Math.floor((nxtTime - curTime) / (1000 * 60 * 60 * 24));
             })()
           : null;
 
-        const signupDate = new Date(date);
         const formattedDate = isNaN(signupDate.getTime())
           ? "날짜 오류"
           : signupDate.toLocaleString("ko-KR", {
