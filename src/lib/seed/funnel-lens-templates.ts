@@ -28,747 +28,863 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 // 전역 조직 ID (모든 조직이 공유하는 템플릿용)
-// 실제로는 DB에 있는 조직을 사용합니다
 const GLOBAL_ORG_ID = process.env.NEXT_PUBLIC_DEFAULT_ORG_ID || 'org-cruisedot-main';
 
-interface LensTemplate {
-  lensCode: string;
-  name: string;
-  description: string;
-  smsMessages: {
-    day: number;
-    pasonaStage: string;
-    content: string;
-  }[];
-  emailMessages: {
-    day: number;
-    pasonaStage: string;
-    subject: string;
-    bodyHtml: string;
-  }[];
-}
+const FUNNEL_LENS_TEMPLATES: Record<string, any> = {
+  L0: {
+    name: "L0: 부재중 고객 자동메시지",
+    description: "3-12개월 이상 구매이력 없는 고객 재활성화",
+    lensType: "L0",
+    sms: [
+      {
+        order: 1,
+        daysAfter: 0,
+        content: "{고객명}님, 안녕하세요? 저는 {담당자}입니다. 당신을 정말 그리워했어요. 지난 크루즈 때의 그 순간 기억나시나요? 우리와 함께였던 날들이 특별했어요.",
+        pasonaStage: "PROBLEM",
+      },
+      {
+        order: 2,
+        daysAfter: 1,
+        content: "{고객명}님, 당신이 간 크루즈에서 만났던 사람들이 당신을 찾고 있어요. 우리 다시 만날까요? [지금 보기]",
+        pasonaStage: "SOLUTION",
+      },
+      {
+        order: 3,
+        daysAfter: 2,
+        content: "돌아오신 분들을 위해 특별히 준비했어요. 30% 할인 쿠폰! 이번 주말까지만 사용 가능해요. [쿠폰 받기]",
+        pasonaStage: "OFFER",
+      },
+      {
+        order: 4,
+        daysAfter: 3,
+        content: "{고객명}님을 초대합니다. [지금 예약하기] 버튼을 클릭해주세요. 당신의 꿈의 크루즈가 시작됩니다. 🚢",
+        pasonaStage: "ACTION",
+      },
+    ],
+    email: [
+      {
+        order: 1,
+        daysAfter: 0,
+        subject: "당신을 정말 그리워했어요 - {고객명}님 특별 초대",
+        bodyHtml: '<p>{고객명}님, 안녕하세요?</p><p>저는 {담당자}입니다. 당신을 정말 그리워했어요.</p><p>지난 크루즈 때의 그 순간 기억나시나요? 우리와 함께였던 날들이 특별했어요.</p><p><a href="#" style="background-color: #27AE60; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">지금 보기</a></p>',
+        previewText: "당신을 정말 그리워했어요",
+        pasonaStage: "PROBLEM",
+      },
+      {
+        order: 2,
+        daysAfter: 1,
+        subject: "{고객명}님, 당신의 친구들이 기다리고 있어요",
+        bodyHtml: '<p>{고객명}님,</p><p>당신이 간 크루즈에서 만났던 사람들이 당신을 찾고 있어요.</p><p>우리 다시 만날까요?</p><p><a href="#" style="background-color: #27AE60; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">다시 만나기</a></p>',
+        previewText: "당신의 친구들이 기다리고 있어요",
+        pasonaStage: "SOLUTION",
+      },
+      {
+        order: 3,
+        daysAfter: 2,
+        subject: "특별 이벤트: {고객명}님을 위한 30% 할인 쿠폰",
+        bodyHtml: '<p>{고객명}님,</p><p>돌아오신 분들을 위해 특별히 준비했어요.</p><p><strong>30% 할인 쿠폰!</strong></p><p>이번 주말까지만 사용 가능해요.</p><p><a href="#" style="background-color: #E74C3C; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">쿠폰 받기</a></p>',
+        previewText: "30% 할인 쿠폰이 기다리고 있어요",
+        pasonaStage: "OFFER",
+      },
+      {
+        order: 4,
+        daysAfter: 3,
+        subject: "{고객명}님을 초대합니다 - 크루즈의 꿈을 시작하세요",
+        bodyHtml: '<p>{고객명}님,</p><p>당신의 꿈의 크루즈가 시작됩니다.</p><p><a href="#" style="background-color: #27AE60; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">지금 예약하기</a></p><p>더 이상 기다릴 필요 없어요.</p>',
+        previewText: "당신의 꿈의 크루즈가 시작됩니다",
+        pasonaStage: "ACTION",
+      },
+    ],
+  },
+  L1: {
+    name: "L1: 가격 민감 고객 자동메시지",
+    description: "가격 이의 또는 예산 부족 신호 감지",
+    lensType: "L1",
+    sms: [
+      {
+        order: 1,
+        daysAfter: 0,
+        content: "{고객명}님, 알아요. 가격이 비싸 보여요. 하지만 크루즈 1회 = 기억 무조건 남아요. 400% ROI 효과! [비교 보기]",
+        pasonaStage: "PROBLEM",
+      },
+      {
+        order: 2,
+        daysAfter: 1,
+        content: "경쟁사 대비: Royal은 300만원 → 우리는 250만원. 5가지 추가 포함 무료! [비교표]",
+        pasonaStage: "SOLUTION",
+      },
+      {
+        order: 3,
+        daysAfter: 2,
+        content: "{상품명} = 월 5만원씩 50개월 무이자 할부. 신용카드로 쉽게 결제 가능! [할부계산기]",
+        pasonaStage: "OFFER",
+      },
+      {
+        order: 4,
+        daysAfter: 3,
+        content: "{고객명}님, 이 가격은 내일까지만! 5% 추가 할인까지 해드려요. [지금 신청하기]",
+        pasonaStage: "ACTION",
+      },
+    ],
+    email: [
+      {
+        order: 1,
+        daysAfter: 0,
+        subject: "가격이 비싼가요? - {고객명}님을 위한 가치 분석",
+        bodyHtml: '<p>{고객명}님,</p><p>크루즈 1회 = 기억 무조건 남아요.</p><p><strong>400% ROI 효과!</strong></p><p><a href="#" style="background-color: #FFD700; color: #333; padding: 12px 24px; text-decoration: none; border-radius: 4px;">가치 분석 보기</a></p>',
+        previewText: "가격이 비싼가요? 가치를 비교해보세요",
+        pasonaStage: "PROBLEM",
+      },
+      {
+        order: 2,
+        daysAfter: 1,
+        subject: "{고객명}님, 경쟁사 대비 25% 저렴합니다",
+        bodyHtml: '<p>{고객명}님,</p><p><strong>Royal: 300만원</strong><br/><strong>우리: 250만원</strong></p><p>5가지 추가 포함 무료!</p><p><a href="#" style="background-color: #4A90E2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">비교표 보기</a></p>',
+        previewText: "경쟁사보다 25% 저렴합니다",
+        pasonaStage: "SOLUTION",
+      },
+      {
+        order: 3,
+        daysAfter: 2,
+        subject: "무이자 할부 가능 - 월 5만원씩",
+        bodyHtml: '<p>{고객명}님,</p><p><strong>{상품명}</strong></p><p>월 5만원씩 50개월 무이자 할부</p><p>신용카드로 쉽게 결제 가능!</p><p><a href="#" style="background-color: #27AE60; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">할부계산기</a></p>',
+        previewText: "월 5만원씩 무이자 할부 가능합니다",
+        pasonaStage: "OFFER",
+      },
+      {
+        order: 4,
+        daysAfter: 3,
+        subject: "내일까지만! 5% 추가 할인 쿠폰",
+        bodyHtml: '<p>{고객명}님,</p><p>이 가격은 <strong>내일까지만!</strong></p><p>5% 추가 할인까지 해드려요.</p><p><a href="#" style="background-color: #E74C3C; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">지금 신청하기</a></p>',
+        previewText: "내일까지만 5% 추가 할인",
+        pasonaStage: "ACTION",
+      },
+    ],
+  },
+  L2: {
+    name: "L2: 준비 불안감 자동메시지",
+    description: "여행 준비 복잡도로 인한 구매 지연",
+    lensType: "L2",
+    sms: [
+      {
+        order: 1,
+        daysAfter: 0,
+        content: "{고객명}님, 여행 준비가 복잡하다고 생각하세요? 아니에요! 우리가 3단계로 아주 쉽게 도와드려요.",
+        pasonaStage: "PROBLEM",
+      },
+      {
+        order: 2,
+        daysAfter: 1,
+        content: "Step 1: 원하는 날짜 선택. Step 2: 선실 선택. Step 3: 예약 완료! 그게 전부예요. [가이드 보기]",
+        pasonaStage: "SOLUTION",
+      },
+      {
+        order: 3,
+        daysAfter: 2,
+        content: "10년간 5만 명 고객 만족. 평점 4.9⭐ (리뷰 3,247개). [고객 후기 보기]",
+        pasonaStage: "OFFER",
+      },
+      {
+        order: 4,
+        daysAfter: 3,
+        content: "{고객명}님, 더 이상 고민하지 마세요. 우리가 24시간 지원해드려요. [지금 시작하기]",
+        pasonaStage: "ACTION",
+      },
+    ],
+    email: [
+      {
+        order: 1,
+        daysAfter: 0,
+        subject: "복잡해 보이나요? - 3단계면 완료됩니다",
+        bodyHtml: '<p>{고객명}님,</p><p>여행 준비가 복잡하다고 생각하세요?</p><p>아니에요! 우리가 3단계로 아주 쉽게 도와드려요.</p><p><a href="#" style="background-color: #FF8C00; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">3단계 가이드 보기</a></p>',
+        previewText: "3단계면 준비 완료됩니다",
+        pasonaStage: "PROBLEM",
+      },
+      {
+        order: 2,
+        daysAfter: 1,
+        subject: "3단계 예약 프로세스",
+        bodyHtml: '<p>{고객명}님,</p><p><strong>Step 1:</strong> 원하는 날짜 선택<br/><strong>Step 2:</strong> 선실 선택<br/><strong>Step 3:</strong> 예약 완료!</p><p>그게 전부예요.</p><p><a href="#" style="background-color: #27AE60; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">지금 시작</a></p>',
+        previewText: "3단계 프로세스입니다",
+        pasonaStage: "SOLUTION",
+      },
+      {
+        order: 3,
+        daysAfter: 2,
+        subject: "10년간 5만 명이 신뢰했습니다 - 평점 4.9⭐",
+        bodyHtml: '<p>{고객명}님,</p><p>10년간 5만 명 고객 만족</p><p><strong>평점 4.9⭐</strong> (리뷰 3,247개)</p><p><a href="#" style="background-color: #4A90E2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">고객 후기 보기</a></p>',
+        previewText: "10년간 5만 명이 선택했습니다",
+        pasonaStage: "OFFER",
+      },
+      {
+        order: 4,
+        daysAfter: 3,
+        subject: "더 이상 고민하지 마세요 - 24시간 지원",
+        bodyHtml: '<p>{고객명}님,</p><p>더 이상 고민하지 마세요.</p><p>우리가 <strong>24시간 지원</strong>해드려요.</p><p><a href="#" style="background-color: #27AE60; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">지금 시작하기</a></p>',
+        previewText: "24시간 지원해드립니다",
+        pasonaStage: "ACTION",
+      },
+    ],
+  },
+  L3: {
+    name: "L3: 경쟁사 비교 고객 자동메시지",
+    description: "경쟁사 검색 또는 비교 신호 감지",
+    lensType: "L3",
+    sms: [
+      {
+        order: 1,
+        daysAfter: 0,
+        content: "{고객명}님, 우리 vs Royal vs Carnival. 객관적으로 비교해봤어요. 우리만의 장점이 뭐냐면? [비교표 보기]",
+        pasonaStage: "PROBLEM",
+      },
+      {
+        order: 2,
+        daysAfter: 1,
+        content: "우리만 제공: 온천, 한식요리, VIP라운지. Royal에는 없어요! [차별성 자세히 보기]",
+        pasonaStage: "SOLUTION",
+      },
+      {
+        order: 3,
+        daysAfter: 2,
+        content: "선택한 이유? 87% \"한국 고객센터\", 92% \"가성비 최고\". [고객 후기 100개 보기]",
+        pasonaStage: "OFFER",
+      },
+      {
+        order: 4,
+        daysAfter: 3,
+        content: "결정해야 할 시간이에요. 우리 선택하시고 후회 없으실 거예요. [지금 예약하기]",
+        pasonaStage: "ACTION",
+      },
+    ],
+    email: [
+      {
+        order: 1,
+        daysAfter: 0,
+        subject: "비교하셨나요? - {고객명}님을 위한 객관적 분석",
+        bodyHtml: '<p>{고객명}님,</p><p>우리 vs Royal vs Carnival</p><p>객관적으로 비교해봤어요.</p><p><a href="#" style="background-color: #4A90E2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">비교표 보기</a></p>',
+        previewText: "객관적 비교를 보세요",
+        pasonaStage: "PROBLEM",
+      },
+      {
+        order: 2,
+        daysAfter: 1,
+        subject: "우리만 제공합니다 - 온천, 한식, VIP라운지",
+        bodyHtml: '<p>{고객명}님,</p><p>우리만 제공:</p><p><strong>온천 + 한식요리 + VIP라운지</strong></p><p>Royal에는 없어요!</p><p><a href="#" style="background-color: #27AE60; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">차별성 자세히 보기</a></p>',
+        previewText: "우리만의 차별성을 보세요",
+        pasonaStage: "SOLUTION",
+      },
+      {
+        order: 3,
+        daysAfter: 2,
+        subject: "왜 선택했나요? - 고객 선택 이유 TOP 10",
+        bodyHtml: '<p>{고객명}님,</p><p>선택한 이유:</p><p><strong>87%</strong> \"한국 고객센터\"<br/><strong>92%</strong> \"가성비 최고\"</p><p><a href="#" style="background-color: #4A90E2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">고객 후기 100개 보기</a></p>',
+        previewText: "고객들의 선택 이유를 보세요",
+        pasonaStage: "OFFER",
+      },
+      {
+        order: 4,
+        daysAfter: 3,
+        subject: "결정의 시간 - 우리를 선택하세요",
+        bodyHtml: '<p>{고객명}님,</p><p>결정해야 할 시간이에요.</p><p>우리 선택하시고 후회 없으실 거예요.</p><p><a href="#" style="background-color: #27AE60; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">지금 예약하기</a></p>',
+        previewText: "우리를 선택하세요",
+        pasonaStage: "ACTION",
+      },
+    ],
+  },
+  L4: {
+    name: "L4: 서류/절차 복잡 자동메시지",
+    description: "여권/APIS 신청 또는 서류 관련 문의",
+    lensType: "L4",
+    sms: [
+      {
+        order: 1,
+        daysAfter: 0,
+        content: "{고객명}님, 여권/APIS? 우리가 자동으로 체크해드려요. 5분 걸려요. [지금 시작하기]",
+        pasonaStage: "PROBLEM",
+      },
+      {
+        order: 2,
+        daysAfter: 1,
+        content: "여권 사진 업로드 → APIS 자동 신청 → 완료! 번거로움 없어요. [자동화 보기]",
+        pasonaStage: "SOLUTION",
+      },
+      {
+        order: 3,
+        daysAfter: 2,
+        content: "100% 안전해요. 개인정보 암호화(AES-256) + 자동 삭제(30일후). [보안 정책 보기]",
+        pasonaStage: "OFFER",
+      },
+      {
+        order: 4,
+        daysAfter: 3,
+        content: "[지금 시작]하면 내일부터 자동 준비 시작해요. 걱정 없어요! 🎉",
+        pasonaStage: "ACTION",
+      },
+    ],
+    email: [
+      {
+        order: 1,
+        daysAfter: 0,
+        subject: "여권/APIS 자동화 - 5분이면 끝납니다",
+        bodyHtml: '<p>{고객명}님,</p><p>여권/APIS 준비가 복잡해 보이나요?</p><p>우리가 <strong>자동으로 체크</strong>해드려요. 5분 걸려요.</p><p><a href="#" style="background-color: #27AE60; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">지금 시작하기</a></p>',
+        previewText: "5분이면 여권/APIS 준비 완료",
+        pasonaStage: "PROBLEM",
+      },
+      {
+        order: 2,
+        daysAfter: 1,
+        subject: "자동화 프로세스 - 사진 업로드만 하면 됩니다",
+        bodyHtml: '<p>{고객명}님,</p><p><strong>Step 1:</strong> 여권 사진 업로드<br/><strong>Step 2:</strong> APIS 자동 신청<br/><strong>Step 3:</strong> 완료!</p><p>번거로움 없어요.</p><p><a href="#" style="background-color: #27AE60; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">자동화 보기</a></p>',
+        previewText: "자동화 프로세스를 확인하세요",
+        pasonaStage: "SOLUTION",
+      },
+      {
+        order: 3,
+        daysAfter: 2,
+        subject: "100% 안전 - 개인정보 암호화 + 자동 삭제",
+        bodyHtml: '<p>{고객명}님,</p><p>100% 안전해요.</p><p><strong>개인정보 암호화</strong> (AES-256)<br/><strong>자동 삭제</strong> (30일후)</p><p><a href="#" style="background-color: #27AE60; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">보안 정책 보기</a></p>',
+        previewText: "개인정보 보호가 최우선입니다",
+        pasonaStage: "OFFER",
+      },
+      {
+        order: 4,
+        daysAfter: 3,
+        subject: "지금 시작하세요 - 내일부터 자동 준비",
+        bodyHtml: '<p>{고객명}님,</p><p>[지금 시작]하면 <strong>내일부터 자동 준비</strong> 시작해요.</p><p>걱정 없어요!</p><p><a href="#" style="background-color: #27AE60; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">지금 시작하기</a></p>',
+        previewText: "내일부터 자동 준비 시작",
+        pasonaStage: "ACTION",
+      },
+    ],
+  },
+  L5: {
+    name: "L5: 가족동의 필요 자동메시지",
+    description: "가족/배우자 동의 필요한 구매 신호",
+    lensType: "L5",
+    sms: [
+      {
+        order: 1,
+        daysAfter: 0,
+        content: "{고객명}님 + 가족. 크루즈는 함께하는 추억이에요. 아내분께 이것 보여주세요! [함께 보기]",
+        pasonaStage: "PROBLEM",
+      },
+      {
+        order: 2,
+        daysAfter: 1,
+        content: "4인 가족 패키지: 어른 2명 + 아이 2명. 아이 50% 할인! 아이들이 정말 좋아해요. [패키지 보기]",
+        pasonaStage: "SOLUTION",
+      },
+      {
+        order: 3,
+        daysAfter: 2,
+        content: "가족이 함께 보낸 크루즈 = 최고의 추억. 아이도 \"또 가고싶어요\"라고 말해요. [후기 보기]",
+        pasonaStage: "OFFER",
+      },
+      {
+        order: 4,
+        daysAfter: 3,
+        content: "[가족 모두 보기] 링크로 공유하세요. 함께 결정하면 더 좋아요! 🎉",
+        pasonaStage: "ACTION",
+      },
+    ],
+    email: [
+      {
+        order: 1,
+        daysAfter: 0,
+        subject: "가족과 함께 만드는 추억 - {고객명}님 + 가족 특별 초대",
+        bodyHtml: '<p>{고객명}님,</p><p>크루즈는 <strong>함께하는 추억</strong>이에요.</p><p>아내분께 이것 보여주세요!</p><p><a href="#" style="background-color: #9B59B6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">함께 보기</a></p>',
+        previewText: "가족과 함께 추억을 만드세요",
+        pasonaStage: "PROBLEM",
+      },
+      {
+        order: 2,
+        daysAfter: 1,
+        subject: "4인 가족 패키지 - 아이 50% 할인",
+        bodyHtml: '<p>{고객명}님,</p><p><strong>4인 가족 패키지</strong></p><p>어른 2명 + 아이 2명</p><p><strong>아이 50% 할인!</strong></p><p>아이들이 정말 좋아해요.</p><p><a href="#" style="background-color: #9B59B6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">패키지 보기</a></p>',
+        previewText: "가족 패키지 - 아이 50% 할인",
+        pasonaStage: "SOLUTION",
+      },
+      {
+        order: 3,
+        daysAfter: 2,
+        subject: "가족의 추억 - 고객 후기에서 확인하세요",
+        bodyHtml: '<p>{고객명}님,</p><p>가족이 함께 보낸 크루즈 = <strong>최고의 추억</strong></p><p>아이도 \"또 가고싶어요\"라고 말해요.</p><p><a href="#" style="background-color: #9B59B6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">후기 보기</a></p>',
+        previewText: "가족의 추억을 보세요",
+        pasonaStage: "OFFER",
+      },
+      {
+        order: 4,
+        daysAfter: 3,
+        subject: "함께 결정하세요 - 가족 모두를 위해",
+        bodyHtml: '<p>{고객명}님,</p><p>[가족 모두 보기] 링크로 공유하세요.</p><p><strong>함께 결정</strong>하면 더 좋아요!</p><p><a href="#" style="background-color: #9B59B6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">가족 모두 보기</a></p>',
+        previewText: "함께 결정하세요",
+        pasonaStage: "ACTION",
+      },
+    ],
+  },
+  L6: {
+    name: "L6: 타이밍/손실회피 자동메시지",
+    description: "제한된 시간 또는 선실 한정 상황",
+    lensType: "L6",
+    sms: [
+      {
+        order: 1,
+        daysAfter: 0,
+        content: "지금만 20% 할인이에요. 지나가면 정가로 구매해야 해요. {고객명}님, 시간이 별로 없어요. [지금 보기]",
+        pasonaStage: "PROBLEM",
+      },
+      {
+        order: 2,
+        daysAfter: 1,
+        content: "명일 자정 마감! 선실 3개만 남았어요. 30% 할인은 더 빨리 끝날 거예요. [지금 신청]",
+        pasonaStage: "SOLUTION",
+      },
+      {
+        order: 3,
+        daysAfter: 2,
+        content: "결정 완료했으신가요? 지금이 최고의 시간이에요. 더 이상 기다릴 수 없어요. [마지막 기회]",
+        pasonaStage: "OFFER",
+      },
+      {
+        order: 4,
+        daysAfter: 3,
+        content: "[지금 예약 완료]하세요. 더 이상 기다리지 마세요. 이게 마지막 기회예요! ⏰",
+        pasonaStage: "ACTION",
+      },
+    ],
+    email: [
+      {
+        order: 1,
+        daysAfter: 0,
+        subject: "지금만 20% 할인 - 시간이 별로 없어요",
+        bodyHtml: '<p>{고객명}님,</p><p>지금만 <strong>20% 할인</strong>이에요.</p><p>지나가면 정가로 구매해야 해요.</p><p>시간이 별로 없어요.</p><p><a href="#" style="background-color: #E74C3C; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">지금 보기</a></p>',
+        previewText: "지금만 20% 할인입니다",
+        pasonaStage: "PROBLEM",
+      },
+      {
+        order: 2,
+        daysAfter: 1,
+        subject: "명일 자정 마감! 선실 3개만 남았어요",
+        bodyHtml: '<p>{고객명}님,</p><p><strong>명일 자정 마감!</strong></p><p>선실 3개만 남았어요.</p><p>30% 할인은 더 빨리 끝날 거예요.</p><p><a href="#" style="background-color: #E74C3C; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">지금 신청</a></p>',
+        previewText: "명일 자정 마감입니다",
+        pasonaStage: "SOLUTION",
+      },
+      {
+        order: 3,
+        daysAfter: 2,
+        subject: "결정의 시간 - 지금이 최고예요",
+        bodyHtml: '<p>{고객명}님,</p><p>결정 완료했으신가요?</p><p><strong>지금이 최고의 시간</strong>이에요.</p><p>더 이상 기다릴 수 없어요.</p><p><a href="#" style="background-color: #E74C3C; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">마지막 기회</a></p>',
+        previewText: "지금이 최고입니다",
+        pasonaStage: "OFFER",
+      },
+      {
+        order: 4,
+        daysAfter: 3,
+        subject: "이게 마지막 기회입니다 - 지금 완료하세요",
+        bodyHtml: '<p>{고객명}님,</p><p>[지금 예약 완료]하세요.</p><p><strong>더 이상 기다리지 마세요.</strong></p><p>이게 <strong>마지막 기회</strong>예요!</p><p><a href="#" style="background-color: #E74C3C; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">지금 예약 완료</a></p>',
+        previewText: "마지막 기회입니다",
+        pasonaStage: "ACTION",
+      },
+    ],
+  },
+  L7: {
+    name: "L7: 시설/편의성 중심 자동메시지",
+    description: "시설 또는 편의성 관련 질문",
+    lensType: "L7",
+    sms: [
+      {
+        order: 1,
+        daysAfter: 0,
+        content: "{고객명}님, {상품명}의 시설이 정말 좋아요. 온천, 스파, 뷔페 24시간! [시설 보기]",
+        pasonaStage: "PROBLEM",
+      },
+      {
+        order: 2,
+        daysAfter: 1,
+        content: "[360도 가상투어] 보세요. 선실, 레스토랑, 카지노 다 볼 수 있어요. [투어 시작]",
+        pasonaStage: "SOLUTION",
+      },
+      {
+        order: 3,
+        daysAfter: 2,
+        content: "\"시설이 진짜 좋았어요!\" \"돌아오고 싶어요\" [고객 후기 100개 보기]",
+        pasonaStage: "OFFER",
+      },
+      {
+        order: 4,
+        daysAfter: 3,
+        content: "이 최고급 시설 경험해보세요. [지금 예약]하세요! 🌟",
+        pasonaStage: "ACTION",
+      },
+    ],
+    email: [
+      {
+        order: 1,
+        daysAfter: 0,
+        subject: "최고급 시설 - {상품명}의 모든 것",
+        bodyHtml: '<p>{고객명}님,</p><p><strong>{상품명}</strong>의 시설이 정말 좋아요.</p><p>온천, 스파, 뷔페 24시간!</p><p><a href="#" style="background-color: #3498DB; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">시설 보기</a></p>',
+        previewText: "최고급 시설을 확인하세요",
+        pasonaStage: "PROBLEM",
+      },
+      {
+        order: 2,
+        daysAfter: 1,
+        subject: "360도 가상투어 - 선실, 레스토랑, 카지노 전체 보기",
+        bodyHtml: '<p>{고객명}님,</p><p><strong>[360도 가상투어]</strong> 보세요.</p><p>선실, 레스토랑, 카지노 다 볼 수 있어요.</p><p><a href="#" style="background-color: #3498DB; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">투어 시작</a></p>',
+        previewText: "가상투어를 시작하세요",
+        pasonaStage: "SOLUTION",
+      },
+      {
+        order: 3,
+        daysAfter: 2,
+        subject: "고객 후기 - 시설의 품질을 증명합니다",
+        bodyHtml: '<p>{고객명}님,</p><p>\"<strong>시설이 진짜 좋았어요!</strong>\"</p><p>\"돌아오고 싶어요\"</p><p><a href="#" style="background-color: #3498DB; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">고객 후기 100개 보기</a></p>',
+        previewText: "고객들의 평가를 보세요",
+        pasonaStage: "OFFER",
+      },
+      {
+        order: 4,
+        daysAfter: 3,
+        subject: "최고급 시설 경험하세요 - 지금 예약",
+        bodyHtml: '<p>{고객명}님,</p><p>이 최고급 시설 경험해보세요.</p><p><a href="#" style="background-color: #3498DB; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">지금 예약</a></p>',
+        previewText: "최고급 시설을 경험하세요",
+        pasonaStage: "ACTION",
+      },
+    ],
+  },
+  L8: {
+    name: "L8: 건강/안전 우려 자동메시지",
+    description: "건강 또는 안전 관련 우려",
+    lensType: "L8",
+    sms: [
+      {
+        order: 1,
+        daysAfter: 0,
+        content: "{고객명}님, 건강 안전은 최우선이에요. 탑승 전 무료 건강검사! [안전 정책 보기]",
+        pasonaStage: "PROBLEM",
+      },
+      {
+        order: 2,
+        daysAfter: 1,
+        content: "혹시 모를 경우 격리실 24/7 준비. 의료진도 상주해요. 안심하세요. [준비상황]",
+        pasonaStage: "SOLUTION",
+      },
+      {
+        order: 3,
+        daysAfter: 2,
+        content: "질병보험 자동 포함. 일일 보장금 50만원! 완벽한 보호예요. [보험 안내]",
+        pasonaStage: "OFFER",
+      },
+      {
+        order: 4,
+        daysAfter: 3,
+        content: "안전하게 떠나세요. [지금 예약]하시면 건강검사 무료 제공! 🏥",
+        pasonaStage: "ACTION",
+      },
+    ],
+    email: [
+      {
+        order: 1,
+        daysAfter: 0,
+        subject: "건강 안전이 최우선 - {고객명}님을 위한 안전 정책",
+        bodyHtml: '<p>{고객명}님,</p><p><strong>건강 안전은 최우선</strong>이에요.</p><p>탑승 전 <strong>무료 건강검사!</strong></p><p><a href="#" style="background-color: #27AE60; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">안전 정책 보기</a></p>',
+        previewText: "건강 안전이 최우선입니다",
+        pasonaStage: "PROBLEM",
+      },
+      {
+        order: 2,
+        daysAfter: 1,
+        subject: "24/7 의료진 상주 - 완벽한 준비",
+        bodyHtml: '<p>{고객명}님,</p><p>혹시 모를 경우:</p><p><strong>격리실 24/7 준비</strong><br/><strong>의료진 상주</strong></p><p>안심하세요.</p><p><a href="#" style="background-color: #27AE60; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">준비상황</a></p>',
+        previewText: "24/7 의료진이 준비되어 있습니다",
+        pasonaStage: "SOLUTION",
+      },
+      {
+        order: 3,
+        daysAfter: 2,
+        subject: "질병보험 자동 포함 - 일일 보장금 50만원",
+        bodyHtml: '<p>{고객명}님,</p><p><strong>질병보험 자동 포함</strong></p><p>일일 보장금 50만원!</p><p>완벽한 보호예요.</p><p><a href="#" style="background-color: #27AE60; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">보험 안내</a></p>',
+        previewText: "자동보험으로 완벽하게 보호됩니다",
+        pasonaStage: "OFFER",
+      },
+      {
+        order: 4,
+        daysAfter: 3,
+        subject: "안전하게 떠나세요 - 건강검사 무료 제공",
+        bodyHtml: '<p>{고객명}님,</p><p><strong>안전하게 떠나세요.</strong></p><p>[지금 예약]하시면 <strong>건강검사 무료 제공!</strong></p><p><a href="#" style="background-color: #27AE60; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">지금 예약</a></p>',
+        previewText: "건강검사 무료 제공합니다",
+        pasonaStage: "ACTION",
+      },
+    ],
+  },
+  L9: {
+    name: "L9: 선물/특별날 자동메시지",
+    description: "생일, 기념일 등 특별한 날짜 관련",
+    lensType: "L9",
+    sms: [
+      {
+        order: 1,
+        daysAfter: 0,
+        content: "{고객명}님, 남편/아내 생일인가요? 크루즈가 최고의 선물이에요! [선물 패키지]",
+        pasonaStage: "PROBLEM",
+      },
+      {
+        order: 2,
+        daysAfter: 1,
+        content: "선박 위에서 본 바다 석양. 이것보다 로맨틱한 건 없어요. [추억 갤러리]",
+        pasonaStage: "SOLUTION",
+      },
+      {
+        order: 3,
+        daysAfter: 2,
+        content: "샴페인 + 디너 + 케이크 세트. 특가 29.9만원! 따뜻한 추억을 만들어요. [패키지 보기]",
+        pasonaStage: "OFFER",
+      },
+      {
+        order: 4,
+        daysAfter: 3,
+        content: "[지금 예약]하세요. 당신의 사랑이 빛날 그 순간 준비해드려요! 💕",
+        pasonaStage: "ACTION",
+      },
+    ],
+    email: [
+      {
+        order: 1,
+        daysAfter: 0,
+        subject: "최고의 선물 - {고객명}님의 특별한 순간",
+        bodyHtml: '<p>{고객명}님,</p><p>남편/아내 생일인가요?</p><p><strong>크루즈가 최고의 선물</strong>이에요!</p><p><a href="#" style="background-color: #F39C12; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">선물 패키지</a></p>',
+        previewText: "크루즈가 최고의 선물입니다",
+        pasonaStage: "PROBLEM",
+      },
+      {
+        order: 2,
+        daysAfter: 1,
+        subject: "로맨틱한 추억 - 바다 석양을 함께하세요",
+        bodyHtml: '<p>{고객명}님,</p><p>선박 위에서 본 바다 석양.</p><p>이것보다 로맨틱한 건 없어요.</p><p><a href="#" style="background-color: #F39C12; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">추억 갤러리</a></p>',
+        previewText: "로맨틱한 추억을 만드세요",
+        pasonaStage: "SOLUTION",
+      },
+      {
+        order: 3,
+        daysAfter: 2,
+        subject: "특별 패키지 - 샴페인 + 디너 + 케이크",
+        bodyHtml: '<p>{고객명}님,</p><p><strong>샴페인 + 디너 + 케이크 세트</strong></p><p>특가 29.9만원!</p><p>따뜻한 추억을 만들어요.</p><p><a href="#" style="background-color: #F39C12; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">패키지 보기</a></p>',
+        previewText: "특별 패키지를 확인하세요",
+        pasonaStage: "OFFER",
+      },
+      {
+        order: 4,
+        daysAfter: 3,
+        subject: "당신의 사랑이 빛날 그 순간 - 지금 예약하세요",
+        bodyHtml: '<p>{고객명}님,</p><p>[지금 예약]하세요.</p><p>당신의 <strong>사랑이 빛날 그 순간</strong> 준비해드려요!</p><p><a href="#" style="background-color: #F39C12; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">지금 예약</a></p>',
+        previewText: "특별한 순간을 준비하세요",
+        pasonaStage: "ACTION",
+      },
+    ],
+  },
+  L10: {
+    name: "L10: 즉시 구매 의향 자동메시지",
+    description: "구매 의도 높음 (클로징)",
+    lensType: "L10",
+    sms: [
+      {
+        order: 1,
+        daysAfter: 0,
+        content: "{고객명}님만을 위해. 10% 추가 할인! 지금 예약 시에만! [지금 신청]",
+        pasonaStage: "PROBLEM",
+      },
+      {
+        order: 2,
+        daysAfter: 1,
+        content: "선실 3개 남음. 결정을 미루면 다음 배는 2026년 8월이에요! [선실 확인]",
+        pasonaStage: "SOLUTION",
+      },
+      {
+        order: 3,
+        daysAfter: 2,
+        content: "결제 화면을 열었어요. 마지막 한 발짝이에요! [계속 진행]",
+        pasonaStage: "OFFER",
+      },
+      {
+        order: 4,
+        daysAfter: 3,
+        content: "[예약 완료]를 클릭하세요! 당신의 꿈의 크루즈가 시작돼요! 🎉",
+        pasonaStage: "ACTION",
+      },
+    ],
+    email: [
+      {
+        order: 1,
+        daysAfter: 0,
+        subject: "10% 추가 할인 - {고객명}님만을 위해",
+        bodyHtml: '<p>{고객명}님만을 위해.</p><p><strong>10% 추가 할인!</strong></p><p>지금 예약 시에만!</p><p><a href="#" style="background-color: #27AE60; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">지금 신청</a></p>',
+        previewText: "10% 추가 할인 기회입니다",
+        pasonaStage: "PROBLEM",
+      },
+      {
+        order: 2,
+        daysAfter: 1,
+        subject: "선실 3개 남음 - 다음은 8월이에요",
+        bodyHtml: '<p>{고객명}님,</p><p><strong>선실 3개 남음</strong></p><p>결정을 미루면 다음 배는 <strong>2026년 8월</strong>이에요!</p><p><a href="#" style="background-color: #27AE60; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">선실 확인</a></p>',
+        previewText: "선실이 거의 다 찼습니다",
+        pasonaStage: "SOLUTION",
+      },
+      {
+        order: 3,
+        daysAfter: 2,
+        subject: "결제 준비 완료 - 마지막 한 발짝",
+        bodyHtml: '<p>{고객명}님,</p><p>결제 화면을 열었어요.</p><p><strong>마지막 한 발짝</strong>이에요!</p><p><a href="#" style="background-color: #27AE60; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">계속 진행</a></p>',
+        previewText: "결제 준비 완료입니다",
+        pasonaStage: "OFFER",
+      },
+      {
+        order: 4,
+        daysAfter: 3,
+        subject: "당신의 꿈의 크루즈가 시작됩니다 - 예약 완료하세요",
+        bodyHtml: '<p>{고객명}님,</p><p>[예약 완료]를 클릭하세요!</p><p><strong>당신의 꿈의 크루즈</strong>가 시작돼요!</p><p><a href="#" style="background-color: #27AE60; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">예약 완료</a></p>',
+        previewText: "꿈의 크루즈가 시작됩니다",
+        pasonaStage: "ACTION",
+      },
+    ],
+  },
+};
 
-// 10개 렌즈별 템플릿 데이터
-const LENS_TEMPLATES: LensTemplate[] = [
-  {
-    lensCode: 'L0',
-    name: 'L0: 부재중 고객 자동메시지',
-    description: '3개월 이상 연락 없는 고객을 자동으로 재활성화하는 시퀀스',
-    smsMessages: [
-      {
-        day: 0,
-        pasonaStage: 'PROBLEM',
-        content: '안녕하세요! 저희는 지난 몇 개월간 연락이 없었네요. 근황이 어떠신가요? 특별한 할인 혜택을 준비했습니다 😊',
-      },
-      {
-        day: 1,
-        pasonaStage: 'SOLUTION',
-        content: '많은 고객분들이 다시 선택하신 이유는 신뢰와 가치 때문입니다. 처음과 다른 새로운 서비스도 추가되었어요!',
-      },
-      {
-        day: 2,
-        pasonaStage: 'OFFER',
-        content: '복귀 고객 전용 20% 할인 혜택을 드립니다. 이번 주 금요일까지만 유효합니다! [링크]',
-      },
-      {
-        day: 3,
-        pasonaStage: 'ACTION',
-        content: '이 기회를 놓치지 마세요! 지금 바로 신청하시면 추가 선물도 드릴게요. [지금 신청]',
-      },
-    ],
-    emailMessages: [
-      {
-        day: 0,
-        pasonaStage: 'PROBLEM',
-        subject: '오랜만입니다! 크루즈닷에서 특별한 소식이 있어요',
-        bodyHtml: '<h1>오랜만입니다!</h1><p>저희는 지난 몇 개월간 연락이 없었네요.</p><p>근황이 어떠신가요? 특별한 할인 혜택을 준비했습니다 😊</p>',
-      },
-      {
-        day: 1,
-        pasonaStage: 'SOLUTION',
-        subject: '왜 많은 고객들이 다시 선택할까요?',
-        bodyHtml: '<h1>신뢰와 가치</h1><p>많은 고객분들이 다시 선택하신 이유는 신뢰와 가치 때문입니다.</p><p>처음과 다른 새로운 서비스도 추가되었어요!</p>',
-      },
-      {
-        day: 2,
-        pasonaStage: 'OFFER',
-        subject: '복귀 고객 전용 20% 할인 혜택',
-        bodyHtml: '<h1>특별 혜택</h1><p>복귀 고객 전용 20% 할인 혜택을 드립니다.</p><p>이번 주 금요일까지만 유효합니다!</p><a href="#">지금 확인하기</a>',
-      },
-      {
-        day: 3,
-        pasonaStage: 'ACTION',
-        subject: '마지막 기회! 오늘 신청하면 추가 선물도 드립니다',
-        bodyHtml: '<h1>마지막 기회!</h1><p>이 기회를 놓치지 마세요!</p><p>지금 바로 신청하시면 추가 선물도 드릴게요.</p><a href="#">지금 신청</a>',
-      },
-    ],
-  },
-  {
-    lensCode: 'L1',
-    name: 'L1: 가격 이의 고객 대응',
-    description: '가격이 비싸다는 이의를 제기한 고객을 위한 할부/옵션 제안',
-    smsMessages: [
-      {
-        day: 0,
-        pasonaStage: 'PROBLEM',
-        content: '가격이 걱정되시나요? 많은 고객이 같은 고민을 하셨어요. 저희만의 해결책이 있습니다!',
-      },
-      {
-        day: 1,
-        pasonaStage: 'SOLUTION',
-        content: '월 60만원씩 5개월 할부로 부담을 크게 줄일 수 있어요. 이자 0% 특가 중입니다!',
-      },
-      {
-        day: 2,
-        pasonaStage: 'OFFER',
-        content: '더불어 첫 회차 할부금에서 10만원을 할인해드립니다. 이 조건은 오늘만 유효해요!',
-      },
-      {
-        day: 3,
-        pasonaStage: 'ACTION',
-        content: '지금 신청하시면 당일 처리됩니다. 망설이지 마시고 지금 바로 [신청하기]',
-      },
-    ],
-    emailMessages: [
-      {
-        day: 0,
-        pasonaStage: 'PROBLEM',
-        subject: '가격이 걱정이신가요? 합리적인 방법이 있습니다',
-        bodyHtml: '<h1>가격 걱정, 이제 끝!</h1><p>가격이 비싸다는 것 충분히 이해합니다.</p><p>많은 고객이 같은 고민을 하셨어요. 저희만의 해결책이 있습니다!</p>',
-      },
-      {
-        day: 1,
-        pasonaStage: 'SOLUTION',
-        subject: '월 60만원씩 5개월 할부 - 이자 0%',
-        bodyHtml: '<h1>합리적인 분할 결제</h1><p>월 60만원씩 5개월 할부로 부담을 크게 줄일 수 있어요.</p><p>이자 0% 특가 중입니다!</p>',
-      },
-      {
-        day: 2,
-        pasonaStage: 'OFFER',
-        subject: '오늘만! 첫 회차 10만원 추가 할인',
-        bodyHtml: '<h1>시간 제한 특가!</h1><p>더불어 첫 회차 할부금에서 10만원을 할인해드립니다.</p><p>이 조건은 오늘만 유효해요!</p>',
-      },
-      {
-        day: 3,
-        pasonaStage: 'ACTION',
-        subject: '지금 신청하면 당일 처리됩니다',
-        bodyHtml: '<h1>더 이상 미루지 마세요!</h1><p>지금 신청하시면 당일 처리됩니다.</p><a href="#">지금 신청하기</a>',
-      },
-    ],
-  },
-  {
-    lensCode: 'L2',
-    name: 'L2: 준비 복잡도 공감 및 해소',
-    description: '준비 과정이 복잡하다고 느끼는 고객을 위한 단순화 설명',
-    smsMessages: [
-      {
-        day: 0,
-        pasonaStage: 'PROBLEM',
-        content: '여행 준비가 복잡해 보이나요? 사실 생각보다 훨씬 간단해요! 저희가 직접 도와드릴게요.',
-      },
-      {
-        day: 1,
-        pasonaStage: 'SOLUTION',
-        content: '필요한 서류는 딱 3가지. 주민등록증, 통장, 휴대폰. 이게 다입니다! 다른 건 저희가 챙겨요.',
-      },
-      {
-        day: 2,
-        pasonaStage: 'OFFER',
-        content: '준비 상담 무료! 전문가가 15분만에 모든 것을 설명해드립니다. [무료 상담 예약]',
-      },
-      {
-        day: 3,
-        pasonaStage: 'ACTION',
-        content: '지금 상담 받으면 첫 비용 50만원을 줄여드립니다! 더 이상 미루지 마세요. [지금 예약]',
-      },
-    ],
-    emailMessages: [
-      {
-        day: 0,
-        pasonaStage: 'PROBLEM',
-        subject: '여행 준비, 생각보다 간단합니다!',
-        bodyHtml: '<h1>준비가 복잡해 보이나요?</h1><p>여행 준비가 복잡해 보이나요? 사실 생각보다 훨씬 간단해요!</p><p>저희가 직접 도와드릴게요.</p>',
-      },
-      {
-        day: 1,
-        pasonaStage: 'SOLUTION',
-        subject: '필요한 서류는 딱 3가지!',
-        bodyHtml: '<h1>정말 간단합니다</h1><p>필요한 서류는 딱 3가지입니다.</p><ul><li>주민등록증</li><li>통장</li><li>휴대폰</li></ul><p>이게 다입니다! 다른 건 저희가 챙겨요.</p>',
-      },
-      {
-        day: 2,
-        pasonaStage: 'OFFER',
-        subject: '무료 준비 상담 - 전문가 15분 완성',
-        bodyHtml: '<h1>무료 상담 서비스</h1><p>준비 상담 무료!</p><p>전문가가 15분만에 모든 것을 설명해드립니다.</p><a href="#">무료 상담 예약</a>',
-      },
-      {
-        day: 3,
-        pasonaStage: 'ACTION',
-        subject: '지금 상담하면 첫 비용 50만원 감면!',
-        bodyHtml: '<h1>시간 제한 특가</h1><p>지금 상담 받으면 첫 비용 50만원을 줄여드립니다!</p><p>더 이상 미루지 마세요.</p><a href="#">지금 예약</a>',
-      },
-    ],
-  },
-  {
-    lensCode: 'L3',
-    name: 'L3: 경쟁사 비교 및 차별성 강조',
-    description: '다른 업체와 비교하는 고객을 위한 우월성 입증',
-    smsMessages: [
-      {
-        day: 0,
-        pasonaStage: 'PROBLEM',
-        content: '다른 업체와 비교하고 계신가요? 맞습니다! 비교는 꼭 해야 해요. 저희의 특별함을 보여드릴게요.',
-      },
-      {
-        day: 1,
-        pasonaStage: 'SOLUTION',
-        content: '6년 연속 고객만족도 1위! 환급률 업계 최고 97.8%. 서비스 품질은 업계 기준입니다.',
-      },
-      {
-        day: 2,
-        pasonaStage: 'OFFER',
-        content: '우리는 후불제 1순위 제공업체. 불안감 0%! 그 증거로 비교표를 준비했습니다. [비교표 확인]',
-      },
-      {
-        day: 3,
-        pasonaStage: 'ACTION',
-        content: '이제 확신하셨나요? 지금 신청하면 보증금도 없습니다. [지금 신청]',
-      },
-    ],
-    emailMessages: [
-      {
-        day: 0,
-        pasonaStage: 'PROBLEM',
-        subject: '다른 업체와 비교하고 계신가요? 좋은 생각입니다!',
-        bodyHtml: '<h1>비교는 필수입니다!</h1><p>다른 업체와 비교하고 계신가요? 맞습니다!</p><p>비교는 꼭 해야 해요. 저희의 특별함을 보여드릴게요.</p>',
-      },
-      {
-        day: 1,
-        pasonaStage: 'SOLUTION',
-        subject: '6년 연속 고객만족도 1위!',
-        bodyHtml: '<h1>업계 최고의 성적</h1><p>6년 연속 고객만족도 1위!</p><p>환급률 업계 최고 97.8%</p><p>서비스 품질은 업계 기준입니다.</p>',
-      },
-      {
-        day: 2,
-        pasonaStage: 'OFFER',
-        subject: '후불제 1순위 제공업체 - 불안감 0%!',
-        bodyHtml: '<h1>업계 최고 수준의 신뢰</h1><p>우리는 후불제 1순위 제공업체입니다.</p><p>불안감 0%! 그 증거로 비교표를 준비했습니다.</p><a href="#">상세 비교표 확인</a>',
-      },
-      {
-        day: 3,
-        pasonaStage: 'ACTION',
-        subject: '이제 확신하셨나요? 보증금도 없습니다',
-        bodyHtml: '<h1>더 이상 고민하지 마세요!</h1><p>이제 확신하셨나요?</p><p>지금 신청하면 보증금도 없습니다!</p><a href="#">지금 신청</a>',
-      },
-    ],
-  },
-  {
-    lensCode: 'L4',
-    name: 'L4: 유연성 입증 및 선택지 확대',
-    description: '자유도와 유연성을 중시하는 고객을 위한 옵션 확장',
-    smsMessages: [
-      {
-        day: 0,
-        pasonaStage: 'PROBLEM',
-        content: '자유롭게 선택하고 싶으신가요? 당연합니다! 우리는 모든 선택을 존중합니다.',
-      },
-      {
-        day: 1,
-        pasonaStage: 'SOLUTION',
-        content: '일정 변경 무료! 객실 업그레이드 자유! 탑승 일시 조정 100% 가능! 당신이 주인입니다.',
-      },
-      {
-        day: 2,
-        pasonaStage: 'OFFER',
-        content: '추가 선택지: 특식(할랄/채식), 객실 수정, 일정 재조정. 모두 무료입니다! [자세히 보기]',
-      },
-      {
-        day: 3,
-        pasonaStage: 'ACTION',
-        content: '완전한 자유를 경험해보세요. 지금 신청하면 추가 변경 3회까지 완전 무료! [지금 신청]',
-      },
-    ],
-    emailMessages: [
-      {
-        day: 0,
-        pasonaStage: 'PROBLEM',
-        subject: '완전한 자유를 원하시나요?',
-        bodyHtml: '<h1>자유는 우리의 가치입니다</h1><p>자유롭게 선택하고 싶으신가요? 당연합니다!</p><p>우리는 모든 선택을 존중합니다.</p>',
-      },
-      {
-        day: 1,
-        pasonaStage: 'SOLUTION',
-        subject: '일정도, 객실도, 모든 게 자유입니다!',
-        bodyHtml: '<h1>최고의 자유도</h1><ul><li>일정 변경 무료!</li><li>객실 업그레이드 자유!</li><li>탑승 일시 조정 100% 가능!</li></ul><p>당신이 주인입니다.</p>',
-      },
-      {
-        day: 2,
-        pasonaStage: 'OFFER',
-        subject: '더 많은 선택지 - 모두 무료입니다!',
-        bodyHtml: '<h1>무한한 커스터마이징</h1><p>추가 선택지들이 있습니다:</p><ul><li>특식(할랄/채식)</li><li>객실 수정</li><li>일정 재조정</li></ul><p>모두 무료입니다!</p><a href="#">자세히 보기</a>',
-      },
-      {
-        day: 3,
-        pasonaStage: 'ACTION',
-        subject: '지금 신청하면 변경 3회까지 완전 무료!',
-        bodyHtml: '<h1>완전한 자유를 경험해보세요!</h1><p>지금 신청하면 추가 변경 3회까지 완전 무료입니다!</p><a href="#">지금 신청</a>',
-      },
-    ],
-  },
-  {
-    lensCode: 'L5',
-    name: 'L5: 자기투영 및 성공 사례',
-    description: '고객 본인의 모습을 투영할 수 있는 성공 사례 제시',
-    smsMessages: [
-      {
-        day: 0,
-        pasonaStage: 'PROBLEM',
-        content: '저 사람도 나처럼 여행을 준비했나? 네! 제 고객들도 처음엔 당신처럼 조심스러웠어요.',
-      },
-      {
-        day: 1,
-        pasonaStage: 'SOLUTION',
-        content: '이재민(42세) 사업가: "3개월만에 가족 여행 완성!" 김순희(56세) 전직자: "꿈이 이뤄졌어요"',
-      },
-      {
-        day: 2,
-        pasonaStage: 'OFFER',
-        content: '그들도 시작했어요. 당신도 할 수 있어요! 실제 고객 후기와 일정표를 공유합니다. [확인]',
-      },
-      {
-        day: 3,
-        pasonaStage: 'ACTION',
-        content: '다음 주자는 당신입니다! 지금 시작하면 성공 일정표도 받으실 수 있어요. [시작하기]',
-      },
-    ],
-    emailMessages: [
-      {
-        day: 0,
-        pasonaStage: 'PROBLEM',
-        subject: '나도 할 수 있을까? 네, 충분합니다!',
-        bodyHtml: '<h1>당신도 충분합니다!</h1><p>저 사람도 나처럼 여행을 준비했나?</p><p>네! 제 고객들도 처음엔 당신처럼 조심스러웠어요.</p>',
-      },
-      {
-        day: 1,
-        pasonaStage: 'SOLUTION',
-        subject: '실제 고객들의 성공 사례',
-        bodyHtml: '<h1>이들도 성공했습니다!</h1><ul><li><strong>이재민(42세) 사업가:</strong> "3개월만에 가족 여행 완성!"</li><li><strong>김순희(56세) 전직자:</strong> "꿈이 이뤄졌어요"</li></ul>',
-      },
-      {
-        day: 2,
-        pasonaStage: 'OFFER',
-        subject: '그들도 시작했어요. 당신도 할 수 있어요!',
-        bodyHtml: '<h1>시작이 반입니다</h1><p>그들도 시작했어요. 당신도 할 수 있어요!</p><p>실제 고객 후기와 일정표를 공유합니다.</p><a href="#">성공 사례 확인</a>',
-      },
-      {
-        day: 3,
-        pasonaStage: 'ACTION',
-        subject: '다음 주자는 바로 당신입니다!',
-        bodyHtml: '<h1>당신의 성공 이야기를 시작하세요!</h1><p>지금 시작하면 성공 일정표도 받으실 수 있어요.</p><a href="#">지금 시작</a>',
-      },
-    ],
-  },
-  {
-    lensCode: 'L6',
-    name: 'L6: 타이밍/손실회피 - 긴박감',
-    description: '시간이 제한되어 있다는 긴박감을 강조하는 고객용',
-    smsMessages: [
-      {
-        day: 0,
-        pasonaStage: 'PROBLEM',
-        content: '⏰ 긴급! 이 가격은 오늘뿐입니다. 내일은 300만원 인상됩니다!',
-      },
-      {
-        day: 1,
-        pasonaStage: 'SOLUTION',
-        content: '마지막 남은 할인! 지금이 진짜 기회입니다. 1,200만원 → 900만원. 이 기회를 놓치면 후회합니다.',
-      },
-      {
-        day: 2,
-        pasonaStage: 'OFFER',
-        content: '⏳ 마감까지 18시간! 추가 100만원 보너스는 오늘 신청자만! [지금 신청]',
-      },
-      {
-        day: 3,
-        pasonaStage: 'ACTION',
-        content: '⚠️ 최종 마감! 이 시간 이후 특가는 종료됩니다. 지금 바로 [신청하기]',
-      },
-    ],
-    emailMessages: [
-      {
-        day: 0,
-        pasonaStage: 'PROBLEM',
-        subject: '⏰ 긴급! 이 가격은 오늘뿐입니다',
-        bodyHtml: '<h1 style="color: red;">긴급 알림!</h1><p>이 가격은 오늘뿐입니다.</p><p>내일은 300만원 인상됩니다!</p>',
-      },
-      {
-        day: 1,
-        pasonaStage: 'SOLUTION',
-        subject: '마지막 남은 할인! 지금이 진짜 기회입니다',
-        bodyHtml: '<h1 style="color: red;">마지막 기회!</h1><p>지금이 진짜 기회입니다.</p><h2>1,200만원 → 900만원</h2><p>이 기회를 놓치면 후회합니다.</p>',
-      },
-      {
-        day: 2,
-        pasonaStage: 'OFFER',
-        subject: '⏳ 마감까지 18시간! 추가 100만원 보너스',
-        bodyHtml: '<h1 style="color: red;">⏳ 시간 제한 중!</h1><p>마감까지 18시간만 남았습니다!</p><p>추가 100만원 보너스는 오늘 신청자만!</p><a href="#">지금 신청</a>',
-      },
-      {
-        day: 3,
-        pasonaStage: 'ACTION',
-        subject: '⚠️ 최종 마감! 이 시간 이후 특가 종료',
-        bodyHtml: '<h1 style="color: red;">최종 마감!</h1><p>이 시간 이후 특가는 종료됩니다.</p><p>지금 바로 신청하세요!</p><a href="#">신청하기</a>',
-      },
-    ],
-  },
-  {
-    lensCode: 'L7',
-    name: 'L7: 동반자/가족 설득',
-    description: '배우자나 가족과 함께 결정해야 하는 고객용',
-    smsMessages: [
-      {
-        day: 0,
-        pasonaStage: 'PROBLEM',
-        content: '배우자분과 함께 준비하시나요? 좋은 생각입니다! 가족 함께 여행하는 게 최고의 추억입니다.',
-      },
-      {
-        day: 1,
-        pasonaStage: 'SOLUTION',
-        content: '부부 함께하면 10% 추가 할인! 아이들 동반 시 어린이 패키지 무료! 가족 모두 행복입니다.',
-      },
-      {
-        day: 2,
-        pasonaStage: 'OFFER',
-        content: '실제 고객 후기: "남편이 너무 좋아했어요!" "아이들이 영원히 기억할 추억!" [후기 보기]',
-      },
-      {
-        day: 3,
-        pasonaStage: 'ACTION',
-        content: '가족 함께 신청하면 특별 일정도 커스터마이징해드립니다! [가족 함께 신청]',
-      },
-    ],
-    emailMessages: [
-      {
-        day: 0,
-        pasonaStage: 'PROBLEM',
-        subject: '배우자분과 함께 준비하세요!',
-        bodyHtml: '<h1>가족이 함께하는 행복</h1><p>배우자분과 함께 준비하시나요? 좋은 생각입니다!</p><p>가족 함께 여행하는 게 최고의 추억입니다.</p>',
-      },
-      {
-        day: 1,
-        pasonaStage: 'SOLUTION',
-        subject: '부부 할인 10%, 아이 패키지 무료!',
-        bodyHtml: '<h1>가족 함께하는 혜택</h1><ul><li>부부 함께하면 10% 추가 할인!</li><li>아이들 동반 시 어린이 패키지 무료!</li></ul><p>가족 모두 행복합니다.</p>',
-      },
-      {
-        day: 2,
-        pasonaStage: 'OFFER',
-        subject: '실제 고객 가족들의 행복한 후기',
-        bodyHtml: '<h1>가족들의 목소리</h1><ul><li>"남편이 너무 좋아했어요!"</li><li>"아이들이 영원히 기억할 추억!"</li><li>"가족 모두 다시 가고 싶대요"</li></ul><a href="#">더 많은 후기 보기</a>',
-      },
-      {
-        day: 3,
-        pasonaStage: 'ACTION',
-        subject: '가족 함께 신청하면 특별 일정도 커스터마이징',
-        bodyHtml: '<h1>가족 맞춤 여행</h1><p>가족 함께 신청하면 특별 일정도 커스터마이징해드립니다!</p><a href="#">가족 함께 신청</a>',
-      },
-    ],
-  },
-  {
-    lensCode: 'L8',
-    name: 'L8: 재구매 및 습관적 성장',
-    description: '이미 한번 경험한 고객을 위한 재구매 자극',
-    smsMessages: [
-      {
-        day: 0,
-        pasonaStage: 'PROBLEM',
-        content: '다시 한번 그 느낌을 경험하고 싶으신가요? 지난번 만족했던 고객들이 모두 재신청했어요!',
-      },
-      {
-        day: 1,
-        pasonaStage: 'SOLUTION',
-        content: '재신청 고객 전용 특가! 지난번 가격에서 20% 할인! 같은 객실, 더 좋은 가격!',
-      },
-      {
-        day: 2,
-        pasonaStage: 'OFFER',
-        content: '올해 3회차 여행자: "매년 이 시즌에 떠나요" "습관처럼 선택합니다" [후기 보기]',
-      },
-      {
-        day: 3,
-        pasonaStage: 'ACTION',
-        content: '이제 습관이 되셨나요? 정기 멤버십 가입하면 매년 30% 할인! [멤버십 가입]',
-      },
-    ],
-    emailMessages: [
-      {
-        day: 0,
-        pasonaStage: 'PROBLEM',
-        subject: '그 행복을 다시 경험하고 싶으신가요?',
-        bodyHtml: '<h1>다시 그 느낌!</h1><p>다시 한번 그 느낌을 경험하고 싶으신가요?</p><p>지난번 만족했던 고객들이 모두 재신청했어요!</p>',
-      },
-      {
-        day: 1,
-        pasonaStage: 'SOLUTION',
-        subject: '재신청 고객 전용 특가 - 20% 할인!',
-        bodyHtml: '<h1>다시 만나요!</h1><p>재신청 고객 전용 특가!</p><p>지난번 가격에서 20% 할인!</p><p>같은 객실, 더 좋은 가격!</p>',
-      },
-      {
-        day: 2,
-        pasonaStage: 'OFFER',
-        subject: '이미 습관이 되셨나요?',
-        bodyHtml: '<h1>정기 고객들의 이야기</h1><ul><li>"매년 이 시즌에 떠나요"</li><li>"습관처럼 선택합니다"</li><li>"이제 없으면 안 돼요"</li></ul><a href="#">재신청 고객 후기</a>',
-      },
-      {
-        day: 3,
-        pasonaStage: 'ACTION',
-        subject: '정기 멤버십 가입 - 매년 30% 할인',
-        bodyHtml: '<h1>최고의 혜택</h1><p>이제 습관이 되셨나요?</p><p>정기 멤버십 가입하면 매년 30% 할인!</p><a href="#">멤버십 가입하기</a>',
-      },
-    ],
-  },
-  {
-    lensCode: 'L9',
-    name: 'L9: 건강/안전 및 신뢰 강조',
-    description: '건강과 안전을 최우선으로 생각하는 고객용',
-    smsMessages: [
-      {
-        day: 0,
-        pasonaStage: 'PROBLEM',
-        content: '안전하고 건강한 여행을 원하시나요? 당연합니다! 저희도 그것이 최우선입니다.',
-      },
-      {
-        day: 1,
-        pasonaStage: 'SOLUTION',
-        content: '5성급 의료 선박! 선상 의사 24시간 상주! 응급 헬리콥터 서비스 포함! 당신의 건강이 우선입니다.',
-      },
-      {
-        day: 2,
-        pasonaStage: 'OFFER',
-        content: '국제 보건 인증 획득! WHO 권장 검역 기준 충족! 99.8% 안전 기록! [인증서 확인]',
-      },
-      {
-        day: 3,
-        pasonaStage: 'ACTION',
-        content: '당신의 건강한 여행을 위해 보험도 무료 제공합니다. 지금 신청하세요! [신청하기]',
-      },
-    ],
-    emailMessages: [
-      {
-        day: 0,
-        pasonaStage: 'PROBLEM',
-        subject: '안전하고 건강한 여행을 우선으로',
-        bodyHtml: '<h1>안전이 최우선입니다</h1><p>안전하고 건강한 여행을 원하시나요?</p><p>당연합니다! 저희도 그것이 최우선입니다.</p>',
-      },
-      {
-        day: 1,
-        pasonaStage: 'SOLUTION',
-        subject: '5성급 의료 선박, 의사 24시간 상주',
-        bodyHtml: '<h1>최고 수준의 의료 서비스</h1><ul><li>5성급 의료 선박</li><li>선상 의사 24시간 상주</li><li>응급 헬리콥터 서비스 포함</li></ul><p>당신의 건강이 우선입니다.</p>',
-      },
-      {
-        day: 2,
-        pasonaStage: 'OFFER',
-        subject: '국제 보건 인증 획득, 99.8% 안전 기록',
-        bodyHtml: '<h1>검증된 안전성</h1><ul><li>국제 보건 인증 획득</li><li>WHO 권장 검역 기준 충족</li><li>99.8% 안전 기록</li></ul><a href="#">국제 인증서 확인</a>',
-      },
-      {
-        day: 3,
-        pasonaStage: 'ACTION',
-        subject: '건강한 여행을 위한 무료 보험 제공',
-        bodyHtml: '<h1>완벽한 건강 관리</h1><p>당신의 건강한 여행을 위해 보험도 무료 제공합니다.</p><p>지금 안전하게 신청하세요!</p><a href="#">신청하기</a>',
-      },
-    ],
-  },
-  {
-    lensCode: 'L10',
-    name: 'L10: 즉시 구매 결정 클로징',
-    description: '마지막 한 번의 결정 고리를 끊기 위한 강력한 클로징',
-    smsMessages: [
-      {
-        day: 0,
-        pasonaStage: 'PROBLEM',
-        content: '이제 결정하실 차례입니다! 더 이상 미루지 마세요. 이 순간이 당신의 변화입니다!',
-      },
-      {
-        day: 1,
-        pasonaStage: 'SOLUTION',
-        content: '지금 신청하면 즉시 일정 확정! 24시간 안에 서류 완성! 3일 내 출발 준비 완료!',
-      },
-      {
-        day: 2,
-        pasonaStage: 'OFFER',
-        content: '마지막 선물! 공항 픽업 무료! 짐 배송료 무료! 환전 수수료 무료! [지금 신청]',
-      },
-      {
-        day: 3,
-        pasonaStage: 'ACTION',
-        content: '🎉 마지막 기회! 이제 행동하세요! 망설임은 이미 답입니다. [지금 시작하기]',
-      },
-    ],
-    emailMessages: [
-      {
-        day: 0,
-        pasonaStage: 'PROBLEM',
-        subject: '이제 당신의 순서입니다!',
-        bodyHtml: '<h1 style="color: #27AE60;">결정의 시간입니다!</h1><p>이제 결정하실 차례입니다!</p><p>더 이상 미루지 마세요. 이 순간이 당신의 변화입니다!</p>',
-      },
-      {
-        day: 1,
-        pasonaStage: 'SOLUTION',
-        subject: '지금 신청하면 즉시 일정 확정!',
-        bodyHtml: '<h1 style="color: #27AE60;">빠른 처리!</h1><ul><li>즉시 일정 확정!</li><li>24시간 안에 서류 완성!</li><li>3일 내 출발 준비 완료!</li></ul>',
-      },
-      {
-        day: 2,
-        pasonaStage: 'OFFER',
-        subject: '마지막 선물 4가지 무료!',
-        bodyHtml: '<h1 style="color: #27AE60;">특별한 선물을 준비했습니다!</h1><ul><li>공항 픽업 무료!</li><li>짐 배송료 무료!</li><li>환전 수수료 무료!</li><li>여행 보험 무료!</li></ul><a href="#">지금 신청</a>',
-      },
-      {
-        day: 3,
-        pasonaStage: 'ACTION',
-        subject: '🎉 마지막 기회! 이제 시작하세요!',
-        bodyHtml: '<h1 style="color: #27AE60; font-size: 2em;">🎉 마지막 기회!</h1><p>이제 행동하세요!</p><p>망설임은 이미 답입니다.</p><p>당신의 꿈은 지금 시작됩니다!</p><a href="#" style="background-color: #27AE60; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px;">지금 시작하기</a>',
-      },
-    ],
-  },
-];
-
-async function main() {
-  console.log('🌱 Funnel Lens Templates Seed Script 시작...\n');
-
+async function seedFunnelLensTemplates() {
   try {
-    // 1. organizationId 확인
-    console.log(`📍 Organization ID: ${GLOBAL_ORG_ID}`);
+    console.log('🌱 Funnel SMS/Email 렌즈 템플릿 Seeding 시작...\n');
 
-    // 2. 기존 템플릿 확인 (중복 방지)
-    const existingCount = await prisma.funnelSms.count({
+    // Find or create global org
+    let globalOrg = await prisma.organization.findFirst({
       where: {
-        organizationId: GLOBAL_ORG_ID,
-        isTemplate: true,
+        slug: 'mabiz-admin',
       },
     });
 
-    if (existingCount > 0) {
-      console.log(
-        `⚠️  이미 ${existingCount}개의 템플릿이 존재합니다. 중복을 피하기 위해 기존 템플릿을 삭제합니다...`
-      );
-      // 기존 템플릿 삭제
-      await prisma.funnelSmsMessage.deleteMany({
-        where: {
-          funnelSms: {
-            organizationId: GLOBAL_ORG_ID,
-            isTemplate: true,
-          },
-        },
-      });
-      await prisma.funnelEmailMessage.deleteMany({
-        where: {
-          funnelEmail: {
-            organizationId: GLOBAL_ORG_ID,
-            isTemplate: true,
-          },
-        },
-      });
-      await prisma.funnelSms.deleteMany({
-        where: {
-          organizationId: GLOBAL_ORG_ID,
-          isTemplate: true,
-        },
-      });
-      await prisma.funnelEmail.deleteMany({
-        where: {
-          organizationId: GLOBAL_ORG_ID,
-          isTemplate: true,
-        },
-      });
-      console.log('✅ 기존 템플릿 삭제 완료\n');
+    if (!globalOrg) {
+      console.log('⚠️  Global Admin org not found. Using first org...');
+      const firstOrg = await prisma.organization.findFirst();
+      if (!firstOrg) {
+        throw new Error('No organizations found in database');
+      }
+      globalOrg = firstOrg;
     }
 
-    // 3. 렌즈별 템플릿 생성
+    console.log(`✅ Target Org: ${globalOrg.id} (${globalOrg.name})\n`);
+
+    let totalSmsCount = 0;
+    let totalEmailCount = 0;
     let totalFunnelCount = 0;
-    let totalSmsMessageCount = 0;
-    let totalEmailMessageCount = 0;
 
-    for (const template of LENS_TEMPLATES) {
-      console.log(`📋 생성 중: ${template.name}`);
+    // Process L0-L10 templates
+    for (const lensKey in FUNNEL_LENS_TEMPLATES) {
+      const template = FUNNEL_LENS_TEMPLATES[lensKey];
 
-      // SMS Funnel 생성
+      // Check duplicate
+      const existingSms = await prisma.funnelSms.findFirst({
+        where: {
+          organizationId: globalOrg.id,
+          title: template.name,
+        },
+      });
+
+      if (existingSms) {
+        console.log(`⏭️  ${template.name} 이미 존재, 스킵`);
+        continue;
+      }
+
+      // 1. Create FunnelSms
       const funnelSms = await prisma.funnelSms.create({
         data: {
-          organizationId: GLOBAL_ORG_ID,
+          organizationId: globalOrg.id,
           title: template.name,
           description: template.description,
-          lensType: template.lensCode,
+          lensType: template.lensType,
           visibility: 'PUBLIC',
           isTemplate: true,
+          sendHour: 10,
+          sendMinute: 0,
           isActive: true,
-          messages: {
-            create: template.smsMessages.map((msg, idx) => ({
-              order: idx + 1,
-              daysAfter: msg.day,
-              content: msg.content,
-              msgType: 'SMS',
-            })),
-          },
-        },
-        include: {
-          messages: true,
+          createdByRole: 'ADMIN',
+          riskScore: 0,
         },
       });
-      totalFunnelCount++;
-      totalSmsMessageCount += funnelSms.messages.length;
-      console.log(`  ✓ SMS Funnel: ${funnelSms.id} (4개 메시지)`);
 
-      // Email Funnel 생성
+      totalFunnelCount++;
+      console.log(`✅ FunnelSms: ${template.name}`);
+
+      // 2. Create FunnelSmsMessages (Day 0-3)
+      for (const msg of template.sms) {
+        await prisma.funnelSmsMessage.create({
+          data: {
+            funnelSmsId: funnelSms.id,
+            order: msg.order,
+            daysAfter: msg.daysAfter,
+            content: msg.content,
+            msgType: 'SMS',
+          },
+        });
+        totalSmsCount++;
+      }
+
+      console.log(`   └─ SMS 메시지 4개 (Day 0-3)\n`);
+
+      // 3. Create FunnelEmail
       const funnelEmail = await prisma.funnelEmail.create({
         data: {
-          organizationId: GLOBAL_ORG_ID,
-          title: template.name.replace('L', 'L') + ' (이메일)',
+          organizationId: globalOrg.id,
+          title: template.name,
           description: template.description,
-          lensType: template.lensCode,
+          lensType: template.lensType,
           visibility: 'PUBLIC',
           isTemplate: true,
+          sendHour: 10,
+          sendMinute: 0,
           isActive: true,
-          messages: {
-            create: template.emailMessages.map((msg, idx) => ({
-              order: idx + 1,
-              daysAfter: msg.day,
-              subject: msg.subject,
-              bodyHtml: msg.bodyHtml,
-              previewText: msg.subject,
-            })),
-          },
-        },
-        include: {
-          messages: true,
+          createdByRole: 'ADMIN',
+          riskScore: 0,
         },
       });
+
       totalFunnelCount++;
-      totalEmailMessageCount += funnelEmail.messages.length;
-      console.log(`  ✓ Email Funnel: ${funnelEmail.id} (4개 메시지)\n`);
+      console.log(`✅ FunnelEmail: ${template.name}`);
+
+      // 4. Create FunnelEmailMessages (Day 0-3)
+      for (const msg of template.email) {
+        await prisma.funnelEmailMessage.create({
+          data: {
+            funnelEmailId: funnelEmail.id,
+            order: msg.order,
+            daysAfter: msg.daysAfter,
+            subject: msg.subject,
+            bodyHtml: msg.bodyHtml,
+            previewText: msg.previewText,
+          },
+        });
+        totalEmailCount++;
+      }
+
+      console.log(`   └─ Email 메시지 4개 (Day 0-3)\n`);
     }
 
-    // 4. 결과 출력
-    console.log('═══════════════════════════════════════════════');
-    console.log('✅ Seed 완료!\n');
-    console.log('📊 생성된 레코드:');
-    console.log(`  • Funnel 총 ${totalFunnelCount}개 (SMS: 10, Email: 10)`);
-    console.log(`  • FunnelSmsMessage 총 ${totalSmsMessageCount}개`);
-    console.log(`  • FunnelEmailMessage 총 ${totalEmailMessageCount}개`);
-    console.log(`  • 총 메시지: ${totalSmsMessageCount + totalEmailMessageCount}개\n`);
-    console.log('🎯 렌즈별 템플릿:');
-    LENS_TEMPLATES.forEach((t) => {
-      console.log(`  • ${t.lensCode}: ${t.name}`);
-    });
-    console.log('\n═══════════════════════════════════════════════');
+    console.log('\n✨ Funnel SMS/Email 렌즈 템플릿 Seeding 완료!');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📊 생성 통계:');
+    console.log(`  • Funnel (SMS/Email): ${totalFunnelCount}개`);
+    console.log(`  • SMS 메시지: ${totalSmsCount}개`);
+    console.log(`  • Email 메시지: ${totalEmailCount}개`);
+    console.log(`  • 합계 메시지: ${totalSmsCount + totalEmailCount}개`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    return {
+      funnelCount: totalFunnelCount,
+      smsMessageCount: totalSmsCount,
+      emailMessageCount: totalEmailCount,
+    };
   } catch (error) {
-    console.error('❌ 에러 발생:', error);
+    console.error('❌ Seeding 오류:', error);
     process.exit(1);
   } finally {
     await prisma.$disconnect();
   }
 }
 
-main();
+seedFunnelLensTemplates();
