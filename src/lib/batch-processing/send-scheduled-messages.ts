@@ -80,6 +80,7 @@ export async function sendScheduledMessages(
         ? await prisma.scheduledSms.findMany({
             where: {
               organizationId,
+              day,
               status: canProcessNightBlocked
                 ? { in: ["PENDING", "NIGHT_BLOCKED"] }  // 아침에는 NIGHT_BLOCKED도 처리
                 : "PENDING",                             // 밤에는 PENDING만
