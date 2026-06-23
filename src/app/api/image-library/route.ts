@@ -121,8 +121,25 @@ export async function GET(req: Request) {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const stack = err instanceof Error ? err.stack : undefined;
-    logger.error("[GET /api/image-library]", { message, stack });
-    return NextResponse.json({ ok: false, images: [] }, { status: 500 });
+
+    // P0: 인증 실패 (이미 위에서 처리되지만, 이중 확인)
+    if (message === 'UNAUTHORIZED') {
+      logger.warn("[GET /api/image-library] 인증 실패", { message });
+      return NextResponse.json({ ok: false, error: '인증이 필요합니다' }, { status: 401 });
+    }
+
+    // P1: 조직 정보 누락
+    if (message.includes('ORGANIZATION_REQUIRED') || message.includes('NO_ORGANIZATION')) {
+      logger.warn("[GET /api/image-library] 조직 정보 누락", { message });
+      return NextResponse.json({ ok: false, error: '조직 정보가 필요합니다' }, { status: 403 });
+    }
+
+    // P2: 나머지 에러는 상세히 로깅
+    logger.error("[GET /api/image-library] 쿼리 실패", { message, stack, errType: err?.constructor?.name });
+    return NextResponse.json(
+      { ok: false, error: '이미지를 불러올 수 없습니다', message: process.env.NODE_ENV === 'development' ? message : undefined },
+      { status: 500 }
+    );
   }
 }
 
@@ -247,34 +264,54 @@ export async function POST(req: Request) {
     const message = err instanceof Error ? err.message : String(err);
     const stack = err instanceof Error ? err.stack : undefined;
 
-    // 413/크기 초과 감지
+    // P0: 인증 실패
+    if (message === 'UNAUTHORIZED') {
+      logger.warn("[POST /api/image-library] 인증 실패", { message, userId });
+      return NextResponse.json(
+        { ok: false, error: '인증이 필요합니다' },
+        { status: 401 }
+      );
+    }
+
+    // P0: 조직 정보 누락
+    if (message.includes('ORGANIZATION_REQUIRED') || message.includes('NO_ORGANIZATION') || message.includes('조직 없음')) {
+      logger.warn("[POST /api/image-library] 조직 정보 누락", { message, userId });
+      return NextResponse.json(
+        { ok: false, error: '조직 정보가 필요합니다' },
+        { status: 403 }
+      );
+    }
+
+    // P1: 413/크기 초과 감지
     const isSizeError = message.toLowerCase().includes('too large') ||
                         message.toLowerCase().includes('size') ||
                         message.toLowerCase().includes('413') ||
                         message.toLowerCase().includes('payload');
     if (isSizeError) {
+      logger.warn("[POST /api/image-library] 파일 크기 초과", { message, fileSize, userId });
       return NextResponse.json(
         { ok: false, error: '파일이 너무 큽니다. 이미지를 압축하거나 100MB 이하 파일을 사용해주세요.' },
         { status: 413 }
       );
     }
 
-    // FormData 파싱 오류인 경우 명확한 에러 메시지
+    // P2: FormData 파싱 오류인 경우 명확한 에러 메시지
     const isFormDataError = message.includes("FormData") || message.includes("multipart");
     const userMessage = isFormDataError
       ? "파일 형식이 잘못되었거나 크기가 너무 큽니다"
       : "업로드 실패";
 
-    logger.error("[POST /api/image-library]", {
+    logger.error("[POST /api/image-library] 업로드 실패", {
       message,
       stack,
       userId,
       isFormDataError,
       fileSize,
+      errType: err?.constructor?.name,
     });
 
     return NextResponse.json(
-      { ok: false, error: userMessage },
+      { ok: false, error: userMessage, devMessage: process.env.NODE_ENV === 'development' ? message : undefined },
       { status: isFormDataError ? 400 : 500 }
     );
   }

@@ -13,27 +13,43 @@ async function getServiceToken(): Promise<string> {
     return _tokenCache.token;
   }
   const serviceAccountKey = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY;
-  const credentials = serviceAccountKey
-    ? parseServiceAccount(serviceAccountKey)
-    : {
-        client_email: process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_EMAIL ?? process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-        private_key: (
-          process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_PRIVATE_KEY ??
-          process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? ''
-        ).replace(/\\n/g, '\n'),
-      };
 
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ['https://www.googleapis.com/auth/drive.readonly'],
-  });
-  const client = await auth.getClient() as {
-    getAccessToken(): Promise<{ token?: string | null; expiry_date?: number | null }>;
-  };
-  const res   = await client.getAccessToken();
-  const token = res.token ?? '';
-  _tokenCache = { token, expiresAt: res.expiry_date ?? Date.now() + 3_600_000 };
-  return token;
+  let credentials;
+  try {
+    credentials = serviceAccountKey
+      ? parseServiceAccount(serviceAccountKey)
+      : {
+          client_email: process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_EMAIL ?? process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+          private_key: (
+            process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_PRIVATE_KEY ??
+            process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? ''
+          ).replace(/\\n/g, '\n'),
+        };
+
+    if (!credentials.client_email || !credentials.private_key) {
+      throw new Error('Missing Google service account credentials');
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`SERVICE_ACCOUNT_CONFIG_ERROR: ${msg}`);
+  }
+
+  try {
+    const auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: ['https://www.googleapis.com/auth/drive.readonly'],
+    });
+    const client = await auth.getClient() as {
+      getAccessToken(): Promise<{ token?: string | null; expiry_date?: number | null }>;
+    };
+    const res   = await client.getAccessToken();
+    const token = res.token ?? '';
+    _tokenCache = { token, expiresAt: res.expiry_date ?? Date.now() + 3_600_000 };
+    return token;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`GOOGLE_AUTH_ERROR: ${msg}`);
+  }
 }
 
 /**
@@ -49,8 +65,26 @@ export async function GET(req: Request) {
       return new NextResponse(null, { status: 400 });
     }
 
-    const token = await getServiceToken();
-    if (!token) return new NextResponse(null, { status: 503 });
+    let token: string;
+    try {
+      token = await getServiceToken();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('SERVICE_ACCOUNT_CONFIG_ERROR')) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Google Drive 설정이 완료되지 않았습니다' }),
+          { status: 503, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      throw err; // 다른 에러는 catch 블록으로
+    }
+
+    if (!token) {
+      return new NextResponse(
+        JSON.stringify({ error: '인증 토큰을 얻을 수 없습니다' }),
+        { status: 503, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
 
     const driveRes = await fetch(
       `https://www.googleapis.com/drive/v3/files/${id}?alt=media`,
@@ -59,18 +93,18 @@ export async function GET(req: Request) {
 
     if (!driveRes.ok) {
       if (driveRes.status === 401) {
-        return new NextResponse(JSON.stringify({ error: '이미지를 불러올 수 없습니다' }), {
+        return new NextResponse(JSON.stringify({ error: '이미지 접근 권한이 없습니다' }), {
           status: 401,
           headers: { 'Content-Type': 'application/json' },
         });
       }
       if (driveRes.status === 403) {
-        return new NextResponse(JSON.stringify({ error: '이미지를 불러올 수 없습니다' }), {
+        return new NextResponse(JSON.stringify({ error: '이미지 접근이 금지되었습니다' }), {
           status: 403,
           headers: { 'Content-Type': 'application/json' },
         });
       }
-      return new NextResponse(JSON.stringify({ error: '이미지를 불러올 수 없습니다' }), {
+      return new NextResponse(JSON.stringify({ error: '이미지를 찾을 수 없습니다' }), {
         status: 404,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -96,10 +130,18 @@ export async function GET(req: Request) {
         'Access-Control-Allow-Origin': '*',
       },
     });
-  } catch {
-    return new NextResponse(JSON.stringify({ error: '이미지를 불러올 수 없습니다' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const status = msg.includes('UNAUTHORIZED') ? 401 : 500;
+    return new NextResponse(
+      JSON.stringify({
+        error: '이미지를 불러올 수 없습니다',
+        devMessage: process.env.NODE_ENV === 'development' ? msg : undefined,
+      }),
+      {
+        status,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
