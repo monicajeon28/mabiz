@@ -35,6 +35,8 @@ tsconfig.tsbuildinfo
 check_*.cjs
 check_*.mjs
 
+# Claude Code 워크트리 (배포 시 크기 초과)
+.claude/worktrees/
 
 # ============================================================
 # 민감한 정보가 포함된 문서 (절대 커밋 금지)
