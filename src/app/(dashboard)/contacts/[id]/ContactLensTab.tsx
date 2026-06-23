@@ -70,14 +70,13 @@ function getLensInfoByType(sourceType?: string | null): typeof LENS_INFO_DEFAULT
 }
 
 export default function ContactLensTab({ contact }: { contact: Contact }) {
-  // lensInfo가 없으면 빈 객체 사용
-  const lensScores = contact.lensInfo || {};
-
   // 고객 유형별 렌즈 정보 선택
   const lensInfo = getLensInfoByType(contact.sourceType);
 
   // useMemo로 렌즈 정렬 최적화 (P1: 성능 개선)
   const topLenses = useMemo(() => {
+    // lensInfo가 없으면 빈 객체 사용
+    const lensScores = contact.lensInfo || {};
     const sortedLenses = lensInfo
       .map(lens => ({
         ...lens,
@@ -87,7 +86,7 @@ export default function ContactLensTab({ contact }: { contact: Contact }) {
 
     // 상위 4개만 표시 (주요 1개 + 차순위 3개)
     return sortedLenses.slice(0, 4);
-  }, [lensScores, lensInfo]);
+  }, [contact.lensInfo, lensInfo]);
 
   // 고객 유형별 타이틀
   const typeLabel = contact.sourceType === 'education' ? '교육 고객 특화' : contact.sourceType === 'gold_member' ? 'VIP 특화' : '여행 고객';
