@@ -85,10 +85,10 @@ const LENS_IDS = ["L0", "L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9", "L
  * @returns 렌즈 배열 [{id, name, description}, ...]
  */
 function getLensInfoByType(sourceType?: string | null) {
-  const normalized = (sourceType?.toLowerCase() ?? "default") as keyof typeof LENS_VARIANTS.L0;
+  const normalized = (normalizeSourceType(sourceType) ?? "default") as keyof typeof LENS_VARIANTS.L0;
 
   // normalized가 유효한 타입인지 확인
-  const isValidType = normalized === "default" || normalized === "education" || normalized === "gold_member";
+  const isValidType = normalized === "default" || normalized === SOURCE_TYPES.EDUCATION || normalized === SOURCE_TYPES.GOLD_MEMBER;
   const type = isValidType ? normalized : "default";
 
   return LENS_IDS.map((lensId) => ({
@@ -117,8 +117,8 @@ export default function ContactLensTab({ contact }: { contact: Contact }) {
   }, [contact.lensInfo, lensInfo]);
 
   // 고객 유형별 타이틀
-  const normalized = contact.sourceType?.toLowerCase();
-  const typeLabel = normalized === 'education' ? '교육 고객 특화' : normalized === 'gold_member' ? 'VIP 특화' : '여행 고객';
+  const normalized = normalizeSourceType(contact.sourceType);
+  const typeLabel = normalized === SOURCE_TYPES.EDUCATION ? '교육 고객 특화' : normalized === SOURCE_TYPES.GOLD_MEMBER ? 'VIP 특화' : '여행 고객';
 
   return (
     <div className="space-y-3">
