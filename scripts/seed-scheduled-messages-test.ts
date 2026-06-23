@@ -31,13 +31,15 @@ async function seedScheduledMessages() {
     console.log(`👤 대상 Contact: ${contact.id} (${contact.name})`);
 
     // 3. 현재 시간 기준 ScheduledSms 생성 (Day 0-3)
+    // 주의: setHours는 로컬 시간이므로 UTC로 변환 필요 (KST = UTC+9)
     const now = new Date();
     const testMessages: any[] = [];
 
     for (let day = 0; day < 4; day++) {
+      // UTC 기준 과거 시간 (즉시 발송하도록)
       const scheduledAt = new Date(now);
-      scheduledAt.setDate(scheduledAt.getDate() + day);
-      scheduledAt.setHours(10, 0, 0, 0); // 매일 10:00 발송
+      scheduledAt.setUTCDate(scheduledAt.getUTCDate() - 1 + day); // Day 0: 어제, Day 1: 오늘, etc
+      scheduledAt.setUTCHours(10, 0, 0, 0); // UTC 10:00
 
       testMessages.push({
         organizationId: org.id,
@@ -67,8 +69,8 @@ async function seedScheduledMessages() {
     const emailMsgs: any[] = [];
     for (let day = 0; day < 4; day++) {
       const scheduledAt = new Date(now);
-      scheduledAt.setDate(scheduledAt.getDate() + day);
-      scheduledAt.setHours(10, 5, 0, 0); // 이메일은 5분 뒤
+      scheduledAt.setUTCDate(scheduledAt.getUTCDate() - 1 + day); // Day 0: 어제, Day 1: 오늘
+      scheduledAt.setUTCHours(10, 5, 0, 0); // UTC 10:05 (SMS 5분 뒤)
 
       emailMsgs.push({
         organizationId: org.id,
