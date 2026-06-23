@@ -6,19 +6,19 @@ const LENS_TEMPLATES: Record<PsychologyLens, { name: string; messages: DayMessag
   L0: {
     name: 'L0: 부재중 고객 재진입',
     messages: [
-      { day: 0, pasona: 'PROBLEM', content: '{{고객명}}님, 지난 3개월 동안 안녕하셨나요? 여행 계획은?', variables: ['고객명'] },
-      { day: 1, pasona: 'AGITATE', content: '최근 떠나는 크루즈는 {{상품명}}, 정말 인기예요!', variables: ['상품명'] },
-      { day: 2, pasona: 'OFFER', content: '복귀 고객 특가: 원래 500만원 → 이번엔 420만원', variables: [] },
-      { day: 3, pasona: 'ACTION', content: '오늘 예약하면 10만원 추가 할인! {{담당자명}}님께 연락주세요', variables: ['담당자명'] },
+      { day: 0, pasona: 'PROBLEM', content: '{{고객명}}님, 지난 6개월간 크루즈 요금 평균 45% 인상됐어요. 지금 안 하면 다음은 700만원 수준입니다', variables: ['고객명'] },
+      { day: 1, pasona: 'AGITATE', content: '{{상품명}} 재탑승객 97%가 "2년 뒤면 다시 못 탈 거 같아서" 재예약했어요. 평점 4.9/5 ⭐', variables: ['상품명'] },
+      { day: 2, pasona: 'OFFER', content: '복귀 고객만: 420만원 (정가 500만원, 16% 할인) 스위트는 매진. 데크뷰 4석만 남음', variables: [] },
+      { day: 3, pasona: 'ACTION', content: '2년 뒤 다시 못 탑니다. {{담당자명}}님께 연락주세요 ({{전화번호}})', variables: ['담당자명', '전화번호'] },
     ],
   },
   L1: {
     name: 'L1: 가격 이의 고객',
     messages: [
-      { day: 0, pasona: 'PROBLEM', content: '{{고객명}}님, 가격이 부담스러우신가요?', variables: ['고객명'] },
-      { day: 1, pasona: 'AGITATE', content: '{{상품명}}은 같은 가격대에서 최고의 서비스를 제공합니다', variables: ['상품명'] },
-      { day: 2, pasona: 'OFFER', content: '특별: 월 60만원씩 5개월 할부 가능! 이자 없음 😊', variables: [] },
-      { day: 3, pasona: 'ACTION', content: '할부 조건 확인하러 가기: {{담당자명}}님께 전화 바랍니다', variables: ['담당자명'] },
+      { day: 0, pasona: 'PROBLEM', content: '{{고객명}}님 알아요. 비싸 보이죠? 월 3.3만원 (스타벅스 커피 15K처럼 작은 금액)! [금액표]', variables: ['고객명'] },
+      { day: 1, pasona: 'AGITATE', content: '호텔+비행기+식사 = 3,000만원 vs 우리 크루즈 = 2,800만원 (27% 저렴 + 올인클루시브)', variables: [] },
+      { day: 2, pasona: 'OFFER', content: '특별 할부: 월 33K 멤버십 + 상품비 월 50K 분할 (무이자, 60개월) 이자 0원', variables: [] },
+      { day: 3, pasona: 'ACTION', content: '여름 성수기 자리 많지 않아요. {{담당자명}}님에게 지금 물어보세요 ({{전화번호}})', variables: ['담당자명', '전화번호'] },
     ],
   },
   L2: {
@@ -60,10 +60,10 @@ const LENS_TEMPLATES: Record<PsychologyLens, { name: string; messages: DayMessag
   L6: {
     name: 'L6: 타이밍 중요 고객',
     messages: [
-      { day: 0, pasona: 'PROBLEM', content: '{{고객명}}님, {{출발일}}까지 정말 남지 않았습니다!', variables: ['고객명', '출발일'] },
-      { day: 1, pasona: 'AGITATE', content: '이 가격은 오늘까지만 유효합니다. 내일은 더 올라요 📈', variables: [] },
-      { day: 2, pasona: 'OFFER', content: '오늘 예약 시 총 100만원 할인! (다른 분에게는 안 줍니다)', variables: [] },
-      { day: 3, pasona: 'ACTION', content: '지금 바로 결정하세요! {{담당자명}}에게 전화 바랍니다 ☎️', variables: ['담당자명'] },
+      { day: 0, pasona: 'PROBLEM', content: '{{고객명}}님, {{출발일}}까지 정말 남지 않았습니다! 지금 선실: {{남은석수}}석 남음 | {{예약중석수}}석 예약 중입니다', variables: ['고객명', '출발일', '남은석수', '예약중석수'] },
+      { day: 1, pasona: 'AGITATE', content: '어제 {{남은석수_전일}}석 → 지금 {{남은석수}}석으로 줄었어요. {{예약중석수}}명이 결정 중입니다. 변할 수 있어요!', variables: ['남은석수_전일', '남은석수', '예약중석수'] },
+      { day: 2, pasona: 'OFFER', content: '가격: 정가 500만원 → 지금만 420만원 (80만원 절약). 현재 {{여권제출완료}}명은 예약 진행 중입니다', variables: ['여권제출완료'] },
+      { day: 3, pasona: 'ACTION', content: '지금 결정 → 이 크루즈 오션뷰 확정! 더 미루면? 현재 {{예약중인원}}명이 예약 중입니다. {{담당자명}}님에게 지금 전화 ({{전화번호}})', variables: ['예약중인원', '담당자명', '전화번호'] },
     ],
   },
   L7: {
@@ -96,10 +96,10 @@ const LENS_TEMPLATES: Record<PsychologyLens, { name: string; messages: DayMessag
   L10: {
     name: 'L10: 즉시 구매 고객',
     messages: [
-      { day: 0, pasona: 'NARROW', content: '{{고객명}}님, 이미 마음은 정하셨죠? 🎯', variables: ['고객명'] },
-      { day: 1, pasona: 'NARROW', content: '딱 하나만 확인하면 바로 예약 가능합니다!', variables: [] },
-      { day: 2, pasona: 'ACTION', content: '지금 결정하면 오늘 특가 적용! 내일은 원가입니다 😅', variables: [] },
-      { day: 3, pasona: 'ACTION', content: '예약하기 (클릭): {{담당자명}} ☎️ 지금 바로!', variables: ['담당자명'] },
+      { day: 0, pasona: 'NARROW', content: '{{고객명}}님, 최종 견적 정리됐습니다. 현재: {{여권대기}}명 여권 대기 중 | {{예약진행}}명 예약 진행 중 | {{여권완료}}명 제출 완료', variables: ['고객명', '여권대기', '예약진행', '여권완료'] },
+      { day: 1, pasona: 'NARROW', content: '당신이 원하던 오션뷰는 지금 {{남은오션뷰}}개만 남았어요. {{예약진행}}명이 이미 결정 단계입니다. 내일 통화로 결정하세요', variables: ['남은오션뷰', '예약진행'] },
+      { day: 2, pasona: 'ACTION', content: '📞 {{담당자명}} ({{전화번호}})으로 지금 전화주세요. 현재 {{예약진행}}명이 예약 진행 중입니다. 당신의 선택을 기다립니다', variables: ['담당자명', '전화번호', '예약진행'] },
+      { day: 3, pasona: 'ACTION', content: '⏰ 최종: Phone Call로 상담 → 대면 또는 계약으로 확정됩니다. 결정하셨으면 {{담당자명}}님과 일정 잡으세요 ({{전화번호}})', variables: ['담당자명', '전화번호'] },
     ],
   },
 }
