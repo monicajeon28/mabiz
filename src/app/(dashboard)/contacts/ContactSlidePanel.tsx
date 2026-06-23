@@ -11,7 +11,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  X, Search, Phone, MessageSquare, FileText, GitBranch, Building2, Send, Loader, Share2,
+  X, Search, Phone, MessageSquare, FileText, GitBranch, Building2, Send, Loader, Share2, Brain,
 } from "lucide-react";
 import { useToast } from "@/lib/api/use-toast";
 import { logger } from "@/lib/logger";
@@ -23,12 +23,13 @@ import { useContactOperations, EMPTY_CALL_FORM } from "./[id]/use-contact-operat
 import ContactCallTab from "./[id]/ContactCallTab";
 import ContactMemoTab from "./[id]/ContactMemoTab";
 import ContactSmsTab from "./[id]/ContactSmsTab";
+import ContactLensTab from "./[id]/ContactLensTab";
 import FunnelEnrollSection from "./[id]/FunnelEnrollSection";
 
 type Funnel = { id: string; name: string; funnelType: string };
 type SmsLog = { id: string; phone: string; contentPreview: string; status: string; channel: string; sentAt: string };
 type VipSequence = { id: string; funnelId: string; status: string; startDate: string };
-type TabKey = "call" | "memo" | "funnel" | "sms" | "affiliate";
+type TabKey = "call" | "memo" | "funnel" | "sms" | "affiliate" | "lens";
 type ShareTarget = { id: string; displayName: string | null; loginId?: string | null; role: string; orgName: string };
 
 export interface ContactSlidePanelProps {
@@ -59,12 +60,24 @@ const SOURCE_TYPE_LABELS: Record<string, { label: string; color: string }> = {
   education: { label: '교육', color: 'bg-green-100 text-green-800' },
 };
 
+// ── 위험도 배지 컴포넌트 ────────────────────────────────────────────────────
+function RiskBadge({ score }: { score: number }) {
+  if (score <= 30) {
+    return <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700 font-medium">🟢 정상</span>;
+  } else if (score <= 70) {
+    return <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-700 font-medium">🟡 주의</span>;
+  } else {
+    return <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-700 font-medium">🔴 위험</span>;
+  }
+}
+
 const TAB_LIST: { key: TabKey; icon: React.ReactNode; label: string }[] = [
   { key: "call",      icon: <Phone className="w-4 h-4" />,         label: "📞 전화기록" },
   { key: "memo",      icon: <FileText className="w-4 h-4" />,      label: "📝 메모" },
   { key: "funnel",    icon: <GitBranch className="w-4 h-4" />,     label: "🔄 자동메시지" },
   { key: "sms",       icon: <MessageSquare className="w-4 h-4" />, label: "📱 문자" },
   { key: "affiliate", icon: <Building2 className="w-4 h-4" />,     label: "🏢 담당자" },
+  { key: "lens",      icon: <Brain className="w-4 h-4" />,         label: "🧠 심리렌즈" },
 ];
 
 // ── SMS 인라인 모달 ──────────────────────────────────────────────────────────
@@ -661,6 +674,9 @@ export default function ContactSlidePanel({
                     <p className="text-xs text-gray-400 truncate">{contact.phone}</p>
                   </div>
                   <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium">{contact.type}</span>
+                  {contact.riskScore !== undefined && (
+                    <RiskBadge score={contact.riskScore} />
+                  )}
                 </div>
                 <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors" aria-label="패널 닫기">
                   <X className="w-5 h-5" />
@@ -671,6 +687,24 @@ export default function ContactSlidePanel({
                   유입: {SOURCE_TYPE_LABELS[contact.sourceType].label}
                 </span>
               )}
+            </div>
+
+            {/* 태그 섹션 */}
+            <div className="px-5 py-2.5 border-b border-gray-100 shrink-0">
+              <div className="flex flex-wrap gap-1.5">
+                {contact.tags && contact.tags.length > 0 ? (
+                  contact.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 font-medium"
+                    >
+                      #{tag}
+                    </span>
+                  ))
+                ) : (
+                  <p className="text-xs text-gray-400">태그 없음</p>
+                )}
+              </div>
             </div>
 
             {/* Tab Bar */}
@@ -733,6 +767,9 @@ export default function ContactSlidePanel({
                 <AffiliateTab
                   contactId={contact.id} contactName={contact.name}
                 />
+              )}
+              {activeTab === "lens" && (
+                <ContactLensTab contact={contact} />
               )}
             </div>
 

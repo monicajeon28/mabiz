@@ -91,6 +91,10 @@ export interface Contact {
   // 공유 설정
   visibility?: ContactVisibility;
   sharedWith?: ContactShare[];
+  // 위험도 점수 (0-100, 낮을수록 정상)
+  riskScore?: number;
+  // 심리렌즈 정보
+  lensInfo?: Record<string, number>;
 }
 
 export interface ContactWithSharing extends Contact {
