@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/useSession';
 import { useToast } from '@/lib/api/use-toast';
 import deltaSequence from '@/data/delta_sms_sequence.json';
 import { logger } from '@/lib/logger';
@@ -58,15 +58,11 @@ export interface DefaultMessages {
  */
 export function useDeltaWizard(campaignId: string) {
   const { toast } = useToast();
-  const { data: session } = useSession();
+  const { organizationId } = useSession();
 
   // P0 3: 현재 사용자의 organizationId 추출 (권한 검증용)
-  // next-auth 세션 구조: { user: { organizationId: string, ... }, ... }
-  const currentUserOrgId = (() => {
-    if (!session?.user) return undefined;
-    const user = session.user as Record<string, unknown>;
-    return (user.organizationId ?? user.org_id) as string | undefined;
-  })();
+  // Context-based 세션 구조: { organizationId: string, ... }
+  const currentUserOrgId = organizationId;
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 1. State 초기화

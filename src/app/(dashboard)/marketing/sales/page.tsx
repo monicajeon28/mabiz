@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/hooks/useSession";
 import { RefreshCw, Lock, ShoppingCart, Building2, FileText, User } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { formatAmount, formatDate, formatMonth } from "@/lib/marketing-utils";
@@ -291,7 +291,7 @@ function getLast12Months(): { value: string; label: string }[] {
 
 // ─── 메인 페이지 ──────────────────────────────────────────────
 export default function MarketingSalesPage() {
-  const { data: session, status: sessionStatus } = useSession();
+  const { role } = useSession();
   const [data,      setData]      = useState<SalesApiData | null>(null);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState<string | null>(null);
@@ -341,26 +341,15 @@ export default function MarketingSalesPage() {
 
   // GLOBAL_ADMIN이면 조직 목록 로드
   useEffect(() => {
-    const sessionRole = (session?.user as { role?: string } | undefined)?.role;
-    if (sessionRole !== 'GLOBAL_ADMIN') return;
+    if (role !== 'GLOBAL_ADMIN') return;
     fetch('/api/organizations')
       .then(r => r.ok ? r.json() : [])
       .then(orgs => setOrganizations(orgs))
       .catch(() => {});
-  }, [session]);
+  }, [role]);
 
   // [UI-SALES-009] 세션에서 역할을 즉시 읽어 AGENT/FREE_SALES 차단 (fetch 완료 전 조기 차단)
-  const sessionRole = (session?.user as { role?: string } | undefined)?.role;
-  // [UI-SALES-NEW-001] 세션 로딩 중(status === 'loading')이면 데이터 UI 노출 방지
-  // next-auth의 status를 사용하여 로딩/미인증/인증 상태를 정확히 구분
-  if (sessionStatus === 'loading') {
-    return (
-      <div className="p-6 max-w-6xl mx-auto flex items-center justify-center py-24">
-        <div className="w-8 h-8 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" aria-label="불러오는 중" />
-      </div>
-    );
-  }
-  if (sessionRole === 'AGENT' || sessionRole === 'FREE_SALES') {
+  if (role === 'AGENT' || role === 'FREE_SALES') {
     return <AccessDeniedView />;
   }
 
@@ -377,7 +366,7 @@ export default function MarketingSalesPage() {
   const adminPersonalSales: AdminPersonalSales | null = data?.adminPersonalSales ?? null;
   // UI-SALES-002: 서버가 명시적으로 내려주는 isGlobalAdmin 플래그 사용 (실적 0인 경우 오판 방지)
   // 세션에서도 체크하여 로딩 중에도 GLOBAL_ADMIN 드롭다운이 보이도록 처리
-  const isGlobalAdmin = data?.isGlobalAdmin === true || sessionRole === 'GLOBAL_ADMIN';
+  const isGlobalAdmin = data?.isGlobalAdmin === true || role === 'GLOBAL_ADMIN';
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6 leading-relaxed">
@@ -504,8 +493,8 @@ export default function MarketingSalesPage() {
       {/* 월별 막대 그래프 */}
       {!loading && monthly.length > 0 && <SalesBarChart monthly={monthly} />}
 
-      {/* UI-SALES-010: GLOBAL_ADMIN 전용 — 로딩 중 스켈레톤으로 CLS 방지 (sessionRole undefined 포함: 세션 로드 전 CLS 방지) */}
-      {loading && (sessionRole === 'GLOBAL_ADMIN' || sessionRole === undefined) && (
+      {/* UI-SALES-010: GLOBAL_ADMIN 전용 — 로딩 중 스켈레톤으로 CLS 방지 */}
+      {loading && role === 'GLOBAL_ADMIN' && (
         <div className="space-y-4">
           {/* 관리자 개인 링크 매출 스켈레톤 */}
           <div className="bg-purple-50 rounded-xl border border-purple-200 p-6">

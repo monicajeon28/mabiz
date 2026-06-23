@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/useSession';
 import { redirect } from 'next/navigation';
 import type { TrustAppeal } from '@/types/trust-score';
 
@@ -19,7 +19,7 @@ const APPEAL_REASONS = {
 };
 
 export default function AdminAppealsPage() {
-  const { data: session, status } = useSession();
+  const { userId, isAdmin } = useSession();
   const [appeals, setAppeals] = useState<TrustAppeal[]>([]);
   const [loading, setLoading] = useState(true);
   const [reviewing, setReviewing] = useState<string | null>(null);
@@ -34,13 +34,17 @@ export default function AdminAppealsPage() {
   });
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (!userId) {
       redirect('/auth/login');
+    }
+
+    if (!isAdmin) {
+      redirect('/');
     }
 
     // 이의 목록 조회 (향후 API 구현)
     setLoading(false);
-  }, [session?.user?.email, status]);
+  }, [userId, isAdmin]);
 
   const handleReview = async (appealId: string, approvalStatus: 'APPROVED' | 'REJECTED') => {
     if (!reviewData.adminReview.trim()) {
@@ -85,7 +89,7 @@ export default function AdminAppealsPage() {
     }
   };
 
-  if (status === 'loading' || loading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">

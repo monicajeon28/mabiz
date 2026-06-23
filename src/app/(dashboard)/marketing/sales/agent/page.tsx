@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/hooks/useSession";
 import { RefreshCw, Lock, ShoppingCart, Trophy, FileText } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { formatAmount, formatDate } from "@/lib/marketing-utils";
@@ -191,7 +191,7 @@ function RecentPaymentTable({ recent, loading }: { recent: RecentRow[]; loading:
 
 // ─── 메인 컴포넌트 ────────────────────────────────────────────
 export default function AgentSalesDashboard() {
-  const { data: session } = useSession();
+  const { userId } = useSession();
   const [data, setData] = useState<AgentApiData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -216,7 +216,7 @@ export default function AgentSalesDashboard() {
     fetchData();
   }, [fetchData]);
 
-  if (!session) {
+  if (!userId) {
     return (
       <div className="flex items-center justify-center h-96">
         <p className="text-base text-gray-500">로그인이 필요합니다</p>

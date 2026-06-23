@@ -64,6 +64,7 @@ type ContractFormData = {
   excludedItems: string[];
   hasGuide: 'Y' | 'N';
   refundPolicy: { label: string; value: string }[];
+  refundPolicyText: string;
   specialTerms: string;
   companions: Companion[];
   // 새로 추가 필드
@@ -103,6 +104,7 @@ function getEmptyForm(): ContractFormData {
     excludedItems: ['선상팁', '쇼핑비', '선택관광'],
     hasGuide: 'Y',
     refundPolicy: CRUISE_CANCELLATION_POLICY.map((p) => ({ ...p })),
+    refundPolicyText: '',
     specialTerms: '',
     companions: [],
     contractType: '기획여행',
@@ -137,6 +139,7 @@ type ContractPreviewData = {
   excludedItems?: string[];
   hasGuide?: 'Y' | 'N' | '';
   refundPolicy?: { label: string; value: string }[];
+  refundPolicyText?: string;
   specialTerms?: string | null;
   companions?: Companion[];
   // 새로 추가 필드 (optional)
