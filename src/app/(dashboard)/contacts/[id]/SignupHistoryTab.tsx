@@ -73,41 +73,44 @@ export function SignupHistoryTab({ contactId }: SignupHistoryTabProps) {
             className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
           >
             {/* 헤더: 신청 번호 + 날짜 */}
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                {/* 신청 번호 배지 */}
-                <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-full font-bold text-sm">
-                  {record.index}
-                </div>
-                <div>
-                  <p className="font-bold text-gray-900">
-                    {record.index === 1
-                      ? "첫 신청"
-                      : record.index === 2
-                      ? "두 번째 신청"
-                      : `${record.index}번째 신청`}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {record.daysSinceLanding !== undefined
-                      ? `${record.daysSinceLanding}일 전`
-                      : ""}
-                  </p>
-                </div>
-              </div>
+            {(() => {
+              const createdDate = new Date(record.createdAt);
+              const dateStr = createdDate.toLocaleDateString("ko-KR");
+              const timeStr = createdDate.toLocaleTimeString("ko-KR", {
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+              return (
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    {/* 신청 번호 배지 */}
+                    <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-full font-bold text-sm">
+                      {record.index}
+                    </div>
+                    <div>
+                      <p className="font-bold text-gray-900">
+                        {record.index === 1
+                          ? "첫 신청"
+                          : record.index === 2
+                          ? "두 번째 신청"
+                          : `${record.index}번째 신청`}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {record.daysSinceLanding !== undefined
+                          ? `${record.daysSinceLanding}일 전`
+                          : ""}
+                      </p>
+                    </div>
+                  </div>
 
-              {/* 신청 날짜/시간 */}
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">
-                  {new Date(record.createdAt).toLocaleDateString("ko-KR")}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {new Date(record.createdAt).toLocaleTimeString("ko-KR", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </p>
-              </div>
-            </div>
+                  {/* 신청 날짜/시간 */}
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-gray-900">{dateStr}</p>
+                    <p className="text-xs text-gray-500">{timeStr}</p>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* 상세 정보 */}
             <div className="space-y-2 border-t border-gray-100 pt-3 mt-3">

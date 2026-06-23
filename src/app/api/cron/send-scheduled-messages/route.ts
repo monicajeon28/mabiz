@@ -138,17 +138,41 @@ export async function POST(req: NextRequest) {
           ...result,
         });
       } catch (error) {
+        const duration = Date.now() - startTime;
+        const errorMsg = error instanceof Error ? error.message : String(error);
+
         logger.error(`[Cron] 조직 처리 실패:`, {
           organizationId: org.id,
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMsg,
+          duration,
         });
+
+        // 에러 발생 시에도 로그 생성
+        const batchLog = await prisma.batchExecutionLog.create({
+          data: {
+            organizationId: org.id,
+            batchType: `${type!.toUpperCase()}_DAY${day!}`,
+            totalCount: 0,
+            successCount: 0,
+            failCount: 0,
+            startedAt: new Date(startTime),
+            completedAt: new Date(),
+            duration,
+            errorRate: 0,
+            errorSummary: JSON.stringify({
+              error: errorMsg,
+              timestamp: new Date().toISOString(),
+            }),
+          },
+        });
+
         results.push({
           organizationId: org.id,
           successCount: 0,
           failCount: 0,
-          duration: 0,
-          batchExecutionId: "",
-          error: error instanceof Error ? error.message : String(error),
+          duration,
+          batchExecutionId: batchLog.id,
+          error: errorMsg,
         });
       }
     }
