@@ -403,17 +403,6 @@ export default function FunnelSmsEditPage({
         </button>
       </div>
 
-      {/* ✅ P1-1: 설정 완료 배너 */}
-      <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-4 mb-6 flex items-start gap-3">
-        <div className="text-2xl mt-1">✅</div>
-        <div>
-          <h3 className="font-bold text-emerald-900 text-base">설정이 완료되었습니다</h3>
-          <p className="text-emerald-800 text-sm mt-1">
-            이 자동문자가 저장되었습니다. 신청한 고객에게 자동으로 발송됩니다.
-          </p>
-        </div>
-      </div>
-
       {/* 광고 심의 안내 배너 */}
       <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
         <div className="flex items-start gap-3">
@@ -425,32 +414,6 @@ export default function FunnelSmsEditPage({
               <li>• 광고성 메시지는 제목에 <strong>"(광고)"</strong> 표기 및 메시지 끝에 <strong>"무료수신거부 080-888-1003"</strong> 포함 필수</li>
             </ul>
           </div>
-        </div>
-      </div>
-
-      {/* ✅ P1-3: Day 0-3 타임라인 */}
-      <div className="rounded-lg bg-blue-50 border border-blue-200 p-6 mb-6">
-        <h3 className="font-bold text-blue-900 text-base mb-4">📅 자동 발송 일정</h3>
-
-        <div className="space-y-3">
-          {messages.map((msg, idx) => (
-            <div key={msg.id || `timeline-${idx}`} className="flex items-start gap-3">
-              <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold shrink-0">
-                {msg.daysAfter}
-              </div>
-              <div className="flex-1">
-                <div className="font-semibold text-gray-900 text-sm">
-                  Day {msg.daysAfter}
-                  {msg.daysAfter === 0
-                    ? " (신청 직후)"
-                    : ` (${msg.daysAfter}일 후 ${String(header.sendHour).padStart(2, '0')}:${String(header.sendMinute).padStart(2, '0')})`}
-                </div>
-                <div className="text-gray-600 text-sm mt-1 line-clamp-2">
-                  {msg.content?.substring(0, 50)}...
-                </div>
-              </div>
-            </div>
-          ))}
         </div>
       </div>
 
@@ -581,7 +544,7 @@ export default function FunnelSmsEditPage({
           <div className="flex items-center justify-end gap-3 pb-6">
             <button
               onClick={handleDelete}
-              className="flex items-center gap-1.5 px-4 py-2.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200 rounded-lg transition-colors"
+              className="flex items-center gap-1.5 px-4 py-3 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200 rounded-lg transition-colors"
             >
               <Trash2 className="w-4 h-4" />
               삭제
@@ -589,26 +552,9 @@ export default function FunnelSmsEditPage({
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {saving ? "저장 중..." : "저장"}
-            </button>
-          </div>
-
-          {/* ✅ P1-2: 하단 "목록으로" 버튼들 */}
-          <div className="mt-12 pt-6 border-t border-gray-200 flex gap-3 justify-center">
-            <button
-              onClick={() => router.push("/funnel-sms")}
-              className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white text-base font-semibold rounded-lg transition-colors"
-            >
-              📋 목록으로 돌아가기
-            </button>
-
-            <button
-              onClick={() => router.back()}
-              className="px-8 py-3 bg-gray-200 hover:bg-gray-300 text-gray-900 text-base font-semibold rounded-lg transition-colors"
-            >
-              ← 뒤로가기
             </button>
           </div>
         </div>
