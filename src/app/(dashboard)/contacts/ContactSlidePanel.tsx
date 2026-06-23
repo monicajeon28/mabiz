@@ -62,7 +62,13 @@ const SOURCE_TYPE_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 // ── 위험도 배지 컴포넌트 ────────────────────────────────────────────────────
-function RiskBadge({ score }: { score: number }) {
+function RiskBadge({ score, sourceType }: { score: number; sourceType?: string | null }) {
+  // VIP 고객 (골드 회원)인 경우: 응답 속도 우선 알람
+  if (sourceType === 'gold_member') {
+    return <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-700 font-medium">🔴 VIP 응답 급함</span>;
+  }
+
+  // 일반 고객: 기존 취소율 기반 위험도
   if (score <= 30) {
     return <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700 font-medium">🟢 정상</span>;
   } else if (score <= 70) {
@@ -677,7 +683,7 @@ export default function ContactSlidePanel({
                   </div>
                   <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium">{contact.type}</span>
                   {contact.riskScore !== undefined && (
-                    <RiskBadge score={contact.riskScore} />
+                    <RiskBadge score={contact.riskScore} sourceType={contact.sourceType} />
                   )}
                 </div>
                 <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors" aria-label="패널 닫기">
