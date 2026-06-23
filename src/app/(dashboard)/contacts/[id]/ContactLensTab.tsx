@@ -7,7 +7,7 @@
  * - 각 렌즈: 이름 + 설명 + 점수 진행바
  */
 
-import React from "react";
+import React, { useMemo } from "react";
 import { Contact } from "@/types/contact";
 
 // 기본 여행 고객용 렌즈 정보
@@ -76,16 +76,18 @@ export default function ContactLensTab({ contact }: { contact: Contact }) {
   // 고객 유형별 렌즈 정보 선택
   const lensInfo = getLensInfoByType(contact.sourceType);
 
-  // 모든 렌즈 점수를 배열로 변환 후 정렬
-  const sortedLenses = lensInfo
-    .map(lens => ({
-      ...lens,
-      score: lensScores[lens.id] ?? 0,
-    }))
-    .sort((a, b) => b.score - a.score);
+  // useMemo로 렌즈 정렬 최적화 (P1: 성능 개선)
+  const topLenses = useMemo(() => {
+    const sortedLenses = lensInfo
+      .map(lens => ({
+        ...lens,
+        score: lensScores[lens.id] ?? 0,
+      }))
+      .sort((a, b) => b.score - a.score);
 
-  // 상위 4개만 표시 (주요 1개 + 차순위 3개)
-  const topLenses = sortedLenses.slice(0, 4);
+    // 상위 4개만 표시 (주요 1개 + 차순위 3개)
+    return sortedLenses.slice(0, 4);
+  }, [lensScores, lensInfo]);
 
   // 고객 유형별 타이틀
   const typeLabel = contact.sourceType === 'education' ? '교육 고객 특화' : contact.sourceType === 'gold_member' ? 'VIP 특화' : '여행 고객';

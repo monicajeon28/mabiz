@@ -14,13 +14,13 @@ const LENS_LABELS: Record<LensType, string> = {
 interface ContactData {
   id?: string;
   name?: string;
-  phone?: string;
-  email?: string;
+  phone?: string | null;
+  email?: string | null;
   type?: string;
   cruiseInterest?: string | null;
   budgetRange?: string | null;
   lastContactedAt?: Date | string | null;
-  createdAt?: Date | string;
+  createdAt?: Date | string | null;
   callLogs?: Array<{ content: string | null; createdAt: Date | string }>;
   memos?: Array<{ content: string; createdAt: Date | string }>;
   sourceType?: string | null;
@@ -248,4 +248,23 @@ export function sortLensesByPriority(lenses: LensType[]): LensType[] {
   };
 
   return [...lenses].sort((a, b) => priority[a] - priority[b]);
+}
+
+/**
+ * ContactLensTab용 렌즈 점수 객체 생성
+ * 감지된 렌즈: 100점, 미감지: 0점
+ */
+export function getLensScores(data: ContactData): Record<LensType, number> {
+  const lenses = detectLenses(data);
+  const scores: Record<LensType, number> = {
+    L0: 0, L1: 0, L2: 0, L3: 0, L4: 0,
+    L5: 0, L6: 0, L7: 0, L8: 0, L9: 0, L10: 0,
+  };
+
+  // 감지된 렌즈는 100점
+  for (const lens of lenses) {
+    scores[lens] = 100;
+  }
+
+  return scores;
 }
