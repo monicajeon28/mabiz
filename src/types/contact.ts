@@ -39,6 +39,19 @@ export interface SurveyData {
   [key: string]: unknown;
 }
 
+export interface SignupHistoryEntry {
+  index?: number;
+  landingPageId?: string | null;
+  landingPageTitle?: string | null;
+  groupId?: string | null;
+  groupName?: string | null;
+  createdAt?: string;
+  email?: string;
+  phone?: string;
+  date: string;
+  responseTime?: number;
+}
+
 export type ContactVisibility = 'SHARED' | 'ADMIN_ONLY';
 
 export interface ContactShare {
@@ -85,7 +98,7 @@ export interface Contact {
 
   // ===== 신청 이력 =====
   signupCount?: number;
-  signupHistory?: string | any[];
+  signupHistory?: SignupHistoryEntry[];
 
   // ===== 인구통계 =====
   age?: number | null;
