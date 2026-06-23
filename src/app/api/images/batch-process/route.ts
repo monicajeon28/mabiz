@@ -7,11 +7,10 @@ import { logger } from '@/lib/logger';
 export const maxDuration = 300; // 5분
 
 /**
- * POST /api/images/batch-process
+ * 공통 배치 처리 로직
  * PENDING 상태 이미지에 워터마크 + WebP 변환 후 Drive 업로드
- * Vercel Cron 또는 수동 호출
  */
-export async function POST(req: Request) {
+async function processBatchImages(req: Request) {
   // Cron 호출 인증
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
@@ -104,7 +103,23 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, results });
   } catch (err) {
-    logger.error('[POST /api/images/batch-process]', { err });
+    logger.error('[batch-process]', { err });
     return NextResponse.json({ ok: false, error: '서버 오류가 발생했습니다.' }, { status: 500 });
   }
+}
+
+/**
+ * POST /api/images/batch-process
+ * Vercel Cron 또는 수동 호출
+ */
+export async function POST(req: Request) {
+  return processBatchImages(req);
+}
+
+/**
+ * GET /api/images/batch-process
+ * Vercel Cron은 항상 GET으로 호출 (Vercel 기본 동작)
+ */
+export async function GET(req: Request) {
+  return processBatchImages(req);
 }
