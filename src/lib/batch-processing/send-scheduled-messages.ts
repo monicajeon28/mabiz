@@ -83,14 +83,32 @@ export async function sendScheduledMessages(
       type,
     });
 
+    // SMS 직접 카운트
+    const smsCount = await prisma.scheduledSms.count({
+      where: { organizationId },
+    });
+    const emailCount = await prisma.scheduledEmailMessage.count({
+      where: { organizationId },
+    });
+    logger.warn(`[Batch] DB 총 메시지 수`, { organizationId, smsCount, emailCount });
+
+    // PENDING 상태만 카운트
+    const smsPendingCount = await prisma.scheduledSms.count({
+      where: { organizationId, status: "PENDING" },
+    });
+    const emailPendingCount = await prisma.scheduledEmailMessage.count({
+      where: { organizationId, status: "PENDING" },
+    });
+    logger.warn(`[Batch] PENDING 상태 메시지`, { organizationId, smsPendingCount, emailPendingCount });
+
     const messages =
       type === "sms"
         ? await prisma.scheduledSms.findMany({
             where: {
               organizationId,
               status: canProcessNightBlocked
-                ? { in: ["PENDING", "NIGHT_BLOCKED"] }  // 아침에는 NIGHT_BLOCKED도 처리
-                : "PENDING",                             // 밤에는 PENDING만
+                ? { in: ["PENDING", "NIGHT_BLOCKED"] }
+                : "PENDING",
               scheduledAt: { lte: now },
             },
             select: {
@@ -107,8 +125,8 @@ export async function sendScheduledMessages(
             where: {
               organizationId,
               status: canProcessNightBlocked
-                ? { in: ["PENDING", "NIGHT_BLOCKED"] }  // 아침에는 NIGHT_BLOCKED도 처리
-                : "PENDING",                             // 밤에는 PENDING만
+                ? { in: ["PENDING", "NIGHT_BLOCKED"] }
+                : "PENDING",
               scheduledAt: { lte: now },
             },
             select: {
@@ -131,7 +149,15 @@ export async function sendScheduledMessages(
       organizationId,
       foundCount: messages.length,
       limit: LIMIT,
+      scheduledAtCondition: `<= ${now.toISOString()}`,
     });
+
+    if (messages.length > 0) {
+      logger.warn(`[Batch] 첫 메시지 샘플`, {
+        type,
+        firstMsg: messages[0],
+      });
+    }
 
     if (messages.length === 0) {
       logger.warn(`[Batch] ${type.toUpperCase()} Day ${day} 발송 대상 없음`);
