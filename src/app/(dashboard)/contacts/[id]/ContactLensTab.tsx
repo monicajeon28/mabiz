@@ -102,6 +102,7 @@ export default function ContactLensTab({ contact }: { contact: Contact }) {
   const lensInfo = getLensInfoByType(contact.sourceType);
 
   // useMemo로 렌즈 정렬 최적화 (P1: 성능 개선)
+  // 의존성: contact.lensInfo (DB 점수), contact.sourceType (렌즈 배열 결정)
   const topLenses = useMemo(() => {
     // lensInfo가 없으면 빈 객체 사용
     const lensScores = contact.lensInfo || {};
@@ -114,7 +115,7 @@ export default function ContactLensTab({ contact }: { contact: Contact }) {
 
     // 상위 4개만 표시 (주요 1개 + 차순위 3개)
     return sortedLenses.slice(0, 4);
-  }, [contact.lensInfo, lensInfo]);
+  }, [contact.lensInfo, contact.sourceType]);
 
   // 고객 유형별 타이틀
   const normalized = normalizeSourceType(contact.sourceType);
