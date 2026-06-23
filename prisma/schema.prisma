@@ -1561,7 +1561,6 @@ model ScheduledSms {
   contactId          String?
   groupId            String?
   message            String
-  day                Int? // 0, 1, 2, 3 (Day 0-3 sequence tracking, matches ScheduledEmailMessage.day pattern)
   scheduledAt        DateTime
   status             String       @default("PENDING")
   sentAt             DateTime?
@@ -1581,7 +1580,6 @@ model ScheduledSms {
   round              Int? // 발송 당시 FunnelSmsMessage.daysAfter 스냅샷 (UI: round+1 = "N일차")
   organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@index([organizationId, day, status, scheduledAt])
   @@index([organizationId, status, scheduledAt])
   @@index([scheduledAt, status])
   @@index([channel])
