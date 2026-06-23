@@ -1078,13 +1078,13 @@ export default function OrganizationsPage() {
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold mb-0.5">판매 파트너 계약 신청</p>
               <p className="text-sm text-blue-200 font-mono truncate">
-                /affiliate/apply
+                /affiliate-join/apply
               </p>
               <p className="text-sm text-blue-300 mt-1">잠재 판매 파트너에게 이 링크를 공유하세요.</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <CopyApplyLink path="/affiliate/apply" />
-              <a href="/affiliate/apply" target="_blank" rel="noopener noreferrer" className="p-2 bg-blue-500 hover:bg-blue-400 rounded-lg transition-colors" title="페이지 열기">
+              <CopyApplyLink path="/affiliate-join/apply" />
+              <a href="/affiliate-join/apply" target="_blank" rel="noopener noreferrer" className="p-2 bg-blue-500 hover:bg-blue-400 rounded-lg transition-colors" title="페이지 열기">
                 <ExternalLink className="w-4 h-4" />
               </a>
             </div>
@@ -1095,13 +1095,13 @@ export default function OrganizationsPage() {
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold mb-0.5">크루즈닷 파트너스 가입 신청</p>
               <p className="text-sm text-emerald-200 font-mono truncate">
-                /affiliate/pre-sales
+                /affiliate-join/pre-sales
               </p>
               <p className="text-sm text-emerald-300 mt-1">잠재 크루즈닷 파트너스에게 이 링크를 공유하세요.</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <CopyApplyLink path="/affiliate/pre-sales" colorClass="bg-white text-emerald-700 hover:bg-emerald-50" />
-              <a href="/affiliate/pre-sales" target="_blank" rel="noopener noreferrer" className="p-2 bg-emerald-500 hover:bg-emerald-400 rounded-lg transition-colors" title="페이지 열기">
+              <CopyApplyLink path="/affiliate-join/pre-sales" colorClass="bg-white text-emerald-700 hover:bg-emerald-50" />
+              <a href="/affiliate-join/pre-sales" target="_blank" rel="noopener noreferrer" className="p-2 bg-emerald-500 hover:bg-emerald-400 rounded-lg transition-colors" title="페이지 열기">
                 <ExternalLink className="w-4 h-4" />
               </a>
             </div>
