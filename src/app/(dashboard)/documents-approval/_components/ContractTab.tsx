@@ -240,6 +240,12 @@ export default function ContractTab() {
     name: '', birthDate: '', relation: '배우자', phone: '', pnr: '',
   });
 
+  // 상품 드롭다운 상태
+  const [productSearch, setProductSearch] = useState('');
+  const [productDropdownOpen, setProductDropdownOpen] = useState(false);
+  const [productSearchResults, setProductSearchResults] = useState<{ id: string; productCode: string; productName: string; basePrice: number }[]>([]);
+  const [isSearchingProducts, setIsSearchingProducts] = useState(false);
+
   /* ── document list ── */
   const loadDocuments = useCallback(async () => {
     setListLoading(true);
@@ -417,6 +423,89 @@ export default function ContractTab() {
       showError(e instanceof Error ? e.message : '발급 중 오류가 발생했습니다.');
     } finally {
       setIssuing(false);
+    }
+  };
+
+  /* ── 상품 검색 ── */
+  const searchProducts = async (query: string) => {
+    if (!query.trim()) {
+      setProductSearchResults([]);
+      return;
+    }
+    try {
+      setIsSearchingProducts(true);
+      const res = await fetch(
+        `/api/products?q=${encodeURIComponent(query)}&isActive=true&limit=20`,
+        { credentials: 'include' }
+      );
+      const json = await res.json();
+      if (res.ok && Array.isArray(json.products)) {
+        setProductSearchResults(
+          json.products.map((p: any) => ({
+            id: p.id,
+            productCode: p.code,
+            productName: p.name,
+            basePrice: p.price,
+          }))
+        );
+      } else {
+        setProductSearchResults([]);
+      }
+    } catch (error) {
+      setProductSearchResults([]);
+    } finally {
+      setIsSearchingProducts(false);
+    }
+  };
+
+  const handleSelectProductFromDropdown = async (product: { id: string; productCode: string; productName: string; basePrice: number }) => {
+    setProductSearch('');
+    setProductDropdownOpen(false);
+    setProductSearchResults([]);
+    setProductCode(product.productCode);
+    setForm((prev) => ({
+      ...prev,
+      productName: product.productName,
+    }));
+    // 자동으로 productInfo 로드 (productCode로)
+    await loadProductInfoByCode(product.productCode);
+  };
+
+  const loadProductInfoByCode = async (code: string) => {
+    if (!code.trim()) { showError('상품 코드를 입력해주세요.'); return; }
+    setLoadingProduct(true);
+    try {
+      const res = await fetch(
+        `/api/admin/affiliate/documents/product-info?productCode=${encodeURIComponent(code)}`,
+        { credentials: 'include' },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.ok) { showError((json.error as string) || '상품 정보 조회 실패'); return; }
+      const p = json.product as {
+        productName?: string;
+        startDate?: string;
+        nights?: number;
+        includedItems?: string[];
+        excludedItems?: string[];
+        hasGuide?: 'Y' | 'N';
+        refundPolicy?: { label: string; value: string }[];
+      };
+      setForm((prev) => ({
+        ...prev,
+        productName: p.productName || prev.productName,
+        departureDate: p.startDate ? (p.startDate as string).split('T')[0] : prev.departureDate,
+        nights: p.nights ?? prev.nights,
+        includedItems: p.includedItems ?? prev.includedItems,
+        excludedItems: p.excludedItems ?? prev.excludedItems,
+        hasGuide: p.hasGuide ?? prev.hasGuide,
+        refundPolicy: Array.isArray(p.refundPolicy) ? p.refundPolicy : [...CRUISE_CANCELLATION_POLICY],
+        refundPolicyText: '', // 초기화 (사용자가 직접 입력하도록)
+      }));
+      showSuccess('상품 정보가 자동 반영되었습니다.');
+    } catch (e) {
+      showError(e instanceof Error ? e.message : '상품 정보 로드 실패');
+    } finally {
+      setLoadingProduct(false);
     }
   };
 
