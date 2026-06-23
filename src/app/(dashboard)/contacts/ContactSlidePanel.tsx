@@ -11,7 +11,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  X, Search, Phone, MessageSquare, FileText, GitBranch, Building2, Send, Loader, Share2, Brain,
+  X, Search, Phone, MessageSquare, FileText, GitBranch, Building2, Send, Loader, Share2, Brain, History,
 } from "lucide-react";
 import { useToast } from "@/lib/api/use-toast";
 import { logger } from "@/lib/logger";
@@ -24,12 +24,13 @@ import ContactCallTab from "./[id]/ContactCallTab";
 import ContactMemoTab from "./[id]/ContactMemoTab";
 import ContactSmsTab from "./[id]/ContactSmsTab";
 import ContactLensTab from "./[id]/ContactLensTab";
+import ContactSignupHistoryTab from "./[id]/ContactSignupHistoryTab";
 import FunnelEnrollSection from "./[id]/FunnelEnrollSection";
 
 type Funnel = { id: string; name: string; funnelType: string };
 type SmsLog = { id: string; phone: string; contentPreview: string; status: string; channel: string; sentAt: string };
 type VipSequence = { id: string; funnelId: string; status: string; startDate: string };
-type TabKey = "call" | "memo" | "funnel" | "sms" | "affiliate" | "lens";
+type TabKey = "call" | "memo" | "funnel" | "sms" | "affiliate" | "lens" | "signup";
 type ShareTarget = { id: string; displayName: string | null; loginId?: string | null; role: string; orgName: string };
 
 export interface ContactSlidePanelProps {
@@ -78,6 +79,7 @@ const TAB_LIST: { key: TabKey; icon: React.ReactNode; label: string }[] = [
   { key: "sms",       icon: <MessageSquare className="w-4 h-4" />, label: "📱 문자" },
   { key: "affiliate", icon: <Building2 className="w-4 h-4" />,     label: "🏢 담당자" },
   { key: "lens",      icon: <Brain className="w-4 h-4" />,         label: "🧠 심리렌즈" },
+  { key: "signup",    icon: <History className="w-4 h-4" />,       label: "📋 신청이력" },
 ];
 
 // ── SMS 인라인 모달 ──────────────────────────────────────────────────────────
@@ -771,14 +773,17 @@ export default function ContactSlidePanel({
               {activeTab === "lens" && (
                 <ContactLensTab contact={contact} />
               )}
+              {activeTab === "signup" && (
+                <ContactSignupHistoryTab contact={contact} />
+              )}
             </div>
 
             {/* Footer */}
-            <div className="px-4 py-3 border-t border-gray-100 shrink-0 bg-gray-50">
+            <div className="px-4 py-3 border-t border-gray-100 shrink-0 bg-gradient-to-r from-blue-50 to-blue-100">
               <a href={`/contacts/${contact.id}`}
-                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors"
+                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 transition-all shadow-md"
                 onClick={onClose}>
-                전체 상세 페이지에서 보기
+                📄 전체 고객 상세 정보 보기 →
               </a>
             </div>
           </motion.aside>
