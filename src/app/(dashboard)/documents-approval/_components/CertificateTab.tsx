@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   FileCheck2,
   FileX2,
@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   Search,
   PenLine,
+  X,
 } from 'lucide-react';
 import { showError, showSuccess } from '@/components/ui/Toast';
 import { CANCELLATION_POLICY } from '@/lib/company-info';
@@ -86,6 +87,14 @@ type ProductInfo = {
 
 type CertMode = 'purchase' | 'refund';
 
+// 상품 검색 결과 타입
+type ProductSearchResult = {
+  id: string;
+  productCode: string;
+  productName: string;
+  basePrice: number;
+};
+
 // 직접 입력 상태 타입
 type DirectInput = {
   buyerName: string;
@@ -93,6 +102,7 @@ type DirectInput = {
   productName: string;
   amount: string;
   paidAt: string;
+  refundPolicyText: string; // 환불규정 텍스트
   // 환불인증서 전용
   cancelDate: string;
   departureDate: string;
@@ -104,6 +114,7 @@ const DIRECT_INPUT_INITIAL: DirectInput = {
   productName: '',
   amount: '',
   paidAt: '',
+  refundPolicyText: '',
   cancelDate: '',
   departureDate: '',
 };
@@ -145,6 +156,13 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
   const [productInfo, setProductInfo] = useState<ProductInfo | null>(null);
   const [isLoadingProductInfo, setIsLoadingProductInfo] = useState(false);
 
+  // 상품 검색 드롭다운 상태
+  const [productSearch, setProductSearch] = useState('');
+  const [productSearchResults, setProductSearchResults] = useState<ProductSearchResult[]>([]);
+  const [productDropdownOpen, setProductDropdownOpen] = useState(false);
+  const [isSearchingProducts, setIsSearchingProducts] = useState(false);
+  const productDropdownRef = useRef<HTMLDivElement>(null);
+
   const hasIssued = mode === 'purchase' ? !!purchaseData : !!refundData;
 
   // 고객 선택 시 상품 정보 조회
@@ -172,6 +190,54 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
       })
       .finally(() => setIsLoadingProductInfo(false));
   }, [selectedSale?.productCode]);
+
+  // 상품 검색 함수
+  const searchProducts = async (query: string) => {
+    if (!query.trim()) {
+      setProductSearchResults([]);
+      return;
+    }
+    try {
+      setIsSearchingProducts(true);
+      const res = await fetch(
+        `/api/products?q=${encodeURIComponent(query)}&isActive=true&limit=20`,
+        { credentials: 'include' }
+      );
+      const json = await res.json();
+      if (res.ok && Array.isArray(json.products)) {
+        setProductSearchResults(json.products);
+      } else {
+        setProductSearchResults([]);
+      }
+    } catch {
+      setProductSearchResults([]);
+    } finally {
+      setIsSearchingProducts(false);
+    }
+  };
+
+  // 상품 드롭다운에서 상품 선택
+  const handleSelectProductFromDropdown = (product: ProductSearchResult) => {
+    setDirectInput((prev) => ({
+      ...prev,
+      productName: product.productName,
+      amount: product.basePrice.toString(),
+    }));
+    setProductSearch('');
+    setProductDropdownOpen(false);
+    setProductSearchResults([]);
+  };
+
+  // 바깥 클릭으로 드롭다운 닫기
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (productDropdownRef.current && !productDropdownRef.current.contains(e.target as Node)) {
+        setProductDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   // ── 미리보기에 사용할 데이터 타입 (SaleResult의 미리보기 관련 필드만) ────────
   type PreviewSaleData = {
@@ -227,17 +293,24 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
   // 발급 버튼 활성화 조건
   const canIssue = (() => {
     if (inputMode === 'search') return !!selectedSale;
-    // 직접 입력: 이름 + 상품명 + 금액 필수
-    return !!(directInput.buyerName && directInput.productName && directInput.amount);
+    // 직접 입력: 이름 + 상품명 + 금액 + 환불규정 (50자 이상) 필수
+    return !!(
+      directInput.buyerName &&
+      directInput.productName &&
+      directInput.amount &&
+      directInput.refundPolicyText.length >= 50
+    );
   })();
 
   const handleIssue = async () => {
     if (!canIssue) {
-      showError(
-        inputMode === 'search'
-          ? '먼저 고객을 선택해주세요.'
-          : '고객 이름, 상품명, 금액을 입력해주세요.'
-      );
+      if (inputMode === 'search') {
+        showError('먼저 고객을 선택해주세요.');
+      } else if (!directInput.refundPolicyText || directInput.refundPolicyText.length < 50) {
+        showError('환불규정을 50자 이상 입력해주세요.');
+      } else {
+        showError('고객 이름, 상품명, 금액을 입력해주세요.');
+      }
       return;
     }
     if (inputMode === 'search' && !selectedSale?.orderId) {
@@ -258,6 +331,7 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
           productName: directInput.productName || null,
           amount: directInput.amount ? Number(directInput.amount) : null,
           paidAt: directInput.paidAt || null,
+          note: directInput.refundPolicyText || null,
           cancelledAt: directInput.cancelDate || null,
           departureDate: directInput.departureDate || null,
         };
@@ -484,17 +558,77 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
               </div>
             </div>
 
-            <div className="flex flex-col gap-1.5">
+            {/* 상품명 드롭다운 섹션 */}
+            <div className="flex flex-col gap-1.5" ref={productDropdownRef}>
               <label className="text-sm font-semibold text-gray-700">
                 상품명 <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                value={directInput.productName}
-                onChange={(e) => handleDirectInputChange('productName', e.target.value)}
-                placeholder="예: 코스타 세레나 지중해 7박 8일"
-                className="rounded-xl border border-gray-300 px-4 py-3 text-base text-gray-900 placeholder-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={productSearch || directInput.productName}
+                  onChange={(e) => {
+                    setProductSearch(e.target.value);
+                    if (e.target.value.length > 0) {
+                      searchProducts(e.target.value);
+                      setProductDropdownOpen(true);
+                    } else {
+                      setProductDropdownOpen(false);
+                    }
+                  }}
+                  onFocus={() => {
+                    if (productSearch.length > 0) setProductDropdownOpen(true);
+                  }}
+                  placeholder="상품명 입력 후 선택"
+                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 placeholder-gray-400 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-200"
+                />
+
+                {/* 로딩 표시 */}
+                {isSearchingProducts && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
+                )}
+
+                {/* 입력창 초기화 버튼 */}
+                {!isSearchingProducts && productSearch && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProductSearch('');
+                      setProductSearchResults([]);
+                      setProductDropdownOpen(false);
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+
+                {/* 드롭다운 목록 */}
+                {productDropdownOpen && productSearchResults.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-2 border border-gray-300 bg-white rounded-xl shadow-lg z-10 max-h-64 overflow-y-auto">
+                    {productSearchResults.map((product) => (
+                      <button
+                        key={product.id}
+                        type="button"
+                        onClick={() => handleSelectProductFromDropdown(product)}
+                        className="w-full px-4 py-3 hover:bg-violet-50 cursor-pointer border-b last:border-b-0 text-left transition-colors"
+                      >
+                        <div className="font-semibold text-gray-900 text-sm">{product.productName}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {product.basePrice ? `기본가: ${product.basePrice.toLocaleString()}원` : '가격 미정'}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* 검색 결과 없음 */}
+                {productDropdownOpen && !isSearchingProducts && productSearch.length > 0 && productSearchResults.length === 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-2 border border-gray-300 bg-white rounded-xl shadow-lg z-10 px-4 py-3 text-sm text-gray-500">
+                    검색 결과가 없습니다.
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
@@ -519,6 +653,37 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
                   onChange={(e) => handleDirectInputChange('paidAt', e.target.value)}
                   className="rounded-xl border border-gray-300 px-4 py-3 text-base text-gray-900 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
                 />
+              </div>
+            </div>
+
+            {/* 환불규정 필드 */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-gray-700">
+                취소·환불규정 <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={directInput.refundPolicyText}
+                onChange={(e) => handleDirectInputChange('refundPolicyText', e.target.value)}
+                placeholder="환불규정을 상세히 입력하세요 (50자 이상 필수)"
+                minLength={50}
+                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 placeholder-gray-400 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-200 resize-none h-28"
+              />
+
+              {/* 글자 수 카운터 */}
+              <div className="flex justify-between items-center px-1">
+                <div className="text-xs text-gray-500">
+                  {directInput.refundPolicyText.length}/최소 50자
+                </div>
+                {directInput.refundPolicyText.length < 50 && (
+                  <div className="text-xs text-rose-600 font-semibold">
+                    {50 - directInput.refundPolicyText.length}자 더 입력해주세요
+                  </div>
+                )}
+                {directInput.refundPolicyText.length >= 50 && (
+                  <div className="text-xs text-emerald-600 font-semibold">
+                    ✅ 입력 완료
+                  </div>
+                )}
               </div>
             </div>
 
