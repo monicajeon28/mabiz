@@ -143,6 +143,7 @@ export async function GET(_req: Request, { params }: Params) {
         memos:          memosWithAuthor,
         sharedCallLogs: sharedWithAuthor,
         lensInfo:       lensInfo, // P0 추가: 심리렌즈 점수
+        signupHistory:  contact.signupHistory, // P0 추가: 신청이력 (P1 신청이력탭)
       },
     });
   } catch (err) {
