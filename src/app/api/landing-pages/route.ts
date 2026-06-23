@@ -36,6 +36,8 @@ export async function GET() {
     });
 
     // 공유받은 페이지 (sharedToOrgId = myOrgId OR isGlobal = true)
+    // P0 수정: 1) landingPage IS NOT NULL (고아 레코드 제외)
+    //         2) select 사용 (N+1 제거, include 대신 더 효율적)
     const receivedShares = await prisma.crmLandingShare.findMany({
       where: {
         OR: [
@@ -45,9 +47,16 @@ export async function GET() {
         // 내 페이지는 제외 (자기 자신이 소유한 페이지)
         landingPage: {
           organizationId: { not: myOrgId },
+          id: { not: "" }, // 고아 레코드 필터링 (FK Cascade 중 null 방지)
         },
       },
-      include: {
+      select: {
+        id: true,
+        landingPageId: true,
+        sharedByOrgId: true,
+        sharedByName: true,
+        createdAt: true,
+        // landingPage 정보 인라인 (JOIN 일회)
         landingPage: {
           select: {
             id: true,
@@ -87,7 +96,16 @@ export async function GET() {
     return NextResponse.json({ ok: true, pages, sharedPages });
   } catch (err) {
     logger.error("[GET /api/landing-pages]", { err });
-    return NextResponse.json({ ok: false }, { status: 500 });
+    // P1 개선: 에러 타입 구분해서 클라이언트에 알림
+    const errCode = (err as any)?.code;
+    const message =
+      errCode === 'P2025' ? '페이지를 찾을 수 없습니다' :
+      errCode === 'P2002' ? '중복된 페이지가 있습니다' :
+      '페이지 목록 조회에 실패했습니다';
+    return NextResponse.json(
+      { ok: false, error: errCode || 'UNKNOWN_ERROR', message },
+      { status: 500 }
+    );
   }
 }
 
@@ -197,6 +215,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, message: "이미 사용 중인 슬러그입니다." }, { status: 409 });
     }
     logger.error("[POST /api/landing-pages]", { err });
-    return NextResponse.json({ ok: false }, { status: 500 });
+    // P1 개선: 에러 타입 구분
+    const errCode = (err as any)?.code;
+    const message = '페이지 생성에 실패했습니다';
+    return NextResponse.json(
+      { ok: false, error: errCode || 'UNKNOWN_ERROR', message },
+      { status: 500 }
+    );
   }
 }
