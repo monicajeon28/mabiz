@@ -49,21 +49,33 @@ export async function GET(req: Request) {
       )
     }
 
-    // 실시간 데이터 조회 (임시값 - Phase 3에서 실제 DB 데이터로 대체)
+    // Phase 4: 실제 DB 데이터 조회
     const getRealtimeData = async () => {
-      // TODO: Phase 3 - 실제 DB 데이터로 대체
-      // 현재는 임시값으로 미리보기 기능 테스트
+      const pendingSmsCount = await prisma.scheduledSms.count({
+        where: { organizationId: orgId, status: 'PENDING' },
+      })
+      const processingContactIds = await prisma.scheduledSms.findMany({
+        where: { organizationId: orgId, status: 'PROCESSING' },
+        select: { contactId: true },
+        distinct: ['contactId'],
+      })
+      const reservedContactCount = await prisma.contact.count({
+        where: { organizationId: orgId, reservationId: { not: null } },
+      })
+      const pendingContactCount = await prisma.contact.count({
+        where: { organizationId: orgId, reservationId: null },
+      })
       return {
-        남은석수: Math.floor(Math.random() * 5) + 1, // 1-5 무작위
-        예약중석수: Math.floor(Math.random() * 3) + 2, // 2-4 무작위
-        남은석수_전일: Math.floor(Math.random() * 8) + 1, // 1-8 무작위
-        여권제출완료: Math.floor(Math.random() * 10) + 1, // 1-10 무작위
-        예약중인원: Math.floor(Math.random() * 6) + 2, // 2-7 무작위
-        여권대기: Math.floor(Math.random() * 4) + 1, // 1-4 무작위
-        예약진행: Math.floor(Math.random() * 5) + 2, // 2-6 무작위
-        여권완료: Math.floor(Math.random() * 10) + 5, // 5-14 무작위
-        남은오션뷰: Math.floor(Math.random() * 3) + 1, // 1-3 무작위
-        일자: Math.floor(Math.random() * 6) + 1, // 1-6 무작위
+        남은석수: Math.max(pendingSmsCount, 1),
+        예약중석수: Math.max(processingContactIds.length, 1),
+        남은석수_전일: Math.max(pendingSmsCount - 2, 1),
+        여권제출완료: Math.max(reservedContactCount, 1),
+        예약중인원: Math.max(processingContactIds.length, 1),
+        여권대기: Math.max(pendingContactCount, 1),
+        예약진행: Math.max(processingContactIds.length, 1),
+        여권완료: Math.max(reservedContactCount, 1),
+        남은오션뷰: Math.floor(Math.random() * 5) + 1,
+        일자: Math.floor(Math.random() * 7) + 1,
       }
     }
 
