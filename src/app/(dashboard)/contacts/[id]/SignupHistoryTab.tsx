@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Calendar, MapPin, Hash } from "lucide-react";
+import { UI_ICONS } from "@/constants/ui-icons";
 
 interface SignupRecord {
   index: number;
@@ -114,7 +114,7 @@ export function SignupHistoryTab({ contactId }: SignupHistoryTabProps) {
               {/* 랜딩페이지 */}
               {record.landingPageTitle && (
                 <div className="flex items-start gap-2">
-                  <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <span className="text-gray-400 mt-0.5 flex-shrink-0">📄</span>
                   <div>
                     <p className="text-xs text-gray-600">랜딩페이지</p>
                     <p className="text-sm font-medium text-gray-900">
@@ -127,7 +127,7 @@ export function SignupHistoryTab({ contactId }: SignupHistoryTabProps) {
               {/* 그룹 */}
               {record.groupName && (
                 <div className="flex items-start gap-2">
-                  <Hash className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <span className="text-gray-400 mt-0.5 flex-shrink-0">👥</span>
                   <div>
                     <p className="text-xs text-gray-600">그룹</p>
                     <p className="text-sm font-medium text-gray-900">
@@ -140,7 +140,7 @@ export function SignupHistoryTab({ contactId }: SignupHistoryTabProps) {
               {/* 신청 연락처 */}
               {(record.email || record.phone) && (
                 <div className="flex items-start gap-2">
-                  <Calendar className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <span className="text-gray-400 mt-0.5 flex-shrink-0">📞</span>
                   <div>
                     <p className="text-xs text-gray-600">신청 연락처</p>
                     <p className="text-sm text-gray-900">
@@ -156,7 +156,7 @@ export function SignupHistoryTab({ contactId }: SignupHistoryTabProps) {
             {/* 재신청 표시 */}
             {record.index > 1 && (
               <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
-                🔄 재신청: Day 0부터 새로운 문자 퍼널 시작됨
+                {UI_ICONS.REFRESH} 재신청: Day 0부터 새로운 문자 퍼널 시작됨
               </div>
             )}
           </div>

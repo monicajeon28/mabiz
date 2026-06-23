@@ -9,10 +9,22 @@
  */
 
 import { Contact } from "@/types/contact";
+import { isVIPCustomer } from "@/constants/source-types";
+import { UI_ICONS } from "@/constants/ui-icons";
+
+// Helper: 날짜 필드 확인
+function isSignupWithDate(obj: unknown): obj is { date: string } {
+  return typeof obj === "object" && obj !== null && "date" in obj;
+}
+
+// Helper: 응답 시간 필드 확인
+function hasResponseTime(obj: unknown): obj is { responseTime?: number } {
+  return typeof obj === "object" && obj !== null && "responseTime" in obj;
+}
 
 export default function ContactSignupHistoryTab({ contact }: { contact: Contact }) {
   const signups = Array.isArray(contact.signupHistory) ? contact.signupHistory : [];
-  const isVIP = contact.sourceType === 'gold_member';
+  const isVIP = isVIPCustomer(contact.sourceType);
 
   if (signups.length === 0) {
     return (
@@ -26,37 +38,35 @@ export default function ContactSignupHistoryTab({ contact }: { contact: Contact 
     <div className="space-y-3">
       {signups.map((signup, idx) => {
         // signup이 객체인지 확인
-        const date = typeof signup === "object" && signup !== null && "date" in signup
-          ? signup.date
-          : null;
+        const date = isSignupWithDate(signup) ? signup.date : null;
 
         if (!date) return null;
 
         const nextSignup = signups[idx + 1];
-        const nextDate = typeof nextSignup === "object" && nextSignup !== null && "date" in nextSignup
-          ? nextSignup.date
-          : null;
+        const nextDate = isSignupWithDate(nextSignup) ? nextSignup.date : null;
 
         const daysDiff = nextDate
-          ? Math.floor(
-              (new Date(nextDate).getTime() - new Date(date).getTime()) /
-              (1000 * 60 * 60 * 24)
-            )
+          ? (() => {
+              const curTime = new Date(date).getTime();
+              const nxtTime = new Date(nextDate).getTime();
+              if (isNaN(curTime) || isNaN(nxtTime)) return null;
+              return Math.floor((nxtTime - curTime) / (1000 * 60 * 60 * 24));
+            })()
           : null;
 
         const signupDate = new Date(date);
-        const formattedDate = signupDate.toLocaleString("ko-KR", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-        });
+        const formattedDate = isNaN(signupDate.getTime())
+          ? "날짜 오류"
+          : signupDate.toLocaleString("ko-KR", {
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+            });
 
         // VIP 고객인 경우 응답 시간 표시
-        const responseTime = isVIP && typeof signup === "object" && signup !== null && "responseTime" in signup
-          ? signup.responseTime
-          : null;
+        const responseTime = isVIP && hasResponseTime(signup) ? signup.responseTime : null;
 
         return (
           <div key={idx} className="bg-white border border-gray-200 rounded-lg p-4">
@@ -70,21 +80,23 @@ export default function ContactSignupHistoryTab({ contact }: { contact: Contact 
                 </span>
               )}
             </div>
-            <p className="text-xs text-gray-500 mb-2">{formattedDate}</p>
+            <p className="text-xs text-gray-500 mb-2">
+              {UI_ICONS.DATE} {formattedDate}
+            </p>
             {daysDiff !== null && (
               <p className="text-xs text-gray-400">
-                다음 신청까지: <span className="font-semibold">{daysDiff}일</span>
+                {UI_ICONS.CHART} 다음 신청까지: <span className="font-semibold">{daysDiff}일</span>
               </p>
             )}
             {/* VIP 고객: 응답 시간 표시 */}
             {isVIP && responseTime && (
               <p className="text-xs text-green-600 mt-2 font-medium">
-                ✅ {responseTime}시간 내 응답 완료
+                {UI_ICONS.SUCCESS} {responseTime}시간 내 응답 완료
               </p>
             )}
             {isVIP && !responseTime && idx === signups.length - 1 && (
               <p className="text-xs text-orange-600 mt-2 font-medium">
-                ⏱️ 응답 대기 중...
+                {UI_ICONS.PENDING} 응답 대기 중
               </p>
             )}
           </div>
