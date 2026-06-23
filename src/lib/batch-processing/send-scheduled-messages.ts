@@ -75,12 +75,19 @@ export async function sendScheduledMessages(
     const kstHour = (now.getUTCHours() + 9) % 24;
     const canProcessNightBlocked = kstHour >= 8; // 08:00 이후 처리 가능
 
+    logger.warn(`[Batch] 쿼리 조건`, {
+      organizationId,
+      now: now.toISOString(),
+      kstHour,
+      canProcessNightBlocked,
+      type,
+    });
+
     const messages =
       type === "sms"
         ? await prisma.scheduledSms.findMany({
             where: {
               organizationId,
-              day,
               status: canProcessNightBlocked
                 ? { in: ["PENDING", "NIGHT_BLOCKED"] }  // 아침에는 NIGHT_BLOCKED도 처리
                 : "PENDING",                             // 밤에는 PENDING만
@@ -119,8 +126,15 @@ export async function sendScheduledMessages(
             orderBy: { scheduledAt: "asc" },
           });
 
+    logger.warn(`[Batch] 쿼리 결과`, {
+      type,
+      organizationId,
+      foundCount: messages.length,
+      limit: LIMIT,
+    });
+
     if (messages.length === 0) {
-      logger.info(`[Batch] ${type.toUpperCase()} Day ${day} 발송 대상 없음`);
+      logger.warn(`[Batch] ${type.toUpperCase()} Day ${day} 발송 대상 없음`);
 
       // 메시지 0개일 때도 로그 생성
       const batchLog = await prisma.batchExecutionLog.create({
