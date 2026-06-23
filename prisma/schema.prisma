@@ -7184,11 +7184,28 @@ model FunnelSms {
   createdByUserId String?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
+
+  // Phase 1: Partner Funnel Wizard (10개 신규 필드)
+  // ================================================
+  lensType        String?            @db.VarChar(3)        // L0-L10
+  visibility      String             @default("PERSONAL")  @db.VarChar(10)  // PERSONAL | TEAM | PUBLIC
+  createdByRole   String?            @db.VarChar(20)       // PARTNER | MANAGER | ADMIN
+  sharedWith      String[]           @default([])          // [userId1, userId2, ...]
+  isTemplate      Boolean            @default(false)       // true = 조직 공용 템플릿
+  riskScore       Int                @default(0)           // 0-100
+  riskFlags       String[]           @default([])          // ["욕설", "외부링크", ...]
+  versionNumber   Int                @default(1)           // 수정이력 추적
+  parentFunnelId  String?                                  // 원본 템플릿 ID
+  metadata        Json?                                    // 자유형 메타데이터
+
   organization    Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   messages        FunnelSmsMessage[]
   groups          ContactGroup[]     @relation("GroupFunnelSms")
 
   @@index([organizationId])
+  @@index([organizationId, lensType, visibility], map: "idx_funnel_sms_org_lens_visibility")
+  @@index([organizationId, createdByUserId, createdAt(sort: Desc)], map: "idx_funnel_sms_org_creator_time")
+  @@index([organizationId, riskScore], map: "idx_funnel_sms_org_risk")
   @@map("FunnelSms")
 }
 
@@ -7223,11 +7240,28 @@ model FunnelEmail {
   createdByUserId String?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
+
+  // Phase 1: Partner Funnel Wizard (10개 신규 필드)
+  // ================================================
+  lensType        String?              @db.VarChar(3)        // L0-L10
+  visibility      String               @default("PERSONAL")  @db.VarChar(10)  // PERSONAL | TEAM | PUBLIC
+  createdByRole   String?              @db.VarChar(20)       // PARTNER | MANAGER | ADMIN
+  sharedWith      String[]             @default([])          // [userId1, userId2, ...]
+  isTemplate      Boolean              @default(false)       // true = 조직 공용 템플릿
+  riskScore       Int                  @default(0)           // 0-100
+  riskFlags       String[]             @default([])          // ["욕설", "외부링크", ...]
+  versionNumber   Int                  @default(1)           // 수정이력 추적
+  parentFunnelId  String?                                    // 원본 템플릿 ID
+  metadata        Json?                                      // 자유형 메타데이터
+
   organization    Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   messages        FunnelEmailMessage[]
   groups          ContactGroup[]       @relation("GroupFunnelEmail")
 
   @@index([organizationId])
+  @@index([organizationId, lensType, visibility], map: "idx_funnel_email_org_lens_visibility")
+  @@index([organizationId, createdByUserId, createdAt(sort: Desc)], map: "idx_funnel_email_org_creator_time")
+  @@index([organizationId, riskScore], map: "idx_funnel_email_org_risk")
   @@map("FunnelEmail")
 }
 
