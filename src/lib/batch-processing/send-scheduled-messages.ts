@@ -70,13 +70,20 @@ export async function sendScheduledMessages(
       limit: LIMIT,
     });
 
+    // 야간 차단 로직 (KST 기준)
+    const now = new Date();
+    const kstHour = (now.getUTCHours() + 9) % 24;
+    const canProcessNightBlocked = kstHour >= 8; // 08:00 이후 처리 가능
+
     const messages =
       type === "sms"
         ? await prisma.scheduledSms.findMany({
             where: {
               organizationId,
-              status: "PENDING",
-              // day 필터 추가 필요시
+              status: canProcessNightBlocked
+                ? { in: ["PENDING", "NIGHT_BLOCKED"] }  // 아침에는 NIGHT_BLOCKED도 처리
+                : "PENDING",                             // 밤에는 PENDING만
+              scheduledAt: { lte: now },
             },
             select: {
               id: true,
@@ -92,8 +99,10 @@ export async function sendScheduledMessages(
             where: {
               organizationId,
               day,
-              status: "PENDING",
-              scheduledAt: { lte: new Date() },
+              status: canProcessNightBlocked
+                ? { in: ["PENDING", "NIGHT_BLOCKED"] }  // 아침에는 NIGHT_BLOCKED도 처리
+                : "PENDING",                             // 밤에는 PENDING만
+              scheduledAt: { lte: now },
             },
             select: {
               id: true,
@@ -112,7 +121,28 @@ export async function sendScheduledMessages(
 
     if (messages.length === 0) {
       logger.info(`[Batch] ${type.toUpperCase()} Day ${day} 발송 대상 없음`);
-      return { successCount: 0, failCount: 0, duration: 0, batchExecutionId: "" };
+
+      // 메시지 0개일 때도 로그 생성
+      const batchLog = await prisma.batchExecutionLog.create({
+        data: {
+          organizationId,
+          batchType: `${type.toUpperCase()}_DAY${day}`,
+          totalCount: 0,
+          successCount: 0,
+          failCount: 0,
+          startedAt: new Date(startTime),
+          completedAt: new Date(),
+          duration: 0,
+          errorRate: 0,
+        },
+      });
+
+      return {
+        successCount: 0,
+        failCount: 0,
+        duration: 0,
+        batchExecutionId: batchLog.id,
+      };
     }
 
     // 3단계: 배치 분할
@@ -184,6 +214,28 @@ export async function sendScheduledMessages(
     };
   } catch (error) {
     logger.error(`[Batch] ${type.toUpperCase()} Day ${day} 오류:`, error);
+
+    // 에러 발생 시에도 로그 생성
+    const duration = Date.now() - startTime;
+    const batchLog = await prisma.batchExecutionLog.create({
+      data: {
+        organizationId,
+        batchType: `${type.toUpperCase()}_DAY${day}`,
+        totalCount: 0,
+        successCount: 0,
+        failCount: 0,
+        startedAt: new Date(startTime),
+        completedAt: new Date(),
+        duration,
+        errorRate: 0,
+        errorSummary: JSON.stringify({
+          error: error instanceof Error ? error.message : String(error),
+          timestamp: new Date().toISOString(),
+        }),
+      },
+    });
+
+    // 원본 에러는 여전히 throw (상위 핸들러에서 처리)
     throw error;
   }
 }
