@@ -20,6 +20,7 @@ import ContactRiskPanel from "./ContactRiskPanel";
 import { SignupHistoryTab } from "./SignupHistoryTab";
 import { FunnelSetupPanel } from "./FunnelSetupPanel";
 import { GrantObjectionPanel } from "./GrantObjectionPanel";
+import { FunnelWizardModal } from "./FunnelWizardModal";
 import { getAllObjectionIds, getObjectionData } from "@/lib/objections/validation";
 import objectionsData from "@/../TRACK_A_OBJECTIONS.json";
 import { Contact, CallLog, Memo } from "@/types/contact";
@@ -114,6 +115,9 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   const [reservations, setReservations] = useState<ReservationItem[]>([]);
   const [reservationLoading, setReservationLoading] = useState(false);
   const [reservationLoaded, setReservationLoaded] = useState(false);
+
+  // 마법사 모달
+  const [showWizardModal, setShowWizardModal] = useState(false);
 
   // WO-22: 즉시 SMS 발송 모달
   const [showSmsModal,  setShowSmsModal]  = useState(false);
@@ -1555,6 +1559,33 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
             </div>
           )}
         </div>
+
+        {/* 자동메시지 생성 마법사 버튼 */}
+        <div className="bg-white border border-blue-200 rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-base font-semibold text-gray-900">🚀 자동메시지 생성</p>
+            <p className="text-sm text-gray-600 mt-1">AI 마법사로 심리학 기반 메시지 시퀀스 생성</p>
+          </div>
+          <button
+            onClick={() => setShowWizardModal(true)}
+            className="h-12 px-6 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 text-base transition-all"
+          >
+            마법사 시작
+          </button>
+        </div>
+
+        {/* 자동메시지 마법사 모달 */}
+        {contact && (
+          <FunnelWizardModal
+            contactId={contact.id}
+            contactName={contact.name}
+            isOpen={showWizardModal}
+            onClose={() => setShowWizardModal(false)}
+            onSuccess={() => {
+              toast({ description: "자동메시지 생성 완료!", title: "성공" });
+            }}
+          />
+        )}
       </div>
     </div>
   );
