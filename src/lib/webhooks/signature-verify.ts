@@ -1,14 +1,18 @@
 import crypto from 'crypto';
 
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
-if (!WEBHOOK_SECRET) {
-  throw new Error('WEBHOOK_SECRET environment variable must be set');
+function getWebhookSecret(): string {
+  const secret = process.env.WEBHOOK_SECRET;
+  if (!secret) {
+    throw new Error('WEBHOOK_SECRET environment variable must be set');
+  }
+  return secret;
 }
 
 export const signatureVerify = {
   sign: (payload: string): string => {
+    const secret = getWebhookSecret();
     return crypto
-      .createHmac('sha256', WEBHOOK_SECRET)
+      .createHmac('sha256', secret)
       .update(payload)
       .digest('hex');
   },
