@@ -1,0 +1,436 @@
+# FunnelWizardModal 구현 가이드
+
+## 📋 개요
+
+**FunnelWizardModal** — Contact 상세 페이지에서 자동메시지(Funnel)을 생성하는 5단계 마법사 모달
+
+- **경로**: `src/app/(dashboard)/contacts/[id]/FunnelWizardModal.tsx`
+- **크기**: 약 850줄 (컴포넌트 + 서브 컴포넌트)
+- **TypeScript**: ✅ 0 에러 (npx tsc --noEmit 통과)
+- **의존성**: React, Framer Motion, Lucide Icons, useToast, logger
+
+---
+
+## 🎯 주요 기능
+
+### 1️⃣ Step 1: 렌즈 선택 (심리학 L0-L10)
+- 10개 렌즈 라디오 버튼 선택
+- 렌즈별 색상 배경 + 전략 배지 표시
+- 선택 시 자동으로 Step 2로 진행 가능
+
+**렌즈 정의** (LENS_DETAILS):
+- L0: 부재중 고객 (3-6개월+)
+- L1: 가격 이의
+- L2: 준비 불안
+- L3: 경쟁사 비교
+- L4: 자유도 우려
+- L5: 능력 불신
+- L6: 타이밍 중요 (긴박감)
+- L7: 가족 설득
+- L8: 습관 형성
+- L9: 건강 신뢰
+- L10: 즉시 구매
+
+### 2️⃣ Step 2: 전략 선택
+- 선택한 렌즈별 3개 권장 전략
+- 라디오 버튼으로 선택
+- 선택한 전략 미리보기 박스
+
+### 3️⃣ Step 3: 메시지 편집 (Day 0-3)
+- Day 0: P(Problem) + A(Agitate) — 초기 액션
+- Day 1: S(Solution) — Follow-up
+- Day 2: O(Offer) + N(Narrow) — 가치 강조
+- Day 3: A(Action) — 긴박감 + 클로징
+
+**PASONA 프레임워크** 자동 적용:
+- 각 Day의 textarea (4행, 최대 1000자)
+- 동적 변수 지원 ({{고객명}}, {{전화번호}}, etc.)
+
+### 4️⃣ Step 4: 스케줄 선택
+- 시작 날짜 (date picker)
+- 발송 기간 (3/7/14일 버튼)
+- 매일 발송 시간 (8시~20시)
+- **예상 발송 일정 미리보기** (파란 배경)
+
+### 5️⃣ Step 5: 최종 확인
+- 심리 유형 요약 카드
+- 메시지 전략 요약 카드
+- 발송 스케줄 요약 카드
+- 메시지 미리보기 (Day 0-3, line-clamp-2)
+- 체크리스트 (4항목)
+
+---
+
+## 🎨 UI 디자인 규칙 (Steve Jobs 50대 친화)
+
+### 타이포그래피
+| 역할 | 크기 | 색상 | 사용처 |
+|------|------|------|--------|
+| **제목** | 20px | #1A1A1A (진검정) | 모달/섹션 제목 |
+| **본문** | 16px | #333333 (검정) | 설명, 라벨 |
+| **보조** | 14px | #666666 (진회색) | 도움말 |
+| **매우작음** | 12px | #999999 | 글자 수 카운터 |
+
+### 버튼 & 터치 영역
+- **최소 크기**: 48px × 48px (성인 손가락 8-10mm)
+- **라디오 버튼**: w-6 h-6 (36px) + padding으로 48px 터치 영역
+- **버튼 간격**: 16px 이상
+
+### 색상 체계 (렌즈별)
+```
+L0: bg-purple-50 / border-purple-200 / badge: bg-purple-100 text-purple-700
+L1: bg-yellow-50 / border-yellow-200 / badge: bg-yellow-100 text-yellow-700
+L3: bg-blue-50   / border-blue-200   / badge: bg-blue-100 text-blue-700
+L6: bg-red-50    / border-red-200    / badge: bg-red-100 text-red-700
+L10: bg-green-50 / border-green-200  / badge: bg-green-100 text-green-700
+```
+
+### 간격 (Spacing)
+- **섹션 간**: 24px (space-y-6)
+- **요소 간**: 16px (space-y-4), 8px (space-y-2)
+- **패딩**: 16px 카드 (p-4), 24px 콘텐츠 (px-6 py-6)
+
+---
+
+## 📊 상태 관리 (State Flow)
+
+### 주요 상태
+```typescript
+interface FunnelWizardState {
+  step: 1 | 2 | 3 | 4 | 5;
+  selectedLens?: PsychologyLens;        // Step 1에서 선택
+  selectedStrategy?: string;             // Step 2에서 선택
+  customMessages?: Record<0|1|2|3, string>; // Step 3에서 입력
+  schedule?: {
+    startDate: string;                  // Step 4에서 선택
+    duration: 3 | 7 | 14;
+    hour: 8 | 12 | 18 | ...;
+  };
+}
+```
+
+### 상태 전이
+```
+Step 1 (렌즈 선택)
+  ↓
+Step 2 (전략 선택)
+  ↓
+Step 3 (메시지 편집)
+  ↓
+Step 4 (스케줄)
+  ↓
+Step 5 (최종 확인 + 저장)
+```
+
+### 유효성 검사 (canProceedToNext)
+```typescript
+Step 1: selectedLens !== undefined
+Step 2: selectedStrategy !== undefined
+Step 3: Object.values(customMessages).some(m => m?.trim())
+Step 4: startDate + duration + hour 모두 설정됨
+Step 5: 모든 검증 통과 후 onSave() 호출
+```
+
+---
+
+## 🔧 사용 방법
+
+### 1. ContactSlidePanel.tsx에서 열기
+
+```typescript
+import FunnelWizardModal from './FunnelWizardModal';
+
+export default function ContactSlidePanel({ contact, ... }) {
+  const [wizardOpen, setWizardOpen] = useState(false);
+
+  const handleSaveFunnel = async (data: FunnelWizardState) => {
+    // API 호출
+    const res = await fetch('/api/funnel/create-from-wizard', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contactId: contact.id,
+        lens: data.selectedLens,
+        strategy: data.selectedStrategy,
+        messages: data.customMessages,
+        schedule: data.schedule,
+      }),
+    });
+
+    if (!res.ok) throw new Error('Failed to create funnel');
+  };
+
+  return (
+    <>
+      {/* 마법사 버튼 */}
+      <button
+        onClick={() => setWizardOpen(true)}
+        className="px-6 py-3 bg-blue-600 text-white rounded-xl"
+      >
+        ✨ 자동 메시지 마법사
+      </button>
+
+      {/* 모달 */}
+      <FunnelWizardModal
+        contactId={contact.id}
+        contactName={contact.name}
+        open={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        onSave={handleSaveFunnel}
+      />
+    </>
+  );
+}
+```
+
+### 2. Props 전달
+
+```typescript
+export interface FunnelWizardModalProps {
+  contactId: string;                              // 연락처 ID
+  contactName: string;                            // 연락처 이름 (헤더 표시)
+  open: boolean;                                  // 모달 표시 여부
+  onClose: () => void;                            // 닫기 콜백
+  onSave: (data: FunnelWizardState) => Promise<void>; // 저장 콜백
+}
+```
+
+### 3. API 엔드포인트 예시
+
+```typescript
+// POST /api/funnel/create-from-wizard
+export async function POST(request: Request) {
+  const body = await request.json();
+  const {
+    contactId,
+    lens,
+    strategy,
+    messages,
+    schedule,
+  } = body;
+
+  // 1. Funnel 생성
+  const funnel = await db.funnel.create({
+    data: {
+      name: `${LENS_DETAILS[lens].name} - ${strategy}`,
+      psychologyLens: lens,
+      visibility: 'PERSONAL',
+      autoGenerated: true,
+    },
+  });
+
+  // 2. Day 0-3 메시지 저장
+  for (let day = 0; day <= 3; day++) {
+    await db.funnelMessage.create({
+      data: {
+        funnelId: funnel.id,
+        day,
+        content: messages[day],
+      },
+    });
+  }
+
+  // 3. VipSequence 생성 (스케줄)
+  const startDate = new Date(schedule.startDate);
+  await db.vipSequence.create({
+    data: {
+      contactId,
+      funnelId: funnel.id,
+      status: 'ACTIVE',
+      startDate,
+      scheduledHour: schedule.hour,
+    },
+  });
+
+  return Response.json({ success: true, funnelId: funnel.id });
+}
+```
+
+---
+
+## 🧪 테스트 체크리스트
+
+### 유효성 검사 테스트
+- [ ] Step 1: 렌즈 미선택 → "심리 유형을 선택하세요." 에러
+- [ ] Step 2: 전략 미선택 → "메시지 전략을 선택하세요." 에러
+- [ ] Step 3: 메시지 미입력 → "최소 1개의 메시지를 입력하세요." 에러
+- [ ] Step 4: 날짜 미선택 → "시작 날짜를 선택하세요." 에러
+
+### UI 테스트
+- [ ] 렌즈 카드 선택 시 배경색 변경
+- [ ] 진행 바 Step별 업데이트 확인
+- [ ] textarea 1000자 제한 확인
+- [ ] 기간 버튼 (3/7/14일) 토글 동작 확인
+- [ ] 예상 발송 일정 올바르게 계산됨 확인
+
+### 애니메이션 테스트
+- [ ] 모달 진입: 부드러운 scale + opacity 변화
+- [ ] 모달 퇴출: 부드러운 축소
+- [ ] backdrop 페이드인/아웃
+
+### 모바일 반응형 테스트
+- [ ] 모든 버튼 48px 이상 크기 확인
+- [ ] 모든 텍스트 16px 이상 크기 확인
+- [ ] textarea 모바일에서 스크롤 가능 확인
+- [ ] Safe Area 준수 (iPhone)
+
+### 접근성 테스트
+- [ ] Tab으로 모든 요소 접근 가능
+- [ ] Enter로 라디오 버튼 선택 가능
+- [ ] 에러 메시지 명확히 표시됨
+- [ ] 색상 대비 4.5:1 이상
+
+---
+
+## 📁 파일 구조
+
+```
+src/app/(dashboard)/contacts/[id]/
+├── FunnelWizardModal.tsx                    # 메인 컴포넌트 (850줄)
+├── FunnelWizardModal.structure.json         # 구조 문서 (JSON)
+├── ContactSlidePanel.tsx                    # 통합 위치
+└── [기타 Contact 관련 파일]
+
+src/types/
+└── funnel-wizard.ts                         # 타입 정의
+    ├── PsychologyLens (L0-L10)
+    ├── FunnelWizardState
+    ├── LENS_DETAILS
+    └── VARIABLES
+
+docs/
+└── FUNNEL_WIZARD_IMPLEMENTATION_GUIDE.md   # 이 문서
+```
+
+---
+
+## 🔐 보안 고려사항
+
+### 1. 입력 검증
+```typescript
+// ✅ 모든 사용자 입력 검증
+if (!state.selectedLens) {
+  setError("렌즈를 선택하세요.");
+  return;
+}
+
+// ✅ 메시지 길이 제한
+if (content.length > 1000) {
+  content = content.substring(0, 1000);
+}
+```
+
+### 2. XSS 방지
+```typescript
+// ✅ 메시지에 직접 문자열 삽입 (JSX 자동 이스케이프)
+<p>{content}</p>  // ✅ 안전
+
+// ❌ dangerouslySetInnerHTML 사용 금지
+<div dangerouslySetInnerHTML={{__html: content}} /> // ❌ 위험
+```
+
+### 3. 권한 검증
+```typescript
+// ✅ 반드시 API 백엔드에서 검증
+POST /api/funnel/create-from-wizard
+  ├─ organizationId 검증 (세션에서)
+  ├─ contactId 소유권 확인
+  └─ 권한 체크 (CRM 접근 권한 필수)
+```
+
+---
+
+## 🚀 배포 전 체크리스트
+
+- [ ] TypeScript 컴파일 0 에러: `npx tsc --noEmit`
+- [ ] ESLint 통과: `npx eslint src/app/\(dashboard\)/contacts/\[id\]/FunnelWizardModal.tsx`
+- [ ] 모든 테스트 케이스 통과
+- [ ] 50대 친화 UI 검증 (버튼 48px, 글자 16px+)
+- [ ] 접근성 (WCAG 2.1 AA) 검증
+- [ ] 모바일 반응형 테스트
+- [ ] API 엔드포인트 배포 완료
+- [ ] ContactSlidePanel.tsx 통합 완료
+- [ ] 보안 감시 완료 (secrets 체크)
+
+---
+
+## 📞 문제 해결 (Troubleshooting)
+
+### 1. "TypeError: Cannot read property 'startDate' of undefined"
+**원인**: `state.schedule` 초기화되지 않음
+
+**해결**:
+```typescript
+const schedule = state.schedule || {
+  startDate: new Date().toISOString().split("T")[0],
+  duration: 3,
+  hour: 12,
+};
+```
+
+### 2. 미리보기가 업데이트되지 않음
+**원인**: React 상태 업데이트 누락
+
+**해결**:
+```typescript
+handleMessageChange = (day, content) => {
+  setState({
+    ...state,
+    customMessages: { ...state.customMessages, [day]: content }
+  });
+}
+```
+
+### 3. 렌즈 색상이 표시되지 않음
+**원인**: LENS_COLORS 객체 누락
+
+**확인**:
+```typescript
+const colors = LENS_COLORS[selectedLens];
+if (!colors) console.error("색상 정의 누락:", selectedLens);
+```
+
+---
+
+## 🎓 학습 자료
+
+- **PASONA 프레임워크**: `docs/PASONA_FRAMEWORK.md`
+- **심리학 렌즈 (L0-L10)**: `docs/PSYCHOLOGY_LENS_GUIDE.md`
+- **SMS 자동화 설계**: `src/lib/funnel-sms-templates.ts`
+- **Framer Motion 애니메이션**: `src/components/animations/`
+
+---
+
+## 📈 향후 개선안
+
+### Phase 2
+- [ ] AI 기반 메시지 생성 추천 (GPT)
+- [ ] 최적 발송 시간 자동 제안 (머신러닝)
+- [ ] A/B 테스트 설정 (Step 5)
+
+### Phase 3
+- [ ] 메시지 미리보기 (실제 폰 UI 모양)
+- [ ] 렌즈 자동 감지 (Contact 히스토리 기반)
+- [ ] 과거 Funnel 템플릿 추천
+
+---
+
+## ✅ 완성도
+
+| 항목 | 상태 |
+|------|------|
+| **컴포넌트 구현** | ✅ 완료 |
+| **TypeScript 타입** | ✅ 0 에러 |
+| **UI/UX (50대 친화)** | ✅ 완료 |
+| **상태 관리** | ✅ 완료 |
+| **에러 처리** | ✅ 완료 |
+| **애니메이션** | ✅ 완료 |
+| **문서화** | ✅ 완료 |
+| **API 연동** | ⏭️ 필요 |
+| **테스트** | ⏭️ 필요 |
+
+---
+
+**최종 업데이트**: 2026-06-24
+**작성자**: Claude Code AI
+**버전**: 1.0
