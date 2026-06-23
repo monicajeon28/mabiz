@@ -22,8 +22,10 @@ import { validateSupabaseEnv, getSupabaseServerClientAsRole } from '@/lib/supaba
 
 export async function GET(request: NextRequest) {
   try {
-    // 환경변수 검증
-    validateSupabaseEnv();
+    // 환경변수 검증 (선택적 - Production에서 필요 없음)
+    if (process.env.NODE_ENV === 'development') {
+      validateSupabaseEnv();
+    }
 
     const searchParams = request.nextUrl.searchParams;
     const table = searchParams.get('table') || 'Contact';
