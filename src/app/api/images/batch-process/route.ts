@@ -89,7 +89,7 @@ async function processBatchImages(req: Request) {
       } catch (err) {
         logger.error('[batch-process] 처리 실패', { assetId: asset.id, err });
         await prisma.imageAsset.update({
-          where: { id: asset.id },
+          where: { id: asset.id, organizationId: asset.organizationId },
           data: { processingStatus: 'FAILED' },
         });
         results.failed++;

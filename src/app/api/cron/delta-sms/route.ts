@@ -67,14 +67,36 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // schedule 파라미터 조회
-    const schedule = req.nextUrl.searchParams.get("schedule") as
+    // schedule 파라미터 조회 (없으면 현재 KST 시간 기반 자동 감지)
+    let schedule = req.nextUrl.searchParams.get("schedule") as
       | "morning"
       | "afternoon"
       | "evening"
       | null;
 
-    if (!schedule || !["morning", "afternoon", "evening"].includes(schedule)) {
+    // 파라미터가 없으면 현재 시간 기반 자동 결정 (Vercel Cron은 query param 미지원)
+    if (!schedule) {
+      const now = new Date();
+      const kstHour = (now.getUTCHours() + 9) % 24;
+      if (kstHour === 9) {
+        schedule = "morning";
+      } else if (kstHour === 14) {
+        schedule = "afternoon";
+      } else if (kstHour === 19) {
+        schedule = "evening";
+      } else {
+        logger.warn("[Cron/DeltaSms] 예약된 시간 외 실행", { kstHour });
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "Scheduled outside of execution hours (09:00, 14:00, 19:00 KST)",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (!["morning", "afternoon", "evening"].includes(schedule)) {
       logger.warn("[Cron/DeltaSms] 유효하지 않은 schedule 파라미터", {
         schedule,
       });
