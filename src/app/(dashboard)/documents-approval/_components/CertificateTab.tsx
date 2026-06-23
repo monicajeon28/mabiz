@@ -191,6 +191,19 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
       .finally(() => setIsLoadingProductInfo(false));
   }, [selectedSale?.productCode]);
 
+  // 상품 검색 디바운싱 (300ms) — 입력 시 자동으로 드롭다운 표시
+  useEffect(() => {
+    if (productSearch.trim().length > 0) {
+      const timer = setTimeout(() => {
+        searchProducts(productSearch);
+        setProductDropdownOpen(true);
+      }, 300);
+
+      return () => clearTimeout(timer);
+    }
+    setProductDropdownOpen(false);
+  }, [productSearch]);
+
   // 상품 검색 함수
   const searchProducts = async (query: string) => {
     if (!query.trim()) {

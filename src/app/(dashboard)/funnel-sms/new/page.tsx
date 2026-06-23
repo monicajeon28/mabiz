@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Plus, ChevronDown, Trash2, AlertTriangle } from "lucide-react";
-import { showError } from "@/components/ui/Toast";
+import { showError, showSuccess } from "@/components/ui/Toast";
 import FunnelSmsHeader from "@/components/funnel-sms/FunnelSmsHeader";
 import FunnelSmsMessageEditor from "@/components/funnel-sms/FunnelSmsMessageEditor";
 import FunnelSmsPhonePreview from "@/components/funnel-sms/FunnelSmsPhonePreview";
@@ -236,6 +236,11 @@ export default function FunnelSmsNewPage() {
       };
 
       if (d.ok && d.data) {
+        // ✅ P0-1: 저장 성공 토스트 메시지 추가
+        showSuccess(
+          "신청한 고객에게 자동으로 발송됩니다.\nDay 0 (신청 직후) → Day 1 (1일 후 09:00) → Day 3 (3일 후 09:00)",
+          "✅ 자동문자가 저장되었습니다!"
+        );
         router.push(`/funnel-sms/${d.data.id}`);
       } else {
         const errMsg = d.message ?? Object.values(d.errors ?? {}).flat().join(", ") ?? "저장에 실패했습니다.";
