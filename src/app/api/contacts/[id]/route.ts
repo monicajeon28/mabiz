@@ -7,6 +7,7 @@ import { logger } from "@/lib/logger";
 import { logContactChange, logContactChanges } from "@/lib/audit/log-contact-change";
 import { checkRateLimitAsync } from "@/lib/rate-limit";
 import { RATE_LIMIT_CONFIG } from "@/lib/rate-limit-config";
+import { getLensScores } from "@/lib/lens-detector";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -49,6 +50,9 @@ export async function GET(_req: Request, { params }: Params) {
     });
 
     if (!contact) return NextResponse.json({ ok: false }, { status: 404 });
+
+    // 렌즈 점수 계산 (P0 기능)
+    const lensInfo = getLensScores(contact);
 
     // ── 연결된 콜 기록 (DB 전달된 양방향 연결 고객) ─────────
     const transferLinks = await prisma.contactTransferLog.findMany({
@@ -138,6 +142,7 @@ export async function GET(_req: Request, { params }: Params) {
         callLogs:       callLogsWithAuthor,
         memos:          memosWithAuthor,
         sharedCallLogs: sharedWithAuthor,
+        lensInfo:       lensInfo, // P0 추가: 심리렌즈 점수
       },
     });
   } catch (err) {
