@@ -1,0 +1,444 @@
+{
+  "component_path": "src/app/(dashboard)/contacts/[id]/FunnelWizardModal.tsx",
+  "component_name": "FunnelWizardModal",
+  "description": "5단계 자동메시지 마법사 모달 컴포넌트 (Contact 상세 페이지용)",
+
+  "component_structure": {
+    "overview": "5단계 진행형 모달 마법사 + 실시간 미리보기",
+    "main_sections": {
+      "header": {
+        "elements": ["제목 (20px)", "고객 이름", "닫기 버튼 (X)"],
+        "height": "56px",
+        "spacing": "16px 양쪽, 12px 상하"
+      },
+      "progress_bar": {
+        "elements": [
+          "5개 단계 표시 (1~5)",
+          "현재 단계는 파란색 (bg-blue-600)",
+          "완료 단계는 체크마크",
+          "미완료 단계는 회색 (bg-gray-300)",
+          "단계 간 연결선 (진행도 시각화)"
+        ],
+        "height": "72px",
+        "spacing": "24px"
+      },
+      "content_area": {
+        "layout": "flex-1 overflow-y-auto",
+        "padding": "24px",
+        "steps": [
+          {
+            "step": 1,
+            "name": "Step1LensSelection",
+            "component": "렌즈 선택 (라디오 버튼 × 10)",
+            "props": ["state", "setState", "error", "setError"],
+            "content": [
+              "제목: 20px (진검정 #1A1A1A)",
+              "설명: 16px (검정 #333333)",
+              "렌즈별 라디오 버튼 카드 (48px × 48px)",
+              "렌즈명: 16px (진검정)",
+              "설명: 14px (회색 #666666)",
+              "전략 배지: 14px (렌즈 색상별)",
+              "간격: 카드 간 16px"
+            ]
+          },
+          {
+            "step": 2,
+            "name": "Step2StrategySelection",
+            "component": "전략 선택 (카드 × 3)",
+            "props": ["state", "setState", "error", "setError"],
+            "content": [
+              "제목: 20px",
+              "선택한 렌즈 하이라이트 (렌즈 색상)",
+              "전략 옵션 라디오 버튼 (48px)",
+              "선택한 전략 미리보기 (배경색)"
+            ]
+          },
+          {
+            "step": 3,
+            "name": "Step3MessageEditing",
+            "component": "메시지 편집 (Day 0-3 텍스트 필드)",
+            "props": ["state", "setState", "error", "setError"],
+            "content": [
+              "사용 가능 변수 안내 (고정 배너)",
+              "Day 0-3 각각의 textarea (4행)",
+              "textarea 크기: height 128px, 최대 1000자",
+              "글자크기: 16px (본문 규칙)",
+              "PASONA 단계별 설명: 14px"
+            ]
+          },
+          {
+            "step": 4,
+            "name": "Step4ScheduleSelection",
+            "component": "스케줄 선택 (날짜 + 기간 + 시간)",
+            "props": ["state", "setState", "error", "setError"],
+            "content": [
+              "시작 날짜 input (date type, 48px 높이)",
+              "기간 선택 버튼 (3/7/14일 × 3개 버튼)",
+              "발송 시간 드롭다운 (8~20시, 2시간 단위)",
+              "예상 발송 일정 미리보기 (파란 배경)"
+            ]
+          },
+          {
+            "step": 5,
+            "name": "Step5FinalConfirm",
+            "component": "최종 확인 & 저장 (미리보기 + 저장)",
+            "props": ["state", "setState", "error", "setError"],
+            "content": [
+              "심리 유형 요약 (카드)",
+              "메시지 전략 요약 (카드)",
+              "발송 스케줄 요약 (카드)",
+              "메시지 미리보기 (Day 0-3 각각, line-clamp-2)",
+              "체크리스트 (4항목)"
+            ]
+          }
+        ]
+      },
+      "footer": {
+        "elements": [
+          "이전 버튼 (ChevronLeft 아이콘)",
+          "다음/저장 버튼 (ChevronRight/Check 아이콘)",
+          "저장 시 로딩 스피너 (Loader)"
+        ],
+        "height": "64px",
+        "layout": "flex justify-between",
+        "button_size": "48px 높이 (py-3), px-6 padding"
+      }
+    }
+  },
+
+  "props_interface": {
+    "FunnelWizardModalProps": {
+      "contactId": {
+        "type": "string",
+        "required": true,
+        "description": "연락처 ID (API 저장용)"
+      },
+      "contactName": {
+        "type": "string",
+        "required": true,
+        "description": "연락처 이름 (헤더 표시용)"
+      },
+      "open": {
+        "type": "boolean",
+        "required": true,
+        "description": "모달 표시 여부"
+      },
+      "onClose": {
+        "type": "() => void",
+        "required": true,
+        "description": "닫기 콜백"
+      },
+      "onSave": {
+        "type": "(data: FunnelWizardState & { messages?: Record<0|1|2|3, string> }) => Promise<void>",
+        "required": true,
+        "description": "저장 콜백 (API 호출용)"
+      }
+    },
+
+    "StepComponentProps": {
+      "state": {
+        "type": "FunnelWizardState",
+        "description": "전체 마법사 상태"
+      },
+      "setState": {
+        "type": "React.Dispatch<React.SetStateAction<FunnelWizardState>>",
+        "description": "상태 업데이트 함수"
+      },
+      "error": {
+        "type": "string",
+        "description": "현재 단계의 에러 메시지"
+      },
+      "setError": {
+        "type": "(msg: string) => void",
+        "description": "에러 메시지 설정"
+      }
+    },
+
+    "FunnelWizardState": {
+      "step": {
+        "type": "1 | 2 | 3 | 4 | 5",
+        "description": "현재 단계 (1~5)"
+      },
+      "selectedLens": {
+        "type": "PsychologyLens (L0-L10)",
+        "optional": true,
+        "description": "선택한 심리 렌즈"
+      },
+      "selectedStrategy": {
+        "type": "string",
+        "optional": true,
+        "description": "선택한 메시지 전략"
+      },
+      "customMessages": {
+        "type": "Record<0 | 1 | 2 | 3, string>",
+        "optional": true,
+        "description": "Day 0-3 메시지 내용"
+      },
+      "schedule": {
+        "type": "{ startDate: string; duration: 3 | 7 | 14; hour: 8 | 12 | 18 | ... }",
+        "optional": true,
+        "description": "발송 스케줄"
+      }
+    }
+  },
+
+  "state_management": {
+    "useState_hooks": [
+      {
+        "name": "state",
+        "type": "FunnelWizardState",
+        "initial": "{ step: 1 }",
+        "updates": "각 단계에서 필드 추가 (selectedLens → selectedStrategy → customMessages → schedule)"
+      },
+      {
+        "name": "error",
+        "type": "string",
+        "initial": '""',
+        "updates": "유효성 검사 실패 시 에러 메시지 설정, 다음 입력 시 초기화"
+      },
+      {
+        "name": "saving",
+        "type": "boolean",
+        "initial": "false",
+        "updates": "onSave 호출 중 true, 완료/오류 시 false"
+      }
+    ],
+    "state_flow": {
+      "step_1_to_5": [
+        "Step 1: selectedLens 선택",
+        "Step 2: selectedStrategy 선택",
+        "Step 3: customMessages (Day 0-3) 입력",
+        "Step 4: schedule 설정",
+        "Step 5: 최종 확인 후 onSave 호출"
+      ],
+      "validation_sequence": [
+        "각 단계 다음 버튼 클릭 시 canProceedToNext() 호출",
+        "step별 필수 필드 검증",
+        "검증 실패 시 error 설정 및 진행 중단",
+        "검증 성공 시 error 초기화 및 다음 단계로 진행"
+      ],
+      "save_sequence": [
+        "Step 5 에서 저장 버튼 클릭",
+        "canProceedToNext() 최종 검증",
+        "setSaving(true)",
+        "await onSave(state)",
+        "성공: toast.success + onClose()",
+        "실패: error 메시지 표시 + logger.error"
+      ]
+    }
+  },
+
+  "styling_classes": {
+    "typography": {
+      "모달_제목": "text-xl font-bold text-gray-900 (20px, 진검정)",
+      "섹션_제목": "text-xl font-bold text-gray-900 (Step 안내)",
+      "설명": "text-base text-gray-600 (16px, 검정 설명)",
+      "라벨": "text-base font-semibold text-gray-900 (16px, 라벨용)",
+      "보조텍스트": "text-sm text-gray-600 (14px, 도움말)",
+      "매우작은텍스트": "text-xs text-gray-600 (12px, 보조정보)"
+    },
+
+    "colors_by_lens": {
+      "L0": { bg: "bg-purple-50", border: "border-purple-200", text: "text-purple-900", badge: "bg-purple-100 text-purple-700" },
+      "L1": { bg: "bg-yellow-50", border: "border-yellow-200", text: "text-yellow-900", badge: "bg-yellow-100 text-yellow-700" },
+      "L2": { bg: "bg-orange-50", border: "border-orange-200", text: "text-orange-900", badge: "bg-orange-100 text-orange-700" },
+      "L3": { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-900", badge: "bg-blue-100 text-blue-700" },
+      "L6": { bg: "bg-red-50", border: "border-red-200", text: "text-red-900", badge: "bg-red-100 text-red-700" },
+      "L10": { bg: "bg-green-50", border: "border-green-200", text: "text-green-900", badge: "bg-green-100 text-green-700" }
+    },
+
+    "spacing_rules": {
+      "모달_padding": "px-6 py-4 (헤더/푸터), px-6 py-6 (콘텐츠)",
+      "섹션_간": "space-y-6 (24px)",
+      "요소_간": "space-y-4 space-y-2 (16px/8px)",
+      "라디오_버튼": "w-6 h-6 (48px 터치 영역 포함)",
+      "버튼_최소": "px-6 py-3 (48px 높이, Tailwind)",
+      "card_padding": "p-4 (16px)"
+    },
+
+    "interactive_elements": {
+      "radio_button": "w-6 h-6 accent-blue-600 cursor-pointer",
+      "button_primary": "bg-blue-600 text-white hover:bg-blue-700 rounded-xl",
+      "button_secondary": "bg-white text-gray-900 border-2 border-gray-300 hover:bg-gray-50 rounded-xl",
+      "button_success": "bg-green-600 text-white hover:bg-green-700 rounded-xl",
+      "button_disabled": "opacity-50 cursor-not-allowed",
+      "textarea": "border border-gray-300 rounded-xl text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500",
+      "input": "border border-gray-300 rounded-xl text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 px-4 py-3",
+      "select": "border border-gray-300 rounded-xl text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 px-4 py-3"
+    },
+
+    "error_state": {
+      "container": "flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl",
+      "icon": "w-5 h-5 text-red-600 mt-0.5 flex-shrink-0",
+      "text": "text-base text-red-700"
+    },
+
+    "animation": {
+      "modal_enter": "opacity: 0 → 1, scale: 0.95 → 1, duration: 200ms",
+      "modal_exit": "opacity: 1 → 0, scale: 1 → 0.95, duration: 150ms",
+      "backdrop": "opacity: 0 → 0.3 (black), duration: 200ms"
+    },
+
+    "responsive_breakpoints": {
+      "desktop": "max-w-2xl (672px)",
+      "tablet": "max-w-2xl w-full mx-4",
+      "mobile": "max-w-2xl w-full mx-4 (small margin 고려)"
+    }
+  },
+
+  "sub_components": [
+    {
+      "name": "Step1LensSelection",
+      "description": "렌즈 선택 화면 (라디오 버튼 × 10, L0-L10)",
+      "features": [
+        "렌즈별 색상 배경 (선택 시)",
+        "렌즈명, 설명, 전략 배지 표시",
+        "렌즈 선택 시 Step 2로 진행 가능하도록 상태 초기화"
+      ]
+    },
+    {
+      "name": "Step2StrategySelection",
+      "description": "전략 선택 화면 (카드 × 3, 렌즈별)",
+      "features": [
+        "선택한 렌즈명 표시 (색상 강조)",
+        "렌즈별 기본 전략 3개 카드",
+        "선택한 전략 미리보기 박스"
+      ]
+    },
+    {
+      "name": "Step3MessageEditing",
+      "description": "메시지 편집 (Day 0-3 textarea × 4)",
+      "features": [
+        "사용 가능 변수 목록 (고정 배너)",
+        "Day 0-3 각각의 textarea (4행, 16px font)",
+        "글자 수 카운터 (0/1000)",
+        "PASONA 단계별 설명"
+      ]
+    },
+    {
+      "name": "Step4ScheduleSelection",
+      "description": "스케줄 선택 (날짜 + 기간 + 시간)",
+      "features": [
+        "시작 날짜 input (date picker)",
+        "기간 선택 버튼 (3/7/14일)",
+        "발송 시간 드롭다운 (매 2시간)",
+        "예상 발송 일정 미리보기"
+      ]
+    },
+    {
+      "name": "Step5FinalConfirm",
+      "description": "최종 확인 (요약 카드 + 저장)",
+      "features": [
+        "선택한 심리 유형 카드",
+        "선택한 메시지 전략 카드",
+        "발송 스케줄 카드",
+        "메시지 미리보기 (Day 0-3, line-clamp-2)",
+        "체크리스트 (4항목)"
+      ]
+    },
+    {
+      "name": "ProgressBar",
+      "description": "상단 진행 바 (5단계)",
+      "features": [
+        "5개 원형 버튼 (완료/진행중/미완료 상태 표시)",
+        "단계 간 연결선 (진행도 시각화)",
+        "체크마크 (완료 단계)",
+        "단계명 라벨 (아래)"
+      ]
+    }
+  ],
+
+  "integration_guide": {
+    "usage_example": "ContactSlidePanel.tsx에서 열기",
+    "code_snippet": `
+import FunnelWizardModal from './FunnelWizardModal';
+
+function ContactSlidePanel() {
+  const [wizardOpen, setWizardOpen] = useState(false);
+
+  return (
+    <>
+      <button onClick={() => setWizardOpen(true)}>
+        자동 메시지 마법사 열기
+      </button>
+
+      <FunnelWizardModal
+        contactId={contact.id}
+        contactName={contact.name}
+        open={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        onSave={async (data) => {
+          // API 호출: POST /api/funnel/create-from-wizard
+          await fetch('/api/funnel/create-from-wizard', {
+            method: 'POST',
+            body: JSON.stringify({
+              contactId: contact.id,
+              lens: data.selectedLens,
+              strategy: data.selectedStrategy,
+              messages: data.customMessages,
+              schedule: data.schedule,
+            }),
+          });
+        }}
+      />
+    </>
+  );
+}
+    `
+  },
+
+  "validation_rules": {
+    "step_1": "selectedLens: required (L0-L10 중 하나)",
+    "step_2": "selectedStrategy: required (렌즈별 3개 전략 중 하나)",
+    "step_3": "customMessages: 최소 1개 이상 메시지 입력 (비어있으면 안됨)",
+    "step_4": "schedule.startDate: required + schedule.duration: required (3/7/14) + schedule.hour: required (8~20)",
+    "step_5": "최종 저장 전 모든 단계 검증"
+  },
+
+  "accessibility_features": {
+    "keyboard_navigation": "Tab으로 모든 요소 접근 가능, Enter로 라디오 선택",
+    "focus_indicators": "focus:ring-2 focus:ring-blue-500 (모든 폼 필드)",
+    "aria_labels": "각 입력 필드에 연결된 label 태그",
+    "error_announcement": "AlertCircle 아이콘 + 텍스트 색상 (red-700)"
+  },
+
+  "mobile_responsive": {
+    "notes": "모든 버튼 48px 이상 (터치 친화)",
+    "textarea_height": "rows={4} (약 128px)",
+    "max_width": "max-w-2xl (desktop) → 100% (mobile, mx-4)",
+    "grid_layout": "grid-cols-1 (mobile/tablet) → grid-cols-3 (기간 버튼은 flex)"
+  },
+
+  "ERROR": null,
+
+  "implementation_checklist": [
+    "✅ FunnelWizardModal.tsx 파일 생성 완료",
+    "✅ 5개 Step 컴포넌트 구현 (Step1~5)",
+    "✅ 진행 바 (ProgressBar) 구현",
+    "✅ 유효성 검사 (canProceedToNext) 구현",
+    "✅ 렌즈별 색상 맵 (LENS_COLORS) 구현",
+    "✅ PASONA 단계 설명 (PASONA_STAGES) 구현",
+    "✅ 50대 친화 UI (버튼 48px, 글자 16px+)",
+    "✅ 에러 메시지 표시 (AlertCircle + 빨강)",
+    "✅ 로딩 상태 (Loader 스피너)",
+    "✅ Framer Motion 애니메이션 적용",
+    "✅ TypeScript 타입 정의 (FunnelWizardModalProps, etc.)",
+    "⏭️ API 엔드포인트 구현 필요 (POST /api/funnel/create-from-wizard)",
+    "⏭️ ContactSlidePanel.tsx에 마법사 버튼 추가 필요",
+    "⏭️ 테스트 케이스 작성 필요"
+  ],
+
+  "notes": {
+    "ui_philosophy": "Steve Jobs 원칙: 초등학생도 이해하는 단순함. 버튼은 크게(48px), 글자는 크게(16px), 기술용어 제거, 색상은 명확.",
+    "psychology_framework": "PASONA 프레임워크 Day 0-3 + Grant Cardone 10렌즈(L0-L10) 통합",
+    "animation": "부드러운 진입/퇴출 애니메이션 (Framer Motion), 모달 backdrop 검정색 30% 투명",
+    "accessibility": "WCAG 2.1 AA 준수: 4.5:1 대비도, 48px 터치 영역, 키보드 네비게이션 가능",
+    "performance": "최적화: useState 외부 상태 관리, 렌더링 최소화 (Step별 조건부 렌더링)",
+    "future_enhancements": [
+      "Step 3에서 AI 기반 메시지 생성 추천",
+      "Step 4에서 최적 발송 시간 자동 제안",
+      "메시지 미리보기 (실제 폰 UI 모양)",
+      "A/B 테스트 설정 (Step 5에서)"
+    ]
+  }
+}
