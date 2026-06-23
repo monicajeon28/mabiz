@@ -6,12 +6,12 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/useSession';
 import { redirect } from 'next/navigation';
 import type { TrustStatus, GetTrustScoreResponse } from '@/types/trust-score';
 
 export default function TrustScorePage() {
-  const { data: session, status } = useSession();
+  const { userId } = useSession();
   const [trust, setTrust] = useState<GetTrustScoreResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,16 +39,13 @@ export default function TrustScorePage() {
   };
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (!userId) {
       redirect('/auth/login');
     }
-
-    if (!session?.user) return;
 
     const fetchTrust = async () => {
       try {
         setLoading(true);
-        const userId = session.user?.email || '';
         const res = await fetch(`/api/trust-score/${userId}`);
 
         if (!res.ok) {
@@ -56,7 +53,7 @@ export default function TrustScorePage() {
             // 신뢰도 없음 (초기 상태)
             setTrust({
               id: '',
-              userId: (session?.user?.email) || '',
+              userId: userId || '',
               refundRate: 0,
               trustScore: 100,
               status: 'GOOD',
@@ -82,10 +79,10 @@ export default function TrustScorePage() {
     };
 
     fetchTrust();
-     
-  }, [session?.user, status]);
 
-  if (status === 'loading' || loading) {
+  }, [userId]);
+
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">

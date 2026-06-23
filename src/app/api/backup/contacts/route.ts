@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { getAuthSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { backupContactsToDrive } from '@/lib/google-drive';
 import { logger } from '@/lib/logger';
@@ -12,38 +12,34 @@ import { logger } from '@/lib/logger';
  */
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession();
+    const session = await getAuthSession();
 
-    if (!session?.user || typeof session.user !== 'object' || !('id' in session.user)) {
+    if (!session?.userId) {
       return NextResponse.json({ ok: false, error: '인증 필요' }, { status: 401 });
     }
 
     // ADMIN 권한 확인
-    const user = await prisma.organizationMember.findUnique({
-      where: { id: session.user.id as string },
-      include: {
-        organization: {
-          select: {
-            id: true,
-            name: true,
-            googleDriveAccessToken: true,
-          },
-        },
-      },
-    });
-
-    if (!user?.organizationId) {
-      return NextResponse.json({ ok: false, error: '조직 정보 없음' }, { status: 400 });
-    }
-
-    if (user.role !== 'GLOBAL_ADMIN' && user.role !== 'OWNER') {
+    if (session.role !== 'GLOBAL_ADMIN' && session.role !== 'OWNER') {
       return NextResponse.json(
         { ok: false, error: '권한 없음 (ADMIN만 백업 가능)' },
         { status: 403 }
       );
     }
 
-    const accessToken = user.organization?.googleDriveAccessToken;
+    if (!session.organizationId) {
+      return NextResponse.json({ ok: false, error: '조직 정보 없음' }, { status: 400 });
+    }
+
+    const organization = await prisma.organization.findUnique({
+      where: { id: session.organizationId },
+      select: {
+        id: true,
+        name: true,
+        googleDriveAccessToken: true,
+      },
+    });
+
+    const accessToken = organization?.googleDriveAccessToken;
 
     if (!accessToken) {
       return NextResponse.json(
@@ -55,7 +51,7 @@ export async function POST(req: NextRequest) {
     // Contact 조회
     const contacts = await prisma.contact.findMany({
       where: {
-        organizationId: user.organizationId,
+        organizationId: session.organizationId,
         visibility: { in: ['SHARED', 'ADMIN_ONLY'] },
         deletedAt: null,
       },
@@ -73,7 +69,7 @@ export async function POST(req: NextRequest) {
 
     // Google Drive 백업
     const result = await backupContactsToDrive(
-      user.organizationId,
+      session.organizationId,
       contacts as Array<{
         id: string;
         name: string;
@@ -90,7 +86,7 @@ export async function POST(req: NextRequest) {
     // 백업 기록 저장
     const backup = await prisma.contactBackup.create({
       data: {
-        organizationId: user.organizationId,
+        organizationId: session.organizationId,
         backupAt: result.backupAt,
         contactCount: result.count,
         driveSheetId: result.sheetId,
@@ -100,7 +96,7 @@ export async function POST(req: NextRequest) {
     });
 
     logger.info(`[POST /api/backup/contacts] ${result.count}개 Contact 백업됨`, {
-      organizationId: user.organizationId,
+      organizationId: session.organizationId,
       sheetId: result.sheetId,
     });
 
@@ -119,24 +115,18 @@ export async function POST(req: NextRequest) {
 
     // 실패 기록 저장
     try {
-      const session2 = await getServerSession();
-      if (session2?.user && typeof session2.user === 'object' && 'id' in session2.user) {
-        const user2 = await prisma.organizationMember.findUnique({
-          where: { id: session2.user.id as string },
+      const session2 = await getAuthSession();
+      if (session2?.organizationId) {
+        await prisma.contactBackup.create({
+          data: {
+            organizationId: session2.organizationId,
+            backupAt: new Date(),
+            contactCount: 0,
+            backupType: 'MANUAL',
+            status: 'FAILED',
+            errorMessage: err instanceof Error ? err.message : '알 수 없는 오류',
+          },
         });
-
-        if (user2?.organizationId) {
-          await prisma.contactBackup.create({
-            data: {
-              organizationId: user2.organizationId,
-              backupAt: new Date(),
-              contactCount: 0,
-              backupType: 'MANUAL',
-              status: 'FAILED',
-              errorMessage: err instanceof Error ? err.message : '알 수 없는 오류',
-            },
-          });
-        }
       }
     } catch (logErr) {
       logger.error('[POST /api/backup/contacts] 실패 기록 저장 실패', logErr);
@@ -157,22 +147,18 @@ export async function POST(req: NextRequest) {
  */
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession();
+    const session = await getAuthSession();
 
-    if (!session?.user || typeof session.user !== 'object' || !('id' in session.user)) {
+    if (!session?.userId) {
       return NextResponse.json({ ok: false, error: '인증 필요' }, { status: 401 });
     }
 
-    const user = await prisma.organizationMember.findUnique({
-      where: { id: session.user.id as string },
-    });
-
-    if (!user?.organizationId) {
+    if (!session.organizationId) {
       return NextResponse.json({ ok: false, error: '조직 정보 없음' }, { status: 400 });
     }
 
     // ADMIN 권한 확인
-    if (user.role !== 'GLOBAL_ADMIN' && user.role !== 'OWNER') {
+    if (session.role !== 'GLOBAL_ADMIN' && session.role !== 'OWNER') {
       return NextResponse.json(
         { ok: false, error: '권한 없음' },
         { status: 403 }
@@ -180,7 +166,7 @@ export async function GET(req: NextRequest) {
     }
 
     const backups = await prisma.contactBackup.findMany({
-      where: { organizationId: user.organizationId },
+      where: { organizationId: session.organizationId },
       orderBy: { backupAt: 'desc' },
       take: 10,
       select: {

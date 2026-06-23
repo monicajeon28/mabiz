@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/useSession';
 import { redirect } from 'next/navigation';
 import type { SubmitAppealResponse, TrustAppeal } from '@/types/trust-score';
 
@@ -19,7 +19,7 @@ const APPEAL_REASONS = {
 };
 
 export default function AppealsPage() {
-  const { data: session, status } = useSession();
+  const { userId } = useSession();
   const [appeals, setAppeals] = useState<TrustAppeal[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -33,15 +33,13 @@ export default function AppealsPage() {
   });
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (!userId) {
       redirect('/auth/login');
     }
 
-    if (!session?.user?.email) return;
-
     // 이의 목록 조회 (향후 API 구현)
     setLoading(false);
-  }, [session?.user?.email, status]);
+  }, [userId]);
 
   const handleReasonChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setFormData({ ...formData, reason: e.target.value });
@@ -88,7 +86,7 @@ export default function AppealsPage() {
     try {
       setSubmitting(true);
       const res = await fetch(
-        `/api/trust-score/${session?.user?.email}/appeal`,
+        `/api/trust-score/${userId}/appeal`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -116,7 +114,7 @@ export default function AppealsPage() {
     }
   };
 
-  if (status === 'loading' || loading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">

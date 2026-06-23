@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/hooks/useSession";
 import { RefreshCw, Lock, ShoppingCart, Building2, TrendingUp } from "lucide-react";
 import { logger } from "@/lib/logger";
 import { formatAmount, formatDate, formatMonth } from "@/lib/marketing-utils";
@@ -259,7 +259,7 @@ function PaginationControls({
 
 // ─── 메인 컴포넌트 ────────────────────────────────────────────
 export default function BranchSalesDashboard() {
-  const { data: session } = useSession();
+  const { userId } = useSession();
   const [data, setData] = useState<BranchApiData | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -285,7 +285,7 @@ export default function BranchSalesDashboard() {
     fetchData();
   }, [fetchData]);
 
-  if (!session) {
+  if (!userId) {
     return (
       <div className="flex items-center justify-center h-96">
         <p className="text-base text-gray-500">로그인이 필요합니다</p>
