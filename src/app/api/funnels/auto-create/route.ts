@@ -84,19 +84,21 @@ export async function POST(req: Request) {
         const scheduledAt = new Date(baseDate)
         scheduledAt.setDate(scheduledAt.getDate() + day)
 
-        const msgKey = String(day) as '0' | '1' | '2' | '3'
-        await tx.scheduledSms.create({
-          data: {
-            organizationId: orgId,
-            contactId: body.contactId,
-            message: body.customMessages[msgKey] || '',
-            scheduledAt,
-            status: 'PENDING',
-            sentCount: 0,
-            failedCount: 0,
-            createdByUserId: ctx.userId,
-          },
-        })
+        const msgKey = (day.toString()) as '0' | '1' | '2' | '3'
+        const message = body.customMessages[msgKey] || ''
+
+        if (message) {
+          await tx.scheduledSms.create({
+            data: {
+              organizationId: orgId,
+              contactId: body.contactId,
+              message,
+              scheduledAt,
+              status: 'PENDING',
+              createdByUserId: ctx.userId,
+            },
+          })
+        }
       }
 
       return newFunnel

@@ -53,7 +53,7 @@ export async function GET(req: Request) {
     const substituteVariables = (text: string): string => {
       let result = text
       result = result.replace(/\{\{고객명\}\}/g, contact.name || '홍길동')
-      result = result.replace(/\{\{전화번호\}\}/g, contact.phone || '010-0000-0000')
+      result = result.replace(/\{\{전화번호\}\}/g, contact?.phone || '010-0000-0000')
       result = result.replace(/\{\{담당자명\}\}/g, ctx.userId || '담당자')
       result = result.replace(/\{\{상품명\}\}/g, '크루즈 상품')
       result = result.replace(/\{\{출발일\}\}/g, new Date().toLocaleDateString('ko-KR'))
