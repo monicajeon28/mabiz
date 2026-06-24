@@ -149,6 +149,7 @@ export default function ContactsPage() {
   const [sharedCount, setSharedCount] = useState(0);
   const [adminOnlyCount, setAdminOnlyCount] = useState(0);
   const [teamCount, setTeamCount] = useState(0);
+  const [typeStats, setTypeStats] = useState<{ total: number; inquiry: number; purchased: number; gold: number }>({ total: 0, inquiry: 0, purchased: 0, gold: 0 });
   const [adminOnlyStats, setAdminOnlyStats] = useState<{ b2c: number; b2b: number; admin: number }>({ b2c: 0, b2b: 0, admin: 0 });
   const [q, setQ] = useState("");
   const [type, setType] = useState("");
@@ -527,21 +528,29 @@ export default function ContactsPage() {
   // 담당자 할당 통계와 그룹 로드 (의존성: 없음 - 마운트 시 1회만)
   // 그룹/담당자 정보는 자주 변경되지 않으므로, 필요시 수동으로 갱신
 
-  // 할당 통계 + 그룹 목록 + 탭 카운트 로드
+  // 할당 통계 + 그룹 목록 + 탭 카운트 + 타입별 통계 로드
   useEffect(() => {
     if (role === undefined) return; // 세션 로드 전 fetch 방지
     const ctrl = new AbortController();
     const isOwner = role === 'OWNER';
+
+    // visibility 파라미터 결정
+    let visibility = "SHARED";
+    if (activeTab === "ADMIN_ONLY") visibility = "ADMIN_ONLY";
+    else if (activeTab === "TEAM") visibility = "SHARED"; // teamView=true와 동일
+
     Promise.all([
       fetch("/api/groups", { signal: ctrl.signal }).then(r => r.json()),
       fetch("/api/contacts/assign-stats", { signal: ctrl.signal }).then(r => r.json()),
-      fetch("/api/contacts?visibility=SHARED&limit=1", { signal: ctrl.signal }).then(r => r.json()),
+      fetch(`/api/contacts?visibility=${visibility}&limit=1`, { signal: ctrl.signal }).then(r => r.json()),
+      fetch(`/api/contacts/stats?visibility=${visibility}`, { signal: ctrl.signal }).then(r => r.json()),
       isAdmin ? fetch("/api/contacts?visibility=ADMIN_ONLY&limit=1&includeStats=true", { signal: ctrl.signal }).then(r => r.json()) : Promise.resolve(null),
       isOwner ? fetch("/api/contacts?visibility=SHARED&teamView=true&limit=1", { signal: ctrl.signal }).then(r => r.json()) : Promise.resolve(null),
-    ]).then(([g, a, shared, adminOnly, team]) => {
+    ]).then(([g, a, shared, typeStats, adminOnly, team]) => {
       if (g.ok) setGroups(g.groups ?? []);
       if (a.ok) { setAssignStats(a.stats ?? []); setUnassignedCount(a.unassigned ?? 0); }
       if (shared.ok) setSharedCount(shared.total ?? 0);
+      if (typeStats.ok) setTypeStats(typeStats.stats ?? { total: 0, inquiry: 0, purchased: 0, gold: 0 });
       if (adminOnly?.ok) {
         setAdminOnlyCount(adminOnly.total ?? 0);
         if (adminOnly.sourceStats) {
@@ -550,10 +559,10 @@ export default function ContactsPage() {
       }
       if (team?.ok) setTeamCount(team.total ?? 0);
     }).catch(err => {
-      if (err instanceof Error && err.name !== 'AbortError') logger.error('[assign-stats failed]', { err });
+      if (err instanceof Error && err.name !== 'AbortError') logger.error('[stats failed]', { err });
     });
     return () => ctrl.abort();
-  }, [isAdmin, role]);
+  }, [isAdmin, role, activeTab]);
 
   // [L6] setTimeout cleanup (공유 결과 메시지 자동 숨김)
   useEffect(() => {
@@ -1064,6 +1073,52 @@ export default function ContactsPage() {
               )}
             </div>
           )}
+        </div>
+
+        {/* 고객 타입별 필터 (라디오 버튼) */}
+        <div className="mb-6 px-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              { value: "", label: "전체", emoji: "👥", count: typeStats.total },
+              { value: "잠재고객", label: "문의고객", emoji: "💬", count: typeStats.inquiry },
+              { value: "구매완료", label: "구매완료", emoji: "📦", count: typeStats.purchased, disabledForRole: "FREE_SALES" },
+              { value: "금회원", label: "골드회원", emoji: "👑", count: typeStats.gold, disabledForRole: "FREE_SALES" },
+            ].map(option => {
+              const isDisabled = Boolean(option.disabledForRole && role === option.disabledForRole);
+              return (
+                <label
+                  key={option.value}
+                  className={`flex items-center gap-2 p-3 rounded-lg cursor-pointer border-2 transition ${
+                    isDisabled
+                      ? "border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed"
+                      : type === option.value
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 hover:bg-gray-50"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    value={option.value}
+                    checked={type === option.value}
+                    onChange={(e) => {
+                      setType(e.target.value);
+                      setPage(1);
+                    }}
+                    disabled={isDisabled ?? false}
+                    className="w-5 h-5 cursor-pointer"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-13 md:text-14 truncate">
+                      {option.emoji} {option.label}
+                    </div>
+                    <div className="text-12 text-gray-500">
+                      {option.count.toLocaleString()}명
+                    </div>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
         </div>
 
         {/* 설명문 (크고 명확) */}
