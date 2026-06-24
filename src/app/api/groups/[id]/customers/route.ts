@@ -5,7 +5,7 @@
 
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import { getAuthContext, resolveOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId, buildContactWhere } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
@@ -52,15 +52,11 @@ export async function GET(req: Request, { params }: Params) {
     }
 
     // 그룹의 고객 목록 조회 (전체 전화번호 포함 - 마스킹 안 함)
+    // per-user 격리: AGENT는 그룹 내 본인 소유/공유 고객만, OWNER/GLOBAL_ADMIN은 조직 전체.
     const customers = await prisma.contact.findMany({
-      where: {
-        groups: {
-          some: {
-            groupId,
-          },
-        },
-        organizationId: orgId,
-      },
+      where: buildContactWhere(ctx, {
+        groups: { some: { groupId } },
+      }),
       select: {
         id: true,
         name: true,

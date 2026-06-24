@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAuthContext, resolveOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId, buildContactWhere } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 // GET /api/partner/[id]/contacts — 파트너에 속한 고객 목록
@@ -28,13 +28,11 @@ export async function GET(
       return NextResponse.json({ ok: false, message: '접근 권한 없음' }, { status: 403 });
     }
 
+    // per-user 격리: AGENT는 파트너 고객 중 본인 소유/공유만, OWNER/GLOBAL_ADMIN은 조직 전체.
+    const contactWhere = buildContactWhere(ctx, { partnerId });
     const [contacts, total] = await Promise.all([
       prisma.contact.findMany({
-        where: {
-          partnerId,
-          organizationId: orgId,
-          deletedAt: null,
-        },
+        where: contactWhere,
         include: {
           callLogs: {
             orderBy: { createdAt: 'desc' },
@@ -46,11 +44,7 @@ export async function GET(
         take: limit,
       }),
       prisma.contact.count({
-        where: {
-          partnerId,
-          organizationId: orgId,
-          deletedAt: null,
-        },
+        where: contactWhere,
       }),
     ]);
 

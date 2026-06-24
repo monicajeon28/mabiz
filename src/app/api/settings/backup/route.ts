@@ -4,7 +4,7 @@
  * POST /api/settings/backup — 수동 백업 실행
  */
 import { NextResponse } from 'next/server';
-import { getAuthContext, resolveOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId, canManageSettings } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { backupContactsToExcel, type BackupContact } from '@/lib/backup-xlsx';
 import { logger } from '@/lib/logger';
@@ -33,6 +33,11 @@ export async function GET(req: Request) {
         { ok: false, error: '인증이 필요합니다' },
         { status: 401 }
       );
+    }
+
+    // 고객 PII 백업 기록은 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용
+    if (!canManageSettings(ctx)) {
+      return NextResponse.json({ ok: false, error: '권한이 없습니다' }, { status: 403 });
     }
 
     const orgId = resolveOrgId(ctx);
@@ -101,6 +106,12 @@ export async function POST(req: Request) {
         { ok: false, error: '인증이 필요합니다' },
         { status: 401 }
       );
+    }
+
+    // 고객 PII 전체 백업 실행은 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용
+    // (인증된 판매원이 조직 전체 고객 PII를 Excel로 내보내던 누수 차단)
+    if (!canManageSettings(ctx)) {
+      return NextResponse.json({ ok: false, error: '권한이 없습니다' }, { status: 403 });
     }
 
     const orgId = resolveOrgId(ctx);
