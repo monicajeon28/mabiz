@@ -7,7 +7,7 @@ import {
   CreateFunnelSmsSchema,
   ListFunnelSmsQuerySchema,
 } from '@/lib/schemas/funnel-sms';
-import { validateSenderPhone } from '@/lib/funnel-sms-helpers';
+import { validateSenderPhone, buildFunnelSmsWhere } from '@/lib/funnel-sms-helpers';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 헬퍼: sentCount 조회 (FUNNEL_SMS:* 채널 발송 완료 건수)
@@ -55,19 +55,24 @@ export async function GET(req: Request) {
 
     const { groupId, q, page, pageSize } = queryValidation.data;
 
-    // groupId 필터: 해당 그룹에 연결된 FunnelSms만 조회
-    const where: Record<string, unknown> = { organizationId: orgId };
+    // groupId/검색 필터를 먼저 extra로 모은 뒤, 역할별 격리(buildFunnelSmsWhere)와 결합.
+    // - GLOBAL_ADMIN/OWNER: organizationId 범위 전체
+    // - AGENT: 본인 소유 + 공유(TEAM/PUBLIC/sharedWith) + 조직공용/시드(createdByUserId null·isTemplate)
+    const extra: Record<string, unknown> = {};
 
     if (groupId) {
-      where.groups = { some: { id: groupId, organizationId: orgId } };
+      extra.groups = { some: { id: groupId, organizationId: orgId } };
     }
 
+    // 검색어(q)는 AGENT의 소유권 OR과 충돌하지 않도록 AND(검색OR)로 결합되게 별도 OR로 전달.
     if (q) {
-      where.OR = [
+      extra.OR = [
         { title: { contains: q } },
         { category: { contains: q } },
       ];
     }
+
+    const where = buildFunnelSmsWhere(ctx, extra);
 
     const [total, items] = await Promise.all([
       prisma.funnelSms.count({ where }),

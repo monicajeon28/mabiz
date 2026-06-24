@@ -19,6 +19,7 @@ const PROTECTED_ROUTES = {
   DASHBOARD_TEAM: /^\/dashboard\/team(\/.*)?$/, // /dashboard/team/* - Owner/Agent only
   PNR: /^\/pnr(\/.*)?$/,                // /pnr/* - Authenticated users
   DASHBOARD: /^\/dashboard(\/.*)?$/,   // /dashboard/* - Authenticated users
+  LANDING_PAGES: /^\/landing-pages(\/.*)?$/, // /landing-pages/* - OWNER/GLOBAL_ADMIN only (route-rules). 공개 고객 경로 /landing·/l·/p·/api 는 미포함
   CONTACTS: /^\/contacts(\/.*)?$/,     // /contacts/* - Authenticated users
   MESSAGES: /^\/messages(\/.*)?$/,     // /messages/* - Authenticated users
   SETTINGS: /^\/settings(\/.*)?$/,     // /settings/* - Authenticated users

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext, resolveOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
+import { buildFunnelSmsWhere, findAccessibleFunnelSms } from "@/lib/funnel-sms-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,21 @@ export async function GET(req: Request) {
 
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
+    // per-user 격리: AGENT는 본인 소유/공유/조직공용 퍼널의 발송내역만 조회 가능.
+    // - funnelSmsId 지정 시: 해당 퍼널 접근 권한 확인 (없으면 403).
+    // - 미지정(전체 집계) 시: AGENT는 접근 가능한 퍼널 id 집합으로 한정.
+    const isAgentScoped = ctx.role !== "GLOBAL_ADMIN" && ctx.role !== "OWNER";
+
+    if (funnelSmsId) {
+      const accessible = await findAccessibleFunnelSms(ctx, funnelSmsId);
+      if (!accessible) {
+        return NextResponse.json(
+          { ok: false, error: "FORBIDDEN", message: "조회 권한이 없는 퍼널문자입니다." },
+          { status: 403 }
+        );
+      }
+    }
+
     // where 구성: 퍼널문자 단위 집계
     // - funnelSmsId 지정 시: funnelSmsId 컬럼 일치 (스냅샷 컬럼 우선)
     // - 미지정 시: channel startsWith 'FUNNEL_SMS:' (레거시 + 신규 모두 포괄)
@@ -59,6 +75,17 @@ export async function GET(req: Request) {
       where.funnelSmsId = funnelSmsId;
     } else {
       where.channel = { startsWith: "FUNNEL_SMS:" };
+
+      // AGENT 전체 집계: 접근 가능한 퍼널 id로 제한 (타인 퍼널 발송내역 차단).
+      // 레거시 행(funnelSmsId 스냅샷 null)은 채널만으로 매칭되므로 funnelSmsId IN 으로
+      // 한정하면 함께 제외됨 → 본인 권한 범위 밖 데이터 노출 방지(보수적 격리).
+      if (isAgentScoped) {
+        const accessibleFunnels = await prisma.funnelSms.findMany({
+          where: buildFunnelSmsWhere(ctx) as never,
+          select: { id: true },
+        });
+        where.funnelSmsId = { in: accessibleFunnels.map((f) => f.id) };
+      }
     }
     if (groupId) where.groupId = groupId;
     if (round !== undefined) where.round = round;

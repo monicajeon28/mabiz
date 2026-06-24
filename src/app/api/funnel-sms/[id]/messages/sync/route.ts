@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
+import { findAccessibleFunnelSms } from '@/lib/funnel-sms-helpers';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -26,11 +27,8 @@ export async function POST(_req: Request, { params }: Params) {
     const orgId = resolveOrgId(ctx);
     const { id } = await params;
 
-    // IDOR 방어: 소속 조직 소유 확인
-    const funnelSms = await prisma.funnelSms.findFirst({
-      where: { id, organizationId: orgId },
-      select: { id: true },
-    });
+    // IDOR + per-user 격리: AGENT는 본인 소유/공유/조직공용 퍼널만 동기화 가능
+    const funnelSms = await findAccessibleFunnelSms(ctx, id);
     if (!funnelSms) {
       return NextResponse.json(
         { ok: false, error: 'NOT_FOUND', message: '퍼널문자를 찾을 수 없습니다.' },

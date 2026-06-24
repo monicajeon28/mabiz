@@ -26,6 +26,91 @@
 
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import type { AuthContext } from '@/lib/rbac';
+import { resolveOrgId } from '@/lib/rbac';
+
+// ---------------------------------------------------------------------------
+// [0] 퍼널문자 per-user 격리 (FunnelSms 소유권/공유 필터)
+// ---------------------------------------------------------------------------
+//
+// buildContactWhere(rbac.ts)와 동일 철학의 3단 격리:
+//   - GLOBAL_ADMIN : resolveOrgId(=BONSA_ORG_ID) 범위 전체 (org 해석 기존 유지)
+//   - OWNER(대리점장): 소속 organizationId 범위 전체
+//   - AGENT(판매원)  : organizationId 범위 안에서
+//        (1) 본인이 만든 것(createdByUserId === userId)
+//        (2) 공유된 것(visibility TEAM/PUBLIC 이거나 sharedWith 에 본인 포함)
+//        (3) 조직공용/시드 템플릿(createdByUserId IS NULL 또는 isTemplate)
+//      → 기존 시드/공용 퍼널이 판매원에게서 사라지지 않도록 보호.
+//
+// 사용처: GET 목록(route.ts), 단건/PATCH/DELETE([id]), messages PUT/sync,
+//         stats, sent-history — 타인 퍼널 조회·편집 차단.
+
+/**
+ * 역할별 FunnelSms 격리 WHERE 조각을 반환한다.
+ * 항상 organizationId(resolveOrgId 결과)를 포함하므로 테넌트 격리는 유지된다.
+ * AGENT일 때만 추가로 소유권/공유 OR 조건을 덧붙인다.
+ *
+ * @param ctx   인증 컨텍스트
+ * @param extra 호출부 추가 조건(groupId/검색 등). OR 키를 포함하지 말 것(AGENT OR와 충돌).
+ */
+export function buildFunnelSmsWhere(
+  ctx: AuthContext,
+  extra: Record<string, unknown> = {}
+): Record<string, unknown> {
+  const orgId = resolveOrgId(ctx);
+
+  // GLOBAL_ADMIN / OWNER: 조직 범위 전체 (org 해석은 resolveOrgId가 담당)
+  if (ctx.role === 'GLOBAL_ADMIN' || ctx.role === 'OWNER') {
+    return { ...extra, organizationId: orgId };
+  }
+
+  // AGENT(및 그 외): 본인 소유 + 공유 + 조직공용/시드 템플릿
+  // 호출부가 extra.OR을 넣지 않는 계약. 혹시 들어오면 분리 병합한다.
+  const { OR: extraOR, ...restExtra } = extra as {
+    OR?: Record<string, unknown>[];
+    [k: string]: unknown;
+  };
+
+  const ownershipOR: Record<string, unknown>[] = [
+    { createdByUserId: ctx.userId }, // (1) 본인 소유
+    { visibility: { in: ['TEAM', 'PUBLIC'] } }, // (2-a) 팀/공개 공유
+    { sharedWith: { has: ctx.userId } }, // (2-b) 명시적 공유 대상
+    { createdByUserId: null }, // (3-a) 시드/조직공용(소유자 미상)
+    { isTemplate: true }, // (3-b) 조직 공용 템플릿
+  ];
+
+  // extra가 자체 OR을 가지면 AND로 결합 (organizationId AND (소유OR) AND (extraOR))
+  if (extraOR && extraOR.length > 0) {
+    return {
+      ...restExtra,
+      organizationId: orgId,
+      AND: [{ OR: ownershipOR }, { OR: extraOR }],
+    };
+  }
+
+  return {
+    ...restExtra,
+    organizationId: orgId,
+    OR: ownershipOR,
+  };
+}
+
+/**
+ * 단건 소유권 검증 — [id] 라우트에서 대상 FunnelSms에 대한 접근/편집 권한 확인.
+ * buildFunnelSmsWhere로 격리된 findFirst를 수행해 권한 없는 id면 null 반환.
+ *
+ * @returns 접근 가능하면 { id } 객체, 없으면 null (404 처리용)
+ */
+export async function findAccessibleFunnelSms(
+  ctx: AuthContext,
+  id: string
+): Promise<{ id: string } | null> {
+  const where = buildFunnelSmsWhere(ctx, { id });
+  return prisma.funnelSms.findFirst({
+    where: where as never,
+    select: { id: true },
+  });
+}
 
 export interface SenderPhoneValidation {
   /** senderPhone을 그대로 사용할 수 있는지 여부 */

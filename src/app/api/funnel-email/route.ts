@@ -1,12 +1,36 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAuthContext, resolveOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId, type AuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import {
   CreateFunnelEmailSchema,
   ListFunnelEmailQuerySchema,
 } from '@/lib/schemas/funnel-email';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 퍼널이메일 per-user 격리 (buildContactWhere 3단 모델 동일 철학)
+//
+//  - GLOBAL_ADMIN : 격리 없음 (org 해석은 호출부에서 기존대로 처리)
+//  - OWNER(대리점장) : organizationId 범위 전체 (추가 격리 없음)
+//  - AGENT/FREE_SALES(판매원) : 본인 작성분 + 공유받음(sharedWith)
+//        + 공개(visibility=PUBLIC) + 조직 공용 템플릿(isTemplate)
+//        + createdByUserId IS NULL (기존/시드 조직 공용 퍼널)
+//
+// 반환값을 기존 where에 spread하여 사용. AGENT가 아니면 빈 객체.
+// ─────────────────────────────────────────────────────────────────────────────
+function funnelEmailOwnershipWhere(ctx: AuthContext): Record<string, unknown> {
+  if (ctx.role !== 'AGENT' && ctx.role !== 'FREE_SALES') return {};
+  return {
+    OR: [
+      { createdByUserId: ctx.userId }, // 본인이 만든 퍼널
+      { createdByUserId: null }, // 조직 공용(기존/시드) 퍼널
+      { sharedWith: { has: ctx.userId } }, // 공유받은 퍼널
+      { visibility: 'PUBLIC' }, // 전체 공개 퍼널
+      { isTemplate: true }, // 조직 공용 템플릿
+    ],
+  };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 헬퍼: sentCount 조회 (groupId 기준, channel 없음)
@@ -74,7 +98,11 @@ export async function GET(req: Request) {
     }
 
     // groupId 필터: ContactGroup.funnelEmailId로 연결된 퍼널만 조회
-    const where: Record<string, unknown> = { organizationId: orgId };
+    // per-user 격리: AGENT는 본인/공유/공개/공용만 (OWNER·GLOBAL_ADMIN은 org 전체)
+    const where: Record<string, unknown> = {
+      organizationId: orgId,
+      ...funnelEmailOwnershipWhere(ctx),
+    };
 
     if (groupId) {
       where.groups = { some: { id: groupId, organizationId: orgId } };

@@ -1,11 +1,21 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAuthContext, resolveOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId, type AuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { ReplaceEmailMessagesSchema, FUNNEL_EMAIL_MAX_MESSAGES } from '@/lib/schemas/funnel-email';
 
 type Params = { params: Promise<{ id: string }> };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 메시지 편집용 상위 FunnelEmail 소유권 격리 ([id]/route.ts funnelEmailMutateWhere와 동일)
+//  - GLOBAL_ADMIN / OWNER : organizationId 범위 전체
+//  - AGENT/FREE_SALES : createdByUserId === userId (본인이 만든 퍼널의 메시지만 편집)
+// ─────────────────────────────────────────────────────────────────────────────
+function funnelEmailMutateWhere(ctx: AuthContext): Record<string, unknown> {
+  if (ctx.role !== 'AGENT' && ctx.role !== 'FREE_SALES') return {};
+  return { createdByUserId: ctx.userId };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PUT /api/funnel-email/[id]/messages — 이메일 메시지 배열 전체 교체
@@ -23,9 +33,9 @@ export async function PUT(req: Request, { params }: Params) {
     const orgId = resolveOrgId(ctx);
     const { id: funnelEmailId } = await params;
 
-    // IDOR 방어: 소속 조직 소유 확인
+    // IDOR 방어 + per-user 격리: AGENT는 본인이 만든 퍼널의 메시지만 편집
     const existing = await prisma.funnelEmail.findFirst({
-      where: { id: funnelEmailId, organizationId: orgId },
+      where: { id: funnelEmailId, organizationId: orgId, ...funnelEmailMutateWhere(ctx) },
       select: { id: true, groups: { select: { id: true } } },
     });
 

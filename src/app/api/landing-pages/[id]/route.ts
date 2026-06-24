@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
-import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, canDelete } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, canDelete, canManageSettings } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
 import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
@@ -65,6 +65,10 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(_req: Request, { params }: Params) {
   try {
     const ctx   = await getAuthContext();
+    // 랜딩페이지는 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용 (P0-2)
+    if (!canManageSettings(ctx)) {
+      return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '랜딩페이지 접근 권한이 없습니다' }, { status: 403 });
+    }
     const orgId = resolveOrgIdOrNull(ctx);
     const { id } = await params;
     // GLOBAL_ADMIN은 조직 필터 없이 조회 가능하지만 신청자 PII(registrations) 제외 (P0-5)
@@ -95,6 +99,10 @@ export async function GET(_req: Request, { params }: Params) {
 export async function PATCH(req: Request, { params }: Params) {
   try {
     const ctx   = await getAuthContext();
+    // 랜딩페이지 수정은 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN)만 가능 (P0-2)
+    if (!canManageSettings(ctx)) {
+      return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '랜딩페이지 수정 권한이 없습니다' }, { status: 403 });
+    }
     // GLOBAL_ADMIN은 null → org 필터 없이 전체 접근 가능
     const orgId = resolveOrgIdOrNull(ctx);
     const { id } = await params;

@@ -4,7 +4,11 @@ import prisma from '@/lib/prisma';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { UpdateFunnelSmsSchema } from '@/lib/schemas/funnel-sms';
-import { validateSenderPhone } from '@/lib/funnel-sms-helpers';
+import {
+  validateSenderPhone,
+  buildFunnelSmsWhere,
+  findAccessibleFunnelSms,
+} from '@/lib/funnel-sms-helpers';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -17,8 +21,9 @@ export async function GET(_req: Request, { params }: Params) {
     const orgId = resolveOrgId(ctx);
     const { id } = await params;
 
+    // per-user 격리: AGENT는 본인 소유/공유/조직공용만, OWNER/ADMIN은 조직 범위
     const item = await prisma.funnelSms.findFirst({
-      where: { id, organizationId: orgId },
+      where: buildFunnelSmsWhere(ctx, { id }) as never,
       select: {
         id: true,
         title: true,
@@ -83,11 +88,9 @@ export async function PATCH(req: Request, { params }: Params) {
     const orgId = resolveOrgId(ctx);
     const { id } = await params;
 
-    // IDOR 방어: 소속 조직 소유 확인
-    const existing = await prisma.funnelSms.findFirst({
-      where: { id, organizationId: orgId },
-      select: { id: true },
-    });
+    // IDOR + per-user 격리: AGENT는 본인 소유(createdByUserId)·공유·조직공용만 수정 가능.
+    // 타인 소유 퍼널이면 here에서 null → 404 (편집 차단).
+    const existing = await findAccessibleFunnelSms(ctx, id);
 
     if (!existing) {
       return NextResponse.json(
@@ -177,11 +180,8 @@ export async function DELETE(_req: Request, { params }: Params) {
     const orgId = resolveOrgId(ctx);
     const { id } = await params;
 
-    // IDOR 방어
-    const existing = await prisma.funnelSms.findFirst({
-      where: { id, organizationId: orgId },
-      select: { id: true },
-    });
+    // IDOR + per-user 격리 확인 (AGENT는 어차피 아래에서 삭제 차단)
+    const existing = await findAccessibleFunnelSms(ctx, id);
 
     if (!existing) {
       return NextResponse.json(

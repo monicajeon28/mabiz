@@ -26,15 +26,13 @@ export async function GET(req: Request) {
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
 
     // buildContactWhere()가 이미 visibility !== ADMIN_ONLY를 자동으로 필터링함
+    //
+    // [P0 보안: 검색 격리] 검색어(q)의 OR을 buildContactWhere의 extra로 넘기면,
+    // AGENT 경로에서 검색 OR이 소유권 OR(assignedUserId/createdBy/sharedWith)에
+    // spread 병합되어 같은 조직의 "타 판매원 고객"까지 이름/전화로 열거된다.
+    // (rbac.ts buildContactWhere 계약: extra에 OR 키 금지) → 소유권 격리(baseWhere)와
+    // 검색(q)을 AND로 분리해 격리를 유지한 채 검색만 좁힌다.
     const baseWhere = buildContactWhere(ctx, {
-      ...(q
-        ? {
-            OR: [
-              { name: { contains: q, mode: "insensitive" as const } },
-              { phone: { contains: q } },
-            ],
-          }
-        : {}),
       ...(tags.length > 0 ? { tags: { hasEvery: tags } } : {}),
       ...(assignedTo === "unassigned"
         ? { assignedUserId: null }
@@ -43,11 +41,25 @@ export async function GET(req: Request) {
           : {}),
     });
 
+    const where: Prisma.ContactWhereInput = q
+      ? {
+          AND: [
+            baseWhere as Prisma.ContactWhereInput,
+            {
+              OR: [
+                { name: { contains: q, mode: "insensitive" as const } },
+                { phone: { contains: q } },
+              ],
+            },
+          ],
+        }
+      : (baseWhere as Prisma.ContactWhereInput);
+
     const skip = (page - 1) * limit;
 
     const [contacts, total] = await Promise.all([
       prisma.contact.findMany({
-        where: baseWhere,
+        where,
         select: {
           id: true,
           name: true,
@@ -64,7 +76,7 @@ export async function GET(req: Request) {
         skip,
         take: limit,
       }),
-      prisma.contact.count({ where: baseWhere }),
+      prisma.contact.count({ where }),
     ]);
 
     // P0-1 Security Fix: Apply PII masking to all contacts

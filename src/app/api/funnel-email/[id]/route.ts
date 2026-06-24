@@ -1,11 +1,41 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAuthContext, resolveOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId, type AuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { UpdateFunnelEmailSchema } from '@/lib/schemas/funnel-email';
 
 type Params = { params: Promise<{ id: string }> };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 퍼널이메일 단건 소유권 격리 (route.ts funnelEmailOwnershipWhere와 동일 규칙)
+//  - GLOBAL_ADMIN / OWNER : organizationId 범위 전체
+//  - AGENT/FREE_SALES : 본인 작성 + 공유 + 공개 + 공용템플릿 + createdByUserId IS NULL
+// findFirst where에 spread하여 사용.
+// ─────────────────────────────────────────────────────────────────────────────
+function funnelEmailOwnershipWhere(ctx: AuthContext): Record<string, unknown> {
+  if (ctx.role !== 'AGENT' && ctx.role !== 'FREE_SALES') return {};
+  return {
+    OR: [
+      { createdByUserId: ctx.userId },
+      { createdByUserId: null },
+      { sharedWith: { has: ctx.userId } },
+      { visibility: 'PUBLIC' },
+      { isTemplate: true },
+    ],
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 편집/삭제용 격리 (조회보다 엄격) — AGENT는 "본인이 만든" 퍼널만 수정 가능.
+// 공유/공개/공용(null·template) 퍼널은 볼 수는 있어도 임의 변경 금지.
+//  - GLOBAL_ADMIN / OWNER : organizationId 범위 전체
+//  - AGENT/FREE_SALES : createdByUserId === userId 만
+// ─────────────────────────────────────────────────────────────────────────────
+function funnelEmailMutateWhere(ctx: AuthContext): Record<string, unknown> {
+  if (ctx.role !== 'AGENT' && ctx.role !== 'FREE_SALES') return {};
+  return { createdByUserId: ctx.userId };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/funnel-email/[id] — 단건 조회 (messages[] 포함)
@@ -17,7 +47,8 @@ export async function GET(_req: Request, { params }: Params) {
     const { id } = await params;
 
     const item = await prisma.funnelEmail.findFirst({
-      where: { id, organizationId: orgId },
+      // per-user 격리: AGENT는 본인/공유/공개/공용만 조회
+      where: { id, organizationId: orgId, ...funnelEmailOwnershipWhere(ctx) },
       select: {
         id: true,
         title: true,
@@ -86,9 +117,9 @@ export async function PATCH(req: Request, { params }: Params) {
     const orgId = resolveOrgId(ctx);
     const { id } = await params;
 
-    // IDOR 방어: 소속 조직 소유 확인
+    // IDOR 방어 + per-user 격리: AGENT는 본인이 만든 퍼널만 수정 가능
     const existing = await prisma.funnelEmail.findFirst({
-      where: { id, organizationId: orgId },
+      where: { id, organizationId: orgId, ...funnelEmailMutateWhere(ctx) },
       select: { id: true },
     });
 
@@ -163,9 +194,9 @@ export async function DELETE(_req: Request, { params }: Params) {
     const orgId = resolveOrgId(ctx);
     const { id } = await params;
 
-    // IDOR 방어
+    // IDOR 방어 + per-user 격리 (AGENT/FREE_SALES는 본인 것만)
     const existing = await prisma.funnelEmail.findFirst({
-      where: { id, organizationId: orgId },
+      where: { id, organizationId: orgId, ...funnelEmailMutateWhere(ctx) },
       select: { id: true },
     });
 

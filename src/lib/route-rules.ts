@@ -85,8 +85,9 @@ export const ROUTE_RULES: RouteRule[] = [
   // OWNER 이상 전용 — 판매원(AGENT) 직접 URL 접근 차단 [API-SALES-004]
   { pattern: '/marketing',          requiredRole: 'OWNER', redirectTo: '/contacts' },
   { pattern: '/marketing/*',        requiredRole: 'OWNER', redirectTo: '/contacts' },
-  { pattern: '/landing-pages',      requiredRole: 'MEMBER', redirectTo: '/contacts' },
-  { pattern: '/landing-pages/*',    requiredRole: 'MEMBER', redirectTo: '/contacts' },
+  // 랜딩페이지: 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용. 판매원(AGENT 40<50) 차단 (P0-2)
+  { pattern: '/landing-pages',      requiredRole: 'OWNER', redirectTo: '/contacts' },
+  { pattern: '/landing-pages/*',    requiredRole: 'OWNER', redirectTo: '/contacts' },
   { pattern: '/funnel-sms',         requiredRole: 'MEMBER', redirectTo: '/messages' },
   { pattern: '/funnel-sms/*',       requiredRole: 'MEMBER', redirectTo: '/messages' },
   { pattern: '/links',              requiredRole: 'MEMBER', redirectTo: '/contacts' },

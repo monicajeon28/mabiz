@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, BONSA_ORG_ID } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, BONSA_ORG_ID, canManageSettings } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
 import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
@@ -17,7 +17,9 @@ export async function GET() {
       return NextResponse.json({ ok: false, error: 'UNAUTHORIZED', message: '로그인이 필요합니다' }, { status: 401 });
     }
 
-    if (ctx.role === 'FREE_SALES') {
+    // 랜딩페이지는 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용 기능.
+    // 판매원(AGENT)·프리세일즈(FREE_SALES) 조회 차단 (P0-2)
+    if (!canManageSettings(ctx)) {
       return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '이 작업을 수행할 권한이 없습니다' }, { status: 403 });
     }
 
@@ -125,17 +127,15 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const ctx   = await getAuthContext();
-    if (ctx.role === 'FREE_SALES') {
+    // 랜딩페이지 생성은 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN)만 가능.
+    // 판매원(AGENT)·프리세일즈(FREE_SALES)는 직접 POST 호출/직접 URL 접근 차단 (P0-2)
+    if (!canManageSettings(ctx)) {
       return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '랜딩페이지 생성 권한이 없습니다' }, { status: 403 });
     }
     // GLOBAL_ADMIN은 organizationId가 null → 본사 조직 ID 사용 (non-deterministic findFirst 제거)
     const orgId = ctx.organizationId ?? BONSA_ORG_ID;
 
-    // AGENT는 자기 조직만 생성 가능
     const body = await req.json();
-    if (ctx.role === 'AGENT' && body.organizationId && body.organizationId !== ctx.organizationId) {
-      return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '자기 조직만 랜딩페이지 생성 가능합니다' }, { status: 403 });
-    }
 
     const {
       title, slug, htmlContent, groupId, editorMode, commentEnabled,
