@@ -11,12 +11,24 @@ import { IMAGE_FIELDS_BY_FORMAT } from "@/lib/landing-page-constants";
 // GET /api/landing-pages
 export async function GET() {
   try {
-    const ctx   = await getAuthContext();
+    const ctx = await getAuthContext();
+    if (!ctx) {
+      logger.warn('[GET /api/landing-pages] 인증 실패 - 세션 없음');
+      return NextResponse.json({ ok: false, error: 'UNAUTHORIZED', message: '로그인이 필요합니다' }, { status: 401 });
+    }
+
     if (ctx.role === 'FREE_SALES') {
       return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '이 작업을 수행할 권한이 없습니다' }, { status: 403 });
     }
+
     const orgId = resolveOrgIdOrNull(ctx);
     const myOrgId = orgId ?? BONSA_ORG_ID;
+
+    // orgId 검증 (null이 아닐 때만)
+    if (orgId && !orgId.trim()) {
+      logger.warn('[GET /api/landing-pages] 조직 ID가 빈 문자열', { orgId });
+      return NextResponse.json({ ok: false, error: 'INVALID_ORG', message: '조직 정보가 유효하지 않습니다' }, { status: 400 });
+    }
 
     // 내 페이지
     const pages = await prisma.crmLandingPage.findMany({

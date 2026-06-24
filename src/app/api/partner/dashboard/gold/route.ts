@@ -13,15 +13,27 @@ export async function GET(req: Request) {
   try {
     const ctx = await requirePartnerContext();
     if (!ctx) {
+      logger.warn('[dashboard/gold] 인증 실패 - 세션 없음');
       return NextResponse.json({ ok: false, error: '인증이 필요합니다' }, { status: 403 });
     }
 
     const { searchParams } = new URL(req.url);
     const monthParam = searchParams.get('month');
     const now = new Date();
-    const [year, month] = monthParam
-      ? monthParam.split('-').map(Number)
-      : [now.getFullYear(), now.getMonth() + 1];
+
+    // 월 파라미터 파싱 (유효성 검증)
+    let year = now.getFullYear();
+    let month = now.getMonth() + 1;
+
+    if (monthParam) {
+      const parts = monthParam.split('-').map(Number);
+      if (parts.length === 2 && parts[0] > 0 && parts[1] > 0 && parts[1] <= 12) {
+        year = parts[0];
+        month = parts[1];
+      } else {
+        logger.warn('[dashboard/gold] 유효하지 않은 month 파라미터', { monthParam });
+      }
+    }
 
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 1);
@@ -29,27 +41,38 @@ export async function GET(req: Request) {
     const prevEnd = startDate;
 
     const isAdmin = ctx.sessionUser.role === 'admin';
-    const orgFilter = isAdmin ? {} : { organizationId: ctx.organizationId ?? "" };
-    const consultOrgFilter = isAdmin ? {} : { organizationId: ctx.organizationId ?? "" };
+    const orgId = isAdmin ? undefined : (ctx.organizationId ?? undefined);
+    const orgFilter = isAdmin ? {} : { organizationId: orgId };
+    const consultOrgFilter = isAdmin ? {} : { organizationId: orgId };
 
     // GoldMember 테이블 존재 여부 확인 (마이그레이션 미적용 환경 대비)
     try {
-      await prisma.goldMember.count({ where: { id: 'probe' } });
-    } catch {
-      logger.warn('[gold dashboard] GoldMember 테이블 없음 - 빈 데이터 반환');
-      return NextResponse.json({
-        ok: true, memberCount: 0, memberGrowth: 0, newInquiryCount: 0, inquiryGrowth: 0,
-        paymentRate: 0, paymentRateChange: 0, recentMembers: [], recentConsultations: [],
-      });
+      await prisma.goldMember.count({ where: { id: 'probe_non_existent_record_12345' } });
+    } catch (tableError: unknown) {
+      const errMsg = (tableError as any)?.message || String(tableError);
+      if (errMsg.includes('does not exist') || errMsg.includes('GoldMember')) {
+        logger.warn('[gold dashboard] GoldMember 테이블 없음 - 빈 데이터 반환', { error: errMsg });
+        return NextResponse.json({
+          ok: true,
+          memberCount: 0,
+          memberGrowth: 0,
+          newInquiryCount: 0,
+          inquiryGrowth: 0,
+          paymentRate: 0,
+          paymentRateChange: 0,
+          recentMembers: [],
+          recentConsultations: [],
+        });
+      }
+      // 다른 에러는 계속 진행 (select 권한 없음 등)
     }
 
-    // ── 1) 골드회원 수 + 상담 수 + 납부율 (현재 + 전월 병렬) ──
+    // ── 1) 골드회원 수 + 상담 수 (현재 + 전월 병렬) ──
     const [
       memberCount, prevMemberCount,
       newInquiryCount, prevInquiryCount,
     ] = await Promise.all([
       prisma.goldMember.count({ where: { ...orgFilter, status: 'ACTIVE' } }),
-      // 전월 기준 활성 회원 (joinDate 기준 근사치)
       prisma.goldMember.count({
         where: { ...orgFilter, status: 'ACTIVE', createdAt: { lt: prevEnd } },
       }),
@@ -59,31 +82,40 @@ export async function GET(req: Request) {
       prisma.goldMemberConsultation.count({
         where: { createdAt: { gte: prevStart, lt: prevEnd }, goldMember: consultOrgFilter },
       }),
-    ]);
+    ]).catch((err) => {
+      logger.error('[gold dashboard] 병렬 쿼리 실패', { error: (err as any)?.message });
+      throw err;
+    });
 
     // ── 납부율: SQL 집계 사용 (성능 최적화: findMany+reduce 제거) ──
     let paymentRate = 0;
     let prevPaymentRate = 0;
 
     if (isAdmin) {
-      const result = await prisma.$queryRaw<[{ rate: number | null }]>`
+      const result = await prisma.$queryRaw<Array<{ rate: number | null }>>`
         SELECT CASE WHEN COUNT(*) = 0 THEN 0
           ELSE ROUND(AVG("paidCount"::float / NULLIF("totalPayments", 0)) * 100, 2)
         END AS rate
         FROM "GoldMember"
         WHERE "status" = 'ACTIVE' AND "totalPayments" > 0
       `;
-      paymentRate = Number(result[0]?.rate ?? 0);
-    } else {
-      const result = await prisma.$queryRaw<[{ rate: number | null }]>`
+      // Array.isArray 체크 + 안전한 접근
+      paymentRate = result && Array.isArray(result) && result.length > 0
+        ? Number(result[0]?.rate ?? 0)
+        : 0;
+    } else if (orgId) {
+      const result = await prisma.$queryRaw<Array<{ rate: number | null }>>`
         SELECT CASE WHEN COUNT(*) = 0 THEN 0
           ELSE ROUND(AVG("paidCount"::float / NULLIF("totalPayments", 0)) * 100, 2)
         END AS rate
         FROM "GoldMember"
         WHERE "status" = 'ACTIVE' AND "totalPayments" > 0
-          AND "organizationId" = ${ctx.organizationId}
+          AND "organizationId" = ${orgId}
       `;
-      paymentRate = Number(result[0]?.rate ?? 0);
+      // Array.isArray 체크 + 안전한 접근
+      paymentRate = result && Array.isArray(result) && result.length > 0
+        ? Number(result[0]?.rate ?? 0)
+        : 0;
     }
 
     // ── 2) 최근 회원 10건 (프론트 타입에 맞게 매핑) ──
