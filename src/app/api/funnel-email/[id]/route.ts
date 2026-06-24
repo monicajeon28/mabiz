@@ -20,7 +20,7 @@ function funnelEmailOwnershipWhere(ctx: AuthContext): Record<string, unknown> {
       { createdByUserId: ctx.userId },
       { createdByUserId: null },
       { sharedWith: { has: ctx.userId } },
-      { visibility: 'PUBLIC' },
+      { visibility: { in: ['TEAM', 'PUBLIC'] } }, // 팀/전체 공개 (funnel-sms와 가시성 일치)
       { isTemplate: true },
     ],
   };

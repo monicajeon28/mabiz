@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, BONSA_ORG_ID, canManageSettings } from "@/lib/rbac";
+import { getAuthContext, resolveOrgIdOrNull, BONSA_ORG_ID, canManageSettings } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
 import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";

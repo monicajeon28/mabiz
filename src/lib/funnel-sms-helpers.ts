@@ -112,6 +112,40 @@ export async function findAccessibleFunnelSms(
   });
 }
 
+/**
+ * 수정 전용 격리 WHERE (조회보다 엄격) — funnel-email의 funnelEmailMutateWhere와 동일 철학.
+ * AGENT/FREE_SALES는 "본인이 만든(createdByUserId === userId)" 퍼널만 수정 가능.
+ * 공유(TEAM/PUBLIC/sharedWith)·조직공용(createdByUserId NULL)·시드(isTemplate) 퍼널은
+ * 볼 수는 있어도(findAccessibleFunnelSms) 내용·메시지·예약을 변경할 수 없다.
+ *  - GLOBAL_ADMIN / OWNER : organizationId 범위 전체
+ *  - AGENT / FREE_SALES   : organizationId + createdByUserId === userId
+ */
+export function buildFunnelSmsMutateWhere(
+  ctx: AuthContext,
+  extra: Record<string, unknown> = {}
+): Record<string, unknown> {
+  const orgId = resolveOrgId(ctx);
+  if (ctx.role === 'GLOBAL_ADMIN' || ctx.role === 'OWNER') {
+    return { ...extra, organizationId: orgId };
+  }
+  return { ...extra, organizationId: orgId, createdByUserId: ctx.userId };
+}
+
+/**
+ * 수정 권한 단건 검증 — PATCH/messages PUT/sync 에서 사용.
+ * 본인 소유가 아니면 null → 404 (타인 공용 퍼널 변조 차단).
+ */
+export async function findMutableFunnelSms(
+  ctx: AuthContext,
+  id: string
+): Promise<{ id: string } | null> {
+  const where = buildFunnelSmsMutateWhere(ctx, { id });
+  return prisma.funnelSms.findFirst({
+    where: where as never,
+    select: { id: true },
+  });
+}
+
 export interface SenderPhoneValidation {
   /** senderPhone을 그대로 사용할 수 있는지 여부 */
   valid: boolean;

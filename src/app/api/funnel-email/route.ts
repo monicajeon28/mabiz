@@ -26,7 +26,7 @@ function funnelEmailOwnershipWhere(ctx: AuthContext): Record<string, unknown> {
       { createdByUserId: ctx.userId }, // 본인이 만든 퍼널
       { createdByUserId: null }, // 조직 공용(기존/시드) 퍼널
       { sharedWith: { has: ctx.userId } }, // 공유받은 퍼널
-      { visibility: 'PUBLIC' }, // 전체 공개 퍼널
+      { visibility: { in: ['TEAM', 'PUBLIC'] } }, // 팀/전체 공개 퍼널 (funnel-sms와 가시성 일치)
       { isTemplate: true }, // 조직 공용 템플릿
     ],
   };

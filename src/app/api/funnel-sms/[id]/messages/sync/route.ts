@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
-import { findAccessibleFunnelSms } from '@/lib/funnel-sms-helpers';
+import { findMutableFunnelSms } from '@/lib/funnel-sms-helpers';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -27,8 +27,8 @@ export async function POST(_req: Request, { params }: Params) {
     const orgId = resolveOrgId(ctx);
     const { id } = await params;
 
-    // IDOR + per-user 격리: AGENT는 본인 소유/공유/조직공용 퍼널만 동기화 가능
-    const funnelSms = await findAccessibleFunnelSms(ctx, id);
+    // IDOR + 수정 전용 격리: AGENT는 "본인이 만든" 퍼널만 예약 동기화(삭제·재예약) 가능
+    const funnelSms = await findMutableFunnelSms(ctx, id);
     if (!funnelSms) {
       return NextResponse.json(
         { ok: false, error: 'NOT_FOUND', message: '퍼널문자를 찾을 수 없습니다.' },

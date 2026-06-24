@@ -8,6 +8,7 @@ import {
   validateSenderPhone,
   buildFunnelSmsWhere,
   findAccessibleFunnelSms,
+  findMutableFunnelSms,
 } from '@/lib/funnel-sms-helpers';
 
 type Params = { params: Promise<{ id: string }> };
@@ -88,9 +89,9 @@ export async function PATCH(req: Request, { params }: Params) {
     const orgId = resolveOrgId(ctx);
     const { id } = await params;
 
-    // IDOR + per-user 격리: AGENT는 본인 소유(createdByUserId)·공유·조직공용만 수정 가능.
-    // 타인 소유 퍼널이면 here에서 null → 404 (편집 차단).
-    const existing = await findAccessibleFunnelSms(ctx, id);
+    // IDOR + 수정 전용 격리: AGENT는 "본인이 만든(createdByUserId)" 퍼널만 수정 가능.
+    // 공유/조직공용/시드 퍼널은 볼 수는 있어도 변조 불가 → 타인 퍼널이면 null → 404.
+    const existing = await findMutableFunnelSms(ctx, id);
 
     if (!existing) {
       return NextResponse.json(

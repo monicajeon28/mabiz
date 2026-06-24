@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import { getAuthContext, resolveOrgIdOrNull } from '@/lib/rbac';
+import { getAuthContext, resolveOrgIdOrNull, canManageSettings } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
@@ -21,6 +21,10 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(_req: Request, { params }: Params) {
   try {
     const ctx   = await getAuthContext();
+    // 랜딩페이지 통계는 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용 (P0-2)
+    if (!canManageSettings(ctx)) {
+      return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '권한이 없습니다' }, { status: 403 });
+    }
     const orgId = resolveOrgIdOrNull(ctx);
     const { id } = await params;
 

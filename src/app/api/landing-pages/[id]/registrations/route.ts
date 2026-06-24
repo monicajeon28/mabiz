@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, resolveOrgId } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId, canManageSettings } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 type Params = { params: Promise<{ id: string }> };
@@ -9,6 +9,11 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(req: Request, { params }: Params) {
   try {
     const ctx   = await getAuthContext();
+    // 랜딩페이지 신청자 명단은 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용 (P0-2).
+    // 판매원(AGENT)이 URL 직접 호출로 신청 고객 이름·이메일을 열람하던 누수 차단.
+    if (!canManageSettings(ctx)) {
+      return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '권한이 없습니다' }, { status: 403 });
+    }
     const orgId = resolveOrgId(ctx);
     const { id } = await params;
 

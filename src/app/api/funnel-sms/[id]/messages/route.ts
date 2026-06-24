@@ -4,7 +4,7 @@ import prisma from '@/lib/prisma';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { ReplaceMessagesSchema } from '@/lib/schemas/funnel-sms';
-import { findAccessibleFunnelSms } from '@/lib/funnel-sms-helpers';
+import { findMutableFunnelSms } from '@/lib/funnel-sms-helpers';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -24,9 +24,9 @@ export async function PUT(req: Request, { params }: Params) {
     const orgId = resolveOrgId(ctx);
     const { id: funnelSmsId } = await params;
 
-    // IDOR + per-user 격리: AGENT는 본인 소유/공유/조직공용 퍼널의 메시지만 편집 가능.
-    // 타인 퍼널이면 null → 404 (메시지 교체 차단).
-    const existing = await findAccessibleFunnelSms(ctx, funnelSmsId);
+    // IDOR + 수정 전용 격리: AGENT는 "본인이 만든" 퍼널의 메시지만 교체 가능.
+    // 공유/조직공용/시드 퍼널 메시지 변조 차단 → 타인 퍼널이면 null → 404.
+    const existing = await findMutableFunnelSms(ctx, funnelSmsId);
 
     if (!existing) {
       return NextResponse.json(

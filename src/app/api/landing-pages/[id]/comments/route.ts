@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, resolveOrgId, canDelete } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId, canDelete, canManageSettings } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 type Params = { params: Promise<{ id: string }> };
@@ -9,6 +9,11 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(_req: Request, { params }: Params) {
   try {
     const ctx   = await getAuthContext();
+    // 랜딩페이지 댓글 관리는 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용 (P0-2).
+    // 공개 페이지 댓글은 /api/public/landing/[slug]/comments 별도 경로 사용.
+    if (!canManageSettings(ctx)) {
+      return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '권한이 없습니다' }, { status: 403 });
+    }
     const orgId = resolveOrgId(ctx);
     const { id } = await params;
 
