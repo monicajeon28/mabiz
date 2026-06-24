@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext } from "@/lib/rbac";
+import { getAuthContext, buildContactWhere } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 
 /**
@@ -165,15 +165,11 @@ export async function POST(req: Request) {
       targetOrgName = targetOrg?.name ?? null;
     }
 
-    // ── 대상 고객 일괄 조회 (소유권 포함) ─────────────────────────────────
+    // ── 대상 고객 일괄 조회 (per-user 소유권 격리) ────────────────────────
+    // buildContactWhere: GLOBAL_ADMIN=전체 / OWNER=조직전체 / AGENT=본인 소유·공유만.
+    // → AGENT가 타 판매원 고객 ID를 넣어 자기에게 재배정/복사하던 누수 차단.
     const contacts = await prisma.contact.findMany({
-      where: {
-        id: { in: ids },
-        ...(ctx.role !== "GLOBAL_ADMIN" && ctx.organizationId
-          ? { organizationId: ctx.organizationId }
-          : {}),
-        deletedAt: null,
-      },
+      where: buildContactWhere(ctx, { id: { in: ids } }),
       select: { id: true, name: true, phone: true, organizationId: true, sourceOrgId: true, email: true, type: true, cruiseInterest: true, budgetRange: true, tags: true, leadScore: true, utmSource: true, affiliateCode: true },
     });
 

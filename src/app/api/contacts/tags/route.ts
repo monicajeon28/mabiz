@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAuthContext, resolveOrgId } from '@/lib/rbac';
+import { getAuthContext, buildContactWhere } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 export async function GET(req: NextRequest) {
   try {
     const ctx = await getAuthContext();
-    const orgId = resolveOrgId(ctx);
     const { searchParams } = new URL(req.url);
     const limit = Math.min(parseInt(searchParams.get('limit') || '200', 10), 1000);
 
+    // 격리: AGENT는 본인 고객(배정/작성/공유) 태그만 집계.
+    // OWNER=조직전체, GLOBAL_ADMIN=전체 (buildContactWhere가 자동 보존).
+    // deletedAt:null도 buildContactWhere가 포함.
     const contacts = await prisma.contact.findMany({
-      where: { organizationId: orgId, deletedAt: null }, // 삭제된 고객(soft delete) 제외
+      where: buildContactWhere(ctx),
       select: { tags: true },
     });
 
@@ -24,7 +26,7 @@ export async function GET(req: NextRequest) {
 
     const tags = Array.from(tagSet).sort().slice(0, limit);
 
-    logger.log('[GET /api/contacts/tags]', { orgId, count: tags.length });
+    logger.log('[GET /api/contacts/tags]', { role: ctx.role, count: tags.length });
     return NextResponse.json({ ok: true, tags });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

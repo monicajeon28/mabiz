@@ -20,6 +20,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { backupContactsToDrive } from '@/lib/google-drive-backup';
+import { getAuthContext, canManageSettings, requireOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -32,8 +33,18 @@ interface BackupRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    // [보안] 고객 PII 백업은 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용.
+    // 기존엔 인증이 전혀 없어 body의 organizationId만으로 임의 조직 PII를 내보낼 수 있었음(교차조직 유출).
+    const ctx = await getAuthContext();
+    if (!canManageSettings(ctx)) {
+      return NextResponse.json({ ok: false, error: '권한이 없습니다' }, { status: 403 });
+    }
     const body = (await request.json()) as BackupRequest;
-    const { organizationId, accessToken, backupType = 'MANUAL' } = body;
+    const { accessToken, backupType = 'MANUAL' } = body;
+    // organizationId는 body를 신뢰하지 않고 본인 조직으로 강제 (GLOBAL_ADMIN만 body로 임의 조직 허용)
+    const organizationId = ctx.role === 'GLOBAL_ADMIN'
+      ? (body.organizationId ?? ctx.organizationId ?? '')
+      : requireOrgId(ctx);
 
     if (!organizationId || !accessToken) {
       return NextResponse.json(
@@ -130,8 +141,15 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
+    // [보안] 백업 목록도 대리점장·관리자 전용 + 본인 조직만
+    const ctx = await getAuthContext();
+    if (!canManageSettings(ctx)) {
+      return NextResponse.json({ ok: false, error: '권한이 없습니다' }, { status: 403 });
+    }
     const { searchParams } = new URL(request.url);
-    const organizationId = searchParams.get('organizationId');
+    const organizationId = ctx.role === 'GLOBAL_ADMIN'
+      ? searchParams.get('organizationId')
+      : (ctx.organizationId ?? null);
     const limit = parseInt(searchParams.get('limit') || '10', 10);
 
     if (!organizationId) {

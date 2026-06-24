@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, resolveOrgId, requireOrgId } from "@/lib/rbac";
+import { getAuthContext, requireOrgId, buildContactWhere } from "@/lib/rbac";
 import { sendSms, resolveUserSmsConfig } from "@/lib/aligo";
 import { logger } from "@/lib/logger";
 
@@ -32,14 +32,14 @@ export async function POST(req: Request) {
     }
 
     // 태그 조건 고객 조회 (수신거부 제외)
+    // 권한 격리: AGENT는 본인 소유/공유 고객만 대상 — buildContactWhere로 조회 범위 제한
+    // (OWNER=조직전체, GLOBAL_ADMIN=전체는 buildContactWhere가 그대로 보존)
     const contacts = await prisma.contact.findMany({
-      where: {
-        organizationId: orgId,
-        deletedAt: null, // 삭제된 고객(soft delete) 제외
-        tags:   { hasEvery: tags },
+      where: buildContactWhere(ctx, {
+        tags:     { hasEvery: tags },
         optOutAt: null,
-        phone:  { not: "" },
-      },
+        phone:    { not: "" },
+      }),
       select: { id: true, name: true, phone: true },
       take: MAX_RECIPIENTS + 1,
     });
