@@ -1077,41 +1077,49 @@ export default function ContactsPage() {
 
         {/* 고객 타입별 필터 (라디오 버튼) */}
         <div className="mb-6 px-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-4">
             {[
-              { value: "", label: "전체", emoji: "👥", count: typeStats.total },
-              { value: "잠재고객", label: "문의고객", emoji: "💬", count: typeStats.inquiry },
-              { value: "구매완료", label: "구매완료", emoji: "📦", count: typeStats.purchased, disabledForRole: "FREE_SALES" },
-              { value: "금회원", label: "골드회원", emoji: "👑", count: typeStats.gold, disabledForRole: "FREE_SALES" },
+              { value: "", label: "전체", emoji: "👥", count: typeStats.total, color: "blue" },
+              { value: "잠재고객", label: "문의고객", emoji: "💬", count: typeStats.inquiry, color: "amber" },
+              { value: "구매완료", label: "구매완료", emoji: "📦", count: typeStats.purchased, color: "green", disabledForRole: "FREE_SALES" },
+              { value: "금회원", label: "골드회원", emoji: "👑", count: typeStats.gold, color: "yellow", disabledForRole: "FREE_SALES" },
             ].map(option => {
               const isDisabled = Boolean(option.disabledForRole && role === option.disabledForRole);
+              const isSelected = type === option.value;
+              const colorMap = {
+                blue: { border: "border-blue-400", bg: "bg-blue-100", hover: "hover:bg-blue-50" },
+                amber: { border: "border-amber-400", bg: "bg-amber-100", hover: "hover:bg-amber-50" },
+                green: { border: "border-green-400", bg: "bg-green-100", hover: "hover:bg-green-50" },
+                yellow: { border: "border-yellow-400", bg: "bg-yellow-100", hover: "hover:bg-yellow-50" },
+              } as const satisfies Record<string, { border: string; bg: string; hover: string }>;
+              const colors = colorMap[option.color as keyof typeof colorMap];
               return (
                 <label
                   key={option.value}
-                  className={`flex items-center gap-2 p-3 rounded-lg cursor-pointer border-2 transition ${
+                  className={`flex items-center gap-3 p-4 rounded-lg cursor-pointer border-2 transition ${
                     isDisabled
-                      ? "border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed"
-                      : type === option.value
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-200 hover:bg-gray-50"
+                      ? "border-gray-300 bg-gray-100 opacity-40 cursor-not-allowed"
+                      : isSelected
+                      ? `${colors.border} ${colors.bg}`
+                      : `border-gray-300 ${colors.hover}`
                   }`}
                 >
                   <input
                     type="radio"
                     value={option.value}
-                    checked={type === option.value}
+                    checked={isSelected}
                     onChange={(e) => {
                       setType(e.target.value);
                       setPage(1);
                     }}
                     disabled={isDisabled ?? false}
-                    className="w-5 h-5 cursor-pointer"
+                    className="w-6 h-6 cursor-pointer accent-gray-800"
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="font-bold text-13 md:text-14 truncate">
+                    <div className="font-bold text-base truncate">
                       {option.emoji} {option.label}
                     </div>
-                    <div className="text-12 text-gray-500">
+                    <div className="text-sm text-gray-600 font-semibold">
                       {option.count.toLocaleString()}명
                     </div>
                   </div>
