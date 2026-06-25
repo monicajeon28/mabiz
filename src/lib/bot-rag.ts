@@ -123,12 +123,13 @@ export async function searchProductFacts(query: string, take = 4): Promise<Produ
 }
 
 function won(n: number): string {
+  if (!Number.isFinite(n)) return "가격은 담당자 확인";
   const man = Math.round(n / 10000);
   return `${n.toLocaleString("ko-KR")}원(약 ${man.toLocaleString("ko-KR")}만원)`;
 }
 
 function ymd(d: Date | null): string | null {
-  if (!d) return null;
+  if (!d || Number.isNaN(d.getTime())) return null; // Invalid Date 방어(프롬프트 빌드 throw 방지)
   return d.toISOString().slice(0, 10);
 }
 

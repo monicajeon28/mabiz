@@ -81,12 +81,17 @@ export function checkOutputGuard(text: string, allowedFacts: string): OutputGuar
   if (BANNED_PHRASE.test(text)) violations.push("BANNED_PHRASE");
   if (LEAK_MARKER.test(text)) violations.push("PROMPT_OR_RAG_LEAK");
 
-  // 그라운딩: 출력에 등장한 금액/퍼센트가 확정 사실에 없으면 환각 가능성
-  const factDigits = digitsOf(allowedFacts);
+  // 그라운딩: 출력 금액이 확정 사실의 숫자 토큰과 "정확히" 일치하지 않으면 환각 가능성.
+  // (부분문자열 일치 금지 — fact 2,500,000 에 지어낸 250,000 이 substring 으로 통과하던 오탐 차단)
+  // 한계(정직히): 한글 표기 금액("이백오십만원")·2자리 만원·퍼센트는 이 가드로 못 잡는다.
+  //   → 1차 방어는 시스템프롬프트 하드가드 + Phase 5 시뮬-검수 폐루프, 이 가드는 2차 그물.
+  const factNumberSet = new Set(
+    (allowedFacts.match(/\d[\d,]*/g) ?? []).map((t) => t.replace(/[,\s]/g, "")),
+  );
   for (const token of extractPriceTokens(text)) {
     const d = digitsOf(token);
-    // 1~2자리(개월수 등 일반 숫자)는 과대탐지 방지로 제외, 3자리+ 금액만 대조
-    if (d.length >= 3 && !factDigits.includes(d)) {
+    // 3자리+ 금액만 대조(1~2자리 개월/인원 등 일반 숫자는 과대탐지 방지로 제외)
+    if (d.length >= 3 && !factNumberSet.has(d)) {
       violations.push(`UNGROUNDED_PRICE:${token}`);
     }
   }

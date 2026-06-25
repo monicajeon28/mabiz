@@ -114,7 +114,14 @@ export function nextFsmState(s: FsmSignals): BotFsmState {
   }
 }
 
-/** 상태 전이 시 closeAttempts 증가 여부(클로징을 시도하는 단계로 들어갈 때 +1). */
-export function incrementsCloseAttempt(from: BotFsmState, to: BotFsmState): boolean {
-  return to === "TRIAL_CLOSE" && from !== "TRIAL_CLOSE";
+/**
+ * 클로징/이의대응 "밀어붙임" 1회 카운트 여부.
+ *
+ * 🔴 라이브락 방지: 호출자는 이 값이 true면 closeAttempts 를 +1 한 뒤 그 값을 다음 턴
+ * nextFsmState(signals.closeAttempts) 로 반드시 넘겨야 한다. 그래야 이의가 계속될 때
+ * closeAttempts 가 누적되어 MAX_CLOSE_ATTEMPTS 초과 시 GRACEFUL_EXIT 가 발동한다.
+ * TRIAL_CLOSE 또는 OBJECTION_LOOP 로 들어갈 때마다(머무를 때 포함) 1회 시도로 센다.
+ */
+export function incrementsCloseAttempt(_from: BotFsmState, to: BotFsmState): boolean {
+  return to === "TRIAL_CLOSE" || to === "OBJECTION_LOOP";
 }
