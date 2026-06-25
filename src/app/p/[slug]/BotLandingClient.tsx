@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { BOT_IMAGES, publicImageUrl } from "@/lib/bot-images";
 
 interface Msg {
   role: "user" | "bot";
@@ -16,7 +17,60 @@ interface Msg {
  *  chat    : 기존 채팅(send/이미지/handoff).
  *  endcta  : 종료(카톡에서 후기 보기 / 상품 구경하기).
  */
-type Phase = "gate" | "choice" | "chat" | "endcta";
+type Phase = "guide" | "gate" | "choice" | "chat" | "endcta";
+
+/**
+ * 크루즈봇 버튼 가이드(PASONA 4장) — AI 호출 0회, 0.2초 즉시 전환(로딩·비용 0).
+ *   사진 9종으로 공감→차별화→신뢰→후기 여정을 클릭만으로 통과시키고, 끝에서 게이트(이름·연락처)로.
+ *   🔴 문구는 사실만. '최저가/유일/100%/보장' 등 절대표현 금지(광고법). 가격·일정 단정은 게이트 이후 담당 전문가가.
+ */
+interface GuideCard {
+  title: string;
+  body: string;
+  imageKeys: string[]; // bot-images.ts BOT_IMAGES 키
+  primaryLabel: string;
+  primaryTo: "next" | "lead";
+  secondaryLabel?: string;
+  secondaryTo?: "lead" | "chat";
+}
+const GUIDE_CARDS: GuideCard[] = [
+  {
+    title: "티켓만 들고 떠나는 자유여행, 막막하지 않으세요?",
+    body: "말도 안 통하고, 길도 헤매고, 끼니와 안전까지… 자유여행은 신경 쓸 게 참 많죠.",
+    imageKeys: ["opening", "problem1"],
+    primaryLabel: "네, 궁금해요",
+    primaryTo: "next",
+    secondaryLabel: "바로 상담받을게요",
+    secondaryTo: "lead",
+  },
+  {
+    title: "크루즈닷은 그 걱정을 이렇게 덜어드려요",
+    body: "한국어 안내방송과 전담 스탭이 함께해서, 복잡한 준비 없이 편하게 즐기시면 됩니다.",
+    imageKeys: ["solution1", "solution2"],
+    primaryLabel: "오, 그러네요",
+    primaryTo: "next",
+    secondaryLabel: "바로 상담받을게요",
+    secondaryTo: "lead",
+  },
+  {
+    title: "믿고 맡기셔도 괜찮아요",
+    body: "선사 인증을 받은 전담 스탭이 처음부터 끝까지 안내해 드려요. 정확한 가격·일정은 담당 전문가가 확인해 드립니다.",
+    imageKeys: ["trust1", "trust2"],
+    primaryLabel: "신뢰가 가네요",
+    primaryTo: "next",
+    secondaryLabel: "궁금한 게 있어요",
+    secondaryTo: "chat",
+  },
+  {
+    title: "다녀오신 분들이 가장 좋았다고 하세요",
+    body: "함께 다녀오신 분들의 후기예요. 마음 편한 여행, 직접 느껴보세요.",
+    imageKeys: ["review1", "review2"],
+    primaryLabel: "저도 상담받을게요",
+    primaryTo: "lead",
+    secondaryLabel: "더 궁금한 게 있어요",
+    secondaryTo: "chat",
+  },
+];
 
 interface Props {
   pageId: string;
@@ -62,8 +116,9 @@ export default function BotLandingClient({
   const defaultGreeting = isRecruit ? RECRUIT_GREETING : CRUISE_GREETING;
   const defaultChips = isRecruit ? RECRUIT_CHIPS : CRUISE_CHIPS;
 
-  // 단계 — 들어오면 채팅이 아니라 게이트부터 시작
-  const [phase, setPhase] = useState<Phase>("gate");
+  // 단계 — 크루즈봇은 버튼 가이드(PASONA 4장)부터, 모집봇은 기존대로 게이트부터(무영향).
+  const [phase, setPhase] = useState<Phase>(botType === "recruit" ? "gate" : "guide");
+  const [guideStep, setGuideStep] = useState(0);
 
   const [messages, setMessages] = useState<Msg[]>([
     { role: "bot", text: greeting || defaultGreeting },
@@ -91,6 +146,21 @@ export default function BotLandingClient({
   // 모집봇: 어필리에이트 폴백 없음(상품 판매 아님) — 교육·모집 안내 링크가 없으면 버튼 자체를 숨김.
   const homeLink = isRecruit ? homepageUrl || "" : homepageUrl || DEFAULT_HOMEPAGE_URL;
   const gateHook = hookText || (isRecruit ? RECRUIT_HOOK : CRUISE_HOOK);
+
+  // 가이드 버튼 동작: 다음 카드 / 게이트(이름·연락처 입력) / 채팅(AI 비상구)
+  const onGuide = (to: "next" | "lead" | "chat") => {
+    if (to === "next") {
+      setGuideStep((s) => Math.min(s + 1, GUIDE_CARDS.length - 1));
+    } else if (to === "lead") {
+      setLeadError("");
+      setShowLeadForm(true);
+      setPhase("gate");
+    } else {
+      setPhase("chat");
+    }
+  };
+  const guideCard =
+    phase === "guide" ? GUIDE_CARDS[Math.min(guideStep, GUIDE_CARDS.length - 1)] : null;
 
   // 게이트 리드 제출 → 기존 register API(그룹배정·퍼널·판매원 귀속) 재사용
   const submitLead = useCallback(async () => {
@@ -193,6 +263,72 @@ export default function BotLandingClient({
           {isRecruit ? "교육생 모집봇" : "크루즈 상담봇"} · 편하게 물어보세요
         </p>
       </header>
+
+      {/* ── 0단계: 버튼 가이드 (PASONA 4장 · 9종 이미지 · AI 호출 0회) ── */}
+      {phase === "guide" && guideCard && (
+        <div className="flex flex-1 flex-col px-5 py-6">
+          <div className="mx-auto flex w-full max-w-md flex-1 flex-col">
+            {/* 진행점 — 끝이 보이게 */}
+            <div className="mb-4 flex items-center justify-center gap-2">
+              {GUIDE_CARDS.map((_, i) => (
+                <span
+                  key={i}
+                  className={`h-2.5 rounded-full transition-all ${
+                    i === guideStep ? "w-6 bg-[#2563EB]" : "w-2.5 bg-slate-300"
+                  }`}
+                />
+              ))}
+            </div>
+            <h2 className="text-xl font-bold leading-relaxed text-[#1E2D4E]">
+              {guideCard.title}
+            </h2>
+            <p className="mt-3 text-base leading-relaxed text-slate-600">{guideCard.body}</p>
+            {/* 설득 사진 */}
+            <div className="mt-4 flex flex-col gap-3">
+              {guideCard.imageKeys.map((k) => {
+                const img = BOT_IMAGES[k];
+                if (!img) return null;
+                return (
+                  <img
+                    key={k}
+                    src={publicImageUrl(img.fileId)}
+                    alt={img.label}
+                    loading="lazy"
+                    className="w-full rounded-2xl border border-slate-200 shadow-sm"
+                  />
+                );
+              })}
+            </div>
+            {/* 버튼 */}
+            <div className="mt-auto space-y-3 pt-6">
+              <button
+                type="button"
+                onClick={() => onGuide(guideCard.primaryTo)}
+                className="flex min-h-[56px] w-full items-center justify-center rounded-2xl bg-[#27AE60] px-5 text-lg font-bold text-white shadow-sm transition active:scale-[0.99]"
+              >
+                {guideCard.primaryLabel}
+              </button>
+              {guideCard.secondaryLabel && guideCard.secondaryTo && (
+                <button
+                  type="button"
+                  onClick={() => guideCard.secondaryTo && onGuide(guideCard.secondaryTo)}
+                  className="flex min-h-[48px] w-full items-center justify-center rounded-2xl border-2 border-[#1E2D4E] px-5 text-base font-bold text-[#1E2D4E] transition active:scale-[0.99]"
+                >
+                  {guideCard.secondaryLabel}
+                </button>
+              )}
+              {/* 작게 — 그냥 둘러보기(AI 채팅 비상구) */}
+              <button
+                type="button"
+                onClick={() => setPhase("chat")}
+                className="w-full text-center text-sm text-slate-400 underline underline-offset-4"
+              >
+                그냥 둘러볼게요
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── 1단계: 시작 게이트 (가치 먼저, 입력 나중) ── */}
       {phase === "gate" && (
