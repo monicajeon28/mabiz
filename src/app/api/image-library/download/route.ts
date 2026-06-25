@@ -77,8 +77,17 @@ export async function GET(req: Request) {
 
     if (fs.existsSync(logoPath)) {
       const logoSize = Math.max(80, Math.floor(w * 0.3));
+      // 핑크 로고 → 회색조 + 투명도 40%: 가독성 위해 은은한 회색 음영 워터마크
       watermarkInput = await sharp(logoPath)
         .resize({ width: logoSize, withoutEnlargement: true })
+        .grayscale()
+        .ensureAlpha()
+        .composite([{
+          input: Buffer.from([255, 255, 255, Math.round(255 * 0.4)]),
+          raw: { width: 1, height: 1, channels: 4 },
+          tile: true,
+          blend: 'dest-in',
+        }])
         .png()
         .toBuffer();
     } else {
