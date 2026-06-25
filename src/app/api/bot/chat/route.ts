@@ -338,6 +338,8 @@ export async function POST(req: Request) {
           intentScore: newIntent,
           lastMessageAt: new Date(),
           status: handoff ? "HANDED_OFF" : convo.status,
+          // 손님 연락처 1회 저장(첫 번호 보존, 후속 클로징 SMS용)
+          ...(customerPhone && !convo.customerPhone ? { customerPhone } : {}),
         },
       }),
     ]);

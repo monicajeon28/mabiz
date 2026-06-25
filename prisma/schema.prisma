@@ -7961,6 +7961,8 @@ model BotConversation {
   shortLinkCode     String? // 진입 추적코드
   visitorId         String // 익명 방문자 식별(HMAC 서명 쿠키)
   contactId         String? // 식별 후 Contact 연결
+  customerPhone     String? // 손님이 상담 중 남긴 연락처(핸드오프·후속 클로징 SMS용, 평문=Contact.phone 패턴)
+  customerName      String? // 손님이 남긴 이름(있으면)
   channel           String   @default("bot_landing")
   status            String   @default("ACTIVE") // ACTIVE | CONVERTED | ABANDONED | HANDED_OFF
   fsmState          String   @default("OPENING") // 대화 상태머신 현재 단계
