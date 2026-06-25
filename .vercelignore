@@ -5,6 +5,12 @@
 docs/
 크루즈닷기능/
 
+# DB 백업/덤프 (배포 불필요, 업로드 묶음 비대 원인) — Google Drive 백업 대상
+backups/
+*.csv
+*.dump
+*.sql.gz
+
 # 미디어/오디오
 *.m4a
 *.mp3
