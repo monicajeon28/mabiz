@@ -211,31 +211,42 @@ type UploadedImage = {
   width: number; height: number; mimeType: string; fileName: string; sortOrder: number;
 };
 
+/** Drive fileId → 표준 썸네일 정보 객체 */
+function driveInfoFromFileId(fileId: string): { url: string; driveFileId: string; fullUrl: string } {
+  return {
+    url:         `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`,
+    fullUrl:     `https://drive.google.com/thumbnail?id=${fileId}&sz=w1920`,
+    driveFileId: fileId,
+  };
+}
+
 /** 라이브러리 HTML에서 Drive fileId + 썸네일 URL 추출 */
 function extractDriveInfo(html: string): { url: string; driveFileId: string; fullUrl: string } | null {
   const srcset = html.match(/srcset="([^"]+)"/)?.[1];
   const src    = html.match(/src="([^"]+)"/)?.[1];
   const rawUrl = srcset ?? src;
   if (!rawUrl) return null;
+  // 상대 경로 proxy URL(/api/landing-pages/images/proxy?id=FILE_ID) 우선 처리
+  // (cache 소스 라이브러리 이미지는 절대 Drive URL이 아니라 인증 게이트 proxy 경로로 들어옴)
+  // new URL()은 base 없는 상대경로에서 throw하므로 정규식으로 먼저 fileId 추출
+  const proxyMatch = rawUrl.match(/\/api\/(?:landing-pages\/images\/proxy|public\/landing-image)\?id=([a-zA-Z0-9_-]+)/);
+  if (proxyMatch?.[1]) {
+    return driveInfoFromFileId(proxyMatch[1]);
+  }
   try {
     const u = new URL(rawUrl);
     // drive.google.com/thumbnail?id=FILE_ID
     if (u.hostname === "drive.google.com" && u.searchParams.get("id")) {
-      const fileId = u.searchParams.get("id")!;
-      return {
-        url:         `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`,
-        fullUrl:     `https://drive.google.com/thumbnail?id=${fileId}&sz=w1920`,
-        driveFileId: fileId,
-      };
+      return driveInfoFromFileId(u.searchParams.get("id")!);
+    }
+    // 절대 proxy URL (https://.../api/landing-pages/images/proxy?id=FILE_ID)
+    if (u.pathname.includes("/api/landing-pages/images/proxy") && u.searchParams.get("id")) {
+      return driveInfoFromFileId(u.searchParams.get("id")!);
     }
     // lh3.googleusercontent.com/d/FILE_ID=w...
     if (u.hostname === "lh3.googleusercontent.com") {
       const fileId = u.pathname.split("/d/")[1]?.split("=")[0] ?? "";
-      if (fileId) return {
-        url:         `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`,
-        fullUrl:     `https://drive.google.com/thumbnail?id=${fileId}&sz=w1920`,
-        driveFileId: fileId,
-      };
+      if (fileId) return driveInfoFromFileId(fileId);
     }
     return null;
   } catch { return null; }

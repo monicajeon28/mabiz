@@ -94,8 +94,10 @@ export function LandingClient({
   // P1-23: 스테일 클로저 방지용 Ref — useEffect 의존성 배열에서 제외
   const completionPageUrlRef = useRef(completionPageUrl);
   const l6ConfigRef = useRef(l6Config);
+  const paymentRef = useRef(payment);
   useEffect(() => { completionPageUrlRef.current = completionPageUrl; }, [completionPageUrl]);
   useEffect(() => { l6ConfigRef.current = l6Config; }, [l6Config]);
+  useEffect(() => { paymentRef.current = payment; }, [payment]);
 
   // 에러 토스트 4초 자동 dismiss
   useEffect(() => {
@@ -140,6 +142,51 @@ export function LandingClient({
     target?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  // 결제 플로우 시작 — PayApp 결제요청(/api/public/payapp/request) 호출 → 결제창으로 이동
+  // 완료화면 버튼과 신청 직후 자동 결제 양쪽에서 공용으로 사용
+  // paymentRef.current 사용 — 폼 submit 핸들러(스테일 클로저)에서 호출돼도 최신 결제설정 보장
+  const startPayment = async (custName: string, custPhone: string) => {
+    const pay = paymentRef.current;
+    if (!pay) return;
+    setPaymentLoading(true);
+    try {
+      const res = await fetch("/api/public/payapp/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: pay.type,
+          goodname: pay.productName,
+          price: pay.productPrice,
+          customerName: custName,
+          customerPhone: custPhone,
+          landingPageId: pageId,
+          ...(pay.type === "subscription" ? {
+            cycleDay: pay.cycleDay,
+            expireDate: pay.expireDate,
+          } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (data.ok && data.payUrl) {
+        if (isSafeUrl(data.payUrl)) {
+          window.location.href = data.payUrl;
+        } else {
+          logger.error("[LandingClient] Payment URL validation failed");
+          setFieldError("결제 URL이 유효하지 않습니다.");
+        }
+      } else {
+        setFieldError(data.message ?? "결제 요청에 실패했습니다.");
+      }
+    } catch {
+      setFieldError("네트워크 오류가 발생했습니다.");
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+  // startPayment 최신본을 폼 submit 핸들러(고정 클로저)에서 호출하기 위한 Ref
+  const startPaymentRef = useRef(startPayment);
+  startPaymentRef.current = startPayment;
+
   // 댓글 로드
   useEffect(() => {
     if (!commentEnabled) return;
@@ -178,15 +225,18 @@ export function LandingClient({
     if (!container) return;
 
     // buttonTitle 반영 — 폼 내 submit 버튼 텍스트 교체
+    // 우선순위: 명시적 buttonTitle > 결제 활성 시 "결제하기" > B2B 기본문구
+    const submitBtns = container.querySelectorAll<HTMLButtonElement>('form button[type="submit"], form button:not([type])');
     if (buttonTitle) {
-      container.querySelectorAll<HTMLButtonElement>('form button[type="submit"], form button:not([type])').forEach((btn) => {
-        btn.textContent = buttonTitle;
-      });
+      submitBtns.forEach((btn) => { btn.textContent = buttonTitle; });
+    } else if (paymentRef.current) {
+      // 결제 설정 ON → 버튼을 "결제하기"(정기결제는 "정기결제 시작하기")로 표시
+      // 신청 직후 PayApp 결제창으로 자동 연결됨
+      const payLabel = paymentRef.current.type === "subscription" ? "정기결제 시작하기" : "결제하기";
+      submitBtns.forEach((btn) => { btn.textContent = payLabel; });
     } else if (isB2BPage(slug)) {
       // B2B 페이지의 기본 버튼 문구 (Loss Aversion #5)
-      container.querySelectorAll<HTMLButtonElement>('form button[type="submit"], form button:not([type])').forEach((btn) => {
-        btn.textContent = B2B_CTA_TEXT;
-      });
+      submitBtns.forEach((btn) => { btn.textContent = B2B_CTA_TEXT; });
     }
 
     const handleSubmit = async (e: Event) => {
@@ -310,6 +360,16 @@ export function LandingClient({
             } catch {}
           }
 
+          // 결제 설정이 켜져 있으면 신청 직후 바로 PayApp 결제창으로 이동
+          // (버튼 라벨은 "결제하기"로 표시됨 — 신청+결제를 한 번에 진행)
+          if (paymentRef.current) {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            await startPaymentRef.current(nameVal, phoneVal);
+            // startPayment가 결제창으로 이동시키거나 실패 시 에러를 표시.
+            // 결제 실패 시에도 신청은 완료된 상태이므로 완료화면(결제 버튼 재시도 가능)을 보여준다.
+            return;
+          }
+
           // P1-23: completionPageUrlRef.current 사용 — 스테일 클로저 방지
           if (completionPageUrlRef.current) {
             if (isSafeUrl(completionPageUrlRef.current)) {
@@ -395,42 +455,7 @@ export function LandingClient({
                 {payment.type === "subscription" && <span className="text-sm font-normal text-gray-500"> /월</span>}
               </p>
               <button
-                onClick={async () => {
-                  setPaymentLoading(true);
-                  try {
-                    const res = await fetch("/api/public/payapp/request", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        type: payment.type,
-                        goodname: payment.productName,
-                        price: payment.productPrice,
-                        customerName: registeredName,
-                        customerPhone: registeredPhone,
-                        landingPageId: pageId,
-                        ...(payment.type === "subscription" ? {
-                          cycleDay: payment.cycleDay,
-                          expireDate: payment.expireDate,
-                        } : {}),
-                      }),
-                    });
-                    const data = await res.json();
-                    if (data.ok && data.payUrl) {
-                      if (isSafeUrl(data.payUrl)) {
-                        window.location.href = data.payUrl;
-                      } else {
-                        logger.error("[LandingClient] Payment URL validation failed");
-                        setFieldError("결제 URL이 유효하지 않습니다.");
-                      }
-                    } else {
-                      setFieldError(data.message ?? "결제 요청에 실패했습니다.");
-                    }
-                  } catch {
-                    setFieldError("네트워크 오류가 발생했습니다.");
-                  } finally {
-                    setPaymentLoading(false);
-                  }
-                }}
+                onClick={() => startPayment(registeredName, registeredPhone)}
                 disabled={paymentLoading}
                 className="w-full bg-emerald-600 text-white min-h-[48px] flex items-center justify-center rounded-xl text-base font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50"
               >
