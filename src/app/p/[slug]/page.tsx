@@ -56,7 +56,12 @@ export default async function PublicLandingPage({
     const sp = await searchParams;
     const refRaw = sp.ref ?? slug; // ?ref= 없으면 진입 slug(=shortlink)로 귀속
     const refCode = Array.isArray(refRaw) ? refRaw[0] : refRaw;
-    const cfg = (page.botConfig ?? {}) as { persona?: string; greeting?: string; chips?: string[] };
+    const cfg = (page.botConfig ?? {}) as {
+      persona?: string;
+      greeting?: string;
+      chips?: string[];
+      botType?: string;
+    };
     return (
       <BotLandingClient
         pageId={page.id}
@@ -64,6 +69,7 @@ export default async function PublicLandingPage({
         brandTitle={page.title}
         greeting={cfg.greeting}
         chips={Array.isArray(cfg.chips) ? cfg.chips : undefined}
+        botType={cfg.botType === "recruit" ? "recruit" : "cruise"}
       />
     );
   }

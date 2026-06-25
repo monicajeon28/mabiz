@@ -20,6 +20,13 @@ const PERSONA_PRESETS: Record<string, string> = {
   pro: "전문적이고 신뢰감 있게, 차분한 여행 전문가 말투",
 };
 
+/** 교육생 모집봇 페르소나 — 정직·신뢰가 무기(시뮬-검수 검증). */
+const RECRUIT_PERSONA_PRESETS: Record<string, string> = {
+  calm: "부업·창업을 진지하게 고민하는 분께 정직하고 차분하게 안내",
+  friendly: "친근하고 다정하게, 부담 주지 않고 솔직하게 안내",
+  pro: "신뢰감 있게, 솔직함을 무기로 하는 전문 상담",
+};
+
 export async function POST(req: Request) {
   try {
     if (!checkOrigin(req, "BotLandingCreate")) {
@@ -42,9 +49,15 @@ export async function POST(req: Request) {
     if (!title) {
       return NextResponse.json({ ok: false, message: "봇 랜딩 이름을 입력해주세요." }, { status: 400 });
     }
+    // 봇 종류: 'recruit'=교육생 모집봇 / 그 외=크루즈 상담봇(코드값, 화면엔 한글표시).
+    const botType: "cruise" | "recruit" = body.botType === "recruit" ? "recruit" : "cruise";
+
     const greeting = body.greeting ? String(body.greeting).trim().slice(0, 300) : undefined;
     const personaKey = String(body.persona ?? "calm");
-    const persona = PERSONA_PRESETS[personaKey] ?? PERSONA_PRESETS.calm;
+    const persona =
+      botType === "recruit"
+        ? RECRUIT_PERSONA_PRESETS[personaKey] ?? RECRUIT_PERSONA_PRESETS.calm
+        : PERSONA_PRESETS[personaKey] ?? PERSONA_PRESETS.calm;
     const chips = Array.isArray(body.chips)
       ? body.chips
           .map((c: unknown) => String(c).trim().slice(0, 30))
@@ -59,10 +72,12 @@ export async function POST(req: Request) {
       : [];
 
     const botConfig = {
+      botType,
       persona,
       ...(greeting ? { greeting } : {}),
       ...(chips && chips.length ? { chips } : {}),
-      productCatalogIds,
+      // 교육생 모집봇은 확정 오퍼(고정 사실) 사용 → 상품코드 불필요
+      productCatalogIds: botType === "recruit" ? [] : productCatalogIds,
     };
 
     const shortlink = await generateUniqueShortlink();

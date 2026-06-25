@@ -30,6 +30,7 @@ import {
   sanitizeUserInput,
   buildTrustBoundaryBlock,
   checkOutputGuard,
+  checkRecruitOutputGuard,
   maskPiiForStorage,
   SAFE_FALLBACK_MESSAGE,
 } from "@/lib/bot-guardrail";
@@ -41,6 +42,13 @@ import {
   formatPersuasionForPrompt,
   buildSystemPrompt,
 } from "@/lib/bot-rag";
+import {
+  buildRecruitSystemPrompt,
+  RECRUIT_OFFER_FACTS,
+  RECRUIT_FSM_GOAL,
+  RECRUIT_FSM_NEXT_QUESTION,
+  type BotType,
+} from "@/lib/bot-recruit";
 import {
   resolveAttribution,
   signAttributionToken,
@@ -214,22 +222,33 @@ export async function POST(req: Request) {
     const botConfig = (page?.botConfig ?? {}) as {
       productCatalogIds?: string[];
       persona?: string;
+      botType?: string;
     };
-
-    // RAG — 사실(상품) / 설득(스크립트) 분리
-    const productCodes = Array.isArray(botConfig.productCatalogIds)
-      ? botConfig.productCatalogIds.filter((c): c is string => typeof c === "string")
-      : [];
-    let facts = productCodes.length ? await getProductFactsByCodes(productCodes) : [];
-    if (facts.length === 0) facts = await searchProductFacts(message);
-    const factsText = formatFactsForPrompt(facts);
+    // 봇 종류(코드값). 'recruit'=교육생 모집봇 / 그 외=크루즈 상담봇.
+    const botType: BotType = botConfig.botType === "recruit" ? "recruit" : "cruise";
 
     const signals = detectSignals(message);
-    const persuasion = await getPersuasionPatterns({
-      organizationId: convo.organizationId,
-      objectionType: signals.objectionType,
-    });
-    const persuasionText = formatPersuasionForPrompt(persuasion);
+
+    // RAG — 봇 종류별 분기:
+    //  · 크루즈 상담봇: 상품(CruiseProduct) 사실 + 승인 스크립트(ScriptPattern) 설득.
+    //  · 교육생 모집봇: 확정 오퍼(330/540/750·환불) 고정 사실. 설득은 모집 시스템프롬프트 내장.
+    let factsText: string;
+    let persuasionText = "";
+    if (botType === "recruit") {
+      factsText = RECRUIT_OFFER_FACTS;
+    } else {
+      const productCodes = Array.isArray(botConfig.productCatalogIds)
+        ? botConfig.productCatalogIds.filter((c): c is string => typeof c === "string")
+        : [];
+      let facts = productCodes.length ? await getProductFactsByCodes(productCodes) : [];
+      if (facts.length === 0) facts = await searchProductFacts(message);
+      factsText = formatFactsForPrompt(facts);
+      const persuasion = await getPersuasionPatterns({
+        organizationId: convo.organizationId,
+        objectionType: signals.objectionType,
+      });
+      persuasionText = formatPersuasionForPrompt(persuasion);
+    }
 
     // FSM 전이
     const prevState = convo.fsmState as BotFsmState;
@@ -257,14 +276,22 @@ export async function POST(req: Request) {
       fsmState: newState,
     });
 
-    const systemPrompt = buildSystemPrompt({
-      persona: botConfig.persona || "신중한 50대 고객을 위한 따뜻하고 차분한 상담",
-      fsmState: newState,
-      fsmGoal: FSM_GOAL[newState],
-      nextQuestion: FSM_NEXT_QUESTION[newState],
-      factsText,
-      persuasionText,
-    });
+    const systemPrompt =
+      botType === "recruit"
+        ? buildRecruitSystemPrompt({
+            persona: botConfig.persona || "부업·창업을 진지하게 고민하는 분께 정직하게 안내",
+            fsmState: newState,
+            fsmGoal: RECRUIT_FSM_GOAL[newState],
+            nextQuestion: RECRUIT_FSM_NEXT_QUESTION[newState],
+          })
+        : buildSystemPrompt({
+            persona: botConfig.persona || "신중한 50대 고객을 위한 따뜻하고 차분한 상담",
+            fsmState: newState,
+            fsmGoal: FSM_GOAL[newState],
+            nextQuestion: FSM_NEXT_QUESTION[newState],
+            factsText,
+            persuasionText,
+          });
 
     // 히스토리 + 현재 발화(신뢰경계 블록)
     const history = await prisma.botMessage.findMany({
@@ -293,9 +320,13 @@ export async function POST(req: Request) {
       .join("")
       .trim();
 
-    // 출력 가드 — 위반 시 안전 폴백 + 사람 연결
+    // 출력 가드 — 위반 시 안전 폴백 + 사람 연결.
+    // 모집봇은 수익보장(표시광고법) 차단 가드를 추가로 적용.
     let handoff = newState === "HANDOFF";
-    const guard = checkOutputGuard(reply, factsText);
+    const guard =
+      botType === "recruit"
+        ? checkRecruitOutputGuard(reply, factsText)
+        : checkOutputGuard(reply, factsText);
     if (!guard.ok) {
       logger.warn("[bot/chat] output guard 위반", {
         violations: guard.violations,

@@ -104,6 +104,50 @@ export function checkOutputGuard(text: string, allowedFacts: string): OutputGuar
 export const SAFE_FALLBACK_MESSAGE =
   "정확한 가격·일정·환불 조건은 담당 전문가가 확인 후 바로 연락드릴게요. 성함과 연락 가능한 시간을 남겨주시겠어요?";
 
+// ── 교육생 모집봇 전용 출력 가드 (수익보장·과장 차단) ─────────────────────────
+//
+// 모집봇의 최대 법적 리스크는 "수익 보장"(표시광고법·방문판매법, 소비자원 부업강의 피해 1순위).
+// 1차 방어는 시스템프롬프트 하드가드 + 시뮬-검수, 이 가드는 2차 그물.
+// 핵심 난점: 봇은 "보장하지 않습니다"라고 자주 말해야 정상 → 부정문은 반드시 허용해야 한다.
+// 전략: 문장 단위로 쪼개 "긍정형 수익보장"만 탐지하고, 같은 문장에 부정/거부 표현이 있으면 통과.
+// (거짓양성은 안전 폴백으로 떨어질 뿐이라 안전. 거짓음성=수익보장 누출이 더 위험하므로 보수적으로.)
+
+/** 긍정형 수익보장/과장 표현. */
+const RECRUIT_GUARANTEE = new RegExp(
+  [
+    "(?:수익|소득|원금|월\\s*\\d[\\d,]*\\s*만?\\s*원?|월수입)\\s*(?:을|를|은|는|만큼|정도)?\\s*(?:보장|보증)",
+    "(?:보장|보증)\\s*(?:해\\s*드|해드|해\\s*줄|해줄|합니다|해요|해\\s*드려|받으실|받게)",
+    "무조건\\s*(?:돈|수익|성공|벌|번|매출|버)",
+    "누구나\\s*(?:성공|돈|수익|벌|번|버)",
+    "확실히\\s*(?:벌|번|수익|성공|버)",
+  ].join("|"),
+);
+
+/** 부정/거부 맥락 — 같은 문장에 있으면 "보장 안 함"이라 허용. */
+const RECRUIT_NEGATION = /(?:않|안\s|못\s|없|아닙|아니|위험|거짓|드리지|할\s*수\s*없|드릴\s*수\s*없)/;
+
+/**
+ * 모집봇 출력 가드 — 크루즈 출력가드(과장/유출/미확인가격) + 긍정형 수익보장 차단.
+ * @param text          봇 생성 응답
+ * @param allowedFacts  <product_facts>로 주입한 확정 사실 원문(이 안의 숫자만 인용 허용)
+ */
+export function checkRecruitOutputGuard(text: string, allowedFacts: string): OutputGuardResult {
+  const base = checkOutputGuard(text, allowedFacts);
+  const violations = [...base.violations];
+
+  // 문장 단위로 분해(한국어 종결 포함). 긍정형 보장만 탐지, 부정문은 제외.
+  const sentences = String(text ?? "").split(/[.!?。\n]/);
+  for (const s of sentences) {
+    if (RECRUIT_GUARANTEE.test(s) && !RECRUIT_NEGATION.test(s)) {
+      violations.push("INCOME_GUARANTEE");
+      break;
+    }
+  }
+
+  const ok = violations.length === 0;
+  return { ok, violations, shouldHandoff: !ok };
+}
+
 // ── 저장 전 PII 마스킹 ─────────────────────────────────────────────────────
 
 const PHONE_IN_TEXT = /01[016789][-.\s]?\d{3,4}[-.\s]?\d{4}/g;

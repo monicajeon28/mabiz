@@ -21,9 +21,20 @@ const PERSONA_OPTIONS = [
   { key: "pro", label: "전문적이고 신뢰감", desc: "차분한 여행 전문가 느낌" },
 ];
 
-const DEFAULT_GREETING =
+const CRUISE_GREETING =
   "안녕하세요! 크루즈 여행 상담을 도와드릴게요. 무엇이든 편하게 물어보세요 😊";
-const DEFAULT_CHIPS = ["가격이 궁금해요", "어디로 가나요?", "상담받고 싶어요"];
+const CRUISE_CHIPS = ["가격이 궁금해요", "어디로 가나요?", "상담받고 싶어요"];
+const RECRUIT_GREETING =
+  "안녕하세요! 부업·창업으로 크루즈 판매 파트너를 알아보고 계신가요? 무엇이든 편하게 물어보세요 😊";
+const RECRUIT_CHIPS = ["수익이 어떻게 나나요?", "초보도 할 수 있나요?", "비용이 궁금해요"];
+
+// 봇 종류 — 코드값은 cruise/recruit, 화면엔 한글만 노출(50대 친화).
+const BOT_TYPE_OPTIONS = [
+  { key: "cruise" as const, label: "🚢 크루즈 상담봇", desc: "손님에게 크루즈 여행을 상담·판매" },
+  { key: "recruit" as const, label: "🎓 교육생 모집봇", desc: "부업·창업 파트너(교육생)를 정직하게 모집" },
+];
+
+const DEFAULT_GREETING = CRUISE_GREETING; // 미리보기 폴백용
 
 function manwon(n: number | null): string {
   if (n == null) return "";
@@ -32,9 +43,10 @@ function manwon(n: number | null): string {
 
 export default function BotLandingForm({ products }: Props) {
   const [title, setTitle] = useState("");
+  const [botType, setBotType] = useState<"cruise" | "recruit">("cruise");
   const [persona, setPersona] = useState("calm");
-  const [greeting, setGreeting] = useState(DEFAULT_GREETING);
-  const [chips, setChips] = useState<string[]>(DEFAULT_CHIPS);
+  const [greeting, setGreeting] = useState(CRUISE_GREETING);
+  const [chips, setChips] = useState<string[]>(CRUISE_CHIPS);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<{ url: string } | null>(null);
@@ -48,6 +60,14 @@ export default function BotLandingForm({ products }: Props) {
       else n.add(code);
       return n;
     });
+  };
+
+  // 봇 종류 바꾸면 그 종류에 맞는 기본 인사말/질문으로 초기화
+  const chooseBotType = (t: "cruise" | "recruit") => {
+    setBotType(t);
+    setGreeting(t === "recruit" ? RECRUIT_GREETING : CRUISE_GREETING);
+    setChips(t === "recruit" ? RECRUIT_CHIPS : CRUISE_CHIPS);
+    if (t === "recruit") setSelected(new Set()); // 모집봇은 상품 미사용
   };
 
   const setChip = (i: number, v: string) => {
@@ -66,11 +86,12 @@ export default function BotLandingForm({ products }: Props) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          botType,
           title: title.trim(),
           persona,
           greeting: greeting.trim() || undefined,
           chips: chips.map((c) => c.trim()).filter(Boolean),
-          productCodes: Array.from(selected),
+          productCodes: botType === "recruit" ? [] : Array.from(selected),
         }),
       });
       const data = await res.json();
@@ -143,22 +164,48 @@ export default function BotLandingForm({ products }: Props) {
     <div className="mx-auto max-w-5xl p-5">
       <h1 className="text-xl font-bold text-slate-900">봇 랜딩 만들기</h1>
       <p className="mt-1 text-base text-slate-500">
-        상품과 인사말만 정하면, 손님을 알아서 상담하는 봇 페이지가 만들어져요.
+        봇 종류와 인사말만 정하면, 손님을 알아서 상담하는 봇 페이지가 만들어져요.
       </p>
 
       <div className="mt-5 grid gap-6 md:grid-cols-2">
         {/* 왼쪽: 입력 */}
         <div className="space-y-6">
+          {/* 0. 어떤 봇? */}
+          <section>
+            <span className="block text-base font-bold text-slate-800">0. 어떤 봇을 만드시겠어요?</span>
+            <p className="mb-2 text-sm text-slate-500">목적에 맞게 골라주세요. (가장 중요해요)</p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {BOT_TYPE_OPTIONS.map((b) => (
+                <button
+                  key={b.key}
+                  type="button"
+                  onClick={() => chooseBotType(b.key)}
+                  className={`flex min-h-[64px] flex-col items-start justify-center rounded-xl border-2 px-4 py-2 text-left active:scale-[0.99] ${
+                    botType === b.key
+                      ? "border-[#2563EB] bg-blue-50 text-[#1E2D4E]"
+                      : "border-slate-200 text-slate-700"
+                  }`}
+                >
+                  <span className="text-base font-bold">{b.label}</span>
+                  <span className="text-sm font-normal text-slate-500">{b.desc}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
           {/* 1. 이름 */}
           <section>
             <label className="block text-base font-bold text-slate-800">
               1. 봇 랜딩 이름
             </label>
-            <p className="mb-2 text-sm text-slate-500">나만 보는 이름이에요. (예: 지중해 크루즈 상담)</p>
+            <p className="mb-2 text-sm text-slate-500">
+              나만 보는 이름이에요. (예:{" "}
+              {botType === "recruit" ? "부업·크루즈 파트너 모집" : "지중해 크루즈 상담"})
+            </p>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="예: 지중해 크루즈 상담"
+              placeholder={botType === "recruit" ? "예: 부업·크루즈 파트너 모집" : "예: 지중해 크루즈 상담"}
               className="h-12 w-full rounded-xl border border-slate-300 px-4 text-base outline-none focus:border-[#2563EB]"
             />
           </section>
@@ -216,7 +263,8 @@ export default function BotLandingForm({ products }: Props) {
             </div>
           </section>
 
-          {/* 5. 상품 */}
+          {/* 5. 상품 (크루즈 상담봇만 사용 — 모집봇은 확정 오퍼 안내) */}
+          {botType === "cruise" && (
           <section>
             <span className="block text-base font-bold text-slate-800">5. 상담할 상품 (선택)</span>
             <p className="mb-2 text-sm text-slate-500">
@@ -252,6 +300,7 @@ export default function BotLandingForm({ products }: Props) {
               ))}
             </div>
           </section>
+          )}
         </div>
 
         {/* 오른쪽: 미리보기 */}
@@ -261,7 +310,9 @@ export default function BotLandingForm({ products }: Props) {
           <div className="mx-auto w-full max-w-sm overflow-hidden rounded-3xl border-4 border-slate-800 bg-slate-50 shadow-lg">
             <div className="bg-[#1E2D4E] px-4 py-3 text-white">
               <div className="text-base font-bold">{title.trim() || "봇 랜딩 이름"}</div>
-              <div className="text-xs text-slate-200">크루즈닷 상담봇</div>
+              <div className="text-xs text-slate-200">
+                {botType === "recruit" ? "교육생 모집봇" : "크루즈 상담봇"}
+              </div>
             </div>
             <div className="min-h-[320px] space-y-3 p-4">
               <div className="flex justify-start">

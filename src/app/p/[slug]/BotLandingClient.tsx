@@ -13,11 +13,16 @@ interface Props {
   brandTitle: string;
   greeting?: string;
   chips?: string[];
+  /** 봇 종류(코드값). 화면엔 한글 표시명만 노출. */
+  botType?: "cruise" | "recruit";
 }
 
-const DEFAULT_GREETING =
+const CRUISE_GREETING =
   "안녕하세요! 크루즈 여행 상담을 도와드릴게요. 무엇이든 편하게 물어보세요 😊";
-const DEFAULT_CHIPS = ["가격이 궁금해요", "어디로 가나요?", "상담받고 싶어요"];
+const CRUISE_CHIPS = ["가격이 궁금해요", "어디로 가나요?", "상담받고 싶어요"];
+const RECRUIT_GREETING =
+  "안녕하세요! 부업·창업으로 크루즈 판매 파트너를 알아보고 계신가요? 무엇이든 편하게 물어보세요 😊";
+const RECRUIT_CHIPS = ["수익이 어떻게 나나요?", "초보도 할 수 있나요?", "비용이 궁금해요"];
 
 export default function BotLandingClient({
   pageId,
@@ -25,9 +30,13 @@ export default function BotLandingClient({
   brandTitle,
   greeting,
   chips,
+  botType = "cruise",
 }: Props) {
+  const isRecruit = botType === "recruit";
+  const defaultGreeting = isRecruit ? RECRUIT_GREETING : CRUISE_GREETING;
+  const defaultChips = isRecruit ? RECRUIT_CHIPS : CRUISE_CHIPS;
   const [messages, setMessages] = useState<Msg[]>([
-    { role: "bot", text: greeting || DEFAULT_GREETING },
+    { role: "bot", text: greeting || defaultGreeting },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -36,7 +45,7 @@ export default function BotLandingClient({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const showChips = messages.length === 1 && !loading;
-  const chipList = chips && chips.length > 0 ? chips : DEFAULT_CHIPS;
+  const chipList = chips && chips.length > 0 ? chips : defaultChips;
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -91,7 +100,9 @@ export default function BotLandingClient({
       {/* 헤더 */}
       <header className="bg-[#1E2D4E] px-4 py-4 text-white shadow">
         <h1 className="text-lg font-bold">{brandTitle}</h1>
-        <p className="mt-0.5 text-sm text-slate-200">크루즈닷 상담봇 · 편하게 물어보세요</p>
+        <p className="mt-0.5 text-sm text-slate-200">
+          {isRecruit ? "교육생 모집봇" : "크루즈 상담봇"} · 편하게 물어보세요
+        </p>
       </header>
 
       {/* 대화 영역 */}
