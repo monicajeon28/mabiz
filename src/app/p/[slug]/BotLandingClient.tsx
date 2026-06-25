@@ -94,6 +94,8 @@ interface Props {
     nights: number;
     days: number;
   };
+  /** 라이브방송 후킹 — 접수 직후 노출할 링크·문구. 없으면 미표시. '30%' 등 표현은 운영자 단일 책임(문구). */
+  live?: { url: string; label: string };
 }
 
 /** 출발일 ISO → "M월 D일" (50대 가독). 잘못된 값이면 빈 문자열. */
@@ -127,6 +129,7 @@ export default function BotLandingClient({
   kakaoChannelUrl,
   hookText,
   featured,
+  live,
 }: Props) {
   const isRecruit = botType === "recruit";
   const defaultGreeting = isRecruit ? RECRUIT_GREETING : CRUISE_GREETING;
@@ -181,6 +184,21 @@ export default function BotLandingClient({
   };
   const guideCard =
     phase === "guide" ? GUIDE_CARDS[Math.min(guideStep, GUIDE_CARDS.length - 1)] : null;
+
+  // 라이브방송 후킹 카드 — 접수 직후(choice/endcta)에만. 손님이 직접 누르는 오픈카톡 링크(자동발송 아님).
+  const liveCard = live ? (
+    <a
+      href={live.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex min-h-[56px] flex-col items-center justify-center rounded-2xl bg-[#FEE500] px-5 py-3 text-center shadow-sm transition active:scale-[0.99]"
+    >
+      <span className="text-base font-bold text-[#191600]">🎁 {live.label}</span>
+      <span className="mt-0.5 text-sm font-medium text-[#3C1E1E]/80">
+        📺 라이브방송 보러가기 → 카톡이 열려요
+      </span>
+    </a>
+  ) : null;
 
   // 게이트 리드 제출 → 기존 register API(그룹배정·퍼널·판매원 귀속) 재사용
   const submitLead = useCallback(async () => {
@@ -485,8 +503,10 @@ export default function BotLandingClient({
           <div className="mx-auto w-full max-w-md">
             {/* 즉시 피드백 — 접수 확인 */}
             <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-4 text-base leading-relaxed text-emerald-900">
-              ✅ 접수됐어요! 어떻게 도와드릴까요?
+              ✅ 접수됐어요! 담당자가 곧 연락드릴게요 😊
             </div>
+            {/* 접수 직후 보상 — 라이브방송 후킹(링크만 들고 이탈 방지 위해 여기서 처음 노출) */}
+            {liveCard && <div className="mt-4">{liveCard}</div>}
             <div className="mt-5 flex flex-col gap-3">
               <button
                 type="button"
@@ -634,6 +654,8 @@ export default function BotLandingClient({
                 ✅ 신청이 접수됐어요. 담당자가 곧 연락드릴게요. 감사합니다 😊
               </div>
             )}
+            {/* 접수한 분께만 라이브방송 후킹(링크만 들고 이탈 방지) */}
+            {applied && liveCard && <div className="mt-4">{liveCard}</div>}
             <p className="mt-5 text-base font-bold text-[#1E2D4E]">떠나기 전에, 이것도 보세요</p>
             <div className="mt-3 flex flex-col gap-3">
               {kakaoChannelUrl && (

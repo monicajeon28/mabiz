@@ -64,6 +64,9 @@ export default async function PublicLandingPage({
       homepageUrl?: string;
       kakaoChannelUrl?: string;
       hookText?: string;
+      liveUrl?: string;
+      liveLabel?: string;
+      liveEndsAt?: string;
     };
     const homepageUrl =
       typeof cfg.homepageUrl === "string" && /^https?:\/\//i.test(cfg.homepageUrl)
@@ -117,6 +120,27 @@ export default async function PublicLandingPage({
       }
     }
 
+    // 라이브방송 후킹 카드 — 접수(리드 확정) '직후'에만 노출(링크만 들고 이탈 방지).
+    //   링크·문구는 botConfig로 봇별 덮어쓰기, 없으면 회사 공용 기본값. '30%' 등 할인 표현은 운영자 단일 책임(문구 한 곳).
+    //   liveEndsAt(선택)이 설정돼 있고 지났으면 자동 미노출(광고법 안전), 없으면 상시 노출.
+    let live: { url: string; label: string } | undefined;
+    if (botType === "cruise") {
+      const liveUrl =
+        typeof cfg.liveUrl === "string" && /^https?:\/\//i.test(cfg.liveUrl)
+          ? cfg.liveUrl
+          : "https://open.kakao.com/o/plREDDUh";
+      const liveLabel =
+        typeof cfg.liveLabel === "string" && cfg.liveLabel.trim()
+          ? cfg.liveLabel.trim()
+          : "이번 주 라이브방송 30% 특가";
+      let liveActive = true;
+      if (typeof cfg.liveEndsAt === "string" && cfg.liveEndsAt) {
+        const end = new Date(cfg.liveEndsAt);
+        if (!Number.isNaN(end.getTime()) && Date.now() > end.getTime()) liveActive = false;
+      }
+      if (liveActive) live = { url: liveUrl, label: liveLabel };
+    }
+
     return (
       <BotLandingClient
         pageId={page.id}
@@ -129,6 +153,7 @@ export default async function PublicLandingPage({
         kakaoChannelUrl={kakaoChannelUrl}
         hookText={hookText}
         featured={featured}
+        live={live}
       />
     );
   }
