@@ -71,14 +71,35 @@ export async function POST(req: Request) {
           .slice(0, 20)
       : [];
 
+    // 홈페이지(어필리에이트) 링크 — 봇 종료 CTA "홈페이지 보기"에서 사용.
+    // 비우면 BotLandingClient가 크루즈닷 메인으로 폴백한다. http(s)만 허용.
+    const homepageUrlRaw = body.homepageUrl ? String(body.homepageUrl).trim().slice(0, 500) : "";
+    const homepageUrl = /^https?:\/\//i.test(homepageUrlRaw) ? homepageUrlRaw : undefined;
+
+    // 신청 그룹 — register가 landingPage.groupId로 그룹배정/퍼널을 처리하므로
+    // 봇 랜딩 생성 시 선택한 그룹 ID를 그대로 저장. UUID 형식만 허용(IDOR/오염 방지).
+    const groupIdRaw = body.groupId ? String(body.groupId).trim() : "";
+    const groupId = /^[a-f0-9-]{36}$/i.test(groupIdRaw) ? groupIdRaw : null;
+
     const botConfig = {
       botType,
       persona,
       ...(greeting ? { greeting } : {}),
       ...(chips && chips.length ? { chips } : {}),
+      ...(homepageUrl ? { homepageUrl } : {}),
       // 교육생 모집봇은 확정 오퍼(고정 사실) 사용 → 상품코드 불필요
       productCatalogIds: botType === "recruit" ? [] : productCatalogIds,
     };
+
+    // 선택한 신청 그룹이 이 조직 소유인지 검증(IDOR 방지). 아니면 그룹 미지정으로 진행.
+    let validGroupId: string | null = null;
+    if (groupId && orgId) {
+      const grp = await prisma.contactGroup.findFirst({
+        where: { id: groupId, organizationId: orgId },
+        select: { id: true },
+      });
+      validGroupId = grp ? grp.id : null;
+    }
 
     const shortlink = await generateUniqueShortlink();
     const slug = `bot-${shortlink}`;
@@ -93,6 +114,8 @@ export async function POST(req: Request) {
             shortlink,
             pageType: "bot",
             botConfig,
+            // 봇에서 "상담 신청하기" 시 이 그룹으로 고객이 모임(register가 groupId 사용)
+            ...(validGroupId ? { groupId: validGroupId } : {}),
             htmlContent: null,
             isActive: true, // 본인 원본은 바로 사용·공유 가능하게 활성
             isPublic: true,

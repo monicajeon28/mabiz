@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface Product {
   productCode: string;
@@ -9,6 +9,11 @@ interface Product {
   basePrice: number | null;
   nights: number;
   days: number;
+}
+
+interface GroupOpt {
+  id: string;
+  name: string;
 }
 
 interface Props {
@@ -53,10 +58,39 @@ export default function BotLandingForm({ products, initialBotType = "cruise" }: 
     initialBotType === "recruit" ? RECRUIT_CHIPS : CRUISE_CHIPS,
   );
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [groups, setGroups] = useState<GroupOpt[]>([]);
+  const [groupId, setGroupId] = useState("");
+  const [homepageUrl, setHomepageUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<{ url: string } | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+
+  // 신청 그룹 목록 불러오기(대그룹 + 자식 그룹 평탄화)
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/groups?pageSize=100");
+        const data = await res.json();
+        if (!alive || !data?.ok || !Array.isArray(data.groups)) return;
+        const flat: GroupOpt[] = [];
+        type GroupRow = { id: string; name: string; children?: GroupRow[] };
+        for (const g of data.groups as GroupRow[]) {
+          flat.push({ id: g.id, name: g.name });
+          for (const c of g.children ?? []) {
+            flat.push({ id: c.id, name: `└ ${c.name}` });
+          }
+        }
+        setGroups(flat);
+      } catch {
+        /* 그룹 목록 실패해도 봇 만들기는 계속 가능(그룹 미지정) */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const toggleProduct = (code: string) => {
     setSelected((s) => {
@@ -97,6 +131,8 @@ export default function BotLandingForm({ products, initialBotType = "cruise" }: 
           greeting: greeting.trim() || undefined,
           chips: chips.map((c) => c.trim()).filter(Boolean),
           productCodes: botType === "recruit" ? [] : Array.from(selected),
+          groupId: groupId || undefined,
+          homepageUrl: homepageUrl.trim() || undefined,
         }),
       });
       const data = await res.json();
@@ -268,10 +304,48 @@ export default function BotLandingForm({ products, initialBotType = "cruise" }: 
             </div>
           </section>
 
-          {/* 5. 상품 (크루즈 상담봇만 사용 — 모집봇은 확정 오퍼 안내) */}
+          {/* 5. 신청 그룹 */}
+          <section>
+            <label className="block text-base font-bold text-slate-800">
+              5. 신청 그룹 (선택)
+            </label>
+            <p className="mb-2 text-sm text-slate-500">
+              봇에서 “상담 신청하기”를 누른 손님이 이 그룹으로 모여요. (자동 문자·이메일이 연결돼 있으면 함께 시작돼요.)
+            </p>
+            <select
+              value={groupId}
+              onChange={(e) => setGroupId(e.target.value)}
+              className="h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base outline-none focus:border-[#2563EB]"
+            >
+              <option value="">그룹 지정 안 함</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </section>
+
+          {/* 6. 홈페이지(어필리에이트) 링크 */}
+          <section>
+            <label className="block text-base font-bold text-slate-800">
+              6. 홈페이지 링크 (선택)
+            </label>
+            <p className="mb-2 text-sm text-slate-500">
+              봇 화면의 “홈페이지 보기” 버튼이 여는 주소예요.
+            </p>
+            <input
+              value={homepageUrl}
+              onChange={(e) => setHomepageUrl(e.target.value)}
+              placeholder="내 크루즈닷 어필리에이트 링크 (비우면 크루즈닷 메인)"
+              className="h-12 w-full rounded-xl border border-slate-300 px-4 text-base outline-none focus:border-[#2563EB]"
+            />
+          </section>
+
+          {/* 7. 상품 (크루즈 상담봇만 사용 — 모집봇은 확정 오퍼 안내) */}
           {botType === "cruise" && (
           <section>
-            <span className="block text-base font-bold text-slate-800">5. 상담할 상품 (선택)</span>
+            <span className="block text-base font-bold text-slate-800">7. 상담할 상품 (선택)</span>
             <p className="mb-2 text-sm text-slate-500">
               고른 상품만 봇이 안내해요. <b>안 고르면 모든 상품</b>을 안내해요.
             </p>

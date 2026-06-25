@@ -61,7 +61,12 @@ export default async function PublicLandingPage({
       greeting?: string;
       chips?: string[];
       botType?: string;
+      homepageUrl?: string;
     };
+    const homepageUrl =
+      typeof cfg.homepageUrl === "string" && /^https?:\/\//i.test(cfg.homepageUrl)
+        ? cfg.homepageUrl
+        : undefined;
     return (
       <BotLandingClient
         pageId={page.id}
@@ -70,6 +75,7 @@ export default async function PublicLandingPage({
         greeting={cfg.greeting}
         chips={Array.isArray(cfg.chips) ? cfg.chips : undefined}
         botType={cfg.botType === "recruit" ? "recruit" : "cruise"}
+        homepageUrl={homepageUrl}
       />
     );
   }

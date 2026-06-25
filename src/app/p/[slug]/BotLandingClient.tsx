@@ -15,7 +15,11 @@ interface Props {
   chips?: string[];
   /** 봇 종류(코드값). 화면엔 한글 표시명만 노출. */
   botType?: "cruise" | "recruit";
+  /** "홈페이지 보기" 버튼이 여는 어필리에이트 링크. 없으면 크루즈닷 메인. */
+  homepageUrl?: string;
 }
+
+const DEFAULT_HOMEPAGE_URL = "https://cruisedot.co.kr";
 
 const CRUISE_GREETING =
   "안녕하세요! 크루즈 여행 상담을 도와드릴게요. 무엇이든 편하게 물어보세요 😊";
@@ -31,6 +35,7 @@ export default function BotLandingClient({
   greeting,
   chips,
   botType = "cruise",
+  homepageUrl,
 }: Props) {
   const isRecruit = botType === "recruit";
   const defaultGreeting = isRecruit ? RECRUIT_GREETING : CRUISE_GREETING;
@@ -43,9 +48,63 @@ export default function BotLandingClient({
   const [handoff, setHandoff] = useState(false);
   const convoRef = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // 페이지 진입 시각 — register의 시간 방어(1.5초 미만 차단) 통과용
+  const loadedAtRef = useRef<number>(Date.now());
+
+  // 종료 CTA 신청 폼 상태
+  const [showApplyForm, setShowApplyForm] = useState(false);
+  const [applyName, setApplyName] = useState("");
+  const [applyPhone, setApplyPhone] = useState("");
+  const [applying, setApplying] = useState(false);
+  const [applied, setApplied] = useState(false);
+  const [applyError, setApplyError] = useState("");
 
   const showChips = messages.length === 1 && !loading;
   const chipList = chips && chips.length > 0 ? chips : defaultChips;
+
+  // 대화가 어느 정도 오갔거나(손님 발화 1회+) handoff면 종료 CTA 노출
+  const userTurns = messages.filter((m) => m.role === "user").length;
+  const showEndCta = handoff || userTurns >= 1;
+
+  const homeLink = homepageUrl || DEFAULT_HOMEPAGE_URL;
+
+  const submitApply = useCallback(async () => {
+    setApplyError("");
+    const name = applyName.trim();
+    const phone = applyPhone.trim();
+    if (!name) {
+      setApplyError("성함을 입력해 주세요.");
+      return;
+    }
+    if (!phone) {
+      setApplyError("연락처를 입력해 주세요.");
+      return;
+    }
+    if (applying) return;
+    setApplying(true);
+    try {
+      const r = await fetch(`/api/landing-pages/${pageId}/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          phone,
+          loadedAt: loadedAtRef.current,
+        }),
+      });
+      const data = await r.json();
+      if (data?.ok) {
+        setApplied(true);
+        setShowApplyForm(false);
+      } else {
+        setApplyError(data?.message || "신청에 실패했어요. 잠시 후 다시 시도해 주세요.");
+      }
+    } catch {
+      setApplyError("연결이 잠시 불안정해요. 다시 시도해 주세요.");
+    } finally {
+      setApplying(false);
+    }
+  }, [applyName, applyPhone, applying, pageId]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -143,6 +202,85 @@ export default function BotLandingClient({
         {handoff && (
           <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-base text-emerald-900">
             🙋 담당 전문가가 곧 연락드릴게요. 성함과 연락 가능한 시간을 남겨주시면 더 빠르게 도와드려요.
+          </div>
+        )}
+
+        {/* 종료 CTA — 상담 신청하기 / 홈페이지 보기 */}
+        {showEndCta && !loading && (
+          <div className="pt-2">
+            {applied ? (
+              <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-4 text-base leading-relaxed text-emerald-900">
+                ✅ 신청이 접수됐어요. 담당자가 곧 연락드릴게요. 감사합니다 😊
+              </div>
+            ) : showApplyForm ? (
+              <div className="rounded-2xl border-2 border-[#2563EB] bg-white px-4 py-4 shadow-sm">
+                <p className="text-base font-bold text-[#1E2D4E]">상담 신청하기</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  성함과 연락처를 남겨주시면 담당자가 곧 연락드려요.
+                </p>
+                <div className="mt-3 space-y-2">
+                  <input
+                    type="text"
+                    value={applyName}
+                    onChange={(e) => setApplyName(e.target.value)}
+                    placeholder="성함 (예: 홍길동)"
+                    aria-label="성함"
+                    className="h-12 w-full rounded-xl border border-slate-300 px-4 text-base text-slate-900 outline-none focus:border-[#2563EB]"
+                  />
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    value={applyPhone}
+                    onChange={(e) => setApplyPhone(e.target.value)}
+                    placeholder="연락처 (예: 010-1234-5678)"
+                    aria-label="연락처"
+                    className="h-12 w-full rounded-xl border border-slate-300 px-4 text-base text-slate-900 outline-none focus:border-[#2563EB]"
+                  />
+                </div>
+                {applyError && (
+                  <p className="mt-2 text-sm text-red-600">{applyError}</p>
+                )}
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={submitApply}
+                    disabled={applying}
+                    className="h-12 flex-1 rounded-xl bg-[#2563EB] text-base font-bold text-white transition active:scale-95 disabled:opacity-50"
+                  >
+                    {applying ? "신청 중…" : "신청하기"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowApplyForm(false)}
+                    disabled={applying}
+                    className="h-12 min-w-[80px] rounded-xl border-2 border-slate-300 text-base font-medium text-slate-600 transition active:scale-95"
+                  >
+                    닫기
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setApplyError("");
+                    setShowApplyForm(true);
+                  }}
+                  className="flex min-h-[52px] items-center justify-center rounded-2xl bg-[#27AE60] px-5 text-base font-bold text-white shadow-sm transition active:scale-[0.99]"
+                >
+                  📞 상담 신청하기
+                </button>
+                <a
+                  href={homeLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex min-h-[52px] items-center justify-center rounded-2xl border-2 border-[#1E2D4E] px-5 text-base font-bold text-[#1E2D4E] transition active:scale-[0.99]"
+                >
+                  🏠 홈페이지 보기
+                </a>
+              </div>
+            )}
           </div>
         )}
 
