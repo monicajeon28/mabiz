@@ -5,6 +5,7 @@ import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { sendFunnelEmail } from '@/lib/email';
 import { COMPANY_INFO, CANCELLATION_POLICY_LINES, BANK_TRANSFER_LABEL, CRUISE_CANCELLATION_POLICY } from '@/lib/company-info';
+import { refundPolicyToLines, normalizeRefundPolicy } from '@/lib/refund-calculator';
 
 // P0-4: HTML 이스케이프 함수
 function escHtml(s: string): string {
@@ -125,9 +126,11 @@ export async function POST(req: Request) {
           if (cp.airlineName) includedItems.push('항공기 추가 운임');
           if (cp.isJapan) excludedItems.push('일본 관광 입국세');
           if (!cp.isDomestic) excludedItems.push('여권·비자 개인 부담');
-          // 상품별 환불정책이 있으면 사용 (없으면 크루즈 기본 취소료 유지)
-          if (Array.isArray(cp.refundPolicy)) {
-            productRefundPolicy = cp.refundPolicy as { label: string; value: string }[];
+          // 상품별 환불정책 — CruiseProduct.refundPolicy 는 RefundPolicyJson({slots}) 객체.
+          // 공통 어댑터로 {label,value}[] 변환 (이전 Array.isArray 가드는 객체라 항상 false였음 = 버그).
+          const lines = refundPolicyToLines(normalizeRefundPolicy(cp.refundPolicy));
+          if (lines.length > 0) {
+            productRefundPolicy = lines;
           }
         }
       }

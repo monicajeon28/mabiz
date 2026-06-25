@@ -394,7 +394,8 @@ export default function ContractTab() {
         includedItems?: string[];
         excludedItems?: string[];
         hasGuide?: 'Y' | 'N';
-        refundPolicy?: { label: string; value: string }[];
+        // product-info API가 slots→{label,value}[]로 변환해 내려주는 계약서용 환불규정 라인
+        refundPolicyLines?: { label: string; value: string }[];
       };
       setForm((prev) => ({
         ...prev,
@@ -404,7 +405,10 @@ export default function ContractTab() {
         includedItems: p.includedItems ?? prev.includedItems,
         excludedItems: p.excludedItems ?? prev.excludedItems,
         hasGuide: p.hasGuide ?? prev.hasGuide,
-        refundPolicy: Array.isArray(p.refundPolicy) ? p.refundPolicy : [...CRUISE_CANCELLATION_POLICY],
+        // 상품별 환불정책(slots 변환 라인)이 있으면 사용, 없으면 크루즈 기본 취소료
+        refundPolicy: (p.refundPolicyLines && p.refundPolicyLines.length > 0)
+          ? p.refundPolicyLines
+          : [...CRUISE_CANCELLATION_POLICY],
       }));
       showSuccess('상품 정보가 자동 반영되었습니다.');
     } catch (e) {
@@ -536,7 +540,8 @@ export default function ContractTab() {
         includedItems?: string[];
         excludedItems?: string[];
         hasGuide?: 'Y' | 'N';
-        refundPolicy?: { label: string; value: string }[];
+        // product-info API가 slots→{label,value}[]로 변환해 내려주는 계약서용 환불규정 라인
+        refundPolicyLines?: { label: string; value: string }[];
       };
       setForm((prev) => ({
         ...prev,
@@ -546,7 +551,10 @@ export default function ContractTab() {
         includedItems: p.includedItems ?? prev.includedItems,
         excludedItems: p.excludedItems ?? prev.excludedItems,
         hasGuide: p.hasGuide ?? prev.hasGuide,
-        refundPolicy: Array.isArray(p.refundPolicy) ? p.refundPolicy : [...CRUISE_CANCELLATION_POLICY],
+        // 상품별 환불정책(slots 변환 라인)이 있으면 사용, 없으면 크루즈 기본 취소료
+        refundPolicy: (p.refundPolicyLines && p.refundPolicyLines.length > 0)
+          ? p.refundPolicyLines
+          : [...CRUISE_CANCELLATION_POLICY],
         refundPolicyText: '', // 초기화 (사용자가 직접 입력하도록)
       }));
       showSuccess('상품 정보가 자동 반영되었습니다.');

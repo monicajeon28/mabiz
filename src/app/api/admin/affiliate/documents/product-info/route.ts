@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getMabizSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { refundPolicyToLines, normalizeRefundPolicy } from '@/lib/refund-calculator';
 
 // 상품 데이터 기반으로 포함/불포함 내역 + 인솔자 유무 자동 도출
 function deriveContractItems(product: {
@@ -109,6 +110,11 @@ export async function GET(req: NextRequest) {
 
     const productName = `${product.cruiseLine} ${product.shipName} - ${product.packageName}`;
 
+    // 상품별 환불정책을 계약서/인증서 표시용 {label,value}[] 로 변환 (slots → 사람이 읽는 라벨)
+    // 3곳(ContractTab·purchase-contract·여기) 동일 어댑터 사용으로 shape 불일치 버그 차단
+    const normalizedRefundPolicy = normalizeRefundPolicy(product.refundPolicy);
+    const refundPolicyLines = refundPolicyToLines(normalizedRefundPolicy);
+
     return NextResponse.json({
       ok: true,
       product: {
@@ -138,7 +144,10 @@ export async function GET(req: NextRequest) {
         tourType: product.tourType ?? 'FREE',
         airlineName: product.airlineName ?? null,
         // 상품별 환불정책 (없으면 null → 프론트에서 기본 크루즈 취소료 적용)
+        // RefundPolicyJson({slots}) 원본 — 환불 계산(calcRefundAmount)·인증서 표에서 사용
         refundPolicy: product.refundPolicy ?? null,
+        // 계약서/인증서 표시용 {label,value}[] (slots 없으면 빈 배열) — Array.isArray 가드와 호환
+        refundPolicyLines,
       },
     });
   } catch (error: unknown) {

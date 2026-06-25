@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Search,
   Loader2,
@@ -122,8 +122,36 @@ export default function ComparisonQuoteTab() {
   const [productSearchResults, setProductSearchResults] = useState<ProductSearchResult[]>([]);
   const [isSearchingProducts, setIsSearchingProducts] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const productDropdownRef = useRef<HTMLDivElement>(null);
   const { ref, isDownloading, download } = useImageDownload();
   const agent = useCurrentAgent();
+
+  // 상품 검색 디바운스 (300ms, 2글자 이상) — 빠른 타이핑 중복 fetch/stale 응답 방지
+  useEffect(() => {
+    const q = productSearch.trim();
+    if (q.length < 2) {
+      setProductDropdownOpen(false);
+      setProductSearchResults([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      void searchProducts(q);
+      setProductDropdownOpen(true);
+    }, 300);
+    return () => clearTimeout(t);
+
+  }, [productSearch]);
+
+  // 바깥 클릭 시 드롭다운 닫기 (ContractTab 패턴과 통일)
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (productDropdownRef.current && !productDropdownRef.current.contains(e.target as Node)) {
+        setProductDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const handleSelectCustomer = (sale: SaleResult) => {
     setSelectedAffiliateId(sale.saleId);
@@ -171,9 +199,12 @@ export default function ComparisonQuoteTab() {
         );
       } else {
         setProductSearchResults([]);
+        // 권한 없음(마케터 등)과 단순 무결과를 구분해 안내
+        if (res.status === 403) showError('상품 조회 권한이 없습니다.');
       }
-    } catch (error) {
+    } catch {
       setProductSearchResults([]);
+      showError('상품 검색 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
     } finally {
       setIsSearchingProducts(false);
     }
@@ -276,25 +307,51 @@ export default function ComparisonQuoteTab() {
       showError('고객명과 당사 가격을 입력해주세요.'); return;
     }
     const ok = await download(`비교견적서_${form.customerName.trim() || '고객'}`);
-    if (ok) {
-      showSuccess('비교견적서 이미지가 다운로드되었습니다.');
-      void fetch('/api/documents/comparison-quote', {
+    if (!ok) {
+      showError('이미지 다운로드 중 오류가 발생했습니다.');
+      return;
+    }
+    showSuccess('비교견적서 이미지가 다운로드되었습니다.');
+
+    // DB 저장 — 미리보기에 그려지는 모든 카테고리를 1:1로 전송(누락 없이 재구성 가능)
+    // 실패해도 PNG는 이미 받았으므로 저장 실패만 별도로 안내(조용히 묻지 않음).
+    try {
+      const res = await fetch('/api/documents/comparison-quote', {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...(selectedAffiliateId ? { affiliateSaleId: selectedAffiliateId } : {}),
-          productName: form.productName || form.customerName,
-          cruiseLine: form.cabinType || undefined,
+          customerName: form.customerName.trim(),
+          customerPhone: form.customerPhone || undefined,
+          productName: form.productName.trim() || '(상품명 미입력)',
+          productCode: form.productCode || undefined,
+          cabinType: form.cabinType || undefined,
+          headcount: form.headcount || undefined,
           price: form.ourPrice,
+          // 익명 라벨(A사/B사…) + 가격 + 비고를 함께 저장 — {label,price,notes} 통일
           competitorPrices: form.competitorPrices.filter((cp) => cp.price > 0).map((cp, i) => ({
             label: String.fromCharCode(65 + i) + '사',
-            price: cp.price
+            price: cp.price,
+            notes: cp.notes || undefined,
           })),
+          competitorIncludedItems: form.competitorIncludedItems,
+          competitorExcludedItems: form.competitorExcludedItems,
+          competitorServiceNotes: form.competitorServiceNotes || undefined,
+          includedItems: form.includedItems,
+          excludedItems: form.excludedItems,
+          optionItems: form.optionItems.filter((o) => o.trim()),
+          hasGuide: form.hasGuide || undefined,
+          hasCruisedotStaff: form.hasCruisedotStaff || undefined,
+          itinerary: form.itinerary || undefined,
           departureDate: form.departureDate || undefined,
         }),
-      }).catch(() => {});
-    } else {
-      showError('이미지 다운로드 중 오류가 발생했습니다.');
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.ok) {
+        showError('견적서가 저장되지 않았습니다. (이미지는 정상 다운로드됨)');
+      }
+    } catch {
+      showError('견적서가 저장되지 않았습니다. (이미지는 정상 다운로드됨)');
     }
   };
 
@@ -360,18 +417,16 @@ export default function ComparisonQuoteTab() {
           <p className="text-sm font-semibold text-gray-700">상품 정보</p>
 
           {/* 상품 검색 드롭다운 */}
-          <div className="relative">
+          <div className="relative" ref={productDropdownRef}>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={productSearch}
                 onChange={(e) => {
-                  const val = e.target.value;
-                  setProductSearch(val);
-                  searchProducts(val);
-                  setProductDropdownOpen(val.length > 0);
+                  // 검색은 디바운스 useEffect에 일임 (중복 fetch/stale 응답 방지)
+                  setProductSearch(e.target.value);
                 }}
-                onFocus={() => productSearch && setProductDropdownOpen(true)}
+                onFocus={() => { if (productSearchResults.length > 0) setProductDropdownOpen(true); }}
                 placeholder="상품명이나 코드로 검색..."
                 className="flex-1 h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
               />
@@ -510,10 +565,10 @@ export default function ComparisonQuoteTab() {
           <input type="text" placeholder="예: 선박 운임, 숙박, 식사 (Enter로 추가)"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                setForm((prev) => ({
-                  ...prev,
-                  competitorIncludedItems: [...prev.competitorIncludedItems, e.currentTarget.value.trim()]
-                }));
+                const val = e.currentTarget.value.trim();
+                setForm((prev) => prev.competitorIncludedItems.includes(val)
+                  ? prev
+                  : { ...prev, competitorIncludedItems: [...prev.competitorIncludedItems, val] });
                 e.currentTarget.value = '';
                 e.preventDefault();
               }
@@ -538,10 +593,10 @@ export default function ComparisonQuoteTab() {
           <input type="text" placeholder="예: 선상팁, 쇼핑비, 선택관광 (Enter로 추가)"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                setForm((prev) => ({
-                  ...prev,
-                  competitorExcludedItems: [...prev.competitorExcludedItems, e.currentTarget.value.trim()]
-                }));
+                const val = e.currentTarget.value.trim();
+                setForm((prev) => prev.competitorExcludedItems.includes(val)
+                  ? prev
+                  : { ...prev, competitorExcludedItems: [...prev.competitorExcludedItems, val] });
                 e.currentTarget.value = '';
                 e.preventDefault();
               }
@@ -816,7 +871,7 @@ export default function ComparisonQuoteTab() {
                     {allIncludedItems.length > 0 && (
                       <>
                         {allIncludedItems.map((item) => (
-                          <tr key={item} className="hover:bg-gray-50">
+                          <tr key={`inc-${item}`} className="hover:bg-gray-50">
                             <td className="border border-gray-300 px-4 py-2.5 text-gray-800 font-medium">{item}</td>
                             <td className="border border-gray-300 px-4 py-2.5 text-center">
                               {form.competitorIncludedItems.includes(item) ? (
@@ -840,7 +895,7 @@ export default function ComparisonQuoteTab() {
                     {allExcludedItems.length > 0 && (
                       <>
                         {allExcludedItems.map((item) => (
-                          <tr key={item} className="hover:bg-gray-50">
+                          <tr key={`exc-${item}`} className="hover:bg-gray-50">
                             <td className="border border-gray-300 px-4 py-2.5 text-gray-800 font-medium">{item}</td>
                             <td className="border border-gray-300 px-4 py-2.5 text-center">
                               {form.competitorExcludedItems.includes(item) ? (

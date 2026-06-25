@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { showError, showSuccess } from '@/components/ui/Toast';
 import { CANCELLATION_POLICY } from '@/lib/company-info';
-import { calcRefundAmount, type RefundPolicyJson } from '@/lib/refund-calculator';
+import { calcRefundAmount, refundPolicyToLines, type RefundPolicyJson } from '@/lib/refund-calculator';
 import {
   SaleResult,
   CurrentAgent,
@@ -43,6 +43,11 @@ type PurchaseData = {
   paidAt?: string | null;
   paymentMethod?: string | null;
   issuedAt?: string | null;
+  // 발급 시점 환불정책 스냅샷 (서버 generatedData) — 재조회/새로고침에도 보존
+  refundPolicy?: RefundPolicyJson | null;
+  refundPolicyLines?: { label: string; value: string }[];
+  // 직접입력 모드에서 사용자가 작성한 환불규정 자유서식
+  refundPolicyText?: string | null;
 };
 
 type RefundData = {
@@ -62,6 +67,8 @@ type RefundData = {
   paymentMethod?: string | null;
   companyAccount?: string | null;
   note?: string | null;
+  // 직접입력 환불규정 자유서식 — 환불완료증서 본문에 렌더
+  refundPolicyText?: string | null;
 };
 
 type ProductInfo = {
@@ -100,6 +107,7 @@ type DirectInput = {
   buyerName: string;
   buyerTel: string;
   productName: string;
+  productCode: string; // 드롭다운 선택 시 저장 → product-info 호출로 환불규정 자동
   amount: string;
   paidAt: string;
   refundPolicyText: string; // 환불규정 텍스트
@@ -112,6 +120,7 @@ const DIRECT_INPUT_INITIAL: DirectInput = {
   buyerName: '',
   buyerTel: '',
   productName: '',
+  productCode: '',
   amount: '',
   paidAt: '',
   refundPolicyText: '',
@@ -237,16 +246,47 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
     }
   };
 
+  // 직접입력 모드: 선택된 상품코드로 환불규정·상품정보 자동 로드
+  // (검색모드는 selectedSale.productCode useEffect가 담당 — 여기는 direct 전용)
+  const loadProductInfoForDirect = async (code: string) => {
+    if (!code) return;
+    setIsLoadingProductInfo(true);
+    try {
+      const res = await fetch(
+        `/api/admin/affiliate/documents/product-info?productCode=${encodeURIComponent(code)}`,
+        { credentials: 'include' }
+      );
+      const json = await res.json();
+      if (!res.ok || !json.ok || !json.product) return;
+      const prod = json.product as ProductInfo & { refundPolicyLines?: { label: string; value: string }[] };
+      setProductInfo(prod);
+      // 상품별 환불규정이 있으면 사람이 읽는 문자열로 refundPolicyText 자동 채움
+      // (사용자가 아직 직접 입력 안 했을 때만 — 입력값 보존). 50자 게이트 자연 통과.
+      const lines = prod.refundPolicyLines ?? refundPolicyToLines(prod.refundPolicy ?? null);
+      if (lines.length > 0) {
+        const text = `[${prod.productName} 취소·환불 규정]\n` + lines.map((l) => `· ${l.label}: ${l.value}`).join('\n');
+        setDirectInput((prev) => (prev.refundPolicyText.trim().length === 0 ? { ...prev, refundPolicyText: text } : prev));
+      }
+    } catch {
+      // 조회 실패 시 무시 — 사용자가 환불규정 수기 입력 가능
+    } finally {
+      setIsLoadingProductInfo(false);
+    }
+  };
+
   // 상품 드롭다운에서 상품 선택
   const handleSelectProductFromDropdown = (product: ProductSearchResult) => {
     setDirectInput((prev) => ({
       ...prev,
       productName: product.productName,
+      productCode: product.productCode,
       amount: product.basePrice.toString(),
     }));
     setProductSearch('');
     setProductDropdownOpen(false);
     setProductSearchResults([]);
+    // 선택 직후 상품 환불규정 자동 로드 (요구② — 직접입력에서도 그 상품 규정 자동)
+    void loadProductInfoForDirect(product.productCode);
   };
 
   // 바깥 클릭으로 드롭다운 닫기
@@ -353,17 +393,23 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
           amount: directInput.amount ? Number(directInput.amount) : null,
           paidAt: directInput.paidAt || null,
           note: directInput.refundPolicyText || null,
+          // 직접입력 환불규정 자유서식 — 구매확인증서 본문 환불규정 영역에 렌더(우선순위 최상)
+          refundPolicyText: directInput.refundPolicyText || null,
           cancelledAt: directInput.cancelDate || null,
           departureDate: directInput.departureDate || null,
         };
 
         // 환불인증서 직접 입력: 자동 계산
+        // 상품을 드롭다운으로 선택해 productInfo가 로드됐으면 그 상품정책으로 계산,
+        // 아니면 법정기준(null). 미리보기(RefundPreviewDraft)와 동일 입력으로 통일.
         if (mode === 'refund' && gen.amount && directInput.departureDate) {
           try {
+            const baseDate = directInput.cancelDate ? new Date(directInput.cancelDate) : undefined;
             const calc = calcRefundAmount(
               gen.amount,
               new Date(directInput.departureDate),
-              null
+              productInfo?.refundPolicy ?? null,
+              baseDate
             );
             gen.refundAmount = calc.refundAmount;
             gen.penaltyRate = calc.penaltyRate;
@@ -589,13 +635,8 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
                   type="text"
                   value={productSearch || directInput.productName}
                   onChange={(e) => {
+                    // 검색은 디바운스 useEffect에 일임 (중복 fetch 방지). 여기선 입력값만 갱신.
                     setProductSearch(e.target.value);
-                    if (e.target.value.length > 0) {
-                      searchProducts(e.target.value);
-                      setProductDropdownOpen(true);
-                    } else {
-                      setProductDropdownOpen(false);
-                    }
                   }}
                   onFocus={() => {
                     if (productSearch.length > 0) setProductDropdownOpen(true);
@@ -846,7 +887,7 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
               <PurchasePreview cardRef={ref} data={purchaseData} agent={agent} productInfo={productInfo} />
             )}
             {mode === 'refund' && refundData && (
-              <RefundPreview cardRef={ref} data={refundData} agent={agent} />
+              <RefundPreview cardRef={ref} data={refundData} agent={agent} productInfo={productInfo} />
             )}
 
             {/* 다운로드 버튼 */}
@@ -913,45 +954,52 @@ function PurchasePreview({
           </dl>
         </div>
 
-        {/* 취소·환불 정책 */}
-        <div className="mb-8 rounded-lg border-2 border-orange-200 bg-orange-50 p-6">
-          <p className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-orange-700">
-            <ShieldCheck className="h-4 w-4" />
-            취소·환불 규정
-            {productInfo?.refundPolicy?.slots && <span className="ml-2 rounded-full bg-orange-300 px-2 py-0.5 text-[10px] text-white">상품별 정책</span>}
-          </p>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b-2 border-orange-300">
-                <th className="pb-3 text-left font-bold text-orange-700">취소 시점</th>
-                <th className="pb-3 text-right font-bold text-orange-700">위약금</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(productInfo?.refundPolicy?.slots ?? CANCELLATION_POLICY.map((p) => ({
-                daysBeforeDep: parseInt(p.label.match(/\d+/)?.[0] ?? '0'),
-                penaltyRate: parseInt(p.value.match(/\d+/)?.[0] ?? '0'),
-                label: p.label,
-                value: p.value,
-              }))).map((slot, idx) => {
-                const isPolicy = productInfo?.refundPolicy?.slots;
-                return (
-                  <tr key={idx} className="border-b border-orange-100 last:border-0">
-                    <td className="py-3 text-gray-700">
-                      {isPolicy ? `출발 ${slot.daysBeforeDep}일 이전` : (slot as any).label}
-                    </td>
-                    <td className="py-3 text-right font-semibold text-gray-800">
-                      {isPolicy ? `${slot.penaltyRate}%` : (slot as any).value}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <p className="mt-4 text-xs leading-relaxed text-gray-600">
-            ※ {productInfo?.refundPolicy?.isStructured ? '상품별 환불정책 적용' : '관광진흥법 시행령 기준'}
-          </p>
-        </div>
+        {/* 취소·환불 정책 — 우선순위: 직접입력 자유서식 > 발급본 스냅샷 > 라이브 상품정보 > 법정요약 */}
+        {(() => {
+          const directText = data.refundPolicyText?.trim();
+          // 발급본 스냅샷(snapshot) 우선 → 없으면 라이브 productInfo
+          const snapshotLines = data.refundPolicyLines && data.refundPolicyLines.length > 0
+            ? data.refundPolicyLines
+            : null;
+          const liveLines = refundPolicyToLines(data.refundPolicy ?? productInfo?.refundPolicy ?? null);
+          const policyLines = snapshotLines ?? (liveLines.length > 0 ? liveLines : CANCELLATION_POLICY);
+          const isProductPolicy = !!(snapshotLines || liveLines.length > 0);
+          return (
+            <div className="mb-8 rounded-lg border-2 border-orange-200 bg-orange-50 p-6">
+              <p className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-orange-700">
+                <ShieldCheck className="h-4 w-4" />
+                취소·환불 규정
+                {(directText || isProductPolicy) && <span className="ml-2 rounded-full bg-orange-300 px-2 py-0.5 text-[10px] text-white">{directText ? '입력 규정' : '상품별 정책'}</span>}
+              </p>
+              {directText ? (
+                // 직접입력 모드: 사용자가 작성한 환불규정 자유서식 그대로 표시
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">{directText}</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b-2 border-orange-300">
+                      <th className="pb-3 text-left font-bold text-orange-700">취소 시점</th>
+                      <th className="pb-3 text-right font-bold text-orange-700">위약금</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {policyLines.map((row, idx) => (
+                      <tr key={`${row.label}-${idx}`} className="border-b border-orange-100 last:border-0">
+                        <td className="py-3 text-gray-700">{row.label}</td>
+                        <td className="py-3 text-right font-semibold text-gray-800">{row.value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              {!directText && (
+                <p className="mt-4 text-xs leading-relaxed text-gray-600">
+                  ※ {isProductPolicy ? '상품별 환불정책 적용' : '관광진흥법 시행령 기준'}
+                </p>
+              )}
+            </div>
+          );
+        })()}
 
         <DocumentSeal agent={agent} />
       </div>
@@ -967,13 +1015,21 @@ function RefundPreview({
   cardRef,
   data,
   agent,
+  productInfo,
 }: {
   cardRef: React.RefObject<HTMLDivElement | null>;
   data: RefundData;
   agent: CurrentAgent;
+  productInfo?: ProductInfo | null;
 }) {
   const title = data.isRefundPending ? '환불예정확인서' : '환불완료증서';
   const hasPenalty = (data.penaltyRate ?? 0) > 0;
+
+  // 취소료 단계표 — 우선순위: 직접입력 자유서식 > 상품별 정책(slots) > 법정요약
+  const directText = data.refundPolicyText?.trim();
+  const policyLines = refundPolicyToLines(productInfo?.refundPolicy ?? null);
+  const cancellationRows = policyLines.length > 0 ? policyLines : CANCELLATION_POLICY;
+  const isProductPolicy = policyLines.length > 0;
 
   return (
     <div
@@ -1031,7 +1087,41 @@ function RefundPreview({
           </dl>
         </div>
 
-        {data.note && (
+        {/* 취소·환불 규정 단계표 (요구② — 환불증서에도 그 상품의 규정 표시) */}
+        <div className="mb-8 rounded-lg border-2 border-orange-200 bg-orange-50 p-6">
+          <p className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-orange-700">
+            <ShieldCheck className="h-4 w-4" />
+            취소·환불 규정
+            {(directText || isProductPolicy) && <span className="ml-2 rounded-full bg-orange-300 px-2 py-0.5 text-[10px] text-white">{directText ? '입력 규정' : '상품별 정책'}</span>}
+          </p>
+          {directText ? (
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">{directText}</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b-2 border-orange-300">
+                  <th className="pb-3 text-left font-bold text-orange-700">취소 시점</th>
+                  <th className="pb-3 text-right font-bold text-orange-700">위약금</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cancellationRows.map((row, idx) => (
+                  <tr key={`${row.label}-${idx}`} className="border-b border-orange-100 last:border-0">
+                    <td className="py-3 text-gray-700">{row.label}</td>
+                    <td className="py-3 text-right font-semibold text-gray-800">{row.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {!directText && (
+            <p className="mt-4 text-xs leading-relaxed text-gray-600">
+              ※ {isProductPolicy ? '상품별 환불정책 적용' : '관광진흥법 시행령 기준'}
+            </p>
+          )}
+        </div>
+
+        {data.note && !directText && (
           <p className="mb-8 rounded-lg bg-gray-50 px-6 py-5 text-sm leading-relaxed text-gray-600 border border-gray-200">{data.note}</p>
         )}
 

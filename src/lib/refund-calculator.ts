@@ -28,6 +28,46 @@ export const LEGAL_REFUND_POLICY: RefundPolicyJson = {
   isStructured: true,
 };
 
+/**
+ * 상품별 환불정책(RefundPolicyJson {slots})을 계약서/인증서 표시용 {label,value}[] 로 변환.
+ * - product-info API, ContractTab, purchase-contract route 가 동일 규칙으로 사용 (3곳 일관)
+ * - daysBeforeDep=0 은 "출발 당일", penaltyRate=0 은 "위약금 없음" 으로 사람이 읽는 라벨 생성.
+ * - slot 에 명시적 label/value 가 있으면 그대로 우선 사용(원문 보존).
+ * - slots 가 비어 있으면 빈 배열 반환(호출부에서 폴백 처리).
+ */
+export function refundPolicyToLines(
+  policy: RefundPolicyJson | null | undefined,
+): { label: string; value: string }[] {
+  if (!policy || !Array.isArray(policy.slots) || policy.slots.length === 0) return [];
+  const sorted = [...policy.slots].sort((a, b) => b.daysBeforeDep - a.daysBeforeDep);
+  return sorted.map((s) => {
+    const label = s.label ?? (s.daysBeforeDep > 0 ? `출발 ${s.daysBeforeDep}일 이전` : '출발 당일');
+    const value = s.penaltyRate > 0 ? `여행 요금의 ${s.penaltyRate}%` : '위약금 없음';
+    return { label, value };
+  });
+}
+
+/**
+ * 임의의 refundPolicy 입력값을 RefundPolicyJson({slots}) 으로 정규화.
+ * - 이미 {slots} 객체면 그대로 반환
+ * - 배열({label,value}[] 또는 RefundSlot[])이면 slots 로 감싸 반환(레거시 호환)
+ * - 그 외(null/undefined/형식불명)면 null
+ */
+export function normalizeRefundPolicy(raw: unknown): RefundPolicyJson | null {
+  if (!raw) return null;
+  if (typeof raw === 'object' && !Array.isArray(raw) && Array.isArray((raw as RefundPolicyJson).slots)) {
+    return raw as RefundPolicyJson;
+  }
+  if (Array.isArray(raw) && raw.length > 0) {
+    // RefundSlot[] (daysBeforeDep/penaltyRate 보유) 형태면 구조화로 인정
+    const first = raw[0] as Record<string, unknown>;
+    if (typeof first?.daysBeforeDep === 'number' && typeof first?.penaltyRate === 'number') {
+      return { slots: raw as RefundSlot[], isStructured: true };
+    }
+  }
+  return null;
+}
+
 export type RefundCalcResult = {
   refundAmount: number;
   penaltyRate: number;

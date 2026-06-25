@@ -14,11 +14,26 @@ export async function POST(req: Request) {
       contactId?: string;
       affiliateSaleId?: string;
       customerName?: string;
+      customerPhone?: string;
       productName: string;
+      productCode?: string;
       cruiseLine?: string;
+      cabinType?: string;
       nights?: number;
+      headcount?: string;
       price: number;
-      competitorPrices?: Array<{ name: string; price: number }>;
+      // 프론트와 키 통일: {label,price,notes} (이전 {name,price}는 라벨 유실 버그)
+      competitorPrices?: Array<{ label: string; price: number; notes?: string }>;
+      // 미리보기에 그려지는 비교 카테고리 (누락 없이 저장 → 재구성/재발급 가능)
+      competitorIncludedItems?: string[];
+      competitorExcludedItems?: string[];
+      competitorServiceNotes?: string;
+      includedItems?: string[];
+      excludedItems?: string[];
+      optionItems?: string[];
+      hasGuide?: 'Y' | 'N';
+      hasCruisedotStaff?: 'Y' | 'N';
+      itinerary?: string;
       departureDate?: string;
     };
 
@@ -48,15 +63,28 @@ export async function POST(req: Request) {
         affiliateSaleId: body.affiliateSaleId ?? null,
         createdBy:      ctx.userId,
         generatedData: {
-          customerName:      body.customerName,
-          productName:       body.productName,
-          cruiseLine:        body.cruiseLine ?? '',
-          nights:            body.nights ?? 0,
-          price:             body.price,
-          competitorPrices:  body.competitorPrices ?? [],
-          departureDate:     body.departureDate ?? null,
-          issuedAt:          new Date().toISOString(),
-          issuerOrgId:       orgId,
+          customerName:            body.customerName,
+          customerPhone:           body.customerPhone ?? null,
+          productName:             body.productName,
+          productCode:             body.productCode ?? null,
+          cruiseLine:              body.cruiseLine ?? '',
+          cabinType:               body.cabinType ?? null,
+          nights:                  body.nights ?? 0,
+          headcount:               body.headcount ?? null,
+          price:                   body.price,
+          competitorPrices:        body.competitorPrices ?? [],
+          competitorIncludedItems: body.competitorIncludedItems ?? [],
+          competitorExcludedItems: body.competitorExcludedItems ?? [],
+          competitorServiceNotes:  body.competitorServiceNotes ?? null,
+          includedItems:           body.includedItems ?? [],
+          excludedItems:           body.excludedItems ?? [],
+          optionItems:             body.optionItems ?? [],
+          hasGuide:                body.hasGuide ?? null,
+          hasCruisedotStaff:       body.hasCruisedotStaff ?? null,
+          itinerary:               body.itinerary ?? null,
+          departureDate:           body.departureDate ?? null,
+          issuedAt:                new Date().toISOString(),
+          issuerOrgId:             orgId,
         },
       },
       select: { id: true },

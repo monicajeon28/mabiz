@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { FileText } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { FileText, Lock, Loader2 } from 'lucide-react';
 import ComparisonQuoteTab from './_components/ComparisonQuoteTab';
 import CertificateTab from './_components/CertificateTab';
 import ContractTab from './_components/ContractTab';
@@ -31,6 +31,47 @@ const TAB_ACTIVE: Record<string, string> = {
 
 export default function DocumentsApprovalPage() {
   const [activeTab, setActiveTab] = useState<TabType>('comparison');
+
+  // 역할 게이트 — 서류관리는 상품/결제건 접근이 필요해 마케터(FREE_SALES)는 사용 불가.
+  // (서버 발급 API들도 FREE_SALES 403이므로 화면에서 미리 안내해 '상품이 안 뜬다'는 혼선 방지)
+  const [role, setRole] = useState<string | null>(null);
+  const [roleLoading, setRoleLoading] = useState(true);
+  useEffect(() => {
+    let alive = true;
+    const controller = new AbortController();
+    fetch('/api/auth/me', { credentials: 'include', signal: controller.signal })
+      .then((r) => r.json())
+      .then((j) => { if (alive && j?.ok) setRole(j.role ?? null); })
+      .catch(() => {})
+      .finally(() => { if (alive) setRoleLoading(false); });
+    return () => { alive = false; controller.abort(); };
+  }, []);
+
+  if (roleLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-gray-500">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" /> 불러오는 중...
+      </div>
+    );
+  }
+
+  if (role === 'FREE_SALES') {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <div className="max-w-md rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
+            <Lock className="h-7 w-7 text-gray-400" />
+          </div>
+          <h2 className="text-lg font-bold text-gray-900">서류관리 권한이 없습니다</h2>
+          <p className="mt-2 text-base leading-relaxed text-gray-600">
+            비교견적서·구매확인증서·환불인증서·계약서 발급은
+            <br />대리점장 이상만 사용할 수 있습니다.
+          </p>
+          <p className="mt-3 text-sm text-gray-400">담당 관리자에게 문의해 주세요.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100 pb-24">

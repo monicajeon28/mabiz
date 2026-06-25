@@ -4,6 +4,7 @@ import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { sendFunnelEmail } from '@/lib/email';
 import { BANK_TRANSFER_LABEL } from '@/lib/company-info';
+import { refundPolicyToLines, normalizeRefundPolicy, type RefundPolicyJson } from '@/lib/refund-calculator';
 
 function escHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -30,7 +31,7 @@ export async function POST(req: Request) {
       select: {
         orderId: true, buyerName: true, buyerTel: true, buyerEmail: true,
         amount: true, status: true, pgProvider: true, paidAt: true,
-        productName: true, affiliateCode: true,
+        productName: true, affiliateCode: true, metadata: true,
       },
     });
 
@@ -59,6 +60,24 @@ export async function POST(req: Request) {
     // 5. SalesDocument 생성 (AGENT는 PENDING_APPROVAL, OWNER/ADMIN은 APPROVED)
     const status = (ctx.role === 'OWNER' || ctx.role === 'GLOBAL_ADMIN') ? 'APPROVED' : 'PENDING_APPROVAL';
 
+    // 발급 시점 상품별 환불정책 스냅샷 (재조회/새로고침/PNG 재생성 시에도 그 상품의 규정 보존)
+    // refund-cert/route.ts 패턴 재사용 — metadata.productCode 로 CruiseProduct.refundPolicy 조회.
+    let refundPolicy: RefundPolicyJson | null = null;
+    let refundPolicyLines: { label: string; value: string }[] = [];
+    try {
+      const productCode = (payment.metadata as { productCode?: string })?.productCode ?? '';
+      if (productCode) {
+        const product = await prisma.cruiseProduct.findUnique({
+          where: { productCode },
+          select: { refundPolicy: true },
+        });
+        refundPolicy = normalizeRefundPolicy(product?.refundPolicy);
+        refundPolicyLines = refundPolicyToLines(refundPolicy);
+      }
+    } catch (productErr) {
+      logger.log('[PurchaseCert] 상품 환불정책 조회 실패 — 폴백(법정요약)', { error: productErr instanceof Error ? productErr.message : String(productErr) });
+    }
+
     // 미리보기/PNG 렌더용 데이터 (응답에 그대로 반환)
     const generatedData = {
       buyerName:     payment.buyerName,
@@ -68,6 +87,9 @@ export async function POST(req: Request) {
       productName:   payment.productName ?? '크루즈 상품',
       paidAt:        payment.paidAt?.toISOString() ?? null,
       paymentMethod,
+      // 상품별 환불정책 스냅샷 (없으면 null/빈배열 → 클라이언트가 법정요약으로 폴백)
+      refundPolicy,
+      refundPolicyLines,
       issuedAt:      new Date().toISOString(),
       issuerOrgId:   orgId,
     };
