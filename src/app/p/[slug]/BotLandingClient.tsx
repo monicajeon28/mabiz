@@ -86,13 +86,14 @@ interface Props {
   kakaoChannelUrl?: string;
   /** 시작 게이트 훅 문구(가치 한 줄). 없으면 봇 종류별 기본 문구. */
   hookText?: string;
-  /** 후킹용 대표 상품(실데이터). 가이드 차별화 카드에 실제 가격·출발일 표시. 없으면 미표시. */
+  /** 후킹용 대표 상품(실데이터). 가이드 차별화 카드에 실제 가격·출발일·잔여 표시. 없으면 미표시. */
   featured?: {
     title: string;
     priceFrom: number;
     departOn: string | null;
     nights: number;
     days: number;
+    availableSeats: number | null;
   };
   /** 라이브방송 후킹 — 접수 직후 노출할 링크·문구. 없으면 미표시. '30%' 등 표현은 운영자 단일 책임(문구). */
   live?: { url: string; label: string };
@@ -103,6 +104,14 @@ function formatDepart(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+}
+
+/** 출발 D-day(긴박감, L6 손실회피) — 미래면 " · D-N", 아니면 빈 문자열. */
+function ddayLabel(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const diff = Math.ceil((d.getTime() - Date.now()) / 86_400_000);
+  return diff > 0 ? ` · D-${diff}` : "";
 }
 
 const DEFAULT_HOMEPAGE_URL = "https://cruisedot.co.kr";
@@ -336,9 +345,26 @@ export default function BotLandingClient({
                 <p className="mt-1 text-base text-slate-700">
                   {featured.nights}박 {featured.days}일 ·{" "}
                   {featured.priceFrom.toLocaleString("ko-KR")}원부터
-                  {featured.departOn ? ` · ${formatDepart(featured.departOn)} 출발` : ""}
                 </p>
-                <p className="mt-1 text-xs text-slate-500">
+                {/* 긴박감(출발 D-day)·희소성(잔여) — 실데이터 기반 L6 손실회피 */}
+                {(featured.departOn ||
+                  (featured.availableSeats !== null && featured.availableSeats > 0)) && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {featured.departOn && (
+                      <span className="rounded-full bg-[#FADBD8] px-2.5 py-1 text-sm font-semibold text-[#C0392B]">
+                        🗓 {formatDepart(featured.departOn)} 출발{ddayLabel(featured.departOn)}
+                      </span>
+                    )}
+                    {featured.availableSeats !== null &&
+                      featured.availableSeats > 0 &&
+                      featured.availableSeats <= 20 && (
+                        <span className="rounded-full bg-[#FFF3CD] px-2.5 py-1 text-sm font-semibold text-[#B8860B]">
+                          🔥 잔여 {featured.availableSeats}석
+                        </span>
+                      )}
+                  </div>
+                )}
+                <p className="mt-1.5 text-xs text-slate-500">
                   정확한 가격·잔여 좌석은 담당 전문가가 확인해 드려요
                 </p>
               </div>

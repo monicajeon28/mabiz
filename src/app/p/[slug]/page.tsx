@@ -84,7 +84,14 @@ export default async function PublicLandingPage({
     // 후킹용 대표 상품(실데이터) — 크루즈닷 공유 CruiseProduct에서 실제 가격·출발일을 끌어온다.
     //   지어내지 않고 실데이터만 인용(컴플라이언스). 대표>인기>긴급, 가까운 출발 우선. 없으면 미표시.
     let featured:
-      | { title: string; priceFrom: number; departOn: string | null; nights: number; days: number }
+      | {
+          title: string;
+          priceFrom: number;
+          departOn: string | null;
+          nights: number;
+          days: number;
+          availableSeats: number | null;
+        }
       | undefined;
     if (botType === "cruise") {
       try {
@@ -104,7 +111,14 @@ export default async function PublicLandingPage({
             { isUrgent: "desc" },
             { startDate: "asc" },
           ],
-          select: { packageName: true, basePrice: true, startDate: true, nights: true, days: true },
+          select: {
+            packageName: true,
+            basePrice: true,
+            startDate: true,
+            nights: true,
+            days: true,
+            availableCount: true,
+          },
         });
         if (fp?.basePrice) {
           featured = {
@@ -113,6 +127,7 @@ export default async function PublicLandingPage({
             departOn: fp.startDate ? fp.startDate.toISOString() : null,
             nights: fp.nights,
             days: fp.days,
+            availableSeats: fp.availableCount ?? null,
           };
         }
       } catch {
