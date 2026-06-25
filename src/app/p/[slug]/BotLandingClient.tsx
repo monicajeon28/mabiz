@@ -87,7 +87,9 @@ export default function BotLandingClient({
   const showChips = phase === "chat" && messages.length === 1 && !loading;
   const chipList = chips && chips.length > 0 ? chips : defaultChips;
 
-  const homeLink = homepageUrl || DEFAULT_HOMEPAGE_URL;
+  // 크루즈봇: 어필리에이트 링크 없으면 크루즈닷 메인 폴백.
+  // 모집봇: 어필리에이트 폴백 없음(상품 판매 아님) — 교육·모집 안내 링크가 없으면 버튼 자체를 숨김.
+  const homeLink = isRecruit ? homepageUrl || "" : homepageUrl || DEFAULT_HOMEPAGE_URL;
   const gateHook = hookText || (isRecruit ? RECRUIT_HOOK : CRUISE_HOOK);
 
   // 게이트 리드 제출 → 기존 register API(그룹배정·퍼널·판매원 귀속) 재사용
@@ -439,15 +441,20 @@ export default function BotLandingClient({
                   <span className="text-xs font-medium text-[#3C1E1E]/70">→ 카톡이 열려요</span>
                 </a>
               )}
-              <a
-                href={homeLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex min-h-[52px] flex-col items-center justify-center rounded-2xl border-2 border-[#1E2D4E] px-5 py-2 text-base font-bold text-[#1E2D4E] transition active:scale-[0.99]"
-              >
-                <span>🚢 상품 구경하기</span>
-                <span className="text-xs font-medium text-slate-500">→ 새 창에서 상품을 봐요</span>
-              </a>
+              {/* 크루즈봇: 항상 상품 구경(폴백 크루즈닷). 모집봇: 교육·모집 안내 링크가 있을 때만 표시(어필리에이트 폴백 없음). */}
+              {homeLink && (
+                <a
+                  href={homeLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex min-h-[52px] flex-col items-center justify-center rounded-2xl border-2 border-[#1E2D4E] px-5 py-2 text-base font-bold text-[#1E2D4E] transition active:scale-[0.99]"
+                >
+                  <span>{isRecruit ? "📚 교육·모집 안내 보기" : "🚢 상품 구경하기"}</span>
+                  <span className="text-xs font-medium text-slate-500">
+                    {isRecruit ? "→ 새 창에서 안내를 봐요" : "→ 새 창에서 상품을 봐요"}
+                  </span>
+                </a>
+              )}
             </div>
           </div>
         </div>

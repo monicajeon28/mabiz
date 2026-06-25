@@ -332,18 +332,26 @@ export default function BotLandingForm({ products, initialBotType = "cruise" }: 
             </select>
           </section>
 
-          {/* 6. 홈페이지(어필리에이트) 링크 */}
+          {/* 6. 홈페이지 링크 — 크루즈봇=어필리에이트, 모집봇=교육·모집 안내 페이지 */}
           <section>
             <label className="block text-base font-bold text-slate-800">
-              6. 홈페이지 링크 (선택)
+              {botType === "recruit"
+                ? "6. 교육·모집 안내 페이지 링크 (선택)"
+                : "6. 홈페이지 링크 (선택)"}
             </label>
             <p className="mb-2 text-sm text-slate-500">
-              봇 화면의 “홈페이지 보기” 버튼이 여는 주소예요.
+              {botType === "recruit"
+                ? "상담을 마친 손님이 “교육·모집 안내 보기”를 누르면 열리는 주소예요. (비우면 이 버튼은 보이지 않아요.)"
+                : "봇 화면의 “상품 구경하기” 버튼이 여는 주소예요."}
             </p>
             <input
               value={homepageUrl}
               onChange={(e) => setHomepageUrl(e.target.value)}
-              placeholder="내 크루즈닷 어필리에이트 링크 (비우면 크루즈닷 메인)"
+              placeholder={
+                botType === "recruit"
+                  ? "교육·모집 안내 페이지 주소 (비우면 버튼 숨김)"
+                  : "내 크루즈닷 어필리에이트 링크 (비우면 크루즈닷 메인)"
+              }
               className="h-12 w-full rounded-xl border border-slate-300 px-4 text-base outline-none focus:border-[#2563EB]"
             />
           </section>
