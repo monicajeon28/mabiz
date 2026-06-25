@@ -62,11 +62,20 @@ export default async function PublicLandingPage({
       chips?: string[];
       botType?: string;
       homepageUrl?: string;
+      kakaoChannelUrl?: string;
+      hookText?: string;
     };
     const homepageUrl =
       typeof cfg.homepageUrl === "string" && /^https?:\/\//i.test(cfg.homepageUrl)
         ? cfg.homepageUrl
         : undefined;
+    // 카톡 채널 링크 — 봇별 커스텀 우선, 없으면 회사 공용 채널로 폴백(LandingClient 패턴 동일).
+    const kakaoChannelUrl =
+      typeof cfg.kakaoChannelUrl === "string" && /^https?:\/\//i.test(cfg.kakaoChannelUrl)
+        ? cfg.kakaoChannelUrl
+        : `https://pf.kakao.com/${process.env.NEXT_PUBLIC_KAKAO_CHANNEL_ID || "_cruisedot"}`;
+    const hookText =
+      typeof cfg.hookText === "string" && cfg.hookText.trim() ? cfg.hookText.trim() : undefined;
     return (
       <BotLandingClient
         pageId={page.id}
@@ -76,6 +85,8 @@ export default async function PublicLandingPage({
         chips={Array.isArray(cfg.chips) ? cfg.chips : undefined}
         botType={cfg.botType === "recruit" ? "recruit" : "cruise"}
         homepageUrl={homepageUrl}
+        kakaoChannelUrl={kakaoChannelUrl}
+        hookText={hookText}
       />
     );
   }

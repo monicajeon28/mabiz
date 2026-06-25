@@ -40,7 +40,9 @@ const BOT_TYPE_OPTIONS = [
   { key: "recruit" as const, label: "🎓 교육생 모집봇", desc: "부업·창업 파트너(교육생)를 정직하게 모집" },
 ];
 
-const DEFAULT_GREETING = CRUISE_GREETING; // 미리보기 폴백용
+// 시작 게이트 기본 훅 문구(BotLandingClient와 동일). 미리보기 폴백용.
+const CRUISE_HOOK = "🚢 한국어 안내로 편하게 떠나는 크루즈 여행, 지금 자리부터 확인해 보세요";
+const RECRUIT_HOOK = "🎓 부업·창업, 솔직하게 물어보고 천천히 결정하셔도 돼요";
 
 function manwon(n: number | null): string {
   if (n == null) return "";
@@ -61,6 +63,8 @@ export default function BotLandingForm({ products, initialBotType = "cruise" }: 
   const [groups, setGroups] = useState<GroupOpt[]>([]);
   const [groupId, setGroupId] = useState("");
   const [homepageUrl, setHomepageUrl] = useState("");
+  const [kakaoChannelUrl, setKakaoChannelUrl] = useState("");
+  const [hookText, setHookText] = useState("");
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<{ url: string } | null>(null);
   const [error, setError] = useState("");
@@ -133,6 +137,8 @@ export default function BotLandingForm({ products, initialBotType = "cruise" }: 
           productCodes: botType === "recruit" ? [] : Array.from(selected),
           groupId: groupId || undefined,
           homepageUrl: homepageUrl.trim() || undefined,
+          kakaoChannelUrl: kakaoChannelUrl.trim() || undefined,
+          hookText: hookText.trim() || undefined,
         }),
       });
       const data = await res.json();
@@ -342,10 +348,53 @@ export default function BotLandingForm({ products, initialBotType = "cruise" }: 
             />
           </section>
 
-          {/* 7. 상품 (크루즈 상담봇만 사용 — 모집봇은 확정 오퍼 안내) */}
+          {/* 7. 카톡 채널 링크 */}
+          <section>
+            <label className="block text-base font-bold text-slate-800">
+              7. 카톡 채널 링크 (선택)
+            </label>
+            <p className="mb-2 text-sm text-slate-500">
+              상담을 마친 손님이 “카톡에서 후기·소식 보기”를 누르면 열리는 주소예요. (비우면 회사 공용 카톡 채널)
+            </p>
+            <input
+              value={kakaoChannelUrl}
+              onChange={(e) => setKakaoChannelUrl(e.target.value)}
+              placeholder="예: https://pf.kakao.com/_cruisedot"
+              className="h-12 w-full rounded-xl border border-slate-300 px-4 text-base outline-none focus:border-[#2563EB]"
+            />
+          </section>
+
+          {/* 8. 시작 화면 안내 문구(훅) */}
+          <section>
+            <label className="block text-base font-bold text-slate-800">
+              8. 시작 화면 안내 문구 (선택)
+            </label>
+            <p className="mb-2 text-sm text-slate-500">
+              손님이 들어오면 가장 먼저 보이는 한 줄이에요. (비우면 기본 문구)
+            </p>
+            {botType === "recruit" && (
+              <p className="mb-2 rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                ⚠️ 수익보장·마감압박(예: “마감 임박”, “선착순”, “월 OO만원 보장”) 문구는 법으로 금지돼요.
+              </p>
+            )}
+            <textarea
+              value={hookText}
+              onChange={(e) => setHookText(e.target.value)}
+              rows={2}
+              maxLength={120}
+              placeholder={
+                botType === "recruit"
+                  ? "예: 부업·창업, 솔직하게 물어보고 천천히 결정하셔도 돼요"
+                  : "예: 한국어 안내로 편하게 떠나는 크루즈 여행, 지금 자리부터 확인해 보세요"
+              }
+              className="w-full rounded-xl border border-slate-300 p-4 text-base leading-relaxed outline-none focus:border-[#2563EB]"
+            />
+          </section>
+
+          {/* 9. 상품 (크루즈 상담봇만 사용 — 모집봇은 확정 오퍼 안내) */}
           {botType === "cruise" && (
           <section>
-            <span className="block text-base font-bold text-slate-800">7. 상담할 상품 (선택)</span>
+            <span className="block text-base font-bold text-slate-800">9. 상담할 상품 (선택)</span>
             <p className="mb-2 text-sm text-slate-500">
               고른 상품만 봇이 안내해요. <b>안 고르면 모든 상품</b>을 안내해요.
             </p>
@@ -393,32 +442,23 @@ export default function BotLandingForm({ products, initialBotType = "cruise" }: 
                 {botType === "recruit" ? "교육생 모집봇" : "크루즈 상담봇"}
               </div>
             </div>
-            <div className="min-h-[320px] space-y-3 p-4">
-              <div className="flex justify-start">
-                <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-tl-sm bg-white px-4 py-3 text-base leading-relaxed text-slate-800 shadow-sm">
-                  {greeting.trim() || DEFAULT_GREETING}
-                </div>
+            {/* 시작 게이트 미리보기 — 손님이 들어오면 가장 먼저 보는 화면 */}
+            <div className="flex min-h-[320px] flex-col justify-center p-5">
+              <p className="text-lg font-bold leading-relaxed text-[#1E2D4E]">
+                {hookText.trim() || (botType === "recruit" ? RECRUIT_HOOK : CRUISE_HOOK)}
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-slate-500">
+                담당 전문가가 직접 연락드려요. 광고·스팸 문자는 보내지 않아요.
+              </p>
+              <div className="mt-5 flex min-h-[52px] items-center justify-center rounded-2xl bg-[#27AE60] px-5 text-base font-bold text-white">
+                상담 받기
               </div>
-              <div className="flex flex-wrap gap-2">
-                {chips
-                  .filter((c) => c.trim())
-                  .map((c, i) => (
-                    <span
-                      key={i}
-                      className="rounded-full border-2 border-[#1E2D4E] bg-white px-4 py-2 text-sm font-medium text-[#1E2D4E]"
-                    >
-                      {c}
-                    </span>
-                  ))}
+              <div className="mt-3 text-center text-xs text-slate-400 underline underline-offset-4">
+                먼저 둘러볼게요
               </div>
             </div>
-            <div className="flex items-center gap-2 border-t border-slate-200 bg-white px-3 py-3">
-              <div className="h-11 flex-1 rounded-full border border-slate-300 px-4 text-base leading-[2.75rem] text-slate-400">
-                궁금한 점을 입력하세요
-              </div>
-              <div className="flex h-11 min-w-[60px] items-center justify-center rounded-full bg-[#2563EB] px-4 text-base font-bold text-white">
-                보내기
-              </div>
+            <div className="border-t border-slate-200 bg-white px-3 py-2 text-center text-xs text-slate-400">
+              버튼을 누르면 성함·연락처 2칸이 펼쳐져요
             </div>
           </div>
         </div>

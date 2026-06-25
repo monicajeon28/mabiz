@@ -71,10 +71,29 @@ export async function POST(req: Request) {
           .slice(0, 20)
       : [];
 
-    // 홈페이지(어필리에이트) 링크 — 봇 종료 CTA "홈페이지 보기"에서 사용.
+    // 홈페이지(어필리에이트) 링크 — 봇 종료 CTA "상품 구경하기"에서 사용.
     // 비우면 BotLandingClient가 크루즈닷 메인으로 폴백한다. http(s)만 허용.
     const homepageUrlRaw = body.homepageUrl ? String(body.homepageUrl).trim().slice(0, 500) : "";
     const homepageUrl = /^https?:\/\//i.test(homepageUrlRaw) ? homepageUrlRaw : undefined;
+
+    // 카톡 채널 링크 — 봇 종료 CTA "카톡에서 후기·소식 보기"에서 사용.
+    // 비우면 BotLandingClient가 회사 공용 카톡 채널로 폴백한다. http(s)만 허용(스킴 XSS 방지).
+    const kakaoChannelUrlRaw = body.kakaoChannelUrl
+      ? String(body.kakaoChannelUrl).trim().slice(0, 500)
+      : "";
+    const kakaoChannelUrl = /^https?:\/\//i.test(kakaoChannelUrlRaw)
+      ? kakaoChannelUrlRaw
+      : undefined;
+
+    // 시작 게이트 훅 문구 — 봇 첫 화면에서 가치를 먼저 보여주는 한 줄(50대 이탈 방지).
+    // 모집봇(recruit)은 마감압박·수익보장류 표현이 표시광고법 위반이므로 금칙어를 서버에서 거른다.
+    const hookTextRaw = body.hookText ? String(body.hookText).trim().slice(0, 120) : "";
+    // 모집봇 금칙어(소비자원 부업강의 피해주의보 패턴 회피). 걸리면 훅을 저장하지 않음.
+    const RECRUIT_BANNED = /(수익\s*보장|원금\s*보장|마감\s*임박|지금\s*만|선착순|확정\s*수익|월\s*\d+\s*만\s*원\s*보장)/;
+    const hookText =
+      hookTextRaw && !(botType === "recruit" && RECRUIT_BANNED.test(hookTextRaw))
+        ? hookTextRaw
+        : undefined;
 
     // 신청 그룹 — register가 landingPage.groupId로 그룹배정/퍼널을 처리하므로
     // 봇 랜딩 생성 시 선택한 그룹 ID를 그대로 저장. UUID 형식만 허용(IDOR/오염 방지).
@@ -87,6 +106,8 @@ export async function POST(req: Request) {
       ...(greeting ? { greeting } : {}),
       ...(chips && chips.length ? { chips } : {}),
       ...(homepageUrl ? { homepageUrl } : {}),
+      ...(kakaoChannelUrl ? { kakaoChannelUrl } : {}),
+      ...(hookText ? { hookText } : {}),
       // 교육생 모집봇은 확정 오퍼(고정 사실) 사용 → 상품코드 불필요
       productCatalogIds: botType === "recruit" ? [] : productCatalogIds,
     };
