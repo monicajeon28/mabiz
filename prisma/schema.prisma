@@ -447,6 +447,7 @@ model Contact {
   marketingMessages          CrmMarketingMessage[]       @relation("CrmMarketingMessages")
   partnerSmsLogs             PartnerSmsLog[]
   auditLogs                  ContactAuditLog[]
+  botConversations           BotConversation[]
   // PHASE 7-3/4: Proactive Outreach Predictions
   churnPredictions           ChurnPrediction[]           @relation("ChurnPredictions")
   upsellOpportunities        UpsellOpportunity[]         @relation("UpsellOpportunities")
@@ -960,6 +961,10 @@ model CrmLandingPage {
   // Phase C: 블록 기반 에디터 설정 (2026-06-15)
   blocksConfig Json? // {blocks: Block[], selectedFeatures: {video, timer, testimonial, faq}}
 
+  // 크루즈닷봇 (2026-06-25): 봇 탑재 랜딩 식별 + 봇 설정
+  pageType  String @default("standard") @db.VarChar(20) // standard | bot
+  botConfig Json? // { scenarioId, persona, lensPriority, ctaUrl, guardrail(read-only 상속), productCatalogIds[] }
+
   comments      CrmLandingComment[]
   group         ContactGroup?            @relation(fields: [groupId], references: [id])
   organization  Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -973,6 +978,7 @@ model CrmLandingPage {
   @@index([organizationId, createdByUserId, createdAt])
   @@index([shortlink]) // shortlink 조회 성능 최적화
   @@index([organizationId, pageFormat]) // Russell Brunson 형식 필터링 성능
+  @@index([organizationId, pageType]) // 봇/일반 랜딩 분기 필터링
   @@map("CrmLandingPage")
 }
 
@@ -7938,4 +7944,72 @@ model MarketingMonthlySalesSnapshot {
   @@index([month])
   @@index([organizationId])
   @@map("MarketingMonthlySalesSnapshot")
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// 크루즈닷봇 (2026-06-25, Phase 1)
+// 봇 상담 대화 세션/메시지 + RAG 지식청크(2단계 pgvector는 추후 raw SQL로 활성화)
+// per-user 격리: 조회/목록 API는 organizationId + attributedAgentId 강제(작업지시서 §10)
+// ──────────────────────────────────────────────────────────────────────────
+
+model BotConversation {
+  id                String   @id @default(cuid())
+  organizationId    String
+  landingPageId     String? // 어느 봇 랜딩에서 시작했나(느슨한 참조)
+  attributedAgentId String? // 판매원 귀속 스냅샷(진입 시 고정, 이후 변동 금지)
+  attributionSource String? // shortlink | last_touch | round_robin | none
+  shortLinkCode     String? // 진입 추적코드
+  visitorId         String // 익명 방문자 식별(HMAC 서명 쿠키)
+  contactId         String? // 식별 후 Contact 연결
+  channel           String   @default("bot_landing")
+  status            String   @default("ACTIVE") // ACTIVE | CONVERTED | ABANDONED | HANDED_OFF
+  fsmState          String   @default("OPENING") // 대화 상태머신 현재 단계
+  closeAttempts     Int      @default(0) // 클로징 시도 횟수
+  intentScore       Int      @default(0) // 구매의사 점수 0-100
+  purchaseInquiryId Int? // 전환 시 CruiseProductInquiry 역참조(느슨한 참조)
+  createdAt         DateTime @default(now())
+  lastMessageAt     DateTime @default(now())
+
+  contact  Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  messages BotMessage[]
+
+  @@index([organizationId, attributedAgentId, createdAt]) // per-user 격리 집계
+  @@index([shortLinkCode])
+  @@index([status, lastMessageAt]) // abandoned 정리 배치
+  @@map("BotConversation")
+}
+
+model BotMessage {
+  id              String   @id @default(cuid())
+  conversationId  String
+  role            String // user | assistant | system
+  content         String // 저장 전 PII 마스킹(maskPhone/maskContactInfo)
+  status          String   @default("complete") // complete | partial | failed
+  modelUsed       String? // haiku | sonnet (비용/효과 사후검증)
+  ragSourceIds    Json? // 인용한 RAG 청크 ID(사후 환각 감사)
+  objectionType   String? // 이의 분류 라벨(가격/시간/신뢰/가족/기항지/건강/연기/경쟁사/환불)
+  tokensIn        Int?
+  tokensOut       Int?
+  cacheReadTokens Int? // 프롬프트 캐시 적중 실측
+  createdAt       DateTime @default(now())
+
+  conversation BotConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt]) // 히스토리 조립
+  @@map("BotMessage")
+}
+
+model BotKnowledgeChunk {
+  id             String   @id @default(cuid())
+  organizationId String
+  sourceType     String // product | script | qa
+  sourceId       String? // 원본 레코드 참조
+  title          String?
+  content        String
+  // embedding   Unsupported("vector")?  ← 2단계 pgvector 활성화 시 raw SQL로 추가
+  metadata       Json? // { personaType, objectionType, productCode, ... }
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, sourceType])
+  @@map("BotKnowledgeChunk")
 }
