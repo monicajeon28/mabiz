@@ -19,10 +19,10 @@ function normalizeCustomerType(type: string | undefined): 'PURCHASED' | 'INQUIRY
   const lower = type.toLowerCase();
   // PURCHASED: "CUSTOMER", "구매완료", "PURCHASED" 모두 동일
   if (lower === 'customer' || type === '구매완료' || lower === 'purchased') return 'PURCHASED';
-  // INQUIRY: "LEAD", "INQUIRY" 동일
-  if (lower === 'lead' || lower === 'inquiry') return 'INQUIRY';
-  // GOLD: 금회원
-  if (lower === 'gold') return 'GOLD';
+  // INQUIRY: "LEAD", "INQUIRY", "잠재고객" 모두 동일 (UI 라디오는 "잠재고객" 전송)
+  if (lower === 'lead' || lower === 'inquiry' || type === '잠재고객') return 'INQUIRY';
+  // GOLD: "GOLD" | "금회원" | "골드회원" (UI 라디오는 "금회원" 전송)
+  if (lower === 'gold' || type === '금회원' || type === '골드회원') return 'GOLD';
   return undefined;
 }
 
@@ -63,6 +63,12 @@ export async function GET(req: Request) {
     // customerOnly=true: "CUSTOMER"(영문) + "구매완료"(한글) 모두 포함
     const type = customerOnly ? undefined : rawType;
     const visibility = searchParams.get("visibility"); // Team-B: SHARED | ADMIN_ONLY
+    // P1-C: 가시성 스코프 — own(내 고객만, 기본) | org(지사 전체) | all(전체)
+    // 권한 부족 시 rbac.buildContactWhere가 자동으로 좁은 스코프로 강등 → 누수 없음.
+    const scopeParam = (() => {
+      const v = searchParams.get("scope");
+      return v === 'own' || v === 'org' || v === 'all' ? v : undefined;
+    })();
     const rawQ = searchParams.get("q") ?? '';
     const q = rawQ.slice(0, 200) || null;
 
@@ -129,7 +135,12 @@ export async function GET(req: Request) {
     // visibility 필터: SHARED 탭과 ADMIN_ONLY 탭 분리
     let baseWhere: Prisma.ContactWhereInput;
 
-    if (visibility === 'ADMIN_ONLY') {
+    // P1-C: scope 파라미터가 오면 새 스코프 모델 우선 적용 (own/org/all).
+    // ADMIN_ONLY 탭은 기존대로 visibility 분기로 처리(관리자 전용 보관함).
+    if (scopeParam && visibility !== 'ADMIN_ONLY') {
+      // buildContactWhere가 권한별로 안전하게 격리/강등 (own=본인, org=지사전체, all=전체)
+      baseWhere = buildContactWhere(ctx, {}, scopeParam) as Prisma.ContactWhereInput;
+    } else if (visibility === 'ADMIN_ONLY') {
       // 관리자전용 탭: GLOBAL_ADMIN만 접근, visibility='ADMIN_ONLY' Contact만
       if (ctx.role !== 'GLOBAL_ADMIN') {
         return NextResponse.json({ ok: true, contacts: [], total: 0, page, limit: safeLimit });

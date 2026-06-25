@@ -452,14 +452,16 @@ export default function ContactsPage() {
     if (filterGroupId)            params.set("groupId",    filterGroupId);
     if (filterAssignedTo)         params.set("assignedTo", filterAssignedTo);
     if (selectedTags.length > 0)  params.set("tags",       selectedTags.join(","));
-    // Team-B: 탭별로 명시적으로 visibility 설정 (SHARED/ADMIN_ONLY/TEAM)
+    // P1-C: 탭별 가시성 스코프
+    //   SHARED  → 내 고객만 (scope=own)        : 모든 역할 기본
+    //   TEAM    → 지사 전체/전체 (scope=org/all): 지사장(OWNER)=org, 관리자(GLOBAL_ADMIN)=all
+    //   ADMIN_ONLY → 관리자 전용 보관함         : 관리자만
     if (activeTab === 'ADMIN_ONLY') {
       params.set("visibility", "ADMIN_ONLY");
     } else if (activeTab === 'TEAM') {
-      params.set("visibility", "SHARED");
-      params.set("teamView", "true");
+      params.set("scope", role === 'GLOBAL_ADMIN' ? "all" : "org");
     } else {
-      params.set("visibility", "SHARED");
+      params.set("scope", "own");
     }
 
     try {
@@ -532,24 +534,31 @@ export default function ContactsPage() {
   useEffect(() => {
     if (role === undefined) return; // 세션 로드 전 fetch 방지
     const ctrl = new AbortController();
-    const isOwner = role === 'OWNER';
+    const hasTeamTab = role === 'OWNER' || role === 'GLOBAL_ADMIN';
+    const teamScope = role === 'GLOBAL_ADMIN' ? 'all' : 'org';
 
-    // visibility 파라미터 결정
-    let visibility = "SHARED";
-    if (activeTab === "ADMIN_ONLY") visibility = "ADMIN_ONLY";
-    else if (activeTab === "TEAM") visibility = "SHARED"; // teamView=true와 동일
+    // P1-C: 현재 탭의 스코프로 카운트/타입통계 조회
+    //   ADMIN_ONLY → visibility=ADMIN_ONLY / TEAM → scope=org|all / SHARED → scope=own
+    const statsQuery =
+      activeTab === 'ADMIN_ONLY' ? 'visibility=ADMIN_ONLY'
+      : activeTab === 'TEAM'     ? `scope=${teamScope}`
+      :                            'scope=own';
 
     Promise.all([
       fetch("/api/groups", { signal: ctrl.signal }).then(r => r.json()),
       fetch("/api/contacts/assign-stats", { signal: ctrl.signal }).then(r => r.json()),
-      fetch(`/api/contacts?visibility=${visibility}&limit=1`, { signal: ctrl.signal }).then(r => r.json()),
-      fetch(`/api/contacts/stats?visibility=${visibility}`, { signal: ctrl.signal }).then(r => r.json()),
+      // 현재 탭의 타입별(문의/구매/골드) 카운트
+      fetch(`/api/contacts/stats?${statsQuery}`, { signal: ctrl.signal }).then(r => r.json()),
+      // "내 고객" 탭 배지 카운트 (항상 own)
+      fetch("/api/contacts?scope=own&limit=1", { signal: ctrl.signal }).then(r => r.json()),
+      // 관리자 전용 보관함 배지 + 출처통계
       isAdmin ? fetch("/api/contacts?visibility=ADMIN_ONLY&limit=1&includeStats=true", { signal: ctrl.signal }).then(r => r.json()) : Promise.resolve(null),
-      isOwner ? fetch("/api/contacts?visibility=SHARED&teamView=true&limit=1", { signal: ctrl.signal }).then(r => r.json()) : Promise.resolve(null),
-    ]).then(([g, a, shared, typeStats, adminOnly, team]) => {
+      // 지사 전체/전체 탭 배지 카운트
+      hasTeamTab ? fetch(`/api/contacts?scope=${teamScope}&limit=1`, { signal: ctrl.signal }).then(r => r.json()) : Promise.resolve(null),
+    ]).then(([g, a, typeStats, mine, adminOnly, team]) => {
       if (g.ok) setGroups(g.groups ?? []);
       if (a.ok) { setAssignStats(a.stats ?? []); setUnassignedCount(a.unassigned ?? 0); }
-      if (shared.ok) setSharedCount(shared.total ?? 0);
+      if (mine.ok) setSharedCount(mine.total ?? 0);
       if (typeStats.ok) setTypeStats(typeStats.stats ?? { total: 0, inquiry: 0, purchased: 0, gold: 0 });
       if (adminOnly?.ok) {
         setAdminOnlyCount(adminOnly.total ?? 0);
@@ -1030,14 +1039,14 @@ export default function ContactsPage() {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              📋 공유받은 고객 <br className="md:hidden" />
+              📋 내 고객 <br className="md:hidden" />
               <span className="text-sm md:text-base font-semibold">({sharedCount}명)</span>
             </button>
             {activeTab === 'SHARED' && (
-              <p className="text-sm text-gray-600 px-1">다른 팀원과 함께 관리하는 고객 목록</p>
+              <p className="text-sm text-gray-600 px-1">내가 담당하거나 등록한 고객 목록</p>
             )}
           </div>
-          {role === 'OWNER' && (
+          {(role === 'OWNER' || role === 'GLOBAL_ADMIN') && (
             <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
               <button
                 onClick={() => { setActiveTab('TEAM'); setPage(1); }}
@@ -1047,11 +1056,15 @@ export default function ContactsPage() {
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                👥 우리 팀 고객 <br className="md:hidden" />
+                {role === 'GLOBAL_ADMIN' ? '🌐 전체 고객' : '👥 지사 전체 고객'} <br className="md:hidden" />
                 <span className="text-sm md:text-base font-semibold">({teamCount}명)</span>
               </button>
               {activeTab === 'TEAM' && (
-                <p className="text-sm text-gray-600 px-1">우리 팀 전체 고객 목록 (조직 내 모든 고객)</p>
+                <p className="text-sm text-gray-600 px-1">
+                  {role === 'GLOBAL_ADMIN'
+                    ? '모든 지사의 고객을 한눈에 봅니다 (담당자 표시)'
+                    : '우리 지사 전체 고객 목록입니다 (담당자 표시)'}
+                </p>
               )}
             </div>
           )}
@@ -1133,9 +1146,11 @@ export default function ContactsPage() {
         <div className="px-4 py-3 bg-blue-50 rounded-xl border-l-4 border-blue-400">
           <p className="text-base font-medium text-gray-800 leading-relaxed">
             ⓘ {activeTab === 'SHARED'
-              ? '팀원들과 함께 보는 고객들입니다. 선택해서 팀에 공유할 수 있어요.'
+              ? '내가 담당하거나 직접 등록한 고객들입니다. 선택해서 팀에 공유할 수 있어요.'
               : activeTab === 'TEAM'
-              ? '👥 우리 조직의 모든 고객을 한눈에 볼 수 있습니다. 팀 전체 현황을 파악해요.'
+              ? (role === 'GLOBAL_ADMIN'
+                  ? '🌐 모든 지사의 고객을 한눈에 볼 수 있습니다. 담당자가 함께 표시돼요.'
+                  : '👥 우리 지사의 모든 고객을 한눈에 볼 수 있습니다. 담당자가 함께 표시돼요.')
               : '👔 관리자만 따로 보관하는 특별한 고객 정보입니다. 다른 직원들에게 공유되지 않습니다.'}
           </p>
           {/* Team-A: 관리자 전용 탭 통계 */}

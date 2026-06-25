@@ -70,11 +70,91 @@ export async function getAuthContext(): Promise<AuthContext> {
  *   AND deletedAt IS NULL
  * ```
  */
-export function buildContactWhere(ctx: AuthContext, extra: Record<string, unknown> = {}) {
+/**
+ * 고객 가시성 스코프 (P1-C, 2026-06-25)
+ *
+ * - 'own' : 내 고객만 (assignedUserId=나 OR createdBy=나 OR 공유받음) — 모든 역할 기본
+ * - 'org' : 지사(조직) 전체 — OWNER/GLOBAL_ADMIN만 허용
+ * - 'all' : 전 조직 전체 — GLOBAL_ADMIN만 허용
+ *
+ * 미지정(undefined) 시 기존 역할별 기본 동작 유지(하위호환):
+ *   GLOBAL_ADMIN=전체 / OWNER=조직전체 / AGENT=본인.
+ *   ⚠️ 기존 ~30개 호출부는 scope 미전달 → 동작 변화 없음.
+ *
+ * 권한 위반 방지: 'org'/'all'은 권한이 부족하면 자동으로 더 좁은 스코프로 강등(silent downgrade)되어
+ *   타 조직/타 담당자 고객이 절대 노출되지 않음.
+ */
+export type ContactScope = 'own' | 'org' | 'all';
+
+/** 'own' 스코프 OR 조건 — 내가 담당/작성/공유받은 고객 */
+function ownContactOR(ctx: AuthContext): Prisma.ContactWhereInput[] {
+  return [
+    { assignedUserId: ctx.userId }, // 할당된 고객 (idx_contact_org_assigned)
+    { createdBy: ctx.userId }, // 작성한 고객 (idx_contact_org_created_by)
+    { sharedWith: { some: { sharedTo: ctx.userId } } }, // 공유받은 고객 (ContactSharing idx_sharedTo)
+  ];
+}
+
+export function buildContactWhere(ctx: AuthContext, extra: Record<string, unknown> = {}, scope?: ContactScope) {
   if (ctx.role === "FREE_SALES") {
     // 마케터: 고객 DB 접근 불가 — API에서 차단
     throw new Error("FREE_SALES_NO_ACCESS");
   }
+
+  // extra에서 OR 키 분리 — 'own' 스코프의 OR 배열과 충돌 방지
+  const { OR: extraOR, ...restExtra } = extra as { OR?: Prisma.ContactWhereInput[]; [k: string]: unknown };
+
+  // ── 명시적 스코프 처리 (P1-C 신규) ──────────────────────────────
+  if (scope) {
+    // 'all' 전체 조직: GLOBAL_ADMIN만. 그 외는 더 좁은 스코프로 강등.
+    if (scope === 'all') {
+      if (ctx.role === 'GLOBAL_ADMIN') {
+        return { ...restExtra, deletedAt: null };
+      }
+      // 권한 부족 → org로 강등 (아래로 진행)
+      scope = 'org';
+    }
+    // 'org' 지사 전체: OWNER/GLOBAL_ADMIN만. AGENT는 own으로 강등.
+    if (scope === 'org') {
+      if (ctx.role === 'GLOBAL_ADMIN') {
+        // GLOBAL_ADMIN이 org를 요청해도 조직이 없으면 전체. 있으면 해당 조직.
+        return ctx.organizationId
+          ? { ...restExtra, organizationId: ctx.organizationId, deletedAt: null }
+          : { ...restExtra, deletedAt: null };
+      }
+      if (ctx.role === 'OWNER') {
+        if (!ctx.organizationId) throw new Error('MISSING_ORG_ID');
+        return {
+          ...restExtra,
+          organizationId: ctx.organizationId,
+          visibility: { not: ContactVisibility.ADMIN_ONLY }, // 지사장은 ADMIN_ONLY 제외
+          deletedAt: null,
+        };
+      }
+      // AGENT → own으로 강등 (아래로 진행)
+      scope = 'own';
+    }
+    // 'own' 내 고객만: 모든 역할(GLOBAL_ADMIN 포함). 비관리자는 조직 격리 강제.
+    // scope === 'own'
+    if (ctx.role === 'GLOBAL_ADMIN') {
+      // 관리자가 '내 고객만'을 명시 → 본인 담당/작성/공유 (조직 제한 없음)
+      return {
+        ...restExtra,
+        OR: [...ownContactOR(ctx), ...(extraOR ?? [])],
+        deletedAt: null,
+      };
+    }
+    if (!ctx.organizationId) throw new Error('MISSING_ORG_ID');
+    return {
+      ...restExtra,
+      organizationId: ctx.organizationId,
+      OR: [...ownContactOR(ctx), ...(extraOR ?? [])],
+      visibility: { not: ContactVisibility.ADMIN_ONLY },
+      deletedAt: null,
+    };
+  }
+
+  // ── 기존 역할별 기본 동작 (scope 미지정, 하위호환 유지) ──────────
   // deletedAt: null은 항상 마지막에 고정 — extra로 덮어씌워지지 않도록
   if (ctx.role === "GLOBAL_ADMIN") {
     return { ...extra, deletedAt: null };
@@ -93,14 +173,11 @@ export function buildContactWhere(ctx: AuthContext, extra: Record<string, unknow
   // 주의: extra에 OR 키를 전달하면 아래 OR 배열과 충돌함.
   // 호출부 계약: extra에는 OR 키를 포함하지 않음. 필요시 반환값에서 직접 병합할 것.
   // 성능: PostgreSQL BitmapOr로 3개 인덱스 병합 (ContactSharing idx_sharedTo 활용)
-  const { OR: extraOR, ...restExtra } = extra as { OR?: Prisma.ContactWhereInput[]; [k: string]: unknown };
   return {
     ...restExtra,
     organizationId: ctx.organizationId!,
     OR: [
-      { assignedUserId: ctx.userId }, // 할당된 고객 (idx_contact_org_assigned)
-      { createdBy: ctx.userId }, // 작성한 고객 (idx_contact_org_created_by)
-      { sharedWith: { some: { sharedTo: ctx.userId } } }, // 공유받은 고객 (ContactSharing idx_sharedTo)
+      ...ownContactOR(ctx),
       ...(extraOR ?? []),
     ],
     visibility: { not: ContactVisibility.ADMIN_ONLY },
