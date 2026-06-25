@@ -27,7 +27,13 @@ type UserConfig = {
   updatedAt:      string;
 } | null;
 
+type UserRole = "GLOBAL_ADMIN" | "OWNER" | "AGENT" | "FREE_SALES";
+
 export default function SmsSettingsPage() {
+  // ── 로그인 역할 (조직 공용 섹션은 GLOBAL_ADMIN에게만 노출) ──
+  const [role, setRole]       = useState<UserRole | null>(null);
+  const [roleLoading, setRoleLoading] = useState(true);
+
   // ── 조직 설정 ──
   const [config, setConfig]       = useState<OrgConfig>({});
   const [form, setForm]           = useState({ aligoKey: "", aligoUserId: "", senderPhone: "" });
@@ -62,6 +68,13 @@ export default function SmsSettingsPage() {
   // ── 초기 로드 ──
   useEffect(() => {
     const ctrl = new AbortController();
+
+    // 로그인 역할 조회 (GLOBAL_ADMIN 여부 판단용)
+    fetch("/api/auth/me", { signal: ctrl.signal })
+      .then((r) => r.json())
+      .then((d) => { if (d?.role) setRole(d.role as UserRole); })
+      .catch((e) => { if (e.name !== "AbortError") { /* 역할 조회 실패 시 비관리자로 처리 */ } })
+      .finally(() => setRoleLoading(false));
 
     fetch("/api/settings/sms", { signal: ctrl.signal })
       .then((r) => r.json())
@@ -345,13 +358,14 @@ export default function SmsSettingsPage() {
       <div className="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
         <p className="font-semibold mb-1">📌 어떤 계정을 설정해야 하나요?</p>
         <ul className="space-y-1 text-blue-700">
-          <li>• <strong>조직 공용 계정</strong> — 팀 전체가 같은 발신번호로 문자를 보낼 때 (아래 섹션)</li>
           <li>• <strong>내 개인 계정</strong> — 나만의 발신번호로 문자를 보내고 싶을 때 (위 섹션)</li>
+          <li>• <strong>조직 공용 계정</strong> — 팀 전체가 같은 발신번호로 보낼 때 (관리자 전용)</li>
         </ul>
         <p className="mt-1.5 text-blue-600">개인 계정을 연결하면 내 발신번호가 우선 사용됩니다.</p>
         <p className="mt-2 pt-2 border-t border-blue-200 text-amber-700 font-medium">
-          ⚠️ 알리고 콘솔의 <strong>’발송 서버 IP’는 비워두세요.</strong> 특정 IP를 등록하면 문자 발송이 막힙니다
-          (발송 서버 IP가 자주 바뀌고 여러 서버가 공유합니다). API Key·User ID·발신번호만 입력하면 됩니다.
+          ⚠️ 발송 서버 IP는 알리고(aligo.in) 콘솔에서 <strong>반드시 비워두세요(전체 허용).</strong>
+          특정 IP를 등록하면 문자 발송이 막힙니다. (발송 서버 IP가 자주 바뀌고 여러 서버가 공유하기 때문)
+          API Key·User ID·발신번호만 입력하면 됩니다.
         </p>
       </div>
 
@@ -596,6 +610,12 @@ export default function SmsSettingsPage() {
         )}
       </div>
 
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          조직 공용 알리고 설정 — 관리자(GLOBAL_ADMIN) 전용
+          (라벨만이 아니라 섹션 전체를 관리자에게만 렌더)
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {!roleLoading && role === "GLOBAL_ADMIN" && (
+      <>
       {/* 구분선 */}
       <div className="flex items-center gap-3 mb-5">
         <div className="flex-1 border-t border-gray-200" />
@@ -604,10 +624,6 @@ export default function SmsSettingsPage() {
         </div>
         <div className="flex-1 border-t border-gray-200" />
       </div>
-
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          조직 공용 알리고 설정 (기존)
-      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
 
       {/* 조직 설정 안내 */}
       <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-5 text-sm">
@@ -830,6 +846,8 @@ export default function SmsSettingsPage() {
             : <AlertCircle className="w-4 h-4 shrink-0" />}
           {msg.text}
         </div>
+      )}
+      </>
       )}
 
       {/* 최종 정리: 어떤 알리고로 발송되나 */}
