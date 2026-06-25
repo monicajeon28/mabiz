@@ -218,7 +218,15 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
       );
       const json = await res.json();
       if (res.ok && Array.isArray(json.products)) {
-        setProductSearchResults(json.products);
+        // /api/products 응답 필드(code/name/price)를 드롭다운 타입(productCode/productName/basePrice)으로 매핑
+        setProductSearchResults(
+          json.products.map((p: { id: number | string; code: string; name: string; price: number }) => ({
+            id: String(p.id),
+            productCode: p.code,
+            productName: p.name,
+            basePrice: p.price,
+          }))
+        );
       } else {
         setProductSearchResults([]);
       }

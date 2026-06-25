@@ -37,6 +37,27 @@ export async function POST(req: Request) {
       overrideHasGuide?: 'Y' | 'N';
       overrideRefundPolicy?: { label: string; value: string }[];
       companions?: Array<{ name: string; birthDate: string; relation: string; phone: string; pnr?: string }>;
+      // ③-2 계약 추가 정보 (미리보기에만 보이던 서술형 필드 — generatedData에 저장)
+      contractDetails?: {
+        contractType?: '기획여행' | '희망여행';
+        travelGuarantee?: ('공제' | '예치금' | '영업보증보험')[];
+        hasInsurance?: boolean;
+        insuranceCompany?: string;
+        minPax?: number;
+        maxPax?: number;
+        pricePerPerson?: number;
+        transportTypes?: ('항공기' | '선박' | '기차')[];
+        shipName?: string;
+        accommodationTypes?: ('일정표표시' | '관광호텔' | '기타')[];
+        hotelGrade?: string;
+        mealDisplay?: '일정표표시' | '개별';
+        breakfast?: number;
+        lunch?: number;
+        dinner?: number;
+        localGuide?: '있음' | '없음';
+        localTransport?: ('버스' | '승용차' | '기타' | '없음')[];
+        localAgency?: '있음' | '없음';
+      };
     };
 
     if (!body.orderId) {
@@ -177,6 +198,8 @@ export async function POST(req: Request) {
             signTokenExpiresAt: signTokenExpiresAt.toISOString(),
             signStatus:    'PENDING', // PENDING | SIGNED
             companions:    body.companions ?? [],
+            // ③-2 계약 추가 정보 — 미리보기/재조회 시 그대로 복원되도록 top-level 저장
+            ...(body.contractDetails ?? {}),
             signatureImage: null,
             customerSignedAt: null,
             signedByName:  null,

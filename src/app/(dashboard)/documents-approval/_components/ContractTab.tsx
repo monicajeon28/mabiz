@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FileText,
   Plus,
@@ -245,6 +245,33 @@ export default function ContractTab() {
   const [productDropdownOpen, setProductDropdownOpen] = useState(false);
   const [productSearchResults, setProductSearchResults] = useState<{ id: string; productCode: string; productName: string; basePrice: number }[]>([]);
   const [isSearchingProducts, setIsSearchingProducts] = useState(false);
+  const productDropdownRef = useRef<HTMLDivElement>(null);
+
+  // 상품 검색 디바운스 (300ms) — 입력 시 자동으로 판매중 상품 드롭다운 표시
+  useEffect(() => {
+    if (productSearch.trim().length === 0) {
+      setProductDropdownOpen(false);
+      setProductSearchResults([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      void searchProducts(productSearch);
+      setProductDropdownOpen(true);
+    }, 300);
+    return () => clearTimeout(t);
+     
+  }, [productSearch]);
+
+  // 바깥 클릭 시 드롭다운 닫기
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (productDropdownRef.current && !productDropdownRef.current.contains(e.target as Node)) {
+        setProductDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   /* ── document list ── */
   const loadDocuments = useCallback(async () => {
@@ -407,6 +434,27 @@ export default function ContractTab() {
           overrideHasGuide: form.hasGuide,
           overrideRefundPolicy: form.refundPolicy.length > 0 ? form.refundPolicy : undefined,
           companions: form.companions.map(({ id: _id, ...rest }) => rest),
+          // ③-2 계약 추가 정보 (미리보기에만 보이고 저장 누락되던 필드 — 저장 반영)
+          contractDetails: {
+            contractType: form.contractType,
+            travelGuarantee: form.travelGuarantee,
+            hasInsurance: form.hasInsurance,
+            insuranceCompany: form.insuranceCompany || undefined,
+            minPax: form.minPax ?? undefined,
+            maxPax: form.maxPax ?? undefined,
+            pricePerPerson: form.pricePerPerson ?? undefined,
+            transportTypes: form.transportTypes,
+            shipName: form.shipName || undefined,
+            accommodationTypes: form.accommodationTypes,
+            hotelGrade: form.hotelGrade || undefined,
+            mealDisplay: form.mealDisplay,
+            breakfast: form.breakfast ?? undefined,
+            lunch: form.lunch ?? undefined,
+            dinner: form.dinner ?? undefined,
+            localGuide: form.localGuide,
+            localTransport: form.localTransport,
+            localAgency: form.localAgency,
+          },
         }),
       });
       if (res.status === 409) { showError('이미 발급된 계약서가 있습니다.'); return; }
@@ -441,8 +489,8 @@ export default function ContractTab() {
       const json = await res.json();
       if (res.ok && Array.isArray(json.products)) {
         setProductSearchResults(
-          json.products.map((p: any) => ({
-            id: p.id,
+          json.products.map((p: { id: number | string; code: string; name: string; price: number }) => ({
+            id: String(p.id),
             productCode: p.code,
             productName: p.name,
             basePrice: p.price,
@@ -683,16 +731,63 @@ export default function ContractTab() {
                 )}
               </div>
 
-              {/* ② 상품 코드 검색 */}
+              {/* ② 상품 선택 (판매중 상품 드롭다운 + 코드 직접 조회) */}
               <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
-                <p className="mb-2 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">② 상품 코드 조회 (포함/불포함·환불정책 자동)</p>
-                <div className="flex gap-2">
+                <p className="mb-2 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">② 상품 선택 (포함/불포함·환불정책 자동)</p>
+
+                {/* 판매중 상품 검색 드롭다운 */}
+                <div className="relative" ref={productDropdownRef}>
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                    <input
+                      type="text"
+                      value={productSearch}
+                      onChange={(e) => setProductSearch(e.target.value)}
+                      onFocus={() => { if (productSearchResults.length > 0) setProductDropdownOpen(true); }}
+                      placeholder="판매중 상품명·코드로 검색 후 클릭"
+                      className="w-full rounded-lg border border-gray-300 py-2 pl-8 pr-8 text-xs focus:border-orange-400 focus:outline-none"
+                    />
+                    {isSearchingProducts && (
+                      <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-gray-400" />
+                    )}
+                    {!isSearchingProducts && productSearch && (
+                      <button type="button"
+                        onClick={() => { setProductSearch(''); setProductSearchResults([]); setProductDropdownOpen(false); }}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  {productDropdownOpen && productSearchResults.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-xl">
+                      {productSearchResults.map((p) => (
+                        <button key={p.id} type="button"
+                          onClick={() => void handleSelectProductFromDropdown(p)}
+                          className="flex w-full flex-col gap-0.5 border-b border-gray-50 px-3 py-2 text-left last:border-0 hover:bg-orange-50">
+                          <span className="text-xs font-semibold text-gray-800">{p.productName}</span>
+                          <span className="flex items-center justify-between text-[11px] text-gray-500">
+                            <span>{p.productCode}</span>
+                            <span className="font-medium text-gray-600">{formatMoney(p.basePrice)}</span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {productDropdownOpen && !isSearchingProducts && productSearch.trim().length > 0 && productSearchResults.length === 0 && (
+                    <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-400 shadow-xl">
+                      판매중 상품 검색 결과가 없습니다.
+                    </div>
+                  )}
+                </div>
+
+                {/* 상품 코드 직접 조회 */}
+                <div className="mt-2 flex gap-2">
                   <input
                     type="text"
                     value={productCode}
                     onChange={(e) => setProductCode(e.target.value.toUpperCase())}
                     onKeyDown={(e) => { if (e.key === 'Enter') void handleLoadProduct(); }}
-                    placeholder="상품 코드 (예: MSC001)"
+                    placeholder="또는 상품 코드 직접 입력 (예: MSC001)"
                     className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-xs focus:border-orange-400 focus:outline-none"
                   />
                   <button type="button" onClick={() => void handleLoadProduct()} disabled={loadingProduct}
@@ -1612,7 +1707,12 @@ function FullContractPreview({
             <span>상호: {COMPANY.name}</span>
             <span>대표: {COMPANY_INFO.ceo}</span>
             <span>전화: {COMPANY_INFO.hqPhone}</span>
-            <span>담당자: {agent.displayName || '___'} {agent.phone || ''}</span>
+            {/* 담당자 전화: 로그인 본인 번호 자동, 없으면(관리자 등) 본사 대표번호 폴백 */}
+            <span>
+              담당자: {agent.phone && agent.phone.trim()
+                ? `${agent.displayName ?? ''} ${agent.phone}`.trim()
+                : `본사 ${COMPANY.hqPhone}`}
+            </span>
             <span className="col-span-2">계좌: {COMPANY_INFO.bankName} {COMPANY_INFO.bankAccount} ({COMPANY_INFO.bankHolder})</span>
           </div>
         </div>
