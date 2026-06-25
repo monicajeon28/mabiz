@@ -808,13 +808,22 @@ export default function LandingPagesPage() {
           <h1 className="text-xl font-bold text-navy-900">홍보 페이지</h1>
           <p className="text-sm text-gray-500 mt-0.5">총 {pages.length}개{sharedPages.length > 0 ? ` · 받은 페이지 ${sharedPages.length}개` : ""}</p>
         </div>
-        <Link
-          href="/landing-pages/new"
-          className="flex items-center gap-1.5 bg-navy-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy-700 transition-colors shadow-sm hover:shadow-md"
-          title="새 랜딩페이지를 만들어 고객을 모으세요"
-        >
-          <Plus className="w-4 h-4" /> 새 페이지
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/landing-pages/bot-new"
+            className="flex items-center gap-1.5 bg-[#2563EB] text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
+            title="손님을 알아서 상담하는 봇 랜딩을 만들어요"
+          >
+            🤖 봇 랜딩 만들기
+          </Link>
+          <Link
+            href="/landing-pages/new"
+            className="flex items-center gap-1.5 bg-navy-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy-700 transition-colors shadow-sm hover:shadow-md"
+            title="새 랜딩페이지를 만들어 고객을 모으세요"
+          >
+            <Plus className="w-4 h-4" /> 새 페이지
+          </Link>
+        </div>
       </div>
 
       {/* 복수선택 툴바 */}
