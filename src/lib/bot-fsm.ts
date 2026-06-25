@@ -55,7 +55,11 @@ export const FSM_PROFILE: Record<"cruise" | "recruit", FsmProfile> = {
   //   한도 초과 시 GRACEFUL_EXIT(이탈)가 아니라 CTA(담당 전문가 연결)로 — 리드를 사람에게 넘겨 살린다.
   cruise: {
     maxCloseAttempts: 1,
-    hotLeadIntent: 55,
+    // 점수기반 자동 핸드오프 문턱. 너무 낮으면(55) 미지근한 관심에도 사진 설득 여정을
+    //   건너뛰고 사람에게 넘겨 → 사장님이 준 9종 이미지 PASONA 흐름이 안 보임.
+    //   68로 올려 공감→차별화→신뢰→후기 여정이 VALUE까지 흐른 뒤 핸드오프되게 한다.
+    //   단, 명시적 핫리드신호(예약금·날짜확정·특실·고가복잡)는 hotLeadSignal로 점수 무관 즉시 핸드오프.
+    hotLeadIntent: 68,
     fastHandoffFromValue: true,
     exhaustedDestination: "CTA",
   },
