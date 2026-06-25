@@ -13,6 +13,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import Anthropic from "@anthropic-ai/sdk";
+import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { checkOrigin } from "@/lib/origin-guard";
@@ -41,6 +42,7 @@ import {
   formatFactsForPrompt,
   getPersuasionPatterns,
   formatPersuasionForPrompt,
+  recordPersuasionLeadConversion,
   buildSystemPrompt,
 } from "@/lib/bot-rag";
 import {
@@ -255,6 +257,9 @@ export async function POST(req: Request) {
     //  · 교육생 모집봇: 확정 오퍼(330/540/750·환불) 고정 사실. 설득은 모집 시스템프롬프트 내장.
     let factsText: string;
     let persuasionText = "";
+    // 데이터 플라이휠: 이번 턴에 주입한 ScriptPattern id(들). assistant 메시지의 ragSourceIds 에
+    // 기록하고, 핸드오프(리드확보) 시 conversionRate/useCount 갱신에 쓴다. recruit 봇은 비움(무영향).
+    let citedPatternIds: string[] = [];
     if (botType === "recruit") {
       factsText = RECRUIT_OFFER_FACTS;
     } else {
@@ -272,6 +277,7 @@ export async function POST(req: Request) {
         take: 1,
       });
       persuasionText = formatPersuasionForPrompt(persuasion);
+      citedPatternIds = persuasion.map((p) => p.id);
     }
 
     // FSM 전이
@@ -376,6 +382,10 @@ export async function POST(req: Request) {
 
     const wasHandedOff = convo.status === "HANDED_OFF"; // 이번 턴 전이 판정용
 
+    // 데이터 플라이휠 — ragSourceIds 에 기록할 ScriptPattern id(들).
+    // 가드 위반으로 폴백 응답이 나간 턴은 멘트가 실제로 쓰이지 않았으므로 크레딧하지 않는다.
+    const recordedPatternIds = guard.ok ? citedPatternIds : [];
+
     // 영속화(PII 마스킹) + 대화 상태 갱신
     await prisma.$transaction([
       prisma.botMessage.create({
@@ -394,6 +404,8 @@ export async function POST(req: Request) {
           status: "complete",
           modelUsed: role,
           objectionType: signals.objectionType ?? null,
+          // 어떤 승인 멘트가 이 응답에 쓰였는지 추적(사후 감사 + 플라이휠 피드백 소스).
+          ...(recordedPatternIds.length > 0 ? { ragSourceIds: recordedPatternIds } : {}),
           tokensIn: completion.usage?.input_tokens ?? null,
           tokensOut: completion.usage?.output_tokens ?? null,
         },
@@ -422,6 +434,39 @@ export async function POST(req: Request) {
         intentScore: newIntent,
         customerPhone,
       }).catch((e) => logger.error("[bot/chat] 핸드오프 알림 실패", { e: String(e) }));
+
+      // ── 데이터 플라이휠: 리드 확보(=전환 신호) 시 인용 멘트 가중치 갱신 ──────────
+      // 가벼운 봇의 전환은 구매가 아니라 "사람 연결(핸드오프)=리드캡처". 이번 대화에서 인용된
+      // 모든 승인 멘트(이전 턴 ragSourceIds + 이번 턴)를 모아 useCount+1·conversionRate EMA 갱신
+      // → conversionRate desc 정렬을 통해 '리드에 기여한 멘트'가 다음 대화 상위로 올라온다.
+      // recruit 봇은 멘트 주입이 없어 자연히 무영향(citedPatternIds 비어 있음).
+      // 전체를 try/catch — 실패해도 챗 응답·핸드오프·귀속은 절대 안 깨지게(플라이휠은 부가기능).
+      try {
+        const priorMsgs = await prisma.botMessage.findMany({
+          where: {
+            conversationId: convo.id,
+            role: "assistant",
+            ragSourceIds: { not: Prisma.JsonNull },
+          },
+          select: { ragSourceIds: true },
+        });
+        const idSet = new Set<string>(recordedPatternIds);
+        for (const m of priorMsgs) {
+          const v = m.ragSourceIds;
+          if (Array.isArray(v)) {
+            for (const x of v) if (typeof x === "string" && x) idSet.add(x);
+          }
+        }
+        if (idSet.size > 0) {
+          const updated = await recordPersuasionLeadConversion({
+            organizationId: convo.organizationId,
+            patternIds: Array.from(idSet),
+          });
+          logger.info("[bot/chat] 플라이휠 갱신", { convoId: convo.id, updated });
+        }
+      } catch (e) {
+        logger.error("[bot/chat] 플라이휠 갱신 실패(무시)", { e: String(e) });
+      }
     }
 
     const res = NextResponse.json({

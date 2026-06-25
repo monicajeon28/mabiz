@@ -166,12 +166,18 @@ export function formatFactsForPrompt(facts: ProductFacts[]): string {
 
 // ── 설득원천: ScriptPattern ────────────────────────────────────────────────
 
+/** 주입한 설득 멘트 1건 — id(데이터 플라이휠 피드백용) + 본문. */
+export interface PersuasionPattern {
+  id: string;
+  patternText: string;
+}
+
 export async function getPersuasionPatterns(input: {
   organizationId: string;
   objectionType?: string | null;
   personaType?: string | null;
   take?: number;
-}): Promise<string[]> {
+}): Promise<PersuasionPattern[]> {
   const { organizationId, objectionType, personaType, take = 4 } = input;
   const rows = await prisma.scriptPattern.findMany({
     where: {
@@ -180,16 +186,63 @@ export async function getPersuasionPatterns(input: {
       ...(objectionType ? { objectionType } : {}),
       ...(personaType ? { personaType } : {}),
     },
-    select: { patternText: true },
+    select: { id: true, patternText: true },
+    // conversionRate desc 정렬 → recordPersuasionLeadConversion 이 갱신하는 가중치가
+    // 다음 대화의 멘트 선택에 곧바로 반영(=살아있는 데이터 플라이휠).
     orderBy: [{ conversionRate: "desc" }, { useCount: "desc" }],
     take,
   });
-  return rows.map((r) => r.patternText).filter(Boolean);
+  return rows
+    .filter((r) => Boolean(r.patternText))
+    .map((r) => ({ id: r.id, patternText: r.patternText }));
 }
 
-export function formatPersuasionForPrompt(patterns: string[]): string {
+export function formatPersuasionForPrompt(patterns: PersuasionPattern[]): string {
   if (patterns.length === 0) return "(추가 설득 자료 없음 — 기본 톤만 사용)";
-  return patterns.map((p, i) => `${i + 1}. ${p}`).join("\n");
+  return patterns.map((p, i) => `${i + 1}. ${p.patternText}`).join("\n");
+}
+
+/**
+ * 데이터 플라이휠 — 리드 확보(핸드오프)에 기여한 설득 멘트를 상위로 끌어올린다.
+ *
+ * 가벼운 공개 봇의 "전환"은 구매가 아니라 **리드캡처(핸드오프)**다. 전환수 카운트 전용 필드가
+ * 스키마에 없으므로(있으면 더 정확 — 보고 참조), 기존 conversionRate 필드를 **EMA 근사**로
+ * 굴린다: conversionRate = conversionRate*(1-α) + 1*α (α=0.2). 리드캡처에 인용된 멘트는
+ * 점수가 1 쪽으로 수렴해 정렬 상위로 오르고, 안 쓰이면 갱신이 없어 상대적으로 가라앉는다.
+ *
+ * - organizationId 를 where 에 함께 걸어 **조직 격리** 유지(타 조직 패턴 오염 차단).
+ * - status 무관(이미 인용되어 응답에 쓰인 패턴만 대상이므로 승인본 한정).
+ * - 호출부에서 try/catch 로 감싸 실패해도 챗/핸드오프/귀속이 안 깨지게(부가기능).
+ *
+ * @returns 갱신된 패턴 수(로깅용)
+ */
+const PERSUASION_EMA_ALPHA = 0.2;
+
+export async function recordPersuasionLeadConversion(input: {
+  organizationId: string;
+  patternIds: string[];
+}): Promise<number> {
+  const ids = Array.from(new Set(input.patternIds.filter((x) => typeof x === "string" && x)));
+  if (ids.length === 0) return 0;
+  const rows = await prisma.scriptPattern.findMany({
+    where: { id: { in: ids }, organizationId: input.organizationId },
+    select: { id: true, conversionRate: true },
+  });
+  if (rows.length === 0) return 0;
+  // 각 패턴별 useCount +1, conversionRate EMA(1쪽 수렴). 멱등하지 않으나(리드당 1회 호출 가정)
+  // 호출부가 "이번 턴 처음 HANDED_OFF" 1회에서만 부르므로 대화당 1회로 제한된다.
+  await prisma.$transaction(
+    rows.map((r) =>
+      prisma.scriptPattern.update({
+        where: { id: r.id },
+        data: {
+          useCount: { increment: 1 },
+          conversionRate: r.conversionRate * (1 - PERSUASION_EMA_ALPHA) + 1 * PERSUASION_EMA_ALPHA,
+        },
+      }),
+    ),
+  );
+  return rows.length;
 }
 
 // ── 시스템프롬프트 조립 (작업지시서 §6-4) ──────────────────────────────────
