@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext, resolveOrgId, BONSA_ORG_ID } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
-import { generateUniqueShortlink } from "@/lib/landing-page-utils";
+import { generateUniqueShortlink, buildClonedLandingPageData, buildLandingTargetUrl } from "@/lib/landing-page-utils";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -72,27 +72,16 @@ export async function POST(_req: Request, { params }: Params) {
     const cloned = await prisma.$transaction(
       async (tx) => {
         const newPage = await tx.crmLandingPage.create({
-          data: {
+          // 🔴 누수 차단: 13개 필드만 복사하던 깨진 사본 → 콘텐츠/설정 전체 승계.
+          //   crossOrg:true = 타 조직에서 공유받은 복사이므로 group/funnel FK 미승계.
+          data: buildClonedLandingPageData(original, {
             organizationId: orgId,
+            createdByUserId: ctx.userId, // SECURITY: 복제 사용자를 소유자로 설정
             title: `${original.title} - 사본`,
             slug: newSlug,
-            shortlink: shortlink, // SECURITY: 고유 shortlink 저장
-            htmlContent: original.htmlContent,
-            editorMode: original.editorMode,
-            isActive: false,
-            isPublic: original.isPublic,
-            groupId: null,
-            description: original.description,
-            buttonTitle: original.buttonTitle,
-            completionPageUrl: original.completionPageUrl,
-            headerScript: original.headerScript,
-            exposureTitle: original.exposureTitle,
-            exposureImage: original.exposureImage,
-            infoCollection: original.infoCollection,
-            formConfig: original.formConfig ?? undefined,
-            viewCount: 0,
-            createdByUserId: ctx.userId, // SECURITY: 복제 사용자를 소유자로 설정
-          },
+            shortlink, // SECURITY: 고유 shortlink 저장
+            crossOrg: true,
+          }),
           select: {
             id: true,
             title: true,
@@ -115,9 +104,8 @@ export async function POST(_req: Request, { params }: Params) {
           });
         }
 
-        // ShortLink 레코드 생성 (감사추적용)
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-        const targetUrl = `${appUrl}/landing/${newPage.id}`;
+        // ShortLink 레코드 생성 (감사추적용) — 🔴 /p/{shortlink} 정식 경로로 수정(과거 /landing/{id} 죽은 링크)
+        const targetUrl = buildLandingTargetUrl(shortlink);
         await tx.shortLink.create({
           data: {
             code: shortlink,

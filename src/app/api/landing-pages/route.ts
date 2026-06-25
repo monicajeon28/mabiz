@@ -5,7 +5,7 @@ import { getAuthContext, resolveOrgIdOrNull, BONSA_ORG_ID, canManageSettings } f
 import { logger } from "@/lib/logger";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
 import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
-import { generateUniqueShortlink } from "@/lib/landing-page-utils";
+import { generateUniqueShortlink, buildLandingTargetUrl } from "@/lib/landing-page-utils";
 import { IMAGE_FIELDS_BY_FORMAT } from "@/lib/landing-page-constants";
 
 // GET /api/landing-pages
@@ -199,9 +199,10 @@ export async function POST(req: Request) {
         },
       });
 
-      // ShortLink도 함께 저장
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-      const targetUrl = `${appUrl}/landing/${newPage.id}`;
+      // ShortLink도 함께 저장 — 🔴 /p/{shortlink} 정식 경로로 수정(과거 /landing/{id} 죽은 링크)
+      // code는 항상 유니크해야 하므로 shortlink 없으면 cuid(id)로 폴백,
+      // targetUrl은 /p 렌더러가 조회 가능한 shortlink/slug 로만(id는 /p에서 조회 불가).
+      const targetUrl = buildLandingTargetUrl(newPage.shortlink ?? newPage.slug);
       await tx.shortLink.create({
         data: {
           code: newPage.shortlink ?? newPage.id,

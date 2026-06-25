@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext, resolveOrgId, canManageSettings } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
-import { generateUniqueShortlink } from "@/lib/landing-page-utils";
+import { generateUniqueShortlink, buildClonedLandingPageData, buildLandingTargetUrl } from "@/lib/landing-page-utils";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -43,25 +43,30 @@ export async function POST(_req: Request, { params }: Params) {
     });
     if (conflict) newSlug = `${baseSlug}-${Date.now()}`;
 
+    // 원본 이미지 조회 (CrmLandingPageImage는 별도 모델)
+    const originalImages = await prisma.crmLandingPageImage.findMany({
+      where: { landingPageId: id },
+      orderBy: { sortOrder: "asc" },
+      select: { imageAssetId: true, sortOrder: true, altText: true },
+    });
+
     // shortlink 생성 (3회 재시도 + 충돌 방지)
     const shortlink = await generateUniqueShortlink();
 
-    // 트랜잭션: CrmLandingPage 생성 + ShortLink 생성 (타임아웃 5초)
+    // 트랜잭션: CrmLandingPage 생성 + 이미지 복사 + ShortLink 생성 (타임아웃 5초)
     const cloned = await prisma.$transaction(
       async (tx) => {
         const page = await tx.crmLandingPage.create({
-          data: {
+          // 🔴 누수 차단: 8개 필드만 복사하던 깨진 사본 → 콘텐츠/설정 전체 승계.
+          //   crossOrg:false = 같은 조직 복제이므로 group/funnel FK 그대로 승계.
+          data: buildClonedLandingPageData(original, {
             organizationId: orgId,
+            createdByUserId: ctx.userId, // SECURITY: 복제 사용자를 소유자로 설정
             title: `${original.title} - 사본`,
             slug: newSlug,
-            shortlink: shortlink, // SECURITY: 고유 shortlink 저장
-            htmlContent: original.htmlContent,
-            isActive: false, // 사본은 비활성 상태로 시작
-            isPublic: original.isPublic,
-            groupId: original.groupId,
-            viewCount: 0,
-            createdByUserId: ctx.userId, // SECURITY: 복제 사용자를 소유자로 설정
-          },
+            shortlink, // SECURITY: 고유 shortlink 저장
+            crossOrg: false,
+          }),
           select: {
             id: true,
             title: true,
@@ -71,9 +76,21 @@ export async function POST(_req: Request, { params }: Params) {
           },
         });
 
-        // ShortLink 테이블에도 저장 (감사추적용)
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-        const targetUrl = `${appUrl}/landing/${page.id}`;
+        // 이미지 복사 (사본도 동일한 이미지를 보이게)
+        if (originalImages.length > 0) {
+          await tx.crmLandingPageImage.createMany({
+            data: originalImages.map((img) => ({
+              landingPageId: page.id,
+              imageAssetId: img.imageAssetId,
+              sortOrder: img.sortOrder,
+              altText: img.altText ?? null,
+            })),
+            skipDuplicates: true,
+          });
+        }
+
+        // ShortLink 테이블에도 저장 (감사추적용) — 🔴 /p/{shortlink} 정식 경로로 수정
+        const targetUrl = buildLandingTargetUrl(shortlink);
         await tx.shortLink.create({
           data: {
             code: shortlink,
