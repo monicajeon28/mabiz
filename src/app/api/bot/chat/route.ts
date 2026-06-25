@@ -46,6 +46,7 @@ import {
   signAttributionToken,
   type AttributionSource,
 } from "@/lib/bot-attribution";
+import { notifyAgentHotLead } from "@/lib/bot-handoff";
 
 export const runtime = "nodejs"; // Prisma adapter-pg → Node 전용(Edge 금지)
 export const maxDuration = 60;
@@ -158,6 +159,10 @@ export async function POST(req: Request) {
     if (!message) {
       return NextResponse.json({ ok: false, message: "메시지를 입력해주세요." }, { status: 400 });
     }
+
+    // 손님이 남긴 연락처(있으면) — 핸드오프 알림에만 포함(저장은 마스킹). raw 에서 추출.
+    const phoneMatch = String(body.message).match(/01[016789][-.\s]?\d{3,4}[-.\s]?\d{4}/);
+    const customerPhone = phoneMatch ? phoneMatch[0].replace(/[-.\s]/g, "") : null;
 
     // 대화 로드(있으면) — 방문자 불일치 시 탈취 방지로 새 대화 취급
     let convo = conversationId
@@ -301,6 +306,8 @@ export async function POST(req: Request) {
     }
     if (!reply) reply = SAFE_FALLBACK_MESSAGE;
 
+    const wasHandedOff = convo.status === "HANDED_OFF"; // 이번 턴 전이 판정용
+
     // 영속화(PII 마스킹) + 대화 상태 갱신
     await prisma.$transaction([
       prisma.botMessage.create({
@@ -334,6 +341,18 @@ export async function POST(req: Request) {
         },
       }),
     ]);
+
+    // 핫리드 핸드오프 알림 — 이번 턴 처음 HANDED_OFF 가 됐을 때만 1회.
+    // Vercel 서버리스는 응답 후 비동기 완료 미보장 → 응답 전에 await(SMS ~1-2초).
+    if (handoff && !wasHandedOff) {
+      await notifyAgentHotLead({
+        conversationId: convo.id,
+        organizationId: convo.organizationId,
+        attributedAgentId: convo.attributedAgentId,
+        intentScore: newIntent,
+        customerPhone,
+      }).catch((e) => logger.error("[bot/chat] 핸드오프 알림 실패", { e: String(e) }));
+    }
 
     const res = NextResponse.json({
       ok: true,
