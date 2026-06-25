@@ -107,6 +107,10 @@ export function buildClonedLandingPageData(
 
     // ── 블록 에디터 ──
     blocksConfig: original.blocksConfig ?? undefined,
+
+    // ── 크루즈닷봇 ── (봇 랜딩 복제 시 봇 식별·설정 승계 — 없으면 복제하면 봇이 사라짐)
+    pageType: original.pageType,
+    botConfig: original.botConfig ?? undefined,
   };
 }
 
