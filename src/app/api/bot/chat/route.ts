@@ -55,6 +55,7 @@ import {
   type AttributionSource,
 } from "@/lib/bot-attribution";
 import { notifyAgentHotLead } from "@/lib/bot-handoff";
+import { resolveBotImages, type ResolvedBotImage } from "@/lib/bot-images";
 
 export const runtime = "nodejs"; // Prisma adapter-pg → Node 전용(Edge 금지)
 export const maxDuration = 60;
@@ -129,6 +130,25 @@ function detectSignals(msg: string) {
   if (hotLead) intentDelta += 20;
   if (refusal) intentDelta -= 30;
   return { objectionType, purchaseIntent, hotLead, positive, refusal, intentDelta };
+}
+
+/**
+ * 봇 reply에서 `[IMG:키]` 마커를 뽑아 표시 이미지로 변환하고, 손님에게 보일 텍스트에선 마커를 제거한다.
+ * 크루즈 상담봇 전용(모집봇 미적용). 모르는 키는 resolveBotImages가 무시한다.
+ */
+function extractInlineImages(reply: string): { text: string; images: ResolvedBotImage[] } {
+  const re = /\[IMG:\s*([a-zA-Z0-9_]+)\s*\]/g;
+  const keys: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(reply)) !== null) keys.push(m[1]);
+  if (keys.length === 0) return { text: reply, images: [] };
+  // 마커 제거 후 마커로 인해 생긴 빈 줄/공백 정리(손님에겐 마커 안 보이게).
+  const text = reply
+    .replace(re, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return { text, images: resolveBotImages(keys) };
 }
 
 export async function POST(req: Request) {
@@ -337,6 +357,17 @@ export async function POST(req: Request) {
     }
     if (!reply) reply = SAFE_FALLBACK_MESSAGE;
 
+    // 인라인 설득 이미지(크루즈 상담봇 전용) — 가드 통과 후, 사용자 반환 직전에 마커 추출·제거.
+    // 마커 제거된 텍스트를 저장·반환에 함께 써서 손님에겐 마커가 보이지 않게 한다.
+    let inlineImages: ResolvedBotImage[] = [];
+    if (botType === "cruise") {
+      const extracted = extractInlineImages(reply);
+      if (extracted.images.length > 0) {
+        reply = extracted.text || SAFE_FALLBACK_MESSAGE;
+        inlineImages = extracted.images;
+      }
+    }
+
     const wasHandedOff = convo.status === "HANDED_OFF"; // 이번 턴 전이 판정용
 
     // 영속화(PII 마스킹) + 대화 상태 갱신
@@ -392,6 +423,7 @@ export async function POST(req: Request) {
       conversationId: convo.id,
       reply,
       handoff,
+      ...(inlineImages.length > 0 ? { images: inlineImages } : {}),
     });
     res.cookies.set("bot_vid", visitorId, {
       httpOnly: true,

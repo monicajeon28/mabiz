@@ -5,6 +5,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 interface Msg {
   role: "user" | "bot";
   text: string;
+  /** 봇 응답에 함께 온 인라인 설득 이미지(크루즈 상담봇). 손님 화면에 사진으로 표시. */
+  images?: { url: string; label?: string }[];
 }
 
 interface Props {
@@ -134,7 +136,10 @@ export default function BotLandingClient({
         const data = await r.json();
         if (data?.ok) {
           convoRef.current = data.conversationId;
-          setMessages((m) => [...m, { role: "bot", text: data.reply }]);
+          const images = Array.isArray(data.images)
+            ? (data.images as { url: string; label?: string }[])
+            : undefined;
+          setMessages((m) => [...m, { role: "bot", text: data.reply, images }]);
           if (data.handoff) setHandoff(true);
         } else {
           setMessages((m) => [
@@ -172,10 +177,23 @@ export default function BotLandingClient({
       >
         {messages.map((m, i) =>
           m.role === "bot" ? (
-            <div key={i} className="flex justify-start">
+            <div key={i} className="flex flex-col items-start gap-2">
               <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-tl-sm bg-white px-4 py-3 text-base leading-relaxed text-slate-800 shadow-sm">
                 {m.text}
               </div>
+              {m.images && m.images.length > 0 && (
+                <div className="flex max-w-[85%] flex-col gap-2">
+                  {m.images.map((img, j) => (
+                    <img
+                      key={j}
+                      src={img.url}
+                      alt={img.label || "안내 사진"}
+                      loading="lazy"
+                      className="w-full max-w-full rounded-2xl border border-slate-200 shadow-sm"
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             <div key={i} className="flex justify-end">
