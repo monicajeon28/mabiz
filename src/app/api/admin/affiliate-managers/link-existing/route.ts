@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 /**
  * POST /api/admin/affiliate-managers/link-existing
  *
- * 크루즈닷몰에 이미 존재하는 어필리에이트(BRANCH_MANAGER)를 CRM 대리점장으로 연결.
+ * 크루즈닷몰에 이미 존재하는 어필리에이트(BRANCH_MANAGER)를 CRM 지사장으로 연결.
  * - 업그레이드 이전 계약한 기존 파트너용 수동 연결 도구
  * - GmAffiliateProfile(affiliateCode) → GmUser → OrganizationMember(OWNER) 생성
  * - 기존 비밀번호 그대로 복사 → 크루즈닷몰 아이디/비밀번호로 CRM 로그인 가능
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         ok: false,
-        message: '대리점장(BRANCH_MANAGER) 계정만 연결할 수 있습니다.',
+        message: '지사장(BRANCH_MANAGER) 계정만 연결할 수 있습니다.',
       },
       { status: 400 },
     );
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
   // 5. OrganizationMember(OWNER) 생성
   const phone = profile.contactPhone ?? gmUser.phone ?? null;
   const email = profile.contactEmail ?? gmUser.email ?? null;
-  const displayName = profile.displayName ?? gmUser.name ?? '대리점장';
+  const displayName = profile.displayName ?? gmUser.name ?? '지사장';
 
   const member = await prisma.organizationMember.create({
     data: {
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    message: `${displayName}님이 CRM 대리점장으로 연결되었습니다.`,
+    message: `${displayName}님이 CRM 지사장으로 연결되었습니다.`,
     data: {
       memberId: member.id,
       organizationId,

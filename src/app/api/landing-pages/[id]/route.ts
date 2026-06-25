@@ -65,7 +65,7 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(_req: Request, { params }: Params) {
   try {
     const ctx   = await getAuthContext();
-    // 랜딩페이지는 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용 (P0-2)
+    // 랜딩페이지는 지사장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용 (P0-2)
     if (!canManageSettings(ctx)) {
       return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '랜딩페이지 접근 권한이 없습니다' }, { status: 403 });
     }
@@ -99,7 +99,7 @@ export async function GET(_req: Request, { params }: Params) {
 export async function PATCH(req: Request, { params }: Params) {
   try {
     const ctx   = await getAuthContext();
-    // 랜딩페이지 수정은 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN)만 가능 (P0-2)
+    // 랜딩페이지 수정은 지사장(OWNER)·시스템관리자(GLOBAL_ADMIN)만 가능 (P0-2)
     if (!canManageSettings(ctx)) {
       return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '랜딩페이지 수정 권한이 없습니다' }, { status: 403 });
     }

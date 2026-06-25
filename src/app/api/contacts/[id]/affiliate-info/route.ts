@@ -25,7 +25,7 @@ export async function GET(_req: Request, { params }: Params) {
 
     if (!contact) return NextResponse.json({ ok: false }, { status: 404 });
 
-    // 본사 + 판매원 배치 조회
+    // 본사 + 대리점장 배치 조회
     const userIds = [contact.affiliateManagerId, contact.affiliateAgentId].filter(
       (x): x is string => !!x
     );
@@ -52,7 +52,7 @@ export async function GET(_req: Request, { params }: Params) {
     // L9 의료신뢰 / L10 클로징 — 역할 기반 trustScore
     const roleToScore: Record<string, { score: number; label: string }> = {
       GLOBAL_ADMIN: { score: 99, label: "총괄 크루즈 전문가" },
-      OWNER: { score: 97, label: "대리점장급 전문가" },
+      OWNER: { score: 97, label: "지사장급 전문가" },
       MANAGER: { score: 93, label: "전문 크루즈 컨설턴트" },
       AGENT: { score: 88, label: "크루즈 맞춤 컨설턴트" },
       FREE_SALES: { score: 82, label: "크루즈 판매 전문가" },

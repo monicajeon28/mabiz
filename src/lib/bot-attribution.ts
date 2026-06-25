@@ -4,10 +4,10 @@
  * 봇 챗 라우트는 비로그인·익명 공개 엔드포인트라, 클라이언트가 보낸 shortLinkCode 를
  * 그대로 신뢰하면 ①셀프 어트리뷰션(자가발주 수당편취) ②귀속 탈취 ③first-write 선점이 가능하다.
  * 따라서 여기서:
- *  - shortLinkCode 를 **서버가 ShortLink 재조회**하고 createdBy 가 **활성 판매원(동일 org)** 인지 검증
+ *  - shortLinkCode 를 **서버가 ShortLink 재조회**하고 createdBy 가 **활성 대리점장(동일 org)** 인지 검증
  *  - 진입 시 HMAC 서명 쿠키로 attribution 을 1회 고정(이후 body 의 code 는 무시)
- *  - 폴백 체인: 현재 숏링크 > 최근 접촉 판매원(last_touch) > 무귀속(none)  ← 사용자 확정: 최근 접촉 판매원
- *  - 셀프 어트리뷰션(방문자=판매원 본인) 차단
+ *  - 폴백 체인: 현재 숏링크 > 최근 접촉 대리점장(last_touch) > 무귀속(none)  ← 사용자 확정: 최근 접촉 대리점장
+ *  - 셀프 어트리뷰션(방문자=대리점장 본인) 차단
  */
 import "server-only";
 import crypto from "crypto";
@@ -25,7 +25,7 @@ export interface AttributionResult {
   shortLinkCode: string | null;
 }
 
-/** ShortLink.createdBy 가 동일 org 의 활성 판매원인지 검증. 통과 시 userId, 아니면 null. */
+/** ShortLink.createdBy 가 동일 org 의 활성 대리점장인지 검증. 통과 시 userId, 아니면 null. */
 async function validateAgent(
   createdBy: string | null,
   organizationId: string,
@@ -74,7 +74,7 @@ export async function resolveAttribution(input: {
     }
   }
 
-  // 2) 최근 접촉 판매원(last_touch) — 사용자 확정 폴백
+  // 2) 최근 접촉 대리점장(last_touch) — 사용자 확정 폴백
   if (visit) {
     const link = await prisma.shortLink.findFirst({
       where: { id: visit, isActive: true },
@@ -103,7 +103,7 @@ export async function resolveAttribution(input: {
 }
 
 /**
- * 셀프 어트리뷰션 차단 — 방문자가 로그인한 판매원 본인이면 귀속 제외.
+ * 셀프 어트리뷰션 차단 — 방문자가 로그인한 대리점장 본인이면 귀속 제외.
  * (라우트에서 현재 세션 userId 를 넘겨 호출)
  */
 export function isSelfAttribution(
@@ -120,7 +120,7 @@ const TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24시간
 export interface AttributionToken {
   /** 방문자/대화 식별자 */
   v: string;
-  /** 귀속 판매원 */
+  /** 귀속 대리점장 */
   a: string | null;
   /** 조직 */
   o: string | null;

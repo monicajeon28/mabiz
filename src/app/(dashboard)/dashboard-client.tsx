@@ -479,7 +479,7 @@ export function DashboardClient({ session }: DashboardClientProps) {
           )}
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-3">
-            <KpiCard title="전체 판매원"  value={data.totalAgents ?? 0}          icon={<Users className="w-5 h-5" />} color="bg-navy-900" href="/team/affiliate" />
+            <KpiCard title="전체 대리점장"  value={data.totalAgents ?? 0}          icon={<Users className="w-5 h-5" />} color="bg-navy-900" href="/team/affiliate" />
             <KpiCard title="이번달 매출"  value={(data.monthSaleAmount ?? 0).toLocaleString() + "원"} icon={<TrendingUp className="w-5 h-5" />} href="/affiliate-sales" />
             <KpiCard title="이번달 환불"  value={(data.monthRefundAmount ?? 0).toLocaleString() + "원"} icon={<RotateCcw className="w-5 h-5" />} href="/affiliate-sales" />
             <KpiCard title="승인 대기"    value={data.pendingApprovalCount ?? 0} icon={<Clock className="w-5 h-5" />} href="/admin/organizations" />
@@ -495,7 +495,7 @@ export function DashboardClient({ session }: DashboardClientProps) {
 
       {role === "OWNER" && data && data.teamAgentCount !== undefined && data.monthSaleAmount !== undefined && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-          <KpiCard title="소속 판매원"    value={data.teamAgentCount ?? 0}                                   icon={<Users className="w-5 h-5" />} color="bg-navy-900" />
+          <KpiCard title="소속 대리점장"    value={data.teamAgentCount ?? 0}                                   icon={<Users className="w-5 h-5" />} color="bg-navy-900" />
           <KpiCard title="팀 이번달 매출" value={(data.monthSaleAmount ?? 0).toLocaleString() + "원"}        icon={<TrendingUp className="w-5 h-5" />} />
           <KpiCard title="팀 환불"        value={(data.monthRefundAmount ?? 0).toLocaleString() + "원"}      icon={<RotateCcw className="w-5 h-5" />} />
           <KpiCard title="승인 대기"      value={data.pendingApprovalCount ?? 0}                             icon={<Clock className="w-5 h-5" />} />

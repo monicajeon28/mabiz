@@ -142,9 +142,9 @@ export default function ContractApproveModal({ contractId, onClose, onApproved }
                 </p>
               </div>
 
-              {/* 대리점장 정보 */}
+              {/* 지사장 정보 */}
               <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-2">대리점장 계정</h3>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">지사장 계정</h3>
                 <div className="space-y-2">
                   <ResultRow
                     label="어필리에이트 코드"
@@ -164,9 +164,9 @@ export default function ContractApproveModal({ contractId, onClose, onApproved }
                 </div>
               </div>
 
-              {/* 판매원 정보 */}
+              {/* 대리점장 정보 */}
               <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-2">판매원 계정</h3>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">대리점장 계정</h3>
                 <div className="space-y-2">
                   <ResultRow
                     label="어필리에이트 코드"
@@ -253,9 +253,9 @@ export default function ContractApproveModal({ contractId, onClose, onApproved }
                   <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
                     <span className="font-medium">{tierInfo.label}</span> 승인 시 자동 생성됩니다:
                     <ul className="mt-1.5 space-y-0.5 text-blue-700 text-sm">
-                      <li>• 대리점장 GMcruise 포털 계정 + CRM 관리 계정</li>
-                      <li>• 판매원 GMcruise 포털 계정</li>
-                      <li>• 어필리에이트 링크 (대리점장/판매원 각 1개)</li>
+                      <li>• 지사장 GMcruise 포털 계정 + CRM 관리 계정</li>
+                      <li>• 대리점장 GMcruise 포털 계정</li>
+                      <li>• 어필리에이트 링크 (지사장/대리점장 각 1개)</li>
                       <li>• 임시 비밀번호 SMS 발송 ({contractInfo.phone || '연락처 없음'})</li>
                     </ul>
                   </div>

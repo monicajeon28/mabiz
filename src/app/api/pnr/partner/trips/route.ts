@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 활성 상품 조회 (isActive = true, deletedAt IS NULL)
-    // 신규 예약 상품 드롭다운은 모든 파트너(HQ/대리점장/판매원)가 동일한 상품 카탈로그를 사용
+    // 신규 예약 상품 드롭다운은 모든 파트너(HQ/지사장/대리점장)가 동일한 상품 카탈로그를 사용
     const products = await prisma.$queryRaw<Array<{
       id: number;
       productCode: string;

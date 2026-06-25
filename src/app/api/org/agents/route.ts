@@ -52,8 +52,8 @@ export async function GET() {
       return NextResponse.json({
         ok: true, myRole: "GLOBAL_ADMIN",
         sections: [
-          { label: "대리점장", members: members.filter(m => m.role === "OWNER" || m.role === "BRANCH_MANAGER").map(toMember) },
-          { label: "판매원",   members: members.filter(m => m.role === "AGENT" || m.role === "SALES_AGENT").map(toMember) },
+          { label: "지사장", members: members.filter(m => m.role === "OWNER" || m.role === "BRANCH_MANAGER").map(toMember) },
+          { label: "대리점장",   members: members.filter(m => m.role === "AGENT" || m.role === "SALES_AGENT").map(toMember) },
           { label: "본사",     members: globalAdmins.map(toAdmin) },
         ],
       });
@@ -84,8 +84,8 @@ export async function GET() {
       return NextResponse.json({
         ok: true, myRole: "OWNER",
         sections: [
-          { label: "대리점장", members: allBMs.map(toMember) },
-          { label: "판매원",   members: myAgents.map(toMember) },
+          { label: "지사장", members: allBMs.map(toMember) },
+          { label: "대리점장",   members: myAgents.map(toMember) },
           { label: "본사",     members: globalAdmins.map(toAdmin) },
         ],
       });
@@ -107,7 +107,7 @@ export async function GET() {
       return NextResponse.json({
         ok: true, myRole: "AGENT",
         sections: [
-          { label: "대리점장", members: myBMs.map(toMember) },
+          { label: "지사장", members: myBMs.map(toMember) },
           { label: "본사",     members: globalAdmins.map(toAdmin) },
         ],
       });

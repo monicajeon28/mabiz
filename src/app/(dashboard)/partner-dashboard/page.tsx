@@ -1138,7 +1138,7 @@ function GoldTab({ data, loading, month, onDrilldown }: { data: GoldData | null;
 
 const ROLE_LABEL: Record<string, string> = {
   OWNER: '지점장', owner: '지점장',
-  AGENT: '판매원', agent: '판매원',
+  AGENT: '대리점장', agent: '대리점장',
   FREE_SALES: '사전영업', free_sales: '사전영업',
   BRANCH_MANAGER: '지점장',
 };
@@ -1297,7 +1297,7 @@ function PerformanceTab({
           <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
           <div>
             <p className="font-bold text-red-700 text-base mb-1">🚨 즉시 조치 필요 — 정지 대상 {urgentList.length}명</p>
-            <p className="text-sm text-red-600 mb-2">환불율 20% 초과로 정지 처리가 필요한 판매원이 있습니다. 아래 목록에서 확인 후 정지 처리해주세요.</p>
+            <p className="text-sm text-red-600 mb-2">환불율 20% 초과로 정지 처리가 필요한 대리점장이 있습니다. 아래 목록에서 확인 후 정지 처리해주세요.</p>
             <div className="flex flex-wrap gap-1.5">
               {urgentList.map(m => (
                 <span key={m.memberId} className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full border border-red-200">

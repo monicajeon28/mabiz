@@ -38,7 +38,7 @@ type LandingStats = {
 export async function POST(req: Request) {
   try {
     const ctx   = await getAuthContext();
-    // 랜딩페이지 통계는 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용 (P0-2)
+    // 랜딩페이지 통계는 지사장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용 (P0-2)
     if (!canManageSettings(ctx)) {
       return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '권한이 없습니다' }, { status: 403 });
     }

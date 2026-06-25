@@ -109,7 +109,7 @@ export default function ApisPage() {
       <div className="max-w-7xl mx-auto p-4 md:p-6">
         <div className="flex flex-col items-center justify-center py-24 text-gray-400 bg-white border border-dashed border-gray-300 rounded-xl">
           <Lock className="w-10 h-10 mb-3 text-gray-300" />
-          <p className="text-sm">APIS 관리는 대리점장(OWNER) 이상만 접근할 수 있습니다</p>
+          <p className="text-sm">APIS 관리는 지사장(OWNER) 이상만 접근할 수 있습니다</p>
           <Link href="/passport" className="mt-3 text-sm text-emerald-600 hover:underline">여권 관리로 돌아가기</Link>
         </div>
       </div>

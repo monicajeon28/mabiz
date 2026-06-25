@@ -6,7 +6,7 @@
  *
  * URL 파라미터:
  *   ?agent=홍길동&agency=강남대리점&agentPhone=010-1234-5678
- *   → 대리점장 소개 모드 자동 활성화 (어필리에이트 링크)
+ *   → 지사장 소개 모드 자동 활성화 (어필리에이트 링크)
  */
 
 import { useState, Suspense } from 'react';
@@ -43,7 +43,7 @@ function getContractBody(params: {
   } = params;
 
   const supervisorSection = useSupervisor && supervisorName
-    ? `담당 대리점장: ${supervisorName} (${supervisorAgency}) / ${supervisorPhone}`
+    ? `담당 지사장: ${supervisorName} (${supervisorAgency}) / ${supervisorPhone}`
     : `담당: 본사 직속 (${COMPANY.phone})`;
 
   return `크루즈닷 파트너스 프리랜서 용역계약서
@@ -183,7 +183,7 @@ function CruiseDotPartnersForm() {
   const [snsEtc, setSnsEtc] = useState('');
   const [applyNote, setApplyNote] = useState('');
 
-  // 담당 대리점장 (URL 파라미터로 자동 설정)
+  // 담당 지사장 (URL 파라미터로 자동 설정)
   const useSupervisor = hasAgentParam;
   const supervisorName = agentParam;
   const supervisorAgency = agencyParam;
@@ -421,7 +421,7 @@ function CruiseDotPartnersForm() {
                   </svg>
                 ),
                 title: '신청 완료 → 승인 대기',
-                desc: '담당자(관리자 또는 대리점장)가 서류를 검토합니다.\n승인 시 이메일로 아이디·임시 비밀번호가 발급됩니다.\n반려 시 사유가 이메일로 안내되며 재신청 가능합니다.\n⏱ 승인 처리는 1~3일 소요됩니다.',
+                desc: '담당자(관리자 또는 지사장)가 서류를 검토합니다.\n승인 시 이메일로 아이디·임시 비밀번호가 발급됩니다.\n반려 시 사유가 이메일로 안내되며 재신청 가능합니다.\n⏱ 승인 처리는 1~3일 소요됩니다.',
               },
               {
                 step: '2',
@@ -617,7 +617,7 @@ function CruiseDotPartnersForm() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
             <p className={`text-sm font-semibold ${useSupervisor ? 'text-teal-800' : 'text-gray-700'}`}>
-              {useSupervisor ? '담당 대리점장' : '담당: 본사 직속'}
+              {useSupervisor ? '담당 지사장' : '담당: 본사 직속'}
             </p>
           </div>
           {useSupervisor ? (

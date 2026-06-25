@@ -31,9 +31,9 @@ type MemberDoc = {
 };
 
 const ROLE_LABELS: Record<string, string> = {
-  OWNER:      '대리점장',
-  AGENT:      '판매원',
-  FREE_SALES: '프리세일즈',
+  OWNER:      '지사장',
+  AGENT:      '대리점장',
+  FREE_SALES: '마케터',
 };
 
 const ROLE_BADGE: Record<string, string> = {
@@ -359,15 +359,15 @@ export default function MembersPage() {
   }
 
   async function handleChangeRole(member: Member) {
-    const labels: Record<string, string> = { OWNER: '대리점장', AGENT: '판매원', FREE_SALES: '프리세일즈' };
+    const labels: Record<string, string> = { OWNER: '지사장', AGENT: '대리점장', FREE_SALES: '마케터' };
     const currentLabel = labels[member.role] ?? member.role;
     const targetLabel = prompt(
-      `역할 변경: 현재 [${currentLabel}]\n새 역할 입력 (대리점장 / 판매원 / 프리세일즈)`
+      `역할 변경: 현재 [${currentLabel}]\n새 역할 입력 (지사장 / 대리점장 / 마케터)`
     );
     const roleMap: Record<string, string> = {
-      '대리점장': 'OWNER',
-      '판매원': 'AGENT',
-      '프리세일즈': 'FREE_SALES',
+      '지사장': 'OWNER',
+      '대리점장': 'AGENT',
+      '마케터': 'FREE_SALES',
     };
     const newRole = roleMap[targetLabel?.trim() ?? ''];
     if (!newRole) return;

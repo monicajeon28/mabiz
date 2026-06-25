@@ -67,7 +67,7 @@ export async function requirePassportAccess(
       // SMS 발송 및 요청 관리: GLOBAL_ADMIN + OWNER만
       if (!['GLOBAL_ADMIN', 'OWNER'].includes(ctx.role ?? '')) {
         logSecurityEvent(ctx, action, 'DENIED', 'Insufficient role for SMS action');
-        throw new Error('[Passport Security] SMS 발송 권한 부족 (관리자/대리점장만)');
+        throw new Error('[Passport Security] SMS 발송 권한 부족 (관리자/지사장만)');
       }
       break;
 

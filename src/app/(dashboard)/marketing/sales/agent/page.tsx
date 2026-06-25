@@ -200,13 +200,13 @@ export default function AgentSalesDashboard() {
       setLoading(true);
       const res = await fetch('/api/marketing/sales/agent?page=1&limit=20');
       if (!res.ok) {
-        logger.error("판매원 매출 조회 실패", { status: res.status });
+        logger.error("대리점장 매출 조회 실패", { status: res.status });
         return;
       }
       const result = await res.json();
       setData(result);
     } catch (err) {
-      logger.error("판매원 매출 조회 오류", { err });
+      logger.error("대리점장 매출 조회 오류", { err });
     } finally {
       setLoading(false);
     }

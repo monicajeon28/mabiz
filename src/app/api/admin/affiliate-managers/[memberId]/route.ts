@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/admin/affiliate-managers/[memberId]
- * 대리점장 상세: 계정 정보 + 산하 판매원 + 추적 링크 (AffiliateProfile 연결 시)
+ * 지사장 상세: 계정 정보 + 산하 대리점장 + 추적 링크 (AffiliateProfile 연결 시)
  *
  * 접근: GLOBAL_ADMIN 전용
  */
@@ -34,7 +34,7 @@ export async function GET(
 
     const { memberId } = await params;
 
-    // 1. 대리점장 OrganizationMember
+    // 1. 지사장 OrganizationMember
     const member = await prisma.organizationMember.findUnique({
       where: { id: memberId },
       include: {
@@ -56,7 +56,7 @@ export async function GET(
       return NextResponse.json({ ok: false, error: '멤버를 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    // 2. 산하 판매원 (같은 Organization, 판매 역할 — 정지된 계정도 포함)
+    // 2. 산하 대리점장 (같은 Organization, 판매 역할 — 정지된 계정도 포함)
     const subMembers = await prisma.organizationMember.findMany({
       where: {
         organizationId: member.organizationId,

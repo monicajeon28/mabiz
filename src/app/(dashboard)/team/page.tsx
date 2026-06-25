@@ -55,9 +55,9 @@ type Period = "this_month" | "last_month" | "custom";
 // ─── 상수 ─────────────────────────────────────────────────────────────────────
 
 const ROLE_LABELS: Record<string, string> = {
-  OWNER: "대리점장",
-  AGENT: "판매원",
-  FREE_SALES: "프리세일즈",
+  OWNER: "지사장",
+  AGENT: "대리점장",
+  FREE_SALES: "마케터",
 };
 
 const ROLE_COLORS: Record<string, string> = {
@@ -188,7 +188,7 @@ function DateFilterBar({
   );
 }
 
-// ─── 판매원 순위 섹션 ─────────────────────────────────────────────────────────
+// ─── 대리점장 순위 섹션 ─────────────────────────────────────────────────────────
 
 function LeaderboardSection({
   period,
@@ -266,7 +266,7 @@ function LeaderboardSection({
   if (agents.length === 0) {
     return (
       <div className="text-center py-16 text-gray-600">
-        <p>판매원 데이터가 없습니다</p>
+        <p>대리점장 데이터가 없습니다</p>
       </div>
     );
   }
@@ -320,7 +320,7 @@ function LeaderboardSection({
   );
 }
 
-// ─── 프리세일즈 현황 섹션 ─────────────────────────────────────────────────────
+// ─── 마케터 현황 섹션 ─────────────────────────────────────────────────────
 
 function FreeSalesSection({
   freeSales,
@@ -342,7 +342,7 @@ function FreeSalesSection({
   if (freeSales.length === 0) {
     return (
       <div className="text-center py-16 text-gray-600">
-        <p>소속 프리세일즈가 없습니다</p>
+        <p>소속 마케터가 없습니다</p>
       </div>
     );
   }
@@ -357,7 +357,7 @@ function FreeSalesSection({
               {fs.member.displayName ?? fs.member.affiliateCode}
             </p>
             <span className="text-sm bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-medium shrink-0">
-              프리세일즈
+              마케터
             </span>
           </div>
 
@@ -413,12 +413,12 @@ export default function TeamPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [crmLoading, setCrmLoading] = useState(true);
 
-  // 날짜 필터 상태 (리더보드 / 프리세일즈 공통)
+  // 날짜 필터 상태 (리더보드 / 마케터 공통)
   const [period, setPeriod] = useState<Period>("this_month");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
 
-  // 프리세일즈
+  // 마케터
   const [freeSales, setFreeSales] = useState<FreeSalesMember[]>([]);
   const [freeSalesLoading, setFreeSalesLoading] = useState(false);
 
@@ -466,7 +466,7 @@ export default function TeamPage() {
     return () => ctrl.abort();
   }, [loadCrmStats]);
 
-  // 프리세일즈 데이터 — agents API 에서 freeSales 필드 사용
+  // 마케터 데이터 — agents API 에서 freeSales 필드 사용
   const loadFreeSales = useCallback((signal?: AbortSignal) => {
     // T-009: AGENT 역할은 /api/team/agents 접근 불가 (API가 403 반환) — 클라이언트 guard 추가
     if (sessionRole !== 'GLOBAL_ADMIN' && sessionRole !== 'OWNER') return;
@@ -493,7 +493,7 @@ export default function TeamPage() {
       .finally(() => { if (!signal?.aborted) setFreeSalesLoading(false); });
   }, [period, customFrom, customTo, selectedOrgId, sessionRole]); // T-009: sessionRole 의존성 추가
 
-  // 프리세일즈 탭 활성화 시 or 필터 변경 시 로드
+  // 마케터 탭 활성화 시 or 필터 변경 시 로드
   useEffect(() => {
     if (activeTab !== "freesales") return;
     const ctrl = new AbortController();
@@ -513,7 +513,7 @@ export default function TeamPage() {
       {/* 헤더 */}
       <div>
         <h1 className="text-2xl font-bold text-navy-900">팀 성과</h1>
-        <p className="text-sm text-gray-500 mt-1">조직 전체 CRM 실적 및 판매원 순위</p>
+        <p className="text-sm text-gray-500 mt-1">조직 전체 CRM 실적 및 대리점장 순위</p>
       </div>
 
       {/* 조직 선택 드롭다운 — GLOBAL_ADMIN 전용 */}
@@ -541,12 +541,12 @@ export default function TeamPage() {
         </button>
         {(displayRole === "GLOBAL_ADMIN" || displayRole === "OWNER") && (
           <button type="button" className={tabClass("leaderboard")} onClick={() => setActiveTab("leaderboard")}>
-            판매원 순위
+            대리점장 순위
           </button>
         )}
         {(displayRole === "GLOBAL_ADMIN" || displayRole === "OWNER") && (
           <button type="button" className={tabClass("freesales")} onClick={() => setActiveTab("freesales")}>
-            프리세일즈 현황
+            마케터 현황
           </button>
         )}
       </div>
@@ -648,7 +648,7 @@ export default function TeamPage() {
         </>
       )}
 
-      {/* ── 판매원 순위 탭 (GLOBAL_ADMIN / OWNER 전용) ─────────────────────── */}
+      {/* ── 대리점장 순위 탭 (GLOBAL_ADMIN / OWNER 전용) ─────────────────────── */}
       {activeTab === "leaderboard" && (displayRole === "GLOBAL_ADMIN" || displayRole === "OWNER") && (
         <>
           <DateFilterBar
@@ -663,7 +663,7 @@ export default function TeamPage() {
         </>
       )}
 
-      {/* ── 프리세일즈 현황 탭 (GLOBAL_ADMIN / OWNER 전용) ──────────────────── */}
+      {/* ── 마케터 현황 탭 (GLOBAL_ADMIN / OWNER 전용) ──────────────────── */}
       {activeTab === "freesales" && (displayRole === "GLOBAL_ADMIN" || displayRole === "OWNER") && (
         <>
           <DateFilterBar

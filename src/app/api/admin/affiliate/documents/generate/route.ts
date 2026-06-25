@@ -284,7 +284,7 @@ export async function POST(req: NextRequest) {
           headcount: documentData.headcount as number | undefined,
           cabinType: documentData.cabinType as string | undefined,
           responsibleName: (documentData.responsibleName as string | undefined) ?? '담당자',
-          responsibleRole: (documentData.responsibleRole as string | undefined) ?? '판매원',
+          responsibleRole: (documentData.responsibleRole as string | undefined) ?? '대리점장',
         });
 
         // 감사 기록 — SalesDocument 저장

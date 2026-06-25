@@ -166,7 +166,7 @@ export default function DeleteRequestsPage() {
           <h1 className="text-xl font-bold text-gray-900">골드회원 삭제 요청 관리</h1>
         </div>
         <p className="text-base text-gray-500">
-          대리점장이 요청한 골드회원 삭제를 승인하거나 거부합니다.
+          지사장이 요청한 골드회원 삭제를 승인하거나 거부합니다.
         </p>
       </div>
 

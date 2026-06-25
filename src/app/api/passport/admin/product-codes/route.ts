@@ -17,7 +17,7 @@ interface ProductCodeResult {
 /**
  * GET /api/passport/admin/product-codes
  * 구매 고객이 있는 상품 코드 목록 조회
- * 권한: GLOBAL_ADMIN + OWNER (대리점장)
+ * 권한: GLOBAL_ADMIN + OWNER (지사장)
  */
 export async function GET() {
   try {

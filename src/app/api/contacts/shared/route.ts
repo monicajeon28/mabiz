@@ -29,7 +29,7 @@ export async function GET(req: Request) {
     //
     // [P0 보안: 검색 격리] 검색어(q)의 OR을 buildContactWhere의 extra로 넘기면,
     // AGENT 경로에서 검색 OR이 소유권 OR(assignedUserId/createdBy/sharedWith)에
-    // spread 병합되어 같은 조직의 "타 판매원 고객"까지 이름/전화로 열거된다.
+    // spread 병합되어 같은 조직의 "타 대리점장 고객"까지 이름/전화로 열거된다.
     // (rbac.ts buildContactWhere 계약: extra에 OR 키 금지) → 소유권 격리(baseWhere)와
     // 검색(q)을 AND로 분리해 격리를 유지한 채 검색만 좁힌다.
     const baseWhere = buildContactWhere(ctx, {

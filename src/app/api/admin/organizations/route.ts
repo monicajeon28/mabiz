@@ -113,7 +113,7 @@ export async function GET(req: NextRequest) {
 
 /**
  * POST /api/admin/organizations — 제거됨 (2026-06-05)
- * 대리점 수동 생성 기능 폐지. 대리점장 계정은 반드시
+ * 대리점 수동 생성 기능 폐지. 지사장 계정은 반드시
  * "계약서 작성 → 승인" 경로(webhook/contract-signed → 승인)로만 생성된다.
  * 수동 생성 경로가 다시 필요하면 git 히스토리(이 커밋 이전) 참조.
  */

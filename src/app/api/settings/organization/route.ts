@@ -60,7 +60,7 @@ export async function PATCH(req: Request) {
         userId: ctx.userId,
         role: ctx.role
       });
-      return forbidden('대리점장 또는 관리자만 수정할 수 있습니다.');
+      return forbidden('지사장 또는 관리자만 수정할 수 있습니다.');
     }
 
     const orgId = resolveOrgId(ctx);

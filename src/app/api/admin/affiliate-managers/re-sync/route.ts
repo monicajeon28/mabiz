@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 /**
  * POST /api/admin/affiliate-managers/re-sync
  *
- * 크루즈닷에 동기화되지 않은 OWNER(대리점장) 자동 감지 → 크루즈닷으로 자동 전송.
+ * 크루즈닷에 동기화되지 않은 OWNER(지사장) 자동 감지 → 크루즈닷으로 자동 전송.
  * organizations 페이지 마운트 시 백그라운드에서 자동 호출됨 (멱등, 중복 안전).
  */
 
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, synced: 0, message: 'INTERNAL_PROVISION_URL 미설정' });
   }
 
-  // gm-{Int} 형식 userId를 가진 OWNER 조회 (provision.ts로 생성된 대리점장)
+  // gm-{Int} 형식 userId를 가진 OWNER 조회 (provision.ts로 생성된 지사장)
   const owners = await prisma.organizationMember.findMany({
     where: {
       role: 'OWNER',

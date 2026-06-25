@@ -47,7 +47,7 @@ export async function POST(req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, error: '회원을 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    // assignedUserId가 활성 대리점장/세일즈 유저인지 확인
+    // assignedUserId가 활성 지사장/세일즈 유저인지 확인
     // GET /api/org/agents의 응답 구조를 따르면, 활성 유저만 반환된다고 가정
     // 하지만 검증을 위해 organizationMember 테이블에서 확인
     const assignedUser = await prisma.organizationMember.findFirst({

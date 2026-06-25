@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   try {
     const ctx = await getAuthContext();
 
-    // P0-4: 프리세일즈는 문자 기록 조회 불가
+    // P0-4: 마케터는 문자 기록 조회 불가
     if (ctx.role === 'FREE_SALES') {
       return NextResponse.json(
         { ok: false, message: '문자 기록 조회 권한이 없습니다' },

@@ -1,7 +1,7 @@
 /**
  * 크루즈닷봇 핫리드 핸드오프 알림 (작업지시서 Phase 4)
  *
- * 봇이 구매 임박 손님(HANDOFF)을 감지하면 **귀속 판매원에게 즉시 SMS**로 알린다.
+ * 봇이 구매 임박 손님(HANDOFF)을 감지하면 **귀속 대리점장에게 즉시 SMS**로 알린다.
  * - 발신: 조직/시스템 Aligo(resolveUserSmsConfig org), 수신: OrganizationMember.phone
  * - 중복 알림 방지: 호출측이 status 전이(ACTIVE→HANDED_OFF 1회)에서만 호출하도록 보장
  * - Vercel 서버리스에서 응답 후 비동기 완료 미보장 → 호출측은 응답 전에 await 할 것
@@ -29,7 +29,7 @@ export async function notifyAgentHotLead(input: {
     return { sent: false, reason: "no_agent" };
   }
 
-  // 판매원 조회(동일 org·활성·판매역할) → 전화번호
+  // 대리점장 조회(동일 org·활성·판매역할) → 전화번호
   const member = await prisma.organizationMember.findFirst({
     where: {
       userId: attributedAgentId,
@@ -40,11 +40,11 @@ export async function notifyAgentHotLead(input: {
     select: { phone: true, displayName: true },
   });
   if (!member?.phone) {
-    logger.log("[bot-handoff] 판매원 전화 없음 — 알림 스킵", { conversationId, attributedAgentId });
+    logger.log("[bot-handoff] 대리점장 전화 없음 — 알림 스킵", { conversationId, attributedAgentId });
     return { sent: false, reason: "no_phone" };
   }
 
-  // 발신은 조직/시스템 Aligo (판매원에게 보내는 알림)
+  // 발신은 조직/시스템 Aligo (대리점장에게 보내는 알림)
   const config = await resolveUserSmsConfig(organizationId);
   if (!config) {
     logger.warn("[bot-handoff] SMS 설정 없음 — 알림 스킵", { organizationId });

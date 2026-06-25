@@ -37,7 +37,7 @@ export async function POST(req: Request) {
 
     const agentName = ctx.member?.displayName ?? null;
     if (!agentName) {
-      return NextResponse.json({ ok: false, message: '판매원 이름을 찾을 수 없습니다.' }, { status: 400 });
+      return NextResponse.json({ ok: false, message: '대리점장 이름을 찾을 수 없습니다.' }, { status: 400 });
     }
 
     // GLOBAL_ADMIN은 organizationId가 null일 수 있으므로 '본사'로 고정
@@ -108,7 +108,7 @@ export async function POST(req: Request) {
 
     logger.log('[call-upload-drive] MD 업로드 완료', { agent: agentName, org: orgName, fileName });
 
-    // AiCallLog에 driveFileId 연결 (가장 최근 같은 판매원의 driveFileId 없는 로그)
+    // AiCallLog에 driveFileId 연결 (가장 최근 같은 대리점장의 driveFileId 없는 로그)
     try {
       const recentLog = await prisma.aiCallLog.findFirst({
         where: {

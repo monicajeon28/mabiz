@@ -5,15 +5,15 @@ import { useRouter } from "next/navigation";
 import { CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { showError } from '@/components/ui/Toast';
 
-// ─── 어필리에이트 판매원 계약서 (법적 효력) ────────────────────
+// ─── 어필리에이트 대리점장 계약서 (법적 효력) ────────────────────
 const CONTRACT_SECTIONS = [
   {
     title: "제1조 (계약의 성격 및 당사자)",
-    content: "본 계약은 크루즈닷(이하 \"회사\")과 어필리에이트 판매원(이하 \"판매원\") 간의 독립 용역 계약으로, 판매원은 독립 프리랜서(개인사업자)로 활동합니다. 고용관계가 아니며, 4대 보험은 적용되지 않습니다.",
+    content: "본 계약은 크루즈닷(이하 \"회사\")과 어필리에이트 대리점장(이하 \"대리점장\") 간의 독립 용역 계약으로, 대리점장은 독립 프리랜서(개인사업자)로 활동합니다. 고용관계가 아니며, 4대 보험은 적용되지 않습니다.",
   },
   {
     title: "제2조 (수당 지급 조건)",
-    content: "• 수당은 고객의 여행 출발 완료 확인 후 지급됩니다.\n• 프리랜서 계약으로 수당 지급 시 3.3% 원천징수가 적용됩니다.\n• 마지막 정산 수당의 30%는 마지막 지급일로부터 60일 후, 환불·민원 확정 이후 지급됩니다.\n• 판매원 본인·배우자·직계가족 명의 구매에 대한 수당은 지급하지 않습니다.",
+    content: "• 수당은 고객의 여행 출발 완료 확인 후 지급됩니다.\n• 프리랜서 계약으로 수당 지급 시 3.3% 원천징수가 적용됩니다.\n• 마지막 정산 수당의 30%는 마지막 지급일로부터 60일 후, 환불·민원 확정 이후 지급됩니다.\n• 대리점장 본인·배우자·직계가족 명의 구매에 대한 수당은 지급하지 않습니다.",
   },
   {
     title: "제3조 (환불·Clawback 정책)",
@@ -21,11 +21,11 @@ const CONTRACT_SECTIONS = [
   },
   {
     title: "제4조 (비밀유지 의무)",
-    content: "판매원은 업무를 통해 알게 된 고객 DB, 수수료율, 내부 운영 정보 등 회사의 영업비밀을 계약 종료 후 3년간 제3자에게 누설하거나 경쟁 목적으로 사용할 수 없습니다.",
+    content: "대리점장은 업무를 통해 알게 된 고객 DB, 수수료율, 내부 운영 정보 등 회사의 영업비밀을 계약 종료 후 3년간 제3자에게 누설하거나 경쟁 목적으로 사용할 수 없습니다.",
   },
   {
     title: "제5조 (경업금지)",
-    content: "판매원은 계약 기간 중 및 종료 후 1년간, 회사와 동종 업종(크루즈·해외여행 판매)에서 경쟁 활동을 할 수 없습니다.",
+    content: "대리점장은 계약 기간 중 및 종료 후 1년간, 회사와 동종 업종(크루즈·해외여행 판매)에서 경쟁 활동을 할 수 없습니다.",
   },
   {
     title: "제6조 (콘텐츠 무단 사용 금지)",
@@ -49,7 +49,7 @@ const CONTRACT_SECTIONS = [
   },
   {
     title: "제11조 (디지털 서명의 법적 효력)",
-    content: "본 계약서에 성명을 직접 입력하는 행위는 「전자서명법」에 따른 디지털 서명으로 법적 효력을 가집니다. 판매원은 본 계약서의 모든 조항을 읽고 이해한 후 서명합니다.",
+    content: "본 계약서에 성명을 직접 입력하는 행위는 「전자서명법」에 따른 디지털 서명으로 법적 효력을 가집니다. 대리점장은 본 계약서의 모든 조항을 읽고 이해한 후 서명합니다.",
   },
 ];
 
@@ -139,7 +139,7 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
       <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-lg">
         <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
         <p className="font-bold text-gray-900 mb-2">가입 완료!</p>
-        <p className="text-sm text-gray-500">{orgName} 판매원으로 등록됐습니다.<br />대시보드로 이동합니다...</p>
+        <p className="text-sm text-gray-500">{orgName} 대리점장으로 등록됐습니다.<br />대시보드로 이동합니다...</p>
       </div>
     </div>
   );
@@ -150,7 +150,7 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
         {/* 헤더 */}
         <div className="bg-navy-900 px-6 py-5 text-center">
           <p className="text-2xl mb-1">🚢</p>
-          <h1 className="text-lg font-bold text-white">크루즈닷 판매원 초대</h1>
+          <h1 className="text-lg font-bold text-white">크루즈닷 대리점장 초대</h1>
           <p className="text-sm text-navy-200 mt-1">{orgName}</p>
           {note && <p className="text-xs text-navy-300 mt-0.5">{note}</p>}
         </div>
@@ -218,7 +218,7 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
 
               {/* 계약서 본문 */}
               <div>
-                <p className="text-sm font-bold text-gray-800 mb-2">📋 어필리에이트 판매원 계약서</p>
+                <p className="text-sm font-bold text-gray-800 mb-2">📋 어필리에이트 대리점장 계약서</p>
                 <div className="border border-gray-200 rounded-xl h-56 overflow-y-auto p-4 bg-gray-50 text-xs text-gray-700 space-y-4">
                   {CONTRACT_SECTIONS.map((sec, i) => (
                     <div key={i}>
@@ -279,7 +279,7 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
                 className="w-full bg-navy-900 text-white py-3 rounded-xl font-medium hover:bg-navy-700 disabled:opacity-40 flex items-center justify-center gap-2"
               >
                 {accepting && <Loader2 className="w-4 h-4 animate-spin" />}
-                {accepting ? "처리 중..." : "계약서 서명 완료 — 판매원 등록"}
+                {accepting ? "처리 중..." : "계약서 서명 완료 — 대리점장 등록"}
               </button>
               <p className="text-xs text-center text-gray-400">
                 서명 완료 시 본 계약서가 법적 효력을 가집니다.

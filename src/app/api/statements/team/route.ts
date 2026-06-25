@@ -24,7 +24,7 @@ interface MemberStatement {
   name: string;
   role: string;           // BRANCH_MANAGER | SALES_AGENT | PRESALES_AGENT
   payslipId: number | null;
-  guarantorId: number | null; // 팀 그룹핑용 (대리점장 agentId)
+  guarantorId: number | null; // 팀 그룹핑용 (지사장 agentId)
   yearMonth: string;
   baseCommission: number;
   deduction: number;
@@ -111,7 +111,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     if (role !== 'GLOBAL_ADMIN' && role !== 'OWNER') {
       return NextResponse.json(
-        { ok: false, error: 'FORBIDDEN', message: '관리자 또는 대리점장 권한이 필요합니다.' },
+        { ok: false, error: 'FORBIDDEN', message: '관리자 또는 지사장 권한이 필요합니다.' },
         { status: 403 }
       );
     }

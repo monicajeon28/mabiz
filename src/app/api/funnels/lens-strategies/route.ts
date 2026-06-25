@@ -19,7 +19,7 @@ interface LensStrategiesResponse {
 }
 
 // GET /api/funnels/lens-strategies
-// 판매원 마법사 Step 1-2에서 렌즈와 전략 목록 조회
+// 대리점장 마법사 Step 1-2에서 렌즈와 전략 목록 조회
 export async function GET() {
   try {
     const ctx = await getAuthContext()

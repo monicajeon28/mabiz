@@ -72,8 +72,8 @@ export default function PreSalesPage() {
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">프리세일즈 현황</h1>
-          <p className="text-sm text-gray-500 mt-1">총 {total}명의 프리세일즈 파트너</p>
+          <h1 className="text-xl font-bold text-gray-900">마케터 현황</h1>
+          <p className="text-sm text-gray-500 mt-1">총 {total}명의 마케터 파트너</p>
         </div>
         <a
           href="/affiliate-issuance"
@@ -98,7 +98,7 @@ export default function PreSalesPage() {
       ) : profiles.length === 0 ? (
         <div className="text-center py-12">
           <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-400">프리세일즈 파트너가 없습니다</p>
+          <p className="text-gray-400">마케터 파트너가 없습니다</p>
         </div>
       ) : (
         <div className="overflow-x-auto">

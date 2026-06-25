@@ -3,8 +3,8 @@
  *
  * 역할 계층:
  *   GLOBAL_ADMIN  - 모든 조직 DB 접근 + 삭제 권한 (관리자)
- *   OWNER         - 자기 조직 전체 + 소속 AGENT DB 접근 (대리점장)
- *   AGENT         - 자기에게 배당된 고객만 접근, 삭제 불가 (330만 직속판매원)
+ *   OWNER         - 자기 조직 전체 + 소속 AGENT DB 접근 (지사장)
+ *   AGENT         - 자기에게 배당된 고객만 접근, 삭제 불가 (330만 직속대리점장)
  *   FREE_SALES    - 내 판매 현황 + 어필리에이트 링크만 (고객 DB 접근 없음)
  */
 import { ContactVisibility, Prisma } from "@prisma/client";
@@ -72,7 +72,7 @@ export async function getAuthContext(): Promise<AuthContext> {
  */
 export function buildContactWhere(ctx: AuthContext, extra: Record<string, unknown> = {}) {
   if (ctx.role === "FREE_SALES") {
-    // 프리세일즈: 고객 DB 접근 불가 — API에서 차단
+    // 마케터: 고객 DB 접근 불가 — API에서 차단
     throw new Error("FREE_SALES_NO_ACCESS");
   }
   // deletedAt: null은 항상 마지막에 고정 — extra로 덮어씌워지지 않도록
@@ -85,7 +85,7 @@ export function buildContactWhere(ctx: AuthContext, extra: Record<string, unknow
     return {
       ...extra,
       organizationId: ctx.organizationId!,
-      visibility: { not: ContactVisibility.ADMIN_ONLY }, // 대리점장은 ADMIN_ONLY 제외
+      visibility: { not: ContactVisibility.ADMIN_ONLY }, // 지사장은 ADMIN_ONLY 제외
       deletedAt: null,
     };
   }
@@ -113,8 +113,8 @@ export function buildContactWhere(ctx: AuthContext, extra: Record<string, unknow
  *
  * 어필리에이트 조직 구조:
  * - 본사 (Manager): affiliateManagerId = managerId로 필터링
- * - 대리점장: 여러 판매원 관리 (affiliateAgentId IN (...))
- * - 판매원: 자신의 고객만 (affiliateAgentId = agentId)
+ * - 지사장: 여러 대리점장 관리 (affiliateAgentId IN (...))
+ * - 대리점장: 자신의 고객만 (affiliateAgentId = agentId)
  */
 export function buildContactWhereWithSourceFilter(
   ctx: AuthContext,
@@ -139,7 +139,7 @@ export function buildContactWhereWithSourceFilter(
       };
     }
     if (userAffiliateMeta.agentId) {
-      // 판매원: 자신의 agentId를 가진 어필리에이트만
+      // 대리점장: 자신의 agentId를 가진 어필리에이트만
       return {
         ...baseWhere,
         OR: [
@@ -245,12 +245,12 @@ export function maskContactInfo<T extends object>(contact: T, ctx: AuthContext):
   return contact;
 }
 
-/** 삭제 권한 체크 (판매원 AGENT/FREE_SALES 불가) */
+/** 삭제 권한 체크 (대리점장 AGENT/FREE_SALES 불가) */
 export function canDelete(ctx: AuthContext): boolean {
   return ctx.role === "GLOBAL_ADMIN" || ctx.role === "OWNER";
 }
 
-/** 휴지통(삭제 DB) 조회 권한 — 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN) */
+/** 휴지통(삭제 DB) 조회 권한 — 지사장(OWNER)·시스템관리자(GLOBAL_ADMIN) */
 export function canViewTrash(ctx: AuthContext): boolean {
   return ctx.role === "GLOBAL_ADMIN" || ctx.role === "OWNER";
 }

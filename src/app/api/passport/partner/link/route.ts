@@ -44,11 +44,11 @@ export async function POST(req: NextRequest) {
     // 권한 체크
     let hasAccess = false;
     if (profile.type === 'BRANCH_MANAGER') {
-      // 대리점장은 본인 또는 소속 판매원의 Lead 접근 가능
+      // 지사장은 본인 또는 소속 대리점장의 Lead 접근 가능
       if (lead.managerId === profile.id || lead.agentId === profile.id) {
         hasAccess = true;
       } else if (lead.agentId) {
-        // 판매원이 본인 팀인지 확인
+        // 대리점장이 본인 팀인지 확인
         const relation = await prisma.gmAffiliateRelation.findFirst({
           where: {
             managerId: profile.id,
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
         if (relation) hasAccess = true;
       }
     } else if (profile.type === 'SALES_AGENT') {
-      // 판매원은 본인 Lead만 접근 가능
+      // 대리점장은 본인 Lead만 접근 가능
       if (lead.agentId === profile.id) {
         hasAccess = true;
       }

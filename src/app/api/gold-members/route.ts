@@ -184,7 +184,7 @@ export async function POST(req: NextRequest) {
 
     const { name, phone, email, courseType, joinDate, paymentDay, totalPayments, memo, agentId: agentIdRaw } = body;
 
-    // OWNER가 담당 판매원 지정 시 agentId 처리
+    // OWNER가 담당 대리점장 지정 시 agentId 처리
     let agentIdNum: number | undefined;
     if (agentIdRaw !== undefined && agentIdRaw !== null && agentIdRaw !== '') {
       const parsed = parseInt(String(agentIdRaw), 10);

@@ -19,9 +19,9 @@ import { randomBytes } from 'crypto';
 export interface CreateOrgParams {
   name:           string;          // 대리점명
   slug?:          string;          // 없으면 자동 생성
-  ownerName:      string;          // 대리점장 이름 (GMcruise에서 수신)
-  ownerPhone:     string;          // 대리점장 전화번호
-  ownerEmail?:    string;          // 대리점장 이메일 (선택)
+  ownerName:      string;          // 지사장 이름 (GMcruise에서 수신)
+  ownerPhone:     string;          // 지사장 전화번호
+  ownerEmail?:    string;          // 지사장 이메일 (선택)
   contractRef?:   string;          // GMcruise 계약 참조 ID
   source?:        string;          // 'webhook' | 'manual' | 'seed'
 }

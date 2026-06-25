@@ -9,7 +9,7 @@ import { maskPhone } from '@/lib/pii-masker';
 
 /**
  * POST /api/webhooks/partner-signup
- * GMcruise(크루즈닷몰) 파트너(판매원) 가입 완료 후 호출
+ * GMcruise(크루즈닷몰) 파트너(대리점장) 가입 완료 후 호출
  * Authorization: Bearer MABIZ_PARTNER_SIGNUP_WEBHOOK_SECRET
  */
 export async function POST(req: NextRequest) {
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
       });
 
       // 그룹 자동 배정
-      const groupKeyword = affiliateType === 'BRANCH_MANAGER' ? '대리점' : '판매원';
+      const groupKeyword = affiliateType === 'BRANCH_MANAGER' ? '대리점' : '대리점장';
       const group = await tx.contactGroup.findFirst({
         where: { organizationId, name: { contains: groupKeyword } },
         select: { id: true },

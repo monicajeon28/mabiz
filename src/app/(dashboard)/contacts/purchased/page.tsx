@@ -229,8 +229,8 @@ export default function PurchasedPage() {
         <div className="text-center py-16">
           <p className="text-4xl mb-3">🚫</p>
           <p className="font-bold text-lg text-gray-900 mb-1">접근 권한이 없습니다</p>
-          <p className="text-sm text-gray-500">프리세일즈는 구매 고객 관리에 접근할 수 없습니다.</p>
-          <p className="text-xs text-gray-400 mt-3">대리점장 이상의 권한이 필요합니다.</p>
+          <p className="text-sm text-gray-500">마케터는 구매 고객 관리에 접근할 수 없습니다.</p>
+          <p className="text-xs text-gray-400 mt-3">지사장 이상의 권한이 필요합니다.</p>
         </div>
       </div>
     );

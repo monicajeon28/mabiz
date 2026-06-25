@@ -130,7 +130,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       data: data.map((d) => {
-        // T-022: affiliateUserId 응답에서 제외 — OWNER가 다른 조직 판매원 UUID를 추론하는 데 악용 방지
+        // T-022: affiliateUserId 응답에서 제외 — OWNER가 다른 조직 대리점장 UUID를 추론하는 데 악용 방지
          
         const { affiliateUserId, ...rest } = d;
         return {

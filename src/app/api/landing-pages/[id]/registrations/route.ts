@@ -9,8 +9,8 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(req: Request, { params }: Params) {
   try {
     const ctx   = await getAuthContext();
-    // 랜딩페이지 신청자 명단은 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용 (P0-2).
-    // 판매원(AGENT)이 URL 직접 호출로 신청 고객 이름·이메일을 열람하던 누수 차단.
+    // 랜딩페이지 신청자 명단은 지사장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용 (P0-2).
+    // 대리점장(AGENT)이 URL 직접 호출로 신청 고객 이름·이메일을 열람하던 누수 차단.
     if (!canManageSettings(ctx)) {
       return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '권한이 없습니다' }, { status: 403 });
     }

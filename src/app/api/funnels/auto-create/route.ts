@@ -17,7 +17,7 @@ interface AutoCreateRequest {
 }
 
 // POST /api/funnels/auto-create
-// 판매원이 마법사로 작성한 자동메시지 저장
+// 대리점장이 마법사로 작성한 자동메시지 저장
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext()

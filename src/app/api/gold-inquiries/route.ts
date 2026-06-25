@@ -17,9 +17,9 @@ function buildAssigneeLabel(
   if (!affiliateCode && !agentId) return '본사';
   if (!agentDisplayName) return affiliateCode ? '(' + affiliateCode + ')' : '본사';
   const rolePrefix =
-    agentType === 'OWNER' ? '대리점장' :
-    agentType === 'AGENT' ? '판매원' :
-    agentType === 'FREE_SALES' ? '프리세일즈' : '';
+    agentType === 'OWNER' ? '지사장' :
+    agentType === 'AGENT' ? '대리점장' :
+    agentType === 'FREE_SALES' ? '마케터' : '';
   return rolePrefix ? rolePrefix + ' ' + agentDisplayName : agentDisplayName;
 }
 

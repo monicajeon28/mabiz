@@ -786,7 +786,7 @@ export default function ContactsPage() {
         <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center text-3xl">🔒</div>
         <h2 className="text-xl font-bold text-gray-900">고객 목록 접근 권한이 없습니다</h2>
         <p className="text-base text-gray-600 max-w-sm">
-          프리세일즈 역할은 고객 목록을 볼 수 없습니다.<br />대리점장에게 문의하세요.
+          마케터 역할은 고객 목록을 볼 수 없습니다.<br />지사장에게 문의하세요.
         </p>
       </div>
     );
@@ -928,12 +928,12 @@ export default function ContactsPage() {
           <p className="text-sm text-gray-500 mt-0.5">총 {total.toLocaleString()}명</p>
         </div>
         <div className="flex gap-2">
-          {/* 삭제 DB(휴지통) 진입 — 대리점장/관리자만 */}
+          {/* 삭제 DB(휴지통) 진입 — 지사장/관리자만 */}
           {canDelete && (
             <Link
               href="/contacts/trash"
               className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
-              title="삭제된 고객을 보고 복구합니다 (대리점장/관리자 전용)"
+              title="삭제된 고객을 보고 복구합니다 (지사장/관리자 전용)"
             >
               <Trash2 className="w-4 h-4" />
               삭제 DB
@@ -954,7 +954,7 @@ export default function ContactsPage() {
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
                   className="flex items-center gap-1.5 px-3 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors shadow-sm"
-                  title="선택된 고객을 삭제합니다 (대리점장/관리자 전용)"
+                  title="선택된 고객을 삭제합니다 (지사장/관리자 전용)"
                 >
                   <X className="w-4 h-4" />
                   삭제 ({selectedIds.size}명)
@@ -1563,7 +1563,7 @@ export default function ContactsPage() {
                               {SOURCE_TYPE_LABELS[c.sourceType]?.icon} {getSourceLabel(c)}
                             </span>
                             {c.affiliateManagerName && <span className="text-gray-600">본사: {c.affiliateManagerName}</span>}
-                            {c.affiliateAgentName && <span className="text-gray-600">판매원: {c.affiliateAgentName}</span>}
+                            {c.affiliateAgentName && <span className="text-gray-600">대리점장: {c.affiliateAgentName}</span>}
                             {c.inquiryProductCode && <span className="text-gray-600">상품: {c.inquiryProductCode}</span>}
                           </>
                         )}

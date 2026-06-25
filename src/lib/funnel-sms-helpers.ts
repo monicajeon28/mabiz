@@ -35,12 +35,12 @@ import { resolveOrgId } from '@/lib/rbac';
 //
 // buildContactWhere(rbac.ts)와 동일 철학의 3단 격리:
 //   - GLOBAL_ADMIN : resolveOrgId(=BONSA_ORG_ID) 범위 전체 (org 해석 기존 유지)
-//   - OWNER(대리점장): 소속 organizationId 범위 전체
-//   - AGENT(판매원)  : organizationId 범위 안에서
+//   - OWNER(지사장): 소속 organizationId 범위 전체
+//   - AGENT(대리점장)  : organizationId 범위 안에서
 //        (1) 본인이 만든 것(createdByUserId === userId)
 //        (2) 공유된 것(visibility TEAM/PUBLIC 이거나 sharedWith 에 본인 포함)
 //        (3) 조직공용/시드 템플릿(createdByUserId IS NULL 또는 isTemplate)
-//      → 기존 시드/공용 퍼널이 판매원에게서 사라지지 않도록 보호.
+//      → 기존 시드/공용 퍼널이 대리점장에게서 사라지지 않도록 보호.
 //
 // 사용처: GET 목록(route.ts), 단건/PATCH/DELETE([id]), messages PUT/sync,
 //         stats, sent-history — 타인 퍼널 조회·편집 차단.

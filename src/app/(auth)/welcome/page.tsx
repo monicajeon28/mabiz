@@ -11,15 +11,15 @@ import { CheckCircle, ArrowRight } from "lucide-react";
 
 const ROLE_COPY: Record<string, { title: string; subtitle: string }> = {
   OWNER: {
-    title: "대리점장으로 등록되었습니다!",
-    subtitle: "팀원 초대 링크를 생성하고 판매원을 관리할 수 있습니다.",
+    title: "지사장으로 등록되었습니다!",
+    subtitle: "팀원 초대 링크를 생성하고 대리점장을 관리할 수 있습니다.",
   },
   AGENT: {
-    title: "판매원으로 등록되었습니다!",
+    title: "대리점장으로 등록되었습니다!",
     subtitle: "대시보드에서 고객 관리와 판매 현황을 확인하세요.",
   },
   FREE_SALES: {
-    title: "프리세일즈로 등록되었습니다!",
+    title: "마케터로 등록되었습니다!",
     subtitle: "대시보드에서 내 판매 현황을 확인하세요.",
   },
 };
@@ -53,7 +53,7 @@ function WelcomeContent() {
             <ul className="text-sm text-blue-700 space-y-1.5 list-none">
               {role === "OWNER" ? (
                 <>
-                  <li>• 설정 → 팀원 관리에서 판매원 초대 링크를 생성하세요</li>
+                  <li>• 설정 → 팀원 관리에서 대리점장 초대 링크를 생성하세요</li>
                   <li>• 대시보드에서 팀 성과를 실시간 확인하세요</li>
                   <li>• 설정 → 이메일 설정에서 알림 이메일을 연결하세요</li>
                 </>

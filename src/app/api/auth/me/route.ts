@@ -6,7 +6,7 @@ export async function GET() {
   const ctx = await getMabizSession();
   if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
 
-  // 담당자(대리점/판매원) 본인 전화번호 조회 — 서류 "담당자 연락처" 자동 표시용
+  // 담당자(대리점/대리점장) 본인 전화번호 조회 — 서류 "담당자 연락처" 자동 표시용
   let phone: string | null = null;
   if (ctx.member?.id) {
     const m = await prisma.organizationMember

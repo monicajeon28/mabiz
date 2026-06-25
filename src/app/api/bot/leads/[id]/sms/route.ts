@@ -1,7 +1,7 @@
 /**
- * POST /api/bot/leads/[id]/sms — 판매원이 봇 리드 손님에게 "한 번 더 클로징 문자" 발송 (Phase 6)
+ * POST /api/bot/leads/[id]/sms — 대리점장이 봇 리드 손님에게 "한 번 더 클로징 문자" 발송 (Phase 6)
  *
- * per-user 격리: AGENT/FREE_SALES 는 본인 귀속 리드만. 발신은 판매원 본인 Aligo(개인>조직>env).
+ * per-user 격리: AGENT/FREE_SALES 는 본인 귀속 리드만. 발신은 대리점장 본인 Aligo(개인>조직>env).
  * 손님 연락처(customerPhone)가 저장돼 있어야 발송 가능.
  */
 import { NextResponse } from "next/server";
@@ -38,7 +38,7 @@ export async function POST(req: Request, { params }: Params) {
     if (!convo) {
       return NextResponse.json({ ok: false, message: "대화를 찾을 수 없습니다." }, { status: 404 });
     }
-    // per-user 격리: 판매원은 본인 귀속 리드만
+    // per-user 격리: 대리점장은 본인 귀속 리드만
     if (
       (ctx.role === "AGENT" || ctx.role === "FREE_SALES") &&
       convo.attributedAgentId !== ctx.userId
@@ -52,7 +52,7 @@ export async function POST(req: Request, { params }: Params) {
       );
     }
 
-    const config = await resolveUserSmsConfig(orgId, ctx.userId); // 판매원 본인 발신
+    const config = await resolveUserSmsConfig(orgId, ctx.userId); // 대리점장 본인 발신
     if (!config) {
       return NextResponse.json(
         { ok: false, message: "문자 발신 설정이 없어요. 설정 > 문자에서 발신번호를 등록해주세요." },

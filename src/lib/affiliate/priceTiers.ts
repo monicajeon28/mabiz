@@ -1,4 +1,4 @@
-// 대리점/판매원 계약 가격 정책
+// 대리점/대리점장 계약 가격 정책
 // 수수료율·역할 등급은 여기서만 정의 — 다른 파일에서 하드코딩 금지
 
 // 수수료율은 상품별로 별도 관리 (어필리에이트 수당 등록) — 여기서 설정하지 않음
@@ -25,7 +25,7 @@ export const CONTRACT_PRICE_TIERS = {
     priceKRW: 7_500_000,
     memberType: 'BRANCH_MANAGER' as const,
     description: '대리점 계약',
-    contractTitle: 'B2B 대리점장 계약서',
+    contractTitle: 'B2B 지사장 계약서',
   },
 } as const;
 

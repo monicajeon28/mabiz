@@ -196,7 +196,7 @@ export default function ContactsAnalyticsPage() {
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl p-6">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">👤 Top 판매원</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-4">👤 Top 대리점장</h2>
           <div className="space-y-3">
             {data.topAgents.map((agent, idx) => (
               <div key={agent.agentId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">

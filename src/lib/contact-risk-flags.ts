@@ -98,7 +98,7 @@ export function flagInactivity1YearPlus(contact: Contact): RiskFlagResult | null
     severity: 'critical',
     riskScore: 85,
     description: `${daysSinceLastContact}일(${Math.floor(daysSinceLastContact / 365)}년) 동안 접촉 없음 - Churn 위험 매우 높음`,
-    suggestedAction: 'Win-Back 캠페인 + 대리점장 직접 연락',
+    suggestedAction: 'Win-Back 캠페인 + 지사장 직접 연락',
     triggeredAt: now,
   };
 }

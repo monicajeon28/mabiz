@@ -120,7 +120,7 @@ export default function TrustScorePage() {
       <div>
         <h1 className="text-32px font-bold text-gray-900">신뢰도 점수</h1>
         <p className="text-16px text-gray-600 mt-2">
-          판매원으로서의 신뢰도를 한눈에 확인하세요
+          대리점장으로서의 신뢰도를 한눈에 확인하세요
         </p>
       </div>
 
@@ -236,7 +236,7 @@ export default function TrustScorePage() {
         <h2 className="text-18px font-semibold text-gray-900 mb-4">신뢰도란?</h2>
         <div className="space-y-3 text-14px text-gray-700">
           <p>
-            ✅ <strong>신뢰도</strong>는 판매원으로서의 신뢰를 점수로 나타낸 것입니다.
+            ✅ <strong>신뢰도</strong>는 대리점장으로서의 신뢰를 점수로 나타낸 것입니다.
           </p>
           <p>
             📊 <strong>계산 방식</strong>: 신뢰도 = 100 - 환불율(%)

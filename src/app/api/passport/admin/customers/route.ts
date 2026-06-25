@@ -45,7 +45,7 @@ const MAX_LIMIT = 200;
 // ── 전화번호 마스킹 함수 ────────────────────────────────────────
 /**
  * 전화번호를 마스킹합니다
- * - GLOBAL_ADMIN, OWNER, AGENT: 전체 공개 (관리자/대리점장 권한)
+ * - GLOBAL_ADMIN, OWNER, AGENT: 전체 공개 (관리자/지사장 권한)
  * - 그 외: 마스킹 (010-****-**** 형식) — 외부 노출 시에만
  *
  * @param phone - 전화번호 (원본 형식: 01012345678, 010-1234-5678, 02-1234-5678 등)
@@ -55,7 +55,7 @@ const MAX_LIMIT = 200;
 function maskPhoneNumber(phone: string | null, role: string): string | null {
   if (!phone) return null;
 
-  // 관리자, 대리점장: 전체 번호 공개
+  // 관리자, 지사장: 전체 번호 공개
   if (['GLOBAL_ADMIN', 'OWNER'].includes(role)) return phone;
 
   // 기타 역할: 숫자만 추출하여 마스킹
@@ -78,7 +78,7 @@ function maskPhoneNumber(phone: string | null, role: string): string | null {
 /**
  * GET /api/passport/admin/customers
  * 여권 요청 고객 목록 조회
- * 권한: GLOBAL_ADMIN + OWNER (대리점장)
+ * 권한: GLOBAL_ADMIN + OWNER (지사장)
  */
 export async function GET(req: NextRequest) {
   try {

@@ -25,7 +25,7 @@ export async function GET(req: Request) {
       _count: { id: true },
     });
 
-    // 3. 판매원별 고객 분포
+    // 3. 대리점장별 고객 분포
     const agentDistribution = await prisma.contact.groupBy({
       by: ["affiliateAgentId"],
       where: { ...baseWhere, sourceType: "affiliate" },
@@ -65,7 +65,7 @@ export async function GET(req: Request) {
       };
     });
 
-    // 5. 본사/판매원 이름 조회
+    // 5. 본사/대리점장 이름 조회
     const affiliateUserIds = [
       ...new Set([
         ...managerDistribution.map((m) => m.affiliateManagerId).filter(Boolean),

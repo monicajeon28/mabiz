@@ -39,7 +39,7 @@ async function uniqueSlug(base: string): Promise<string> {
 }
 
 /**
- * 대리점장 프로필에 대한 독립 Organization을 find-or-create합니다.
+ * 지사장 프로필에 대한 독립 Organization을 find-or-create합니다.
  * contractRef = "aff-profile-{profileId}" 를 멱등 키로 사용합니다.
  */
 async function findOrCreateAgentOrg(profileId: number, displayName: string | null): Promise<string> {
@@ -48,9 +48,9 @@ async function findOrCreateAgentOrg(profileId: number, displayName: string | nul
   if (existing) return existing.id;
 
   const baseName = displayName ?? `대리점-${profileId}`;
-  // "대리점장" 접미사 제거 후 조직명 결정
-  const orgName = baseName.endsWith(' 대리점장')
-    ? baseName.replace(/ 대리점장$/, ' 대리점')
+  // "지사장" 접미사 제거 후 조직명 결정
+  const orgName = baseName.endsWith(' 지사장')
+    ? baseName.replace(/ 지사장$/, ' 대리점')
     : `${baseName} 대리점`;
 
   const slug = await uniqueSlug(slugify(orgName));
@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
           organizationId: agentOrgId,
           userId: gmUserId,
           role: 'OWNER',
-          displayName: profile.displayName ?? gmUser.name ?? '대리점장',
+          displayName: profile.displayName ?? gmUser.name ?? '지사장',
           phone: profile.contactPhone ?? gmUser.phone ?? null,
           email: profile.contactEmail ?? gmUser.email ?? null,
           passwordHash: gmUser.password,

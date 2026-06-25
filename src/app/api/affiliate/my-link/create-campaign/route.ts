@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
 
     if (ctx.role !== 'OWNER') {
       return NextResponse.json(
-        { ok: false, error: '대리점장만 캠페인 링크를 생성할 수 있습니다' },
+        { ok: false, error: '지사장만 캠페인 링크를 생성할 수 있습니다' },
         { status: 403 }
       );
     }

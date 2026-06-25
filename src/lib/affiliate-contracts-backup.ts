@@ -1,6 +1,6 @@
 /**
  * 파트너 계약 신청 → Google Drive Excel 백업
- * 시트 구성: 대리점장 / 판매원 / 프리세일즈 / 파트너스 / 전체
+ * 시트 구성: 지사장 / 대리점장 / 마케터 / 파트너스 / 전체
  */
 export const runtime = 'nodejs';
 
@@ -49,17 +49,17 @@ const STATUS_KO: Record<string, string> = {
 };
 
 const CONTRACT_TYPE_KO: Record<string, string> = {
-  BRANCH_MANAGER: '대리점장',
-  SALES_AGENT: '판매원',
-  PRE_SALES: '프리세일즈',
+  BRANCH_MANAGER: '지사장',
+  SALES_AGENT: '대리점장',
+  PRE_SALES: '마케터',
   HQ: '본사',
   CRUISE_PARTNER: '파트너스',
 };
 
 const SHEET_ORDER: Array<{ typeKey: string; sheetName: string }> = [
-  { typeKey: 'BRANCH_MANAGER', sheetName: '대리점장' },
-  { typeKey: 'SALES_AGENT',    sheetName: '판매원' },
-  { typeKey: 'PRE_SALES',      sheetName: '프리세일즈' },
+  { typeKey: 'BRANCH_MANAGER', sheetName: '지사장' },
+  { typeKey: 'SALES_AGENT',    sheetName: '대리점장' },
+  { typeKey: 'PRE_SALES',      sheetName: '마케터' },
   { typeKey: 'CRUISE_PARTNER', sheetName: '파트너스' },
   { typeKey: 'HQ',             sheetName: '본사' },
 ];

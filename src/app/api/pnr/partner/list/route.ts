@@ -9,7 +9,7 @@ import { enforceRBAC } from '@/app/api/_middleware/enforce-rbac';
 
 /**
  * GET /api/pnr/partner/list
- * 대리점장의 예약 목록 조회
+ * 지사장의 예약 목록 조회
  */
 export async function GET(req: NextRequest) {
   // ────────────────────────────────────────────────────────
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     }
     const { profile } = ctx;
 
-    // 대리점장인 경우 팀 판매원들의 ID 목록 조회
+    // 지사장인 경우 팀 대리점장들의 ID 목록 조회
     let teamAgentIds: number[] = [];
     if (profile.type === 'BRANCH_MANAGER') {
       const teamRelations = await prisma.gmAffiliateRelation.findMany({
@@ -48,16 +48,16 @@ export async function GET(req: NextRequest) {
         .filter((id): id is number => id !== null);
     }
 
-    // 대리점장/판매원이 관리하는 Lead 조회
-    // 대리점장인 경우: 자신이 managerId인 Lead + 팀 판매원들이 agentId인 Lead
-    // 판매원인 경우: 자신이 agentId인 Lead
+    // 지사장/대리점장이 관리하는 Lead 조회
+    // 지사장인 경우: 자신이 managerId인 Lead + 팀 대리점장들이 agentId인 Lead
+    // 대리점장인 경우: 자신이 agentId인 Lead
     const managedLeads = await prisma.gmAffiliateLead.findMany({
       where: {
         customerPhone: { not: null },
         OR: [
           { managerId: profile.id },
           { agentId: profile.id },
-          // 대리점장인 경우 팀 판매원들이 관리하는 Lead도 포함
+          // 지사장인 경우 팀 대리점장들이 관리하는 Lead도 포함
           ...(profile.type === 'BRANCH_MANAGER' && teamAgentIds.length > 0
             ? [{ agentId: { in: teamAgentIds } }]
             : []),
@@ -131,7 +131,7 @@ export async function GET(req: NextRequest) {
 
     const userIdArray = Array.from(managedUserIds);
 
-    // 예약 목록 조회 (대리점장/판매원이 관리하는 고객의 예약)
+    // 예약 목록 조회 (지사장/대리점장이 관리하는 고객의 예약)
     // 빈 배열일 때는 쿼리를 실행하지 않음
     const reservations = userIdArray.length > 0
       ? await prisma.gmReservation.findMany({

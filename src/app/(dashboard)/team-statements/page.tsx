@@ -79,13 +79,13 @@ type ModalState = {
 // ─── 상수 ─────────────────────────────────────────────────────────────────────
 
 const ROLE_LABELS: Record<string, string> = {
-  BRANCH_MANAGER: "대리점장",
-  SALES_AGENT:    "판매원",
-  PRESALES_AGENT: "프리세일즈",
+  BRANCH_MANAGER: "지사장",
+  SALES_AGENT:    "대리점장",
+  PRESALES_AGENT: "마케터",
   // 구버전 fallback
-  OWNER: "대리점장",
-  AGENT: "판매원",
-  FREE_SALES: "프리세일즈",
+  OWNER: "지사장",
+  AGENT: "대리점장",
+  FREE_SALES: "마케터",
 };
 
 const ROLE_BADGE_COLORS: Record<string, string> = {
@@ -517,7 +517,7 @@ export default function TeamStatementsPage() {
     <div className="p-6 max-w-2xl mx-auto text-center mt-20">
       <XCircle className="w-14 h-14 text-red-400 mx-auto mb-4" />
       <h2 className="text-xl font-bold text-navy-900 mb-2">접근 권한 없음</h2>
-      <p className="text-gray-500 text-sm">팀 정산 관리 페이지는 본사 또는 대리점장만 접근할 수 있습니다.</p>
+      <p className="text-gray-500 text-sm">팀 정산 관리 페이지는 본사 또는 지사장만 접근할 수 있습니다.</p>
     </div>
   );
 
@@ -537,7 +537,7 @@ export default function TeamStatementsPage() {
               <FileText className="w-6 h-6 text-teal-600" />
               <h1 className="text-2xl font-bold text-navy-900">팀 정산 관리</h1>
             </div>
-            <p className="text-base text-gray-600">대리점장·판매원·프리세일즈 월별 커미션 정산 현황</p>
+            <p className="text-base text-gray-600">지사장·대리점장·마케터 월별 커미션 정산 현황</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -563,9 +563,9 @@ export default function TeamStatementsPage() {
             <select value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
               className="px-4 py-2.5 text-base border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-navy-900/20 min-h-[44px]">
               <option value="all">전체 역할</option>
-              <option value="BRANCH_MANAGER">대리점장</option>
-              <option value="SALES_AGENT">판매원</option>
-              <option value="PRESALES_AGENT">프리세일즈</option>
+              <option value="BRANCH_MANAGER">지사장</option>
+              <option value="SALES_AGENT">대리점장</option>
+              <option value="PRESALES_AGENT">마케터</option>
             </select>
           </div>
         </div>

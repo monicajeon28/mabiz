@@ -1,11 +1,11 @@
 /**
  * 판매 권한 관리 함수 모음
- * 역할별(관리자/대리점장/판매원) 데이터 접근 제어
+ * 역할별(관리자/지사장/대리점장) 데이터 접근 제어
  *
  * 규칙:
  * - 관리자(GLOBAL_ADMIN): 모든 데이터 조회
- * - 대리점장(OWNER): 자신의 팀만 조회
- * - 판매원(AGENT): 자신의 데이터만 조회
+ * - 지사장(OWNER): 자신의 팀만 조회
+ * - 대리점장(AGENT): 자신의 데이터만 조회
  */
 
 // ============================================
@@ -19,7 +19,7 @@ export function canViewTeamData(
   // 관리자? → YES (전체 조회 권한)
   if (userRole === 'GLOBAL_ADMIN') return true;
 
-  // 대리점장/판매원? → 자기 팀이 있어야 함
+  // 지사장/대리점장? → 자기 팀이 있어야 함
   if (userRole === 'OWNER' || userRole === 'AGENT') {
     return !!userTeamId;
   }
@@ -42,7 +42,7 @@ export function canSettleCommission(userRole: string | null | undefined): boolea
 // ============================================
 
 export function canDispute(userRole: string | null | undefined): boolean {
-  // 관리자 또는 대리점장만 가능
+  // 관리자 또는 지사장만 가능
   return userRole === 'GLOBAL_ADMIN' || userRole === 'OWNER';
 }
 
@@ -60,13 +60,13 @@ export function getAppliedFilters(
     return {};
   }
 
-  // 대리점장? → 자기 팀만
+  // 지사장? → 자기 팀만
   if (userRole === 'OWNER') {
     if (!userTeamId) return null;
     return { teamId: userTeamId };
   }
 
-  // 판매원? → 자기가 만든 것만
+  // 대리점장? → 자기가 만든 것만
   if (userRole === 'AGENT') {
     if (!userId) return null;
     return { createdBy: userId };
@@ -203,12 +203,12 @@ export function canViewTeamId(
     return true;
   }
 
-  // 대리점장 → 자신의 팀만 조회 가능
+  // 지사장 → 자신의 팀만 조회 가능
   if (userRole === 'OWNER') {
     return userTeamId === requestedTeamId;
   }
 
-  // 판매원 → 팀 조회 불가
+  // 대리점장 → 팀 조회 불가
   return false;
 }
 

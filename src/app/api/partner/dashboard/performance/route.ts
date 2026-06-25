@@ -102,7 +102,7 @@ export async function GET(_req: Request) {
 
     // ── 판매 데이터 (단일 배치 쿼리) ──
     // ⚠️ affiliateUserId 에는 User.id 가 저장됨(OrganizationMember.id 아님).
-    //    멤버.id 로 매칭하면 영영 0건이 되어 모든 판매원이 0건/GREEN 으로 표시됨.
+    //    멤버.id 로 매칭하면 영영 0건이 되어 모든 대리점장이 0건/GREEN 으로 표시됨.
     const memberIds = memberRows.map(m => m.id);           // 정지현황(partnerId = OrganizationMember.id)용
     const memberUserIds = memberRows.map(m => m.userId);   // 판매(affiliateUserId = User.id)용
     const allSales = await prisma.affiliateSale.findMany({

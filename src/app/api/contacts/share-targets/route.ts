@@ -6,8 +6,8 @@ import { logger } from "@/lib/logger";
 /**
  * GET /api/contacts/share-targets
  * DB 공유 가능한 대상 목록 반환
- * - AGENT: 자기 대리점장 + 본사
- * - OWNER: 대리점장 전체 + 자기 직속 판매원 + 본사
+ * - AGENT: 자기 지사장 + 본사
+ * - OWNER: 지사장 전체 + 자기 직속 대리점장 + 본사
  * - GLOBAL_ADMIN: 모든 멤버
  */
 export async function GET() {
@@ -52,7 +52,7 @@ export async function GET() {
           id: m.id,
           displayName: m.displayName ?? "이름없음",
           loginId: m.phone ?? m.id,
-          role: m.role === "OWNER" ? "대리점장" : "지점장",
+          role: m.role === "OWNER" ? "지사장" : "지점장",
           orgName: m.organization.name,
         });
       }
@@ -84,7 +84,7 @@ export async function GET() {
           id: m.id,
           displayName: m.displayName ?? "이름없음",
           loginId: m.id,
-          role: m.role === "OWNER" ? "대리점장" : m.role === "AGENT" || m.role === "SALES_AGENT" ? "판매원" : "지점장",
+          role: m.role === "OWNER" ? "지사장" : m.role === "AGENT" || m.role === "SALES_AGENT" ? "대리점장" : "지점장",
           orgName: m.organization.name,
         });
       }
@@ -120,10 +120,10 @@ export async function GET() {
       return true;
     });
 
-    // 역할 라벨 정리 (OWNER → 대리점장, AGENT → 판매원 등)
+    // 역할 라벨 정리 (OWNER → 지사장, AGENT → 대리점장 등)
     const ROLE_LABEL: Record<string, string> = {
-      OWNER: "대리점장", AGENT: "판매원", FREE_SALES: "프리세일즈",
-      BRANCH_MANAGER: "지점장", SALES_AGENT: "판매원",
+      OWNER: "지사장", AGENT: "대리점장", FREE_SALES: "마케터",
+      BRANCH_MANAGER: "지점장", SALES_AGENT: "대리점장",
     };
     const labeled = unique.map(t => ({
       ...t,

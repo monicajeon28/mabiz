@@ -12,8 +12,8 @@ import { logger } from "@/lib/logger";
  *
  * 권한: 단일 send-db와 동일
  *   GLOBAL_ADMIN : 제한 없음
- *   OWNER        : 대리점장 전체 + 본사 + 자기 직속 판매원
- *   AGENT        : 본사 + 자기 대리점장(들)만
+ *   OWNER        : 지사장 전체 + 본사 + 자기 직속 대리점장
+ *   AGENT        : 본사 + 자기 지사장(들)만
  *   FREE_SALES   : 불가
  *
  * Request:
@@ -114,7 +114,7 @@ export async function POST(req: Request) {
             {
               ok: false,
               message:
-                "판매원은 자기 대리점장 또는 본사로만 전달할 수 있습니다.",
+                "대리점장은 자기 지사장 또는 본사로만 전달할 수 있습니다.",
             },
             { status: 403 }
           );
@@ -140,7 +140,7 @@ export async function POST(req: Request) {
             {
               ok: false,
               message:
-                "대리점장은 대리점장 전체, 자기 직속 판매원, 본사로만 전달할 수 있습니다.",
+                "지사장은 지사장 전체, 자기 직속 대리점장, 본사로만 전달할 수 있습니다.",
             },
             { status: 403 }
           );
@@ -167,7 +167,7 @@ export async function POST(req: Request) {
 
     // ── 대상 고객 일괄 조회 (per-user 소유권 격리) ────────────────────────
     // buildContactWhere: GLOBAL_ADMIN=전체 / OWNER=조직전체 / AGENT=본인 소유·공유만.
-    // → AGENT가 타 판매원 고객 ID를 넣어 자기에게 재배정/복사하던 누수 차단.
+    // → AGENT가 타 대리점장 고객 ID를 넣어 자기에게 재배정/복사하던 누수 차단.
     const contacts = await prisma.contact.findMany({
       where: buildContactWhere(ctx, { id: { in: ids } }),
       select: { id: true, name: true, phone: true, organizationId: true, sourceOrgId: true, email: true, type: true, cruiseInterest: true, budgetRange: true, tags: true, leadScore: true, utmSource: true, affiliateCode: true },

@@ -33,7 +33,7 @@ interface BackupRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    // [보안] 고객 PII 백업은 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용.
+    // [보안] 고객 PII 백업은 지사장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용.
     // 기존엔 인증이 전혀 없어 body의 organizationId만으로 임의 조직 PII를 내보낼 수 있었음(교차조직 유출).
     const ctx = await getAuthContext();
     if (!canManageSettings(ctx)) {
@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    // [보안] 백업 목록도 대리점장·관리자 전용 + 본인 조직만
+    // [보안] 백업 목록도 지사장·관리자 전용 + 본인 조직만
     const ctx = await getAuthContext();
     if (!canManageSettings(ctx)) {
       return NextResponse.json({ ok: false, error: '권한이 없습니다' }, { status: 403 });

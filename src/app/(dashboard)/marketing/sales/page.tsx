@@ -261,7 +261,7 @@ function AccessDeniedView() {
         <Lock className="w-16 h-16 text-gray-300" />
         <h1 className="text-xl font-bold text-gray-700">🔒 접근할 수 없어요</h1>
         <p className="text-base text-gray-500 text-center max-w-sm">
-          이 페이지는 대리점장이나 관리자만 볼 수 있어요.<br />
+          이 페이지는 지사장이나 관리자만 볼 수 있어요.<br />
           권한이 필요하면 관리자에게 말씀해주세요.
         </p>
       </div>

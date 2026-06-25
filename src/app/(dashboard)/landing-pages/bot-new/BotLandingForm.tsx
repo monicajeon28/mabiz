@@ -131,7 +131,7 @@ export default function BotLandingForm({ products }: Props) {
             </a>
           </div>
           <p className="mt-4 text-sm leading-relaxed text-slate-500">
-            이 봇 랜딩을 <b>대리점장·판매원에게 공유</b>하면, 각자 “복사해서 쓰기”로
+            이 봇 랜딩을 <b>지사장·대리점장에게 공유</b>하면, 각자 “복사해서 쓰기”로
             자기 링크를 만들어 마케팅에 쓸 수 있어요.
           </p>
         </div>

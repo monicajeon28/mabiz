@@ -8,9 +8,9 @@ import { ArrowLeft, Loader2, CheckCircle, AlertCircle, Copy, Check } from 'lucid
 type PartnerRole = 'BRANCH_MANAGER' | 'SALES_AGENT' | 'PRE_SALES' | 'HQ';
 
 const ROLE_LABELS: Record<PartnerRole, string> = {
-  BRANCH_MANAGER: '대리점장',
-  SALES_AGENT: '판매원',
-  PRE_SALES: '프리세일즈',
+  BRANCH_MANAGER: '지사장',
+  SALES_AGENT: '대리점장',
+  PRE_SALES: '마케터',
   HQ: '본사',
 };
 

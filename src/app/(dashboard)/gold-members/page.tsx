@@ -97,7 +97,7 @@ export default function GoldMembersPage() {
   const [groups, setGroups]       = useState<Group[]>([]);
   const [assigning, setAssigning] = useState<string | null>(null); // memberId
 
-  // 담당 판매원 목록 (OWNER/GLOBAL_ADMIN 등록 시 사용)
+  // 담당 대리점장 목록 (OWNER/GLOBAL_ADMIN 등록 시 사용)
   const [agents, setAgents] = useState<AgentOption[]>([]);
   const [agentsLoading, setAgentsLoading] = useState(false);
 
@@ -162,7 +162,7 @@ export default function GoldMembersPage() {
       .catch(() => {});
   }, []);
 
-  // 관리자/대리점장: 삭제 요청 대기 건수 로드
+  // 관리자/지사장: 삭제 요청 대기 건수 로드
   useEffect(() => {
     if (!isAdmin && !isOwner) return;
     fetch('/api/gold-members/delete-requests?status=PENDING')
@@ -171,7 +171,7 @@ export default function GoldMembersPage() {
       .catch(() => {});
   }, [isAdmin, isOwner]);
 
-  // 삭제 요청 제출 (대리점장)
+  // 삭제 요청 제출 (지사장)
   const handleDeleteRequest = useCallback(async () => {
     if (!deleteReqTarget || !deleteReqReason.trim()) return;
     setDeleteReqSubmitting(true);
@@ -251,7 +251,7 @@ export default function GoldMembersPage() {
     }
   }, [groups, toast]);
 
-  // 드로어가 열릴 때 판매원 목록 로드 (OWNER/GLOBAL_ADMIN)
+  // 드로어가 열릴 때 대리점장 목록 로드 (OWNER/GLOBAL_ADMIN)
   useEffect(() => {
     if (!drawerOpen || isAgent) return;
     if (agents.length > 0) return; // 이미 로드된 경우 재요청 안 함
@@ -260,7 +260,7 @@ export default function GoldMembersPage() {
       .then((r) => r.json())
       .then((d: { ok?: boolean; sections?: Array<{ label: string; members: AgentOption[] }> }) => {
         if (d.ok && Array.isArray(d.sections)) {
-          const agentSection = d.sections.find((s) => s.label === '판매원');
+          const agentSection = d.sections.find((s) => s.label === '대리점장');
           setAgents(agentSection?.members ?? []);
         }
       })
@@ -339,7 +339,7 @@ export default function GoldMembersPage() {
         )}
       </div>
 
-      {/* 관리자/대리점장: 삭제 요청 대기 배너 */}
+      {/* 관리자/지사장: 삭제 요청 대기 배너 */}
       {(isAdmin || isOwner) && pendingCount > 0 && (
         <div className="mb-4 flex items-center gap-3 px-4 py-3 rounded-xl border border-red-200" style={{ backgroundColor: '#FADBD8' }}>
           <AlertTriangle className="w-5 h-5 flex-shrink-0" style={{ color: '#E74C3C' }} />
@@ -604,7 +604,7 @@ export default function GoldMembersPage() {
         </div>
       )}
 
-      {/* 대리점장 전용: 삭제 요청 모달 */}
+      {/* 지사장 전용: 삭제 요청 모달 */}
       {deleteReqModalOpen && deleteReqTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => { setDeleteReqModalOpen(false); setDeleteReqReason(''); }} />
@@ -838,19 +838,19 @@ export default function GoldMembersPage() {
                 </div>
               )}
 
-              {/* 담당 판매원 (OWNER/GLOBAL_ADMIN만 표시) */}
+              {/* 담당 대리점장 (OWNER/GLOBAL_ADMIN만 표시) */}
               {(isAdmin || isOwner) && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     <span className="flex items-center gap-1">
                       <UserCheck className="w-3.5 h-3.5 inline" />
-                      담당 판매원
+                      담당 대리점장
                     </span>
                   </label>
                   {agentsLoading ? (
                     <div className="flex items-center gap-2 px-3 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg bg-gray-50">
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      판매원 목록 불러오는 중...
+                      대리점장 목록 불러오는 중...
                     </div>
                   ) : (
                     <select
@@ -866,7 +866,7 @@ export default function GoldMembersPage() {
                       ))}
                     </select>
                   )}
-                  <p className="mt-1 text-xs text-gray-500">이 골드회원을 관리할 판매원을 선택합니다.</p>
+                  <p className="mt-1 text-xs text-gray-500">이 골드회원을 관리할 대리점장을 선택합니다.</p>
                 </div>
               )}
 

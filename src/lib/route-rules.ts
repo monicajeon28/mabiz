@@ -75,17 +75,17 @@ export const ROUTE_RULES: RouteRule[] = [
     redirectTo: '/dashboard',
   },
 
-  // 수익 계산기 - GLOBAL_ADMIN 전용 (대리점장/판매원 차단)
+  // 수익 계산기 - GLOBAL_ADMIN 전용 (지사장/대리점장 차단)
   {
     pattern: '/tools/profit-calculator',
     requiredRole: 'GLOBAL_ADMIN',
     redirectTo: '/tools',
   },
 
-  // OWNER 이상 전용 — 판매원(AGENT) 직접 URL 접근 차단 [API-SALES-004]
+  // OWNER 이상 전용 — 대리점장(AGENT) 직접 URL 접근 차단 [API-SALES-004]
   { pattern: '/marketing',          requiredRole: 'OWNER', redirectTo: '/contacts' },
   { pattern: '/marketing/*',        requiredRole: 'OWNER', redirectTo: '/contacts' },
-  // 랜딩페이지: 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용. 판매원(AGENT 40<50) 차단 (P0-2)
+  // 랜딩페이지: 지사장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용. 대리점장(AGENT 40<50) 차단 (P0-2)
   { pattern: '/landing-pages',      requiredRole: 'OWNER', redirectTo: '/contacts' },
   { pattern: '/landing-pages/*',    requiredRole: 'OWNER', redirectTo: '/contacts' },
   { pattern: '/funnel-sms',         requiredRole: 'MEMBER', redirectTo: '/messages' },
@@ -207,10 +207,10 @@ export function hasRequiredRole(
 ): boolean {
   const hierarchy: Record<AuthRole, number> = {
     'GLOBAL_ADMIN': 100,  // 관리자
-    'OWNER': 50,          // 대리점장
-    'AGENT': 40,          // 판매원
+    'OWNER': 50,          // 지사장
+    'AGENT': 40,          // 대리점장
     'MEMBER': 50,         // 멤버 (호환성)
-    'FREE_SALES': 10,     // 프리세일즈 (접근 제한)
+    'FREE_SALES': 10,     // 마케터 (접근 제한)
     'UNKNOWN': 0,         // 인증 안 됨
   };
 

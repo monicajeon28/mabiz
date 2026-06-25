@@ -6,8 +6,8 @@
  *
  * 역할:
  * - GLOBAL_ADMIN: 관리자 (모든 버튼 활성)
- * - OWNER: 대리점장 (정산/재계산 제외)
- * - AGENT: 판매원 (확인/엑셀만)
+ * - OWNER: 지사장 (정산/재계산 제외)
+ * - AGENT: 대리점장 (확인/엑셀만)
  * - FREE_SALES: 일반사용자 (모든 버튼 숨김)
  */
 
@@ -50,12 +50,12 @@ export const ROLE_DESCRIPTIONS: Record<UserRole, { title: string; description: s
     description: '마비즈 전체를 관리하는 사람. 모든 팀의 수당을 보고 정산할 수 있어요.',
   },
   OWNER: {
-    title: '대리점장',
-    description: '자기 팀 판매원들을 관리하는 사람. 자기 팀의 수당만 보고 관리할 수 있어요.',
+    title: '지사장',
+    description: '자기 팀 대리점장들을 관리하는 사람. 자기 팀의 수당만 보고 관리할 수 있어요.',
   },
   AGENT: {
-    title: '판매원',
-    description: '여행을 파는 판매원. 자기 수당만 보고 확인할 수 있어요.',
+    title: '대리점장',
+    description: '여행을 파는 대리점장. 자기 수당만 보고 확인할 수 있어요.',
   },
   FREE_SALES: {
     title: '일반 사용자',
@@ -90,7 +90,7 @@ export function canClickSettleButton(role: UserRole): ButtonPermission {
 }
 
 // ============================================================================
-// 권한 함수 2: 이의제기 (관리자 + 대리점장)
+// 권한 함수 2: 이의제기 (관리자 + 지사장)
 // ============================================================================
 
 export function canClickDisputeButton(role: UserRole): ButtonPermission {
@@ -156,7 +156,7 @@ export function getExcelDownloadScope(role: UserRole): ButtonPermission {
       return {
         status: 'enabled',
         scope: {
-          label: '당신 팀 판매원의 수당만 다운로드합니다.',
+          label: '당신 팀 대리점장의 수당만 다운로드합니다.',
           scope: 'team',
           fileName: '[마비즈] 우리 팀 수당 기록.xlsx',
         },
@@ -267,7 +267,7 @@ export const BUTTON_CONFIG = {
   settle: {
     icon: '💰',
     label: '월말정산',
-    description: '모든 판매원의 수당을 계산해서 돈을 주는 거예요.',
+    description: '모든 대리점장의 수당을 계산해서 돈을 주는 거예요.',
   },
   dispute: {
     icon: '🚨',

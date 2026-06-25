@@ -33,7 +33,7 @@ export async function GET(
       );
     }
 
-    // 대리점장인 경우 팀 판매원들의 ID 목록 조회
+    // 지사장인 경우 팀 대리점장들의 ID 목록 조회
     let teamAgentIds: number[] = [];
     if (profile.type === 'BRANCH_MANAGER') {
       const teamRelations = await prisma.gmAffiliateRelation.findMany({
@@ -50,13 +50,13 @@ export async function GET(
         .filter((id): id is number => id !== null);
     }
 
-    // 대리점장/판매원이 관리하는 Lead 조회
+    // 지사장/대리점장이 관리하는 Lead 조회
     const managedLeads = await prisma.gmAffiliateLead.findMany({
       where: {
         OR: [
           { managerId: profile.id },
           { agentId: profile.id },
-          // 대리점장인 경우 팀 판매원들이 관리하는 Lead도 포함
+          // 지사장인 경우 팀 대리점장들이 관리하는 Lead도 포함
           ...(profile.type === 'BRANCH_MANAGER' && teamAgentIds.length > 0
             ? [{ agentId: { in: teamAgentIds } }]
             : []),

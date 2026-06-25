@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
 
-    // 판매원·프리세일즈 완전 차단
+    // 대리점장·마케터 완전 차단
     if (ctx.role === 'AGENT' || ctx.role === 'FREE_SALES') {
       return NextResponse.json({ ok: false, error: '접근 권한이 없습니다' }, { status: 403 });
     }
@@ -142,7 +142,7 @@ export async function PATCH(req: Request) {
   try {
     const ctx = await getAuthContext();
 
-    // 판매원·프리세일즈 완전 차단
+    // 대리점장·마케터 완전 차단
     if (ctx.role === 'AGENT' || ctx.role === 'FREE_SALES') {
       return NextResponse.json({ ok: false, error: '접근 권한이 없습니다' }, { status: 403 });
     }

@@ -144,7 +144,7 @@ export async function GET(req: Request) {
           deletedAt: null,
         };
       } else if (ctx.role === 'OWNER') {
-        // OWNER(대리점장): teamView=true면 팀 전체 고객, 아니면 자신의 고객 + 공유받음
+        // OWNER(지사장): teamView=true면 팀 전체 고객, 아니면 자신의 고객 + 공유받음
         const teamView = searchParams.get('teamView') === 'true';
         if (teamView) {
           // 우리 팀 고객: 같은 조직의 모든 공유 고객
@@ -350,7 +350,7 @@ export async function GET(req: Request) {
     orgMembers.forEach((m) => nameMap.set(m.id, { name: m.displayName ?? m.id, orgName: m.organization.name }));
     globalAdmins.forEach((a) => nameMap.set(a.id, { name: a.displayName ?? "본사", orgName: "본사" }));
 
-    // ── 제휴 담당자 정보 배치 조회 (본사/판매원) ──────────────────────────
+    // ── 제휴 담당자 정보 배치 조회 (본사/대리점장) ──────────────────────────
     const affiliateManagerIds = [...new Set(masked.map((c) => c.affiliateManagerId).filter((x): x is string => !!x))];
     const affiliateAgentIds = [...new Set(masked.map((c) => c.affiliateAgentId).filter((x): x is string => !!x))];
     const allAffiliateUserIds = [...new Set([...affiliateManagerIds, ...affiliateAgentIds])] as string[];

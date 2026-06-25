@@ -7,10 +7,10 @@
 /**
  * User role types from mabiz_admin and organization_member tables
  * GLOBAL_ADMIN: Global administrator (mabiz_admin)
- * OWNER: Organization owner / 대리점장 (organization_member)
- * AGENT: Sales agent / 판매원 (organization_member)
+ * OWNER: Organization owner / 지사장 (organization_member)
+ * AGENT: Sales agent / 대리점장 (organization_member)
  * MEMBER: Legacy member (organization_member)
- * FREE_SALES: Pre-sales / 프리세일즈 (organization_member)
+ * FREE_SALES: Pre-sales / 마케터 (organization_member)
  * UNKNOWN: Unauthenticated
  */
 export type AuthRole = 'GLOBAL_ADMIN' | 'OWNER' | 'AGENT' | 'MEMBER' | 'FREE_SALES' | 'UNKNOWN';

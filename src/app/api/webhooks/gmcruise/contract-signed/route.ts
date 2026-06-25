@@ -22,9 +22,9 @@ export const dynamic = 'force-dynamic';
  * 요청 바디:
  * {
  *   contractRef:  string;   // GMcruise 내부 계약 ID (idempotency key)
- *   ownerName:    string;   // 대리점장 이름
- *   ownerPhone:   string;   // 대리점장 전화번호
- *   ownerEmail?:  string;   // 대리점장 이메일 (선택)
+ *   ownerName:    string;   // 지사장 이름
+ *   ownerPhone:   string;   // 지사장 전화번호
+ *   ownerEmail?:  string;   // 지사장 이메일 (선택)
  *   orgName:      string;   // 대리점명
  *   signedAt:     string;   // 서명 완료 시각 (ISO8601)
  * }

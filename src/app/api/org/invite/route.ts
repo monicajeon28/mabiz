@@ -76,7 +76,7 @@ export async function POST(req: Request) {
 
     if (ctx.role !== "OWNER" && ctx.role !== "GLOBAL_ADMIN") {
       return NextResponse.json(
-        { ok: false, message: "대리점장 또는 관리자만 초대 링크를 생성할 수 있습니다." },
+        { ok: false, message: "지사장 또는 관리자만 초대 링크를 생성할 수 있습니다." },
         { status: 403 }
       );
     }

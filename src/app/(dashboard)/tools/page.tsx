@@ -1053,12 +1053,12 @@ export default function ToolsPage() {
                 </div>
               )}
 
-              {/* 판매원 성공사례 */}
+              {/* 대리점장 성공사례 */}
               {feedback.relatedSuccessCases && feedback.relatedSuccessCases.length > 0 && (
                 <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <Star className="w-5 h-5 text-purple-600" />
-                    <h4 className="font-semibold text-purple-900">📊 판매원별 성공사례</h4>
+                    <h4 className="font-semibold text-purple-900">📊 대리점장별 성공사례</h4>
                   </div>
                   <ul className="space-y-2">
                     {feedback.relatedSuccessCases.map((case_, idx) => (
@@ -1206,10 +1206,10 @@ export default function ToolsPage() {
                 </div>
               </div>
 
-              {/* 판매원별 통계 */}
+              {/* 대리점장별 통계 */}
               {callStats.byAgent && callStats.byAgent.length > 0 && (
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-4">판매원별 성과</h3>
+                  <h3 className="text-lg font-bold text-gray-900 mb-4">대리점장별 성과</h3>
                   <div className="space-y-3">
                     {callStats.byAgent.map((agent: any, idx: number) => (
                       <div key={idx} className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
@@ -1311,7 +1311,7 @@ export default function ToolsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-sm font-semibold text-gray-800">
-                          {log.agentLastName ? `${log.agentLastName} 판매원` : log.agentUserId.slice(0, 8)}
+                          {log.agentLastName ? `${log.agentLastName} 대리점장` : log.agentUserId.slice(0, 8)}
                         </span>
                         {log.driveFileId && (
                           <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">📁 Drive</span>

@@ -533,7 +533,7 @@ export default function StatementsPage() {
             <div>
               <p className="font-semibold mb-1">파트너 계정이 필요합니다</p>
               <p className="text-blue-700">
-                {apiData.message ?? "정산 내역은 자유판매원 / 소속판매원 / 대리점장 계정으로 로그인하면 확인할 수 있습니다."}
+                {apiData.message ?? "정산 내역은 자유대리점장 / 소속대리점장 / 지사장 계정으로 로그인하면 확인할 수 있습니다."}
               </p>
             </div>
           </div>

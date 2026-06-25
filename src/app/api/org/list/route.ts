@@ -7,7 +7,7 @@ import { logger } from "@/lib/logger";
  * GET /api/org/list
  * DB 전달 대상 조직 목록 조회
  * - GLOBAL_ADMIN: 전체 조직
- * - OWNER: 전체 조직 (대리점장끼리 교환 가능)
+ * - OWNER: 전체 조직 (지사장끼리 교환 가능)
  * - AGENT: 접근 불가
  */
 export async function GET() {

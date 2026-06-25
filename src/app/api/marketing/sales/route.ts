@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     const selectedOrgIdParam = new URL(req.url).searchParams.get('organizationId');
 
     if (ctx.role === 'OWNER') {
-      // 대리점장: 자신의 조직만 조회
+      // 지사장: 자신의 조직만 조회
       orgId = ctx.organizationId || null;
     } else if (ctx.role === 'GLOBAL_ADMIN') {
       if (selectedOrgIdParam) {
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
         orgId = null;
       }
     } else {
-      // OWNER(대리점장) 또는 AGENT
+      // OWNER(지사장) 또는 AGENT
       orgId = resolveOrgIdOrNull(ctx);
     }
 
@@ -308,8 +308,8 @@ export async function GET(req: NextRequest) {
     }));
 
     // ─── (F) GLOBAL_ADMIN 전용: 대리점별 매출 breakdown ──────────
-    // [API-SALES-006] orgBreakdown 귀속 기준: af.organizationId = 판매원 소속 대리점 기준
-    // 즉 A대리점 소속 판매원이 B대리점 랜딩페이지를 통해 결제를 완료해도 매출은 A대리점으로 귀속됨
+    // [API-SALES-006] orgBreakdown 귀속 기준: af.organizationId = 대리점장 소속 대리점 기준
+    // 즉 A대리점 소속 대리점장이 B대리점 랜딩페이지를 통해 결제를 완료해도 매출은 A대리점으로 귀속됨
     // 이는 어필리에이트 수당 계산 SSoT와 일치하는 의도된 설계임
     // 랜딩페이지 소유 기준으로 변경하려면 af.organizationId → lp.organizationId로 GROUP BY 교체 필요
     // API-SALES-002: OWNER는 빈 배열, GLOBAL_ADMIN만 조직별 집계 실행
@@ -421,7 +421,7 @@ export async function GET(req: NextRequest) {
       orgBreakdown,
       adminPersonalSales,
       isGlobalAdmin: ctx.role === 'GLOBAL_ADMIN',
-      orgBreakdownBasis: 'affiliate',  // [API-SALES-006] 귀속 기준 명시: 판매원 소속 대리점 기준
+      orgBreakdownBasis: 'affiliate',  // [API-SALES-006] 귀속 기준 명시: 대리점장 소속 대리점 기준
       selectedMonth: selectedMonthKey,
       pagination: { page, limit, totalCount, totalPages },
     });

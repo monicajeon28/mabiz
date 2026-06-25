@@ -119,7 +119,7 @@ export const authGuards = {
    */
   ownerOrAdmin: createAuthGuard(['OWNER', 'GLOBAL_ADMIN'], {
     requireOrgId: true,
-    errorMessage: '대리점장 권한이 필요합니다.',
+    errorMessage: '지사장 권한이 필요합니다.',
   }),
 
   /**

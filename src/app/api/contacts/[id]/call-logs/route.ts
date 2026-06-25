@@ -34,7 +34,7 @@ export async function GET(_req: Request, { params }: Params) {
     // 역할별 필터링
     let whereClause: Prisma.CallLogWhereInput = { contactId: id };
     if (ctx.role === 'AGENT') {
-      // 판매원은 자신이 만든 콜기록만 봄
+      // 대리점장은 자신이 만든 콜기록만 봄
       whereClause.userId = ctx.userId;
     }
     // OWNER/GLOBAL_ADMIN은 contactId 필터만으로 OK (조직/전체 콜 모두 볼 수 있음)

@@ -5,16 +5,16 @@ import { logger } from "@/lib/logger";
 import { maskPhone, maskCustomerName } from "@/lib/marketing-utils";
 
 // GET /api/marketing/sales/branch?page=1&limit=20
-// BRANCH_MANAGER 전용: 본인 조직 판매원들의 집계 매출
+// BRANCH_MANAGER 전용: 본인 조직 대리점장들의 집계 매출
 export async function GET(req: NextRequest) {
   try {
     const ctx = await getMabizSession();
     if (!ctx) return NextResponse.json({ ok: false }, { status: 401 });
 
-    // OWNER(대리점장) 역할 확인
+    // OWNER(지사장) 역할 확인
     if (ctx.role !== 'OWNER') {
       return NextResponse.json(
-        { ok: false, message: '대리점장만 접근할 수 있습니다.' },
+        { ok: false, message: '지사장만 접근할 수 있습니다.' },
         { status: 403 }
       );
     }
@@ -181,7 +181,7 @@ export async function GET(req: NextRequest) {
       }))
       .sort((a, b) => b.revenue - a.revenue);
 
-    // ─── (F) 판매원별 집계 ──────────────────────────────────────
+    // ─── (F) 대리점장별 집계 ──────────────────────────────────────
     type RawAgentSales = {
       agentId: string | null;
       agentName: string | null;
@@ -207,7 +207,7 @@ export async function GET(req: NextRequest) {
     const salesByAgent = rawAgentSales
       .map((r) => {
         const agentId = r.agentId ?? '';
-        const agentName = r.agentName ?? '알 수 없는 판매원';
+        const agentName = r.agentName ?? '알 수 없는 대리점장';
         const revenue = Number(r.revenue);
         const count = Number(r.count);
         // 조회수 계산: 같은 기간의 전체 조회수 대비
@@ -222,7 +222,7 @@ export async function GET(req: NextRequest) {
       })
       .filter(agent => agent.agentId.length > 0);
 
-    // ─── (G) TOP 3 판매원 ───────────────────────────────────────
+    // ─── (G) TOP 3 대리점장 ───────────────────────────────────────
     const topAgents = salesByAgent
       .slice(0, 3)
       .map((agent, index) => ({

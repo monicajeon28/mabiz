@@ -36,10 +36,10 @@ const ALLOWED_STATUSES = new Set(["ACTIVE", "SUSPENDED", "DRAFT", "AWAITING_APPR
 
 /**
  * GET /api/affiliates
- * 판매원/대리점장 목록 조회 (GMcruise AffiliateProfile 직접 조회)
+ * 대리점장/지사장 목록 조회 (GMcruise AffiliateProfile 직접 조회)
  *
  * GLOBAL_ADMIN: 전체
- * OWNER: AffiliateRelation으로 소속 판매원만
+ * OWNER: AffiliateRelation으로 소속 대리점장만
  * AGENT / FREE_SALES: 403
  */
 export async function GET(req: Request) {
@@ -74,7 +74,7 @@ export async function GET(req: Request) {
       ? Prisma.sql`AND (u.name ILIKE ${'%' + q + '%'} OR u."mallUserId" ILIKE ${'%' + q + '%'} OR ap."displayName" ILIKE ${'%' + q + '%'})`
       : Prisma.empty;
 
-    // OWNER: affiliateProfileId 필수 확인 후 소속 판매원만
+    // OWNER: affiliateProfileId 필수 확인 후 소속 대리점장만
     let relationCondition: Prisma.Sql = Prisma.empty;
     if (ctx.role === "OWNER") {
       const ownerProfileId = ctx.mallUser?.affiliateProfileId;

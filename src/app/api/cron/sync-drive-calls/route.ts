@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
       });
       const orgId = org?.id ?? null;
 
-      // 판매원 폴더 목록
+      // 대리점장 폴더 목록
       const agentFolders = await listSubFolders(orgFolder.id);
 
       for (const agentFolder of agentFolders) {

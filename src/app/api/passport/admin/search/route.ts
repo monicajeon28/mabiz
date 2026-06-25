@@ -10,13 +10,13 @@ const MAX_MATCHES = 20;
 
 /**
  * 전화번호를 마스킹합니다
- * - GLOBAL_ADMIN, OWNER, AGENT: 전체 공개 (관리자/대리점장 권한)
+ * - GLOBAL_ADMIN, OWNER, AGENT: 전체 공개 (관리자/지사장 권한)
  * - 그 외: 마스킹 (010-****-**** 형식) — 외부 노출 시에만
  */
 function maskPhoneNumber(phone: string | null, role: string): string | null {
   if (!phone) return null;
 
-  // 관리자, 대리점장, 정식판매원: 전체 번호 공개
+  // 관리자, 지사장, 정식대리점장: 전체 번호 공개
   if (['GLOBAL_ADMIN', 'OWNER', 'AGENT'].includes(role)) return phone;
 
   // 기타 역할: 마스킹

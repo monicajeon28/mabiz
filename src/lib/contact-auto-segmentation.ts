@@ -303,7 +303,7 @@ export function createL10Segment(contact: Contact, riskSummary: ContactRiskSumma
       '감정적 피니시 (가족 추억, 꿈 달성)',
       'Triple Choice CTA 강조',
       'Day 3 최종 결정 SMS',
-      '대리점장 직접 통화로 감정적 연결',
+      '지사장 직접 통화로 감정적 연결',
     ],
     nextActionScheduledAt: new Date(Date.now() + 1000 * 60 * 30), // 30분 후 (긴급)
   };

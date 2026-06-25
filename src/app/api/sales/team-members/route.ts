@@ -4,8 +4,8 @@
  *
  * 팀원 목록 조회 및 관리
  * - 관리자: 전체 팀원 또는 특정 팀원
- * - 대리점장: 자신의 팀원만
- * - 판매원: 자신의 정보만
+ * - 지사장: 자신의 팀원만
+ * - 대리점장: 자신의 정보만
  *
  * 쿼리 파라미터:
  * - teamId: 팀 ID (선택사항, 관리자만 사용)
@@ -128,13 +128,13 @@ export async function GET(request: Request) {
         whereFilter = { ...whereFilter, managerId: requestedTeamId };
       }
     } else if (user.role === 'OWNER') {
-      // 대리점장: 자신이 관리하는 팀원만 (managerId = 본인 id)
+      // 지사장: 자신이 관리하는 팀원만 (managerId = 본인 id)
       whereFilter = { ...whereFilter, managerId: user.id };
     } else if (user.role === 'AGENT') {
-      // 판매원: 자신의 정보만 (팀원 목록 조회 권한 없음)
+      // 대리점장: 자신의 정보만 (팀원 목록 조회 권한 없음)
       return new Response(
         JSON.stringify({
-          error: '판매원은 팀원 목록을 조회할 수 없습니다',
+          error: '대리점장은 팀원 목록을 조회할 수 없습니다',
           code: 'AGENT_LIST_DENIED',
         }),
         { status: 403, headers: { 'Content-Type': 'application/json' } }
@@ -248,7 +248,7 @@ export async function GET(request: Request) {
 }
 
 // ============================================
-// POST: 팀원 추가 (관리자/대리점장만)
+// POST: 팀원 추가 (관리자/지사장만)
 // ============================================
 
 export async function POST(request: Request) {
@@ -287,7 +287,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 📌 Step 2: 권한 체크 (관리자 또는 대리점장만)
+    // 📌 Step 2: 권한 체크 (관리자 또는 지사장만)
     if (user.role !== 'GLOBAL_ADMIN' && user.role !== 'OWNER') {
       return new Response(
         JSON.stringify({

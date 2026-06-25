@@ -13,7 +13,7 @@ import { enforceRBAC } from '@/app/api/_middleware/enforce-rbac';
  *
  * 스코프 규칙 (형제 라우트 list/route.ts 미러링):
  *   - ADMIN(GLOBAL_ADMIN) / OWNER: 완료된 모든 결제 조회 (전체 관리)
- *   - BRANCH_MANAGER: 본인 + 소속 판매원이 관리하는 Lead 고객의 결제
+ *   - BRANCH_MANAGER: 본인 + 소속 대리점장이 관리하는 Lead 고객의 결제
  *   - SALES_AGENT: 본인이 관리하는 Lead 고객의 결제
  *
  * 매칭 방식: 관리 Lead의 customerPhone → Payment.buyerTel (하이픈 변형 포함)
@@ -48,9 +48,9 @@ export async function GET(req: NextRequest) {
     let buyerTelVariants: string[] | null = null;
 
     if (!isAdminOrOwner) {
-      // ── 파트너(대리점장/판매원) 스코프: 관리 Lead의 전화번호로 제한 ──
+      // ── 파트너(지사장/대리점장) 스코프: 관리 Lead의 전화번호로 제한 ──
 
-      // 대리점장인 경우 팀 판매원들의 ID 목록 조회
+      // 지사장인 경우 팀 대리점장들의 ID 목록 조회
       let teamAgentIds: number[] = [];
       if (profile.type === 'BRANCH_MANAGER') {
         const teamRelations = await prisma.gmAffiliateRelation.findMany({
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
           .filter((id): id is number => id !== null);
       }
 
-      // 대리점장/판매원이 관리하는 Lead 조회
+      // 지사장/대리점장이 관리하는 Lead 조회
       const managedLeads = await prisma.gmAffiliateLead.findMany({
         where: {
           customerPhone: { not: null },

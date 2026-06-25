@@ -20,7 +20,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const selectedOrgIdParam = new URL(req.url).searchParams.get('organizationId');
 
     if (ctx.role === 'OWNER') {
-      // 대리점장: 자신의 조직만 조회
+      // 지사장: 자신의 조직만 조회
       orgIdFilter = ctx.organizationId ?? undefined;
     } else if (ctx.role === 'GLOBAL_ADMIN') {
       if (selectedOrgIdParam) {
@@ -89,7 +89,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     const selectedOrgIdParam = new URL(req.url).searchParams.get('organizationId');
 
     if (ctx.role === 'OWNER') {
-      // 대리점장: 자신의 조직만 수정
+      // 지사장: 자신의 조직만 수정
       orgIdFilter = ctx.organizationId ?? undefined;
     } else if (ctx.role === 'GLOBAL_ADMIN') {
       if (selectedOrgIdParam) {
@@ -245,7 +245,7 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     const selectedOrgIdParam = new URL(req.url).searchParams.get('organizationId');
 
     if (ctx.role === 'OWNER') {
-      // 대리점장: 자신의 조직만 삭제
+      // 지사장: 자신의 조직만 삭제
       orgIdFilter = ctx.organizationId ?? undefined;
     } else if (ctx.role === 'GLOBAL_ADMIN') {
       if (selectedOrgIdParam) {

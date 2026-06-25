@@ -28,7 +28,7 @@ export async function GET(req: Request) {
     // Where 조건 구성
     const where: Record<string, unknown> = {};
     if (orgId) where.organizationId = orgId;
-    // AGENT: 본인이 생성한 결제만 조회 (다른 판매원 결제 노출 방지)
+    // AGENT: 본인이 생성한 결제만 조회 (다른 대리점장 결제 노출 방지)
     if (ctx.role === 'AGENT') where.createdByUserId = ctx.userId;
     if (status) where.status = status;
     if (search) {

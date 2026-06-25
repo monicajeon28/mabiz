@@ -215,7 +215,7 @@ export default function PartnerSuspensionsPage() {
                       {s.partnerRole === 'MANAGER'
                         ? '매니저'
                         : s.partnerRole === 'SALESPERSON'
-                          ? '판매원'
+                          ? '대리점장'
                           : '사전영업'}
                     </span>
                   </td>

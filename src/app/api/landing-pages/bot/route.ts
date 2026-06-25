@@ -1,7 +1,7 @@
 /**
  * POST /api/landing-pages/bot — 크루즈닷봇 랜딩 생성(50대 간편 제작) (작업지시서 시나리오 A)
  *
- * 관리자/대리점장이 상품·인사말만 정하면 pageType='bot' 랜딩 + 고유 추적링크를 만든다.
+ * 관리자/지사장이 상품·인사말만 정하면 pageType='bot' 랜딩 + 고유 추적링크를 만든다.
  * 복잡한 블록에디터 없이 botConfig(persona/greeting/chips/productCatalogIds)만 저장.
  */
 import { NextResponse } from "next/server";
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, message: "잘못된 접근입니다." }, { status: 403 });
     }
     const ctx = await getAuthContext();
-    // 봇 랜딩 제작은 대리점장(OWNER)·관리자(GLOBAL_ADMIN) 전용
+    // 봇 랜딩 제작은 지사장(OWNER)·관리자(GLOBAL_ADMIN) 전용
     if (!canManageSettings(ctx)) {
       return NextResponse.json({ ok: false, message: "봇 랜딩 만들기 권한이 없습니다." }, { status: 403 });
     }

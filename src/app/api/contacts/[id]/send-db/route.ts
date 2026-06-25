@@ -14,8 +14,8 @@ type Params = { params: Promise<{ id: string }> };
  *
  * 권한:
  *   GLOBAL_ADMIN : 제한 없음 (누구든 전달 가능)
- *   OWNER        : 대리점장 전체 + 본사 + 자기 직속 판매원
- *   AGENT        : 본사 + 자기 대리점장(들)만
+ *   OWNER        : 지사장 전체 + 본사 + 자기 직속 대리점장
+ *   AGENT        : 본사 + 자기 지사장(들)만
  *   FREE_SALES   : 불가
  */
 export async function POST(req: Request, { params }: Params) {
@@ -84,7 +84,7 @@ export async function POST(req: Request, { params }: Params) {
 
     // ── 역할별 권한 검증 ─────────────────────────────────────
     if (ctx.role === "AGENT") {
-      // 판매원: 본사 또는 자기 대리점장만 허용
+      // 대리점장: 본사 또는 자기 지사장만 허용
       if (!globalAdmin) {
         // OrganizationMember 대상인 경우 — 자기 조직의 BRANCH_MANAGER/OWNER만 허용
         if (
@@ -93,7 +93,7 @@ export async function POST(req: Request, { params }: Params) {
           (member.role !== "OWNER" && member.role !== "BRANCH_MANAGER")
         ) {
           return NextResponse.json(
-            { ok: false, message: "판매원은 자기 대리점장 또는 본사로만 전달할 수 있습니다." },
+            { ok: false, message: "대리점장은 자기 지사장 또는 본사로만 전달할 수 있습니다." },
             { status: 403 }
           );
         }
@@ -101,7 +101,7 @@ export async function POST(req: Request, { params }: Params) {
     }
 
     if (ctx.role === "OWNER") {
-      // 대리점장: 본사, 모든 대리점장, 자기 직속 판매원만 허용
+      // 지사장: 본사, 모든 지사장, 자기 직속 대리점장만 허용
       if (!globalAdmin) {
         if (!member) {
           return NextResponse.json(
@@ -116,7 +116,7 @@ export async function POST(req: Request, { params }: Params) {
 
         if (!isAnyBM && !isOwnAgent) {
           return NextResponse.json(
-            { ok: false, message: "대리점장은 대리점장 전체, 자기 직속 판매원, 본사로만 전달할 수 있습니다." },
+            { ok: false, message: "지사장은 지사장 전체, 자기 직속 대리점장, 본사로만 전달할 수 있습니다." },
             { status: 403 }
           );
         }

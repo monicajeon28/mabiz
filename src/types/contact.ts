@@ -114,7 +114,7 @@ export interface Contact {
   visibility?: ContactVisibility;
   sharedWith?: ContactShare[];
   createdBy?: string | null; // P1 추가: 생성자 사용자 ID
-  managerId?: string | null; // P1 추가: 담당 관리자 (대리점장)
+  managerId?: string | null; // P1 추가: 담당 관리자 (지사장)
   userId?: number | null; // P1 추가: GmUser ID
 
   // ===== P1: 메타데이터 =====

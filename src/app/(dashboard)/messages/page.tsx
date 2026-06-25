@@ -446,7 +446,7 @@ function SmsForm() {
       {/* 좌측 설정 패널 */}
       <div className="lg:col-span-1 space-y-4">
 
-        {/* [P0-1] 판매원 권한 제한 경고 */}
+        {/* [P0-1] 대리점장 권한 제한 경고 */}
         {userRole === "AGENT" && (
           <div className="rounded-xl p-4 border border-red-300 bg-red-50">
             <div className="flex items-start gap-2">
@@ -454,7 +454,7 @@ function SmsForm() {
               <div>
                 <p className="text-sm font-semibold text-red-700">단체 메시지 발송 불가</p>
                 <p className="text-sm text-red-600 mt-1">
-                  판매원은 자신의 고객 목록에서만 메시지를 보낼 수 있습니다.
+                  대리점장은 자신의 고객 목록에서만 메시지를 보낼 수 있습니다.
                   <br />
                   전체 고객 그룹에 발송하려면 관리자에게 요청하세요.
                 </p>
@@ -776,7 +776,7 @@ function SmsForm() {
             onClick={doDryRun}
             disabled={userRole === "AGENT" || !selectedGroup || !message.trim() || message.length > 90}
             className="w-full py-2.5 border-2 border-blue-300 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed mb-3">
-            {userRole === "AGENT" ? "판매원은 단체 발송 불가" : message.length > 90 ? '90자 이하로 줄여주세요' : '발송 전 확인하기'}
+            {userRole === "AGENT" ? "대리점장은 단체 발송 불가" : message.length > 90 ? '90자 이하로 줄여주세요' : '발송 전 확인하기'}
           </button>
 
           {selectedGroup && rateLimitStatus && (
@@ -819,7 +819,7 @@ function SmsForm() {
                 </div>
               </div>
 
-              {/* 검수 탭 (관리자/대리점장용) */}
+              {/* 검수 탭 (관리자/지사장용) */}
               {userRole && canReview(userRole) && (
                 <ReviewTab
                   groupId={selectedGroup}

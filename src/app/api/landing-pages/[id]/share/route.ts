@@ -84,7 +84,7 @@ export async function POST(req: Request, { params }: Params) {
     const { id } = await params;
 
     if (!canManageSettings(ctx)) {
-      return NextResponse.json({ ok: false, message: "권한이 없습니다. 대리점장 또는 관리자만 공유할 수 있습니다." }, { status: 403 });
+      return NextResponse.json({ ok: false, message: "권한이 없습니다. 지사장 또는 관리자만 공유할 수 있습니다." }, { status: 403 });
     }
 
     const orgId = await getOrgId(ctx);

@@ -51,7 +51,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     const selectedOrgIdParam = new URL(req.url).searchParams.get('organizationId');
 
     if (ctx.role === 'OWNER') {
-      // 대리점장: 자신의 조직만 발송
+      // 지사장: 자신의 조직만 발송
       orgIdFilter = ctx.organizationId ?? undefined;
     } else if (ctx.role === 'GLOBAL_ADMIN') {
       if (selectedOrgIdParam) {

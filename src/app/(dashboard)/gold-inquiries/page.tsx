@@ -14,7 +14,7 @@ type GoldInquiry = {
   message: string | null;
   submittedAt: string | null;
   createdAt: string;
-  /** "본사" | "대리점장 홍길동" | "판매원 김철수" | "프리세일즈 이영희" | 이름만 */
+  /** "본사" | "지사장 홍길동" | "대리점장 김철수" | "마케터 이영희" | 이름만 */
   agentName: string | null;
 };
 
@@ -307,15 +307,15 @@ export default function GoldInquiriesPage() {
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
                           🏢 본사
                         </span>
-                      ) : inq.agentName?.startsWith('대리점장') ? (
+                      ) : inq.agentName?.startsWith('지사장') ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
                           {inq.agentName}
                         </span>
-                      ) : inq.agentName?.startsWith('판매원') ? (
+                      ) : inq.agentName?.startsWith('대리점장') ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
                           {inq.agentName}
                         </span>
-                      ) : inq.agentName?.startsWith('프리세일즈') ? (
+                      ) : inq.agentName?.startsWith('마케터') ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
                           {inq.agentName}
                         </span>
@@ -434,15 +434,15 @@ export default function GoldInquiriesPage() {
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
                             🏢 본사
                           </span>
-                        ) : inq.agentName?.startsWith('대리점장') ? (
+                        ) : inq.agentName?.startsWith('지사장') ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
                             {inq.agentName}
                           </span>
-                        ) : inq.agentName?.startsWith('판매원') ? (
+                        ) : inq.agentName?.startsWith('대리점장') ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
                             {inq.agentName}
                           </span>
-                        ) : inq.agentName?.startsWith('프리세일즈') ? (
+                        ) : inq.agentName?.startsWith('마케터') ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
                             {inq.agentName}
                           </span>

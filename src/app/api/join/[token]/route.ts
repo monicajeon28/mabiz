@@ -176,7 +176,7 @@ export async function POST(req: Request, { params }: Params) {
       memberId,
     }).catch((e) => logger.error("[join/token] OWNER 알림 실패", { e }));
 
-    logger.warn("[POST /api/join/[token]] 판매원 가입 완료", { memberId, orgId: invite.organizationId, role });
+    logger.warn("[POST /api/join/[token]] 대리점장 가입 완료", { memberId, orgId: invite.organizationId, role });
     return NextResponse.json({ ok: true, role });
 
   } catch (err) {
@@ -202,7 +202,7 @@ async function sendContractPdf(p: {
   const orgName     = org?.name ?? '크루즈닷';
   const signedAtStr = p.signedAt.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   const filename    = `계약서_${p.memberName}_${p.signedAt.toISOString().slice(0, 10)}.pdf`;
-  const subject     = `[크루즈닷] ${p.memberName} 판매원 계약서 (${p.signedAt.toISOString().slice(0, 10)})`;
+  const subject     = `[크루즈닷] ${p.memberName} 대리점장 계약서 (${p.signedAt.toISOString().slice(0, 10)})`;
 
   const pdfBuffer = await generateContractPdf({
     memberName:  p.memberName,
@@ -216,14 +216,14 @@ async function sendContractPdf(p: {
 
   const baseHtml = `
     <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#1a1a1a">
-      <h2 style="color:#1a3a6b;margin-bottom:16px">📋 어필리에이트 판매원 계약서</h2>
+      <h2 style="color:#1a3a6b;margin-bottom:16px">📋 어필리에이트 대리점장 계약서</h2>
       <p>안녕하세요.</p>
-      <p><strong>${escHtml(p.memberName)}</strong>님이 크루즈닷 어필리에이트 판매원으로 계약을 체결하였습니다.<br>
+      <p><strong>${escHtml(p.memberName)}</strong>님이 크루즈닷 어필리에이트 대리점장으로 계약을 체결하였습니다.<br>
       서명된 계약서 PDF가 첨부되어 있습니다.</p>
       <table style="border-collapse:collapse;width:100%;margin:20px 0;font-size:14px">
         <tr style="background:#f5f7fa"><td style="padding:10px;border:1px solid #e5e7eb;width:120px;font-weight:600">성명</td><td style="padding:10px;border:1px solid #e5e7eb">${escHtml(p.memberName)}</td></tr>
         <tr><td style="padding:10px;border:1px solid #e5e7eb;font-weight:600">전화번호</td><td style="padding:10px;border:1px solid #e5e7eb">${escHtml(p.memberPhone.slice(0, 3))}****${escHtml(p.memberPhone.slice(-4))}</td></tr>
-        <tr style="background:#f5f7fa"><td style="padding:10px;border:1px solid #e5e7eb;font-weight:600">역할</td><td style="padding:10px;border:1px solid #e5e7eb">${p.role === 'OWNER' ? '대리점장' : p.role === 'FREE_SALES' ? '자유판매원' : '소속판매원'}</td></tr>
+        <tr style="background:#f5f7fa"><td style="padding:10px;border:1px solid #e5e7eb;font-weight:600">역할</td><td style="padding:10px;border:1px solid #e5e7eb">${p.role === 'OWNER' ? '지사장' : p.role === 'FREE_SALES' ? '자유대리점장' : '소속대리점장'}</td></tr>
         <tr><td style="padding:10px;border:1px solid #e5e7eb;font-weight:600">소속</td><td style="padding:10px;border:1px solid #e5e7eb">${escHtml(orgName)}</td></tr>
         <tr style="background:#f5f7fa"><td style="padding:10px;border:1px solid #e5e7eb;font-weight:600">서명 일시</td><td style="padding:10px;border:1px solid #e5e7eb">${escHtml(signedAtStr)}</td></tr>
       </table>
@@ -278,7 +278,7 @@ async function notifyOwnerOfNewMember(
   });
 
   const { subject, html } = renderPartnerJoinedEmail({
-    ownerName:    owner.displayName ?? '대리점장',
+    ownerName:    owner.displayName ?? '지사장',
     partnerName:  member.name,
     partnerPhone: member.phone,
     partnerRole:  member.role,

@@ -7,14 +7,14 @@ import { generateUniqueShortlink, buildClonedLandingPageData, buildLandingTarget
 type Params = { params: Promise<{ id: string }> };
 
 // POST /api/landing-pages/[id]/clone
-// SECURITY: 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용 + organizationId 격리
+// SECURITY: 지사장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용 + organizationId 격리
 // 거장합의: Option A + 3회 재시도 + 트랜잭션 + 타임아웃 5초
 export async function POST(_req: Request, { params }: Params) {
   try {
     const ctx = await getAuthContext();
 
-    // 랜딩페이지 복제는 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용 (P0-2).
-    // 판매원(AGENT)이 타 랜딩페이지를 복제하던 경로 차단.
+    // 랜딩페이지 복제는 지사장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용 (P0-2).
+    // 대리점장(AGENT)이 타 랜딩페이지를 복제하던 경로 차단.
     if (!canManageSettings(ctx)) {
       return NextResponse.json(
         {

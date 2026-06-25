@@ -8,8 +8,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/affiliate-issuance/branch-managers
- * GLOBAL_ADMIN 전용 — 대리점장(BRANCH_MANAGER) 목록 반환
- * 발급 폼의 "소속 대리점장" 드롭다운용
+ * GLOBAL_ADMIN 전용 — 지사장(BRANCH_MANAGER) 목록 반환
+ * 발급 폼의 "소속 지사장" 드롭다운용
  */
 export async function GET() {
   try {

@@ -391,11 +391,11 @@ export default function GoldMemberDetailPage() {
               <dd className="text-sm text-gray-900">매월 {member.paymentDay}일</dd>
             </div>
           )}
-          {/* 담당 판매원 표시 */}
+          {/* 담당 대리점장 표시 */}
           <div>
             <dt className="text-xs text-gray-400 mb-0.5 flex items-center gap-1">
               <UserCheck className="w-3 h-3" />
-              담당 판매원
+              담당 대리점장
             </dt>
             <dd className="text-sm text-gray-900">
               {member.agentId ? (

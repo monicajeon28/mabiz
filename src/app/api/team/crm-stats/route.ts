@@ -68,14 +68,14 @@ export async function GET(req: NextRequest) {
       ? { organizationId: effectiveOrgId, deletedAt: null as null }
       : { deletedAt: null as null };
 
-    // ── AGENT 역할: 자신에게 할당된 Contact만 카운트 (다른 판매원 고객 노출 방지) ──
+    // ── AGENT 역할: 자신에게 할당된 Contact만 카운트 (다른 대리점장 고객 노출 방지) ──
     const agentFilter = ctx.role === 'AGENT' ? { assignedUserId: ctx.userId } : {};
 
     // ── 7-way Promise.all: members + 6개 count() 쿼리 병합 ──
     const [members, totalContacts, totalLeads, totalCustomers, monthLeads, monthCustomers, optOutCount] =
       await Promise.all([
         // 전체 모드 또는 AGENT 역할에서는 멤버 배열 반환 안 함
-        // — 전체 모드: 멤버가 너무 많음 / AGENT: 동료 판매원 정보 노출 방지
+        // — 전체 모드: 멤버가 너무 많음 / AGENT: 동료 대리점장 정보 노출 방지
         (isGlobalAll || ctx.role === 'AGENT')
           ? Promise.resolve([])
           : (() => {

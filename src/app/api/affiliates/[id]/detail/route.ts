@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/affiliates/[id]/detail
- * 대리점장 상세 정보 (어필리에이트 코드, 추적링크, 산하 판매원, 계약 정보)
+ * 지사장 상세 정보 (어필리에이트 코드, 추적링크, 산하 대리점장, 계약 정보)
  *
  * 접근: GLOBAL_ADMIN (전체) | OWNER (본인 프로필만)
  */
@@ -142,7 +142,7 @@ export async function GET(
       LIMIT 10
     `;
 
-    // ── 3. 산하 판매원 목록 ───────────────────────────────────────
+    // ── 3. 산하 대리점장 목록 ───────────────────────────────────────
     const agents = await prisma.$queryRaw<RawAgent[]>`
       SELECT
         ap.id                    AS "profileId",
@@ -181,7 +181,7 @@ export async function GET(
       LIMIT 5
     `;
 
-    // ── 5. 판매원별 추적 링크 (agentId 기준) ─────────────────────
+    // ── 5. 대리점장별 추적 링크 (agentId 기준) ─────────────────────
     const agentIds: number[] = agents.map((a) => a.profileId);
     const agentLinks =
       agentIds.length > 0

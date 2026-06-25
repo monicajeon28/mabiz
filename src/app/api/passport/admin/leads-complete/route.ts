@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 
-// 여권 완료 처리 API (CRM 관리자/대리점장만 가능)
+// 여권 완료 처리 API (CRM 관리자/지사장만 가능)
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getMabizSession } from '@/lib/auth';
@@ -10,7 +10,7 @@ import { logger } from '@/lib/logger';
 
 /**
  * POST: 여권 완료 처리
- * - CRM 관리자(GLOBAL_ADMIN) 또는 대리점장(OWNER)만 가능
+ * - CRM 관리자(GLOBAL_ADMIN) 또는 지사장(OWNER)만 가능
  * - 여권 요청이 있었던 경우에만 완료 처리 가능
  *
  * Body: { leadId: number, notes?: string }

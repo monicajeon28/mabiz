@@ -153,9 +153,9 @@ export function SidebarNav({ className, session }: SidebarNavProps) {
         <div className="px-4 py-3 border-b border-[#2A4080]">
           <div className="text-sm text-gray-600">
             {role === 'GLOBAL_ADMIN' && '관리자'}
-            {role === 'OWNER' && '대리점장'}
-            {role === 'AGENT' && '판매원'}
-            {role === 'FREE_SALES' && '프리세일즈'}
+            {role === 'OWNER' && '지사장'}
+            {role === 'AGENT' && '대리점장'}
+            {role === 'FREE_SALES' && '마케터'}
           </div>
           {displayName && (
             <div className="text-sm font-semibold text-white mt-0.5">{displayName}</div>

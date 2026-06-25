@@ -21,7 +21,7 @@ type Sale = {
   customerName: string | null;
   customerPhone: string | null;
   createdAt: string;
-  // 수당 귀속(대리점장 구매확인)
+  // 수당 귀속(지사장 구매확인)
   managerDisplayName?: string | null;
   presalesDisplayName?: string | null;
   presalesPhone?: string | null;
@@ -30,7 +30,7 @@ type Sale = {
   confirmedOwnerAt?: string | null;
 };
 
-const OWNER_LABEL: Record<string, string> = { PRESALES: "프리세일즈", BRANCH_MANAGER: "대리점장" };
+const OWNER_LABEL: Record<string, string> = { PRESALES: "마케터", BRANCH_MANAGER: "지사장" };
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   PENDING:          { label: "대기",     color: "bg-yellow-100 text-yellow-700" },
@@ -208,7 +208,7 @@ export default function AffiliateSalesPage() {
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">번호</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">판매원</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">대리점장</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">고객 연락처</th>
                   <th className="text-right px-4 py-3 font-medium text-gray-500 text-sm">판매액</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 text-sm">여행 기간</th>
@@ -232,12 +232,12 @@ export default function AffiliateSalesPage() {
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${st.color}`}>{st.label}</span>
                       </td>
-                      {/* 수당 귀속: 프리세일즈/대리점장 표기 + 2택 구매확인 or 확정배지 */}
+                      {/* 수당 귀속: 마케터/지사장 표기 + 2택 구매확인 or 확정배지 */}
                       <td className="px-4 py-3">
                         {(s.presalesDisplayName || s.managerDisplayName) && (
                           <div className="mb-1 space-y-0.5 text-xs text-gray-500">
-                            {s.presalesDisplayName && <div>프리세일즈: <span className="text-gray-700">{s.presalesDisplayName}</span>{s.presalesPhone ? ` (${s.presalesPhone})` : ""}</div>}
-                            {s.managerDisplayName && <div>대리점장: <span className="text-gray-700">{s.managerDisplayName}</span></div>}
+                            {s.presalesDisplayName && <div>마케터: <span className="text-gray-700">{s.presalesDisplayName}</span>{s.presalesPhone ? ` (${s.presalesPhone})` : ""}</div>}
+                            {s.managerDisplayName && <div>지사장: <span className="text-gray-700">{s.managerDisplayName}</span></div>}
                           </div>
                         )}
                         {s.commissionOwnerConfirmed ? (
@@ -252,13 +252,13 @@ export default function AffiliateSalesPage() {
                         ) : (s.status !== "REFUNDED" && s.status !== "CANCELLED" && s.status !== "REJECTED") ? (
                           <div className="flex gap-1">
                             <button
-                              onClick={() => setConfirmTarget({ sale: s, ownerType: "PRESALES", name: s.presalesDisplayName ?? s.agentDisplayName ?? "프리세일즈" })}
+                              onClick={() => setConfirmTarget({ sale: s, ownerType: "PRESALES", name: s.presalesDisplayName ?? s.agentDisplayName ?? "마케터" })}
                               className="px-2 py-1 rounded-lg text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
-                            >프리세일즈 확인</button>
+                            >마케터 확인</button>
                             <button
-                              onClick={() => setConfirmTarget({ sale: s, ownerType: "BRANCH_MANAGER", name: s.managerDisplayName ?? "대리점장" })}
+                              onClick={() => setConfirmTarget({ sale: s, ownerType: "BRANCH_MANAGER", name: s.managerDisplayName ?? "지사장" })}
                               className="px-2 py-1 rounded-lg text-xs font-medium bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
-                            >대리점장 확인</button>
+                            >지사장 확인</button>
                           </div>
                         ) : (
                           <span className="text-xs text-gray-400">-</span>

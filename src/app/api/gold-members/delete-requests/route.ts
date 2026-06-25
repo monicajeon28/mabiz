@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     // GLOBAL_ADMIN: 전체 조회
     // AGENT 이하: 접근 불가
     if (!isAdmin && !isOwner) {
-      return NextResponse.json({ ok: false, error: '대리점장 또는 관리자만 접근할 수 있습니다.' }, { status: 403 });
+      return NextResponse.json({ ok: false, error: '지사장 또는 관리자만 접근할 수 있습니다.' }, { status: 403 });
     }
 
     const { searchParams } = new URL(req.url);
@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
 
     const allowedRoles: string[] = ['OWNER', 'GLOBAL_ADMIN'];
     if (!allowedRoles.includes(ctx.role)) {
-      return NextResponse.json({ ok: false, error: '대리점장 또는 관리자만 삭제 요청이 가능합니다.' }, { status: 403 });
+      return NextResponse.json({ ok: false, error: '지사장 또는 관리자만 삭제 요청이 가능합니다.' }, { status: 403 });
     }
 
     const body = await req.json() as { goldMemberId?: string; reason?: string };

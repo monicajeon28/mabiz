@@ -346,7 +346,7 @@ export function SmsTab({
                 </div>
               </div>
 
-              {/* 검수 탭 (관리자/대리점장용) */}
+              {/* 검수 탭 (관리자/지사장용) */}
               {userRole && canReview(userRole) && (
                 <ReviewTab
                   groupId={selectedGroup ?? ""}

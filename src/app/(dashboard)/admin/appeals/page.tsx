@@ -270,7 +270,7 @@ export default function AdminAppealsPage() {
             ⚡ <strong>신속한 처리</strong>: 가능한 한 빠르게 처리해주세요
           </li>
           <li>
-            💬 <strong>투명성</strong>: 판매원에게 상세한 이유를 전달합니다
+            💬 <strong>투명성</strong>: 대리점장에게 상세한 이유를 전달합니다
           </li>
         </ul>
       </div>

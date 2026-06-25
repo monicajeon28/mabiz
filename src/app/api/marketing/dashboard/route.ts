@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     const selectedOrgIdParam = new URL(request.url).searchParams.get('organizationId');
 
     if (ctx.role === "OWNER") {
-      // 대리점장: 자신의 조직만 조회 (파라미터 무시)
+      // 지사장: 자신의 조직만 조회 (파라미터 무시)
       orgId = ctx.organizationId || null;
     } else if (ctx.role === "GLOBAL_ADMIN") {
       if (selectedOrgIdParam) {

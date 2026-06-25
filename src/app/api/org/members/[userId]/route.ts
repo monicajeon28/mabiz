@@ -42,7 +42,7 @@ export async function PATCH(req: Request, { params }: Params) {
       });
       if (ownerCount <= 1) {
         return NextResponse.json(
-          { ok: false, message: '조직의 마지막 대리점장은 비활성화할 수 없습니다' },
+          { ok: false, message: '조직의 마지막 지사장은 비활성화할 수 없습니다' },
           { status: 400 }
         );
       }
@@ -97,7 +97,7 @@ export async function DELETE(_req: Request, { params }: Params) {
       });
       if (ownerCount <= 1) {
         return NextResponse.json(
-          { ok: false, message: '조직의 마지막 대리점장은 삭제할 수 없습니다' },
+          { ok: false, message: '조직의 마지막 지사장은 삭제할 수 없습니다' },
           { status: 400 }
         );
       }

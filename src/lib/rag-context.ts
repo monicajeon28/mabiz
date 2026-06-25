@@ -56,7 +56,7 @@ export async function buildRagContext(
     const segment = (log.analysis as any)?.customerSegmentDetected ?? "고객";
     const objections = ((log.analysis as any)?.objectionTypes as string[] ?? []).join(", ");
     const strengths = ((log.analysis as any)?.strengths as string[] ?? []).slice(0, 1).join("");
-    return `${agentLast} 판매원 → ${segment} 상담 → ${objections ? `${objections} 이의 극복` : "이의 없이"} 성약${strengths ? ` (핵심: ${strengths.slice(0, 30)})` : ""}`;
+    return `${agentLast} 대리점장 → ${segment} 상담 → ${objections ? `${objections} 이의 극복` : "이의 없이"} 성약${strengths ? ` (핵심: ${strengths.slice(0, 30)})` : ""}`;
   });
 
   // 2. 승인된 스크립트 패턴: 같은 조직 + 같은 페르소나 + APPROVED

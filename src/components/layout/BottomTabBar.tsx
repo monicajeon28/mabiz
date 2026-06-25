@@ -36,7 +36,7 @@ const extraMenus = [
   { href: "/marketing",       icon: BarChart2,  label: "마케팅" },
   { href: "/marketing/sales", icon: TrendingUp, label: "매출관리" },
   { href: "/funnels",            icon: GitBranch,     label: "퍼널" },
-  // 랜딩페이지: 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용 노출 (P0-2)
+  // 랜딩페이지: 지사장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용 노출 (P0-2)
   { href: "/landing-pages",      icon: FileText,      label: "랜딩페이지", ownerOnly: true },
   { href: "/sms-logs",           icon: ClipboardList, label: "발송기록" },
   { href: "/b2b",                icon: Building2,     label: "B2B" },
@@ -59,7 +59,7 @@ export function BottomTabBar({ className }: BottomTabBarProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { role } = useSession();
 
-  // 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN)만 ownerOnly 메뉴 노출 (P0-2)
+  // 지사장(OWNER)·시스템관리자(GLOBAL_ADMIN)만 ownerOnly 메뉴 노출 (P0-2)
   const canManage = role === "OWNER" || role === "GLOBAL_ADMIN";
   const visibleMenus = extraMenus.filter(
     (m) => !("ownerOnly" in m && m.ownerOnly) || canManage

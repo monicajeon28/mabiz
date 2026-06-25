@@ -5,9 +5,9 @@ import { logger } from "@/lib/logger";
 
 /**
  * GET /api/marketing/branch-managers
- * 대리점장 목록 조회
+ * 지사장 목록 조회
  * - GLOBAL_ADMIN만 접근 가능
- * - 모든 조직의 OWNER 역할(대리점장) 반환
+ * - 모든 조직의 OWNER 역할(지사장) 반환
  */
 export async function GET(req: NextRequest) {
   try {
@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // ─── (D) 각 대리점장의 판매원 수 및 판매액 조회 ──────────────────
+    // ─── (D) 각 지사장의 대리점장 수 및 판매액 조회 ──────────────────
     interface BranchManagerWithStats {
       id: string;
       userId: string;
@@ -118,7 +118,7 @@ export async function GET(req: NextRequest) {
 
     const branchManagers: BranchManagerWithStats[] = await Promise.all(
       filteredList.map(async (bm) => {
-        // 판매원 수 (이 대리점장 조직의 AGENT 역할 카운트)
+        // 대리점장 수 (이 지사장 조직의 AGENT 역할 카운트)
         const agentCount = await prisma.organizationMember.count({
           where: {
             organizationId: bm.organizationId,
@@ -126,7 +126,7 @@ export async function GET(req: NextRequest) {
           },
         });
 
-        // 판매액 (이 대리점장 조직의 이번 달 총 결제액)
+        // 판매액 (이 지사장 조직의 이번 달 총 결제액)
         // Prisma raw query 대신 직접 조회 (더 안전함)
         const payments = await prisma.$queryRaw<
           Array<{ total: number | null }>

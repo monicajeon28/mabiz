@@ -202,7 +202,7 @@ function ShareModal({ pageId, pageTitle, onClose }: {
                   <div key={s.id} className="flex items-center justify-between bg-blue-50 rounded-lg px-3 py-2">
                     <div>
                       <span className="text-sm font-medium text-blue-800">
-                        {s.isGlobal ? "전체 공유 (모든 대리점장)" : s.sharedToOrgName}
+                        {s.isGlobal ? "전체 공유 (모든 지사장)" : s.sharedToOrgName}
                       </span>
                     </div>
                     <button
@@ -230,7 +230,7 @@ function ShareModal({ pageId, pageTitle, onClose }: {
               />
               <div>
                 <p className="font-semibold text-sm text-gray-800">전체 공유</p>
-                <p className="text-sm text-gray-600">모든 대리점장이 받은 함에서 확인할 수 있습니다</p>
+                <p className="text-sm text-gray-600">모든 지사장이 받은 함에서 확인할 수 있습니다</p>
               </div>
             </label>
           </div>
@@ -238,7 +238,7 @@ function ShareModal({ pageId, pageTitle, onClose }: {
           {/* 조직별 선택 */}
           {!isGlobal && (
             <div>
-              <p className="text-sm font-semibold text-gray-500 mb-2">특정 대리점장에게 공유</p>
+              <p className="text-sm font-semibold text-gray-500 mb-2">특정 지사장에게 공유</p>
               {loading ? (
                 <div className="space-y-2">
                   {[...Array(3)].map((_, i) => <div key={i} className="h-10 bg-gray-100 rounded-lg animate-pulse" />)}

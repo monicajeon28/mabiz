@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     // AGENT 또는 FREE_SALES 역할 확인
     if (ctx.role !== 'AGENT' && ctx.role !== 'FREE_SALES') {
       return NextResponse.json(
-        { ok: false, message: '판매원만 접근할 수 있습니다.' },
+        { ok: false, message: '대리점장만 접근할 수 있습니다.' },
         { status: 403 }
       );
     }
@@ -215,7 +215,7 @@ export async function GET(req: NextRequest) {
       amount: Number(p.amount),
       status: p.status,
       buyerName: maskCustomerName(p.customerName),
-      buyerTel: p.customerPhone ? '' : '', // 판매원은 전화번호 미노출
+      buyerTel: p.customerPhone ? '' : '', // 대리점장은 전화번호 미노출
       paidAt: p.paidAt
         ? (p.paidAt instanceof Date ? p.paidAt : new Date(p.paidAt)).toISOString()
         : null,

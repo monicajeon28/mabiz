@@ -12,8 +12,8 @@ import {
 // 퍼널이메일 per-user 격리 (buildContactWhere 3단 모델 동일 철학)
 //
 //  - GLOBAL_ADMIN : 격리 없음 (org 해석은 호출부에서 기존대로 처리)
-//  - OWNER(대리점장) : organizationId 범위 전체 (추가 격리 없음)
-//  - AGENT/FREE_SALES(판매원) : 본인 작성분 + 공유받음(sharedWith)
+//  - OWNER(지사장) : organizationId 범위 전체 (추가 격리 없음)
+//  - AGENT/FREE_SALES(대리점장) : 본인 작성분 + 공유받음(sharedWith)
 //        + 공개(visibility=PUBLIC) + 조직 공용 템플릿(isTemplate)
 //        + createdByUserId IS NULL (기존/시드 조직 공용 퍼널)
 //

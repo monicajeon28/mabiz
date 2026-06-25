@@ -21,7 +21,7 @@ const TYPE_LABEL: Record<string, string> = {
 
 /**
  * 승인 대기(PENDING_APPROVAL) 서류 처리 탭 (DOC-2).
- * 판매원(AGENT)이 발급한 서류를 OWNER/GLOBAL_ADMIN이 승인/거절한다.
+ * 대리점장(AGENT)이 발급한 서류를 OWNER/GLOBAL_ADMIN이 승인/거절한다.
  * 승인 시 approve API가 고객에게 승인 안내 메일을 발송한다.
  */
 export default function ApprovalQueueTab() {
@@ -107,7 +107,7 @@ export default function ApprovalQueueTab() {
   return (
     <div className="space-y-3">
       <p className="text-sm text-gray-500">
-        판매원이 발급해 승인 대기 중인 서류입니다. 승인하면 고객에게 승인 안내 메일이 발송됩니다.
+        대리점장이 발급해 승인 대기 중인 서류입니다. 승인하면 고객에게 승인 안내 메일이 발송됩니다.
       </p>
       {items.map((d) => (
         <div

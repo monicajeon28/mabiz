@@ -137,7 +137,7 @@ export async function provisionAffiliateAccounts(
     // ── 1. GmUser (GMcruise 포털 계정) ──────────────────────────
     const managerGmUser = await tx.gmUser.create({
       data: {
-        name: `${contractorName} 대리점장`,
+        name: `${contractorName} 지사장`,
         email: contractorEmail || null,
         phone: managerPartnerId, // Phase 4: partnerId를 phone에 저장
         password: passwordHash,
@@ -148,7 +148,7 @@ export async function provisionAffiliateAccounts(
 
     const agentGmUser = await tx.gmUser.create({
       data: {
-        name: `${contractorName} 판매원`,
+        name: `${contractorName} 대리점장`,
         email: null,
         phone: agentPartnerId, // Phase 4: partnerId를 phone에 저장
         password: passwordHash,
@@ -159,7 +159,7 @@ export async function provisionAffiliateAccounts(
 
     const presalesGmUser = await tx.gmUser.create({
       data: {
-        name: `${contractorName} 프리세일즈`,
+        name: `${contractorName} 마케터`,
         email: null,
         phone: presalesPartnerId,
         password: passwordHash,
@@ -194,7 +194,7 @@ export async function provisionAffiliateAccounts(
         type: 'SALES_AGENT',
         status: 'ACTIVE',
         contractStatus: 'SIGNED',
-        displayName: `${contractorName} 판매원`,
+        displayName: `${contractorName} 대리점장`,
         contactPhone: contractorPhone,
         contactEmail: contractorEmail,
         affiliateCode: agentCode,
@@ -211,7 +211,7 @@ export async function provisionAffiliateAccounts(
         type: 'PRESALES_AGENT',
         status: 'ACTIVE',
         contractStatus: 'SIGNED',
-        displayName: `${contractorName} 프리세일즈`,
+        displayName: `${contractorName} 마케터`,
         contactPhone: contractorPhone,
         contactEmail: contractorEmail,
         affiliateCode: presalesCode,
@@ -329,13 +329,13 @@ export async function provisionAffiliateAccounts(
       });
     }
 
-    // ── 6-a. OrganizationMember: 대리점장 (OWNER) ─────────────────
+    // ── 6-a. OrganizationMember: 지사장 (OWNER) ─────────────────
     const crmMember = await tx.organizationMember.create({
       data: {
         organizationId: agentOrgId,
         userId: `gm-${managerGmUser.id}`, // GmUser ID 연결
-        role: 'OWNER', // 대리점장 = OWNER
-        displayName: `${contractorName} 대리점장`,
+        role: 'OWNER', // 지사장 = OWNER
+        displayName: `${contractorName} 지사장`,
         phone: contractorPhone || null,
         email: contractorEmail || null,
         passwordHash: passwordHash,
@@ -343,33 +343,33 @@ export async function provisionAffiliateAccounts(
       },
     });
 
-    // ── 6-b. OrganizationMember: 판매원 (AGENT, managerId = 대리점장) ──
+    // ── 6-b. OrganizationMember: 대리점장 (AGENT, managerId = 지사장) ──
     await tx.organizationMember.create({
       data: {
         organizationId: agentOrgId,
         userId: `gm-${agentGmUser.id}`,
         role: 'AGENT',
-        displayName: `${contractorName} 판매원`,
+        displayName: `${contractorName} 대리점장`,
         phone: contractorPhone || null,
         email: null,
         passwordHash: passwordHash,
         isActive: true,
-        managerId: crmMember.id, // 대리점장 하위
+        managerId: crmMember.id, // 지사장 하위
       },
     });
 
-    // ── 6-c. OrganizationMember: 프리세일즈 (FREE_SALES, managerId = 대리점장) ──
+    // ── 6-c. OrganizationMember: 마케터 (FREE_SALES, managerId = 지사장) ──
     await tx.organizationMember.create({
       data: {
         organizationId: agentOrgId,
         userId: `gm-${presalesGmUser.id}`,
         role: 'FREE_SALES',
-        displayName: `${contractorName} 프리세일즈`,
+        displayName: `${contractorName} 마케터`,
         phone: contractorPhone || null,
         email: null,
         passwordHash: passwordHash,
         isActive: true,
-        managerId: crmMember.id, // 대리점장 하위
+        managerId: crmMember.id, // 지사장 하위
       },
     });
 
@@ -431,7 +431,7 @@ export async function provisionAffiliateAccounts(
           userId: result.manager.gmUserId,
           partnerId: result.managerPartnerId,
           passwordHash,
-          name: `${contractorName} 대리점장`,
+          name: `${contractorName} 지사장`,
           role: 'affiliate_manager',
           email: contractorEmail,
         });
@@ -447,7 +447,7 @@ export async function provisionAffiliateAccounts(
             operationType: 'INSERT',
             tableName: 'User',
             recordId: String(result.manager.gmUserId),
-            data: { gmUserId: result.manager.gmUserId, partnerId: result.managerPartnerId, name: `${contractorName} 대리점장` },
+            data: { gmUserId: result.manager.gmUserId, partnerId: result.managerPartnerId, name: `${contractorName} 지사장` },
             error: errMsg,
             nextRetryAt: new Date(Date.now() + 5 * 60 * 1000),
             status: 'PENDING',
@@ -466,7 +466,7 @@ export async function provisionAffiliateAccounts(
           userId: result.agent.gmUserId,
           partnerId: result.agentPartnerId,
           passwordHash,
-          name: `${contractorName} 판매원`,
+          name: `${contractorName} 대리점장`,
           role: 'affiliate_agent',
         });
         logger.info('[AFFILIATE-PROVISION] ✅ Agent Supabase 동기화 성공', {
@@ -481,7 +481,7 @@ export async function provisionAffiliateAccounts(
             operationType: 'INSERT',
             tableName: 'User',
             recordId: String(result.agent.gmUserId),
-            data: { gmUserId: result.agent.gmUserId, partnerId: result.agentPartnerId, name: `${contractorName} 판매원` },
+            data: { gmUserId: result.agent.gmUserId, partnerId: result.agentPartnerId, name: `${contractorName} 대리점장` },
             error: errMsg,
             nextRetryAt: new Date(Date.now() + 5 * 60 * 1000),
             status: 'PENDING',
@@ -500,7 +500,7 @@ export async function provisionAffiliateAccounts(
           userId: result.presales.gmUserId,
           partnerId: result.presalesPartnerId,
           passwordHash,
-          name: `${contractorName} 프리세일즈`,
+          name: `${contractorName} 마케터`,
           role: 'affiliate_presales',
         });
         logger.info('[AFFILIATE-PROVISION] ✅ Presales Supabase 동기화 성공', {
@@ -515,7 +515,7 @@ export async function provisionAffiliateAccounts(
             operationType: 'INSERT',
             tableName: 'User',
             recordId: String(result.presales.gmUserId),
-            data: { gmUserId: result.presales.gmUserId, partnerId: result.presalesPartnerId, name: `${contractorName} 프리세일즈` },
+            data: { gmUserId: result.presales.gmUserId, partnerId: result.presalesPartnerId, name: `${contractorName} 마케터` },
             error: errMsg,
             nextRetryAt: new Date(Date.now() + 5 * 60 * 1000),
             status: 'PENDING',

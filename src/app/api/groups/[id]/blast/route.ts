@@ -48,8 +48,8 @@ function personalizeMessage(template: string, ctx: PersonalizeContext): string {
  *
  * 권한 규칙:
  * - GLOBAL_ADMIN: 모든 그룹 발송 가능
- * - OWNER(대리점장): 자신의 그룹만 발송 가능
- * - AGENT(판매원): 그룹 발송 불가
+ * - OWNER(지사장): 자신의 그룹만 발송 가능
+ * - AGENT(대리점장): 그룹 발송 불가
  * - FREE_SALES: 접근 불가
  */
 export async function POST(req: Request, { params }: Params) {
@@ -62,12 +62,12 @@ export async function POST(req: Request, { params }: Params) {
     }
     const { id: groupId } = await params;
 
-    // [P0-1] 역할 기반 권한 검증 (판매원은 단체발송 불가)
+    // [P0-1] 역할 기반 권한 검증 (대리점장은 단체발송 불가)
     if (ctx.role === "AGENT" || ctx.role === "FREE_SALES") {
       logger.warn('[GroupBlast] 권한 부족', { userId: ctx.userId, role: ctx.role });
       return NextResponse.json({
         ok: false,
-        message: '단체 메시지 발송은 관리자와 대리점장만 가능합니다. 자신의 고객 목록에서 개별 발송하세요.',
+        message: '단체 메시지 발송은 관리자와 지사장만 가능합니다. 자신의 고객 목록에서 개별 발송하세요.',
       }, { status: 403 });
     }
 
@@ -100,7 +100,7 @@ export async function POST(req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, message: '그룹을 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    // [P0-2] 대리점장의 그룹 발송 권한 검증 (자신의 그룹만 발송 가능)
+    // [P0-2] 지사장의 그룹 발송 권한 검증 (자신의 그룹만 발송 가능)
     if (ctx.role === "OWNER" && group.ownerId && group.ownerId !== ctx.userId) {
       logger.warn('[GroupBlast] 그룹 소유권 불일치', {
         userId: ctx.userId,
@@ -240,7 +240,7 @@ export async function POST(req: Request, { params }: Params) {
     }
 
     // SMS 발신 계정 해석 (루프 밖, 1회): 개인(UserSmsConfig) > 조직 > 시스템 env.
-    // 판매원·대리점장이 자기 알리고를 연결하면 단체발송도 본인 발신번호로 나간다.
+    // 대리점장·지사장이 자기 알리고를 연결하면 단체발송도 본인 발신번호로 나간다.
     const config = await resolveUserSmsConfig(orgId, userId);
     if (!config) {
       return NextResponse.json({ ok: false, message: 'SMS 설정이 없습니다. 설정 → 문자에서 알리고를 연결하세요.' }, { status: 400 });

@@ -7,7 +7,7 @@ import prisma from "@/lib/prisma";
  *
  * 🔴 과거 버그: targetUrl 을 `/landing/{id}` 로 만들었으나 그 동적 라우트가
  *   존재하지 않아 죽은 404 였고, /l/{code} 리다이렉트는 https 가 아니면
- *   외부(cruisedot 홈)로 튕겨 판매원 귀속(수당정산 SSoT)이 깨졌다.
+ *   외부(cruisedot 홈)로 튕겨 대리점장 귀속(수당정산 SSoT)이 깨졌다.
  *   실제 공개 렌더러는 /p/[slug] 이며 shortlink 또는 slug 로 조회한다.
  */
 export function buildLandingTargetUrl(shortlink: string): string {
@@ -33,7 +33,7 @@ export type ClonedPageOverrides = {
  *
  * 🔴 과거 버그: clone/clone-shared 가 13개 필드만 복사해 결제·L6(긴급성)·블록
  *   에디터·자동퍼널·등록이메일·SMS 자동화가 통째로 끊긴 "깨진 사본"을 만들었다.
- *   대리점장/판매원이 "복사해서 쓰기"를 누르면 돈 버는 기능이 사라지던 매출 누수.
+ *   지사장/대리점장이 "복사해서 쓰기"를 누르면 돈 버는 기능이 사라지던 매출 누수.
  *
  * 안전장치:
  *  - 사본은 항상 비활성(isActive:false) + 결제 비활성(paymentEnabled:false)으로 시작.

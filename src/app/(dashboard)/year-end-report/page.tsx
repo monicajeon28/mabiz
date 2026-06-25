@@ -205,7 +205,7 @@ export default function YearEndReportPage() {
       {/* Table */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
         <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-          <span className="text-sm font-semibold text-gray-700">{year}년 판매원별 실적</span>
+          <span className="text-sm font-semibold text-gray-700">{year}년 대리점장별 실적</span>
           {data && (
             <span className="text-sm text-gray-600">총 {data.agents.length}명</span>
           )}
@@ -216,7 +216,7 @@ export default function YearEndReportPage() {
             <thead>
               <tr className="bg-navy-900 text-white">
                 <th className="px-4 py-3 text-left font-semibold w-14">순위</th>
-                <th className="px-4 py-3 text-left font-semibold">판매원</th>
+                <th className="px-4 py-3 text-left font-semibold">대리점장</th>
                 <th className="px-4 py-3 text-right font-semibold">확정건수</th>
                 <th className="px-4 py-3 text-right font-semibold">총매출액</th>
                 <th className="px-4 py-3 text-right font-semibold">총커미션</th>

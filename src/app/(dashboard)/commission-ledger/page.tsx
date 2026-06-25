@@ -158,7 +158,7 @@ export default function CommissionLedgerPage() {
 
   // Phase 3: 버튼 액션 핸들러
   const handleSettle = async () => {
-    alert('💰 월말정산\n\n모든 판매원의 수당을 정산하는 프로세스를 시작합니다.');
+    alert('💰 월말정산\n\n모든 대리점장의 수당을 정산하는 프로세스를 시작합니다.');
     // TODO: Phase 4에서 openSettleModal() 구현
   };
 
@@ -190,7 +190,7 @@ export default function CommissionLedgerPage() {
           <BookOpen className="w-5 h-5 text-teal-600" />
           <h1 className="text-xl font-bold text-navy-900">수당 현황</h1>
         </div>
-        <p className="text-sm text-gray-500">판매원별 수당 입금·차감·조정 내역을 확인합니다</p>
+        <p className="text-sm text-gray-500">대리점장별 수당 입금·차감·조정 내역을 확인합니다</p>
       </div>
 
       {/* Phase 3: 버튼 권한 시스템 */}

@@ -258,7 +258,7 @@ function DbShareModal({ contact, onClose, onShared }: { contact: { id: string; n
           <p className="text-sm text-gray-400 text-center py-6">
             {query.trim()
               ? "검색 결과가 없습니다."
-              : "이 권한으로는 DB 공유를 할 수 없습니다. 대리점장 또는 본사에 문의하세요."}
+              : "이 권한으로는 DB 공유를 할 수 없습니다. 지사장 또는 본사에 문의하세요."}
           </p>
         ) : (
           <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}
@@ -373,7 +373,7 @@ function AffiliateTab({
           )}
           {affiliateInfo?.agent && (
             <div className="bg-white border border-gray-200 rounded-xl p-4">
-              <p className="text-xs text-gray-500 mb-1 font-medium">담당 판매원</p>
+              <p className="text-xs text-gray-500 mb-1 font-medium">담당 대리점장</p>
               <p className="font-semibold text-gray-900">{affiliateInfo.agent.name}</p>
               <p className="text-sm text-gray-600">{affiliateInfo.agent.org}</p>
               {affiliateInfo.agent.phone && <a href={`tel:${affiliateInfo.agent.phone}`} className="text-sm text-green-600 mt-1 block">{affiliateInfo.agent.phone}</a>}

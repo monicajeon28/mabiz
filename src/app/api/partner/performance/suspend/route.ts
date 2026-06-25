@@ -6,7 +6,7 @@ import { requirePartnerContext } from '@/lib/passport-auth';
 import { logger } from '@/lib/logger';
 
 // POST /api/partner/performance/suspend
-// 환불율 기준 초과 판매원 정지 처리 (OWNER/ADMIN 전용)
+// 환불율 기준 초과 대리점장 정지 처리 (OWNER/ADMIN 전용)
 export async function POST(req: Request) {
   try {
     const ctx = await requirePartnerContext();
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
       return NextResponse.json({
         ok:      true,
         result:  'already_suspended',
-        message: '이미 정지 처리된 판매원입니다.',
+        message: '이미 정지 처리된 대리점장입니다.',
       });
     }
 
@@ -76,7 +76,7 @@ export async function POST(req: Request) {
       },
     });
 
-    logger.log('[performance/suspend] 판매원 정지 처리', {
+    logger.log('[performance/suspend] 대리점장 정지 처리', {
       memberId:  body.memberId,
       orgId:     body.organizationId,
       refundRate: body.refundRate,

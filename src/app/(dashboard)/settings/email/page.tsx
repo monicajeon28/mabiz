@@ -399,7 +399,7 @@ function PersonalEmailForm({ role }: { role: UserRole }) {
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-start gap-3">
           <Shield className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold text-gray-700">대리점장 안내</p>
+            <p className="text-sm font-semibold text-gray-700">지사장 안내</p>
             <p className="text-sm text-gray-600 mt-1">
               개인 이메일을 등록하면 내 이름으로 고객에게 발송됩니다.
               팀 전체의 발송 설정은{" "}

@@ -182,7 +182,7 @@ export async function processPendingSms(
     }
 
     // 작성자(createdByUserId)별 그룹핑 — 각자 본인 알리고 계정으로 발송.
-    // 관리자·대리점장·판매원이 자기 알리고를 연결하면 예약문자도 본인 키+발신번호로 나간다.
+    // 관리자·지사장·대리점장이 자기 알리고를 연결하면 예약문자도 본인 키+발신번호로 나간다.
     // 우선순위: 개인(UserSmsConfig) > 조직(OrgSmsConfig) > 시스템 env.
     // 발신번호는 그 계정에 등록된 번호(config.sender)로 강제 → 타 조직/공공기관 번호
     // 변작이 구조적으로 불가능(Aligo가 계정별 등록 발신번호만 허용).

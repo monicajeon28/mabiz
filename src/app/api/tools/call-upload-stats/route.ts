@@ -6,7 +6,7 @@ import { getAuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 
 // GET /api/tools/call-upload-stats?timeRange=week|month|all
-// 판매원별 통화 기록 통계 조회
+// 대리점장별 통화 기록 통계 조회
 export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
@@ -48,7 +48,7 @@ export async function GET(req: Request) {
       },
     });
 
-    // 판매원별 그룹화
+    // 대리점장별 그룹화
     const groupByAgent = new Map<string, (typeof callLogs)>();
     const memberCache = new Map<string, string>();
 

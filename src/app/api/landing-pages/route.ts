@@ -17,8 +17,8 @@ export async function GET() {
       return NextResponse.json({ ok: false, error: 'UNAUTHORIZED', message: '로그인이 필요합니다' }, { status: 401 });
     }
 
-    // 랜딩페이지는 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용 기능.
-    // 판매원(AGENT)·프리세일즈(FREE_SALES) 조회 차단 (P0-2)
+    // 랜딩페이지는 지사장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용 기능.
+    // 대리점장(AGENT)·마케터(FREE_SALES) 조회 차단 (P0-2)
     if (!canManageSettings(ctx)) {
       return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '이 작업을 수행할 권한이 없습니다' }, { status: 403 });
     }
@@ -127,8 +127,8 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const ctx   = await getAuthContext();
-    // 랜딩페이지 생성은 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN)만 가능.
-    // 판매원(AGENT)·프리세일즈(FREE_SALES)는 직접 POST 호출/직접 URL 접근 차단 (P0-2)
+    // 랜딩페이지 생성은 지사장(OWNER)·시스템관리자(GLOBAL_ADMIN)만 가능.
+    // 대리점장(AGENT)·마케터(FREE_SALES)는 직접 POST 호출/직접 URL 접근 차단 (P0-2)
     if (!canManageSettings(ctx)) {
       return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '랜딩페이지 생성 권한이 없습니다' }, { status: 403 });
     }

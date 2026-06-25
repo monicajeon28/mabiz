@@ -22,9 +22,9 @@ type RawSale = {
   agentMallUserId: string | null;
   customerName: string | null;
   customerPhone: string | null;
-  // 담당자 분리 표기 + 확정 신호 (대리점장 구매확인용)
-  managerDisplayName: string | null;     // 대리점장(managerId)
-  presalesDisplayName: string | null;    // 프리세일즈(sourceAgentId)
+  // 담당자 분리 표기 + 확정 신호 (지사장 구매확인용)
+  managerDisplayName: string | null;     // 지사장(managerId)
+  presalesDisplayName: string | null;    // 마케터(sourceAgentId)
   presalesPhone: string | null;
   sourceAgentId: number | null;
   commissionOwnerType: string | null;

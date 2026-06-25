@@ -24,7 +24,7 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: '인증이 필요합니다' }, { status: 403 });
     }
 
-    // AGENT(판매원) 수정 차단
+    // AGENT(대리점장) 수정 차단
     if (ctx.sessionUser?.role === 'agent') {
       logger.warn('[b2b] [id] PATCH: AGENT 접근 차단', { userId: ctx.sessionUser?.id });
       return NextResponse.json({ ok: false, error: '수정/삭제 권한이 없습니다' }, { status: 403 });
@@ -119,7 +119,7 @@ export async function DELETE(
       return NextResponse.json({ ok: false, error: '인증이 필요합니다' }, { status: 403 });
     }
 
-    // AGENT(판매원) 삭제 차단
+    // AGENT(대리점장) 삭제 차단
     if (ctx.sessionUser?.role === 'agent') {
       logger.warn('[b2b] [id] DELETE: AGENT 접근 차단', { userId: ctx.sessionUser?.id });
       return NextResponse.json({ ok: false, error: '수정/삭제 권한이 없습니다' }, { status: 403 });

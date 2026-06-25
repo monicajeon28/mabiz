@@ -323,7 +323,7 @@ export async function POST(req: Request) {
 
     if (provisionUrl && provisionSecret) {
       try {
-        // 소속 대리점장의 externalId 조회 (크루즈닷 upsert API 멱등키)
+        // 소속 지사장의 externalId 조회 (크루즈닷 upsert API 멱등키)
         let managerExternalId: string | undefined;
         if (needsRelation && managerProfileId) {
           const managerProfile = await prisma.gmAffiliateProfile.findUnique({

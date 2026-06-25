@@ -102,11 +102,11 @@ type PendingContract = {
 // ─── Constants ────────────────────────────────────────────────
 
 const ROLE_LABEL: Record<string, string> = {
-  BRANCH_MANAGER: '대리점장',
+  BRANCH_MANAGER: '지사장',
   OWNER: '지점장',
-  SALES_AGENT: '판매원',
-  FREE_SALES: '프리세일즈',
-  PRE_SALES: '프리세일즈',
+  SALES_AGENT: '대리점장',
+  FREE_SALES: '마케터',
+  PRE_SALES: '마케터',
   AGENT: '에이전트',
 };
 const ROLE_BADGE: Record<string, string> = {
@@ -459,7 +459,7 @@ function DetailPanel({
     onMemberChanged();
   }, [load, onMemberChanged]);
 
-  // 대리점장 본인 삭제 시 패널 닫힘
+  // 지사장 본인 삭제 시 패널 닫힘
   const handleMainDeleted = useCallback(() => {
     onMemberChanged();
     onClose();
@@ -502,7 +502,7 @@ function DetailPanel({
 
           {data && (
             <>
-              {/* 대리점장 계정 관리 */}
+              {/* 지사장 계정 관리 */}
               <section className="bg-gray-50 border border-gray-200 rounded-xl p-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -580,13 +580,13 @@ function DetailPanel({
                 </div>
               </section>
 
-              {/* B) 산하 판매원 (계정 관리 포함) */}
+              {/* B) 산하 대리점장 (계정 관리 포함) */}
               <section>
                 <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                  B · 산하 판매원 ({data.subMembers.length}명)
+                  B · 산하 대리점장 ({data.subMembers.length}명)
                 </h3>
                 {data.subMembers.length === 0 ? (
-                  <p className="text-sm text-gray-600 py-1">등록된 판매원이 없습니다.</p>
+                  <p className="text-sm text-gray-600 py-1">등록된 대리점장이 없습니다.</p>
                 ) : (
                   <div className="space-y-2">
                     {data.subMembers.map((s) => (
@@ -822,7 +822,7 @@ function AutoLinkModal({ onClose, onLinked }: { onClose: () => void; onLinked: (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 space-y-4 max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between shrink-0">
-          <h2 className="text-base font-bold text-gray-900">미연결 대리점장 자동 연결</h2>
+          <h2 className="text-base font-bold text-gray-900">미연결 지사장 자동 연결</h2>
           <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
         </div>
 
@@ -830,7 +830,7 @@ function AutoLinkModal({ onClose, onLinked }: { onClose: () => void; onLinked: (
           <div className="space-y-4">
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800 leading-relaxed">
               크루즈닷몰에 존재하는 <b>BRANCH_MANAGER</b> 어필리에이트 중<br />
-              CRM에 아직 연결되지 않은 대리점장을 <b>전부 자동으로 연결</b>합니다.<br />
+              CRM에 아직 연결되지 않은 지사장을 <b>전부 자동으로 연결</b>합니다.<br />
               기존 크루즈닷몰 비밀번호 그대로 사용 가능합니다.
             </div>
             <div className="flex gap-2 pt-1">
@@ -980,7 +980,7 @@ export default function OrganizationsPage() {
   useEffect(() => {
     fetchManagers();
     fetchPendingContracts();
-    // 백그라운드: 링크 미할당 대리점장 크루즈닷 자동 동기화
+    // 백그라운드: 링크 미할당 지사장 크루즈닷 자동 동기화
     fetch('/api/admin/affiliate-managers/re-sync', { method: 'POST' })
       .catch(() => {}); // 실패해도 UI에 영향 없음
     return () => { fetchAbortRef.current?.abort(); contractsFetchAbortRef.current?.abort(); };
@@ -1169,7 +1169,7 @@ export default function OrganizationsPage() {
         <div className="flex gap-1.5 mb-3 flex-wrap">
           {[
             { val: '',               label: '전체 유형' },
-            { val: 'SALES_AGENT',    label: '대리점·판매원' },
+            { val: 'SALES_AGENT',    label: '대리점장' },
             { val: 'CRUISE_PARTNER', label: '파트너스' },
           ].map(({ val, label }) => (
             <button
@@ -1203,7 +1203,7 @@ export default function OrganizationsPage() {
               const isRejected = c.status === 'rejected';
               const isApproved = c.status === 'APPROVED';
               const typeLabel = c.contractType === 'CRUISE_PARTNER' ? '파트너스' :
-                                c.tierLabel ?? '대리점·판매원';
+                                c.tierLabel ?? '대리점장';
               return (
                 <div
                   key={c.id}
@@ -1319,13 +1319,13 @@ export default function OrganizationsPage() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900">대리점 관리</h1>
-          {!loading && <p className="text-sm text-gray-500 mt-0.5">{managers.length}명의 대리점장</p>}
+          {!loading && <p className="text-sm text-gray-500 mt-0.5">{managers.length}명의 지사장</p>}
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowLinkModal(true)}
             className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 border border-amber-300 text-amber-700 hover:bg-amber-100 rounded-lg text-sm font-semibold transition-colors"
-            title="크루즈닷몰 기존 대리점장 전체 자동 연결"
+            title="크루즈닷몰 기존 지사장 전체 자동 연결"
           >
             <Link2 className="w-3.5 h-3.5" />
             미연결 자동 연결
@@ -1379,21 +1379,21 @@ export default function OrganizationsPage() {
         </div>
       )}
 
-      {/* 대리점장 목록 */}
+      {/* 지사장 목록 */}
       <section className="space-y-2.5">
         {loading ? (
           <><Shimmer /><Shimmer /><Shimmer /></>
         ) : managers.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-14 text-gray-600">
             <UserCheck className="w-10 h-10" />
-            <p className="text-sm">등록된 대리점장이 없습니다.</p>
+            <p className="text-sm">등록된 지사장이 없습니다.</p>
             <p className="text-sm text-center text-gray-300 leading-relaxed">
-              계약서 작성 → 승인 절차를 완료하면<br />대리점장이 자동으로 추가됩니다.
+              계약서 작성 → 승인 절차를 완료하면<br />지사장이 자동으로 추가됩니다.
             </p>
           </div>
         ) : tierFilteredManagers.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-8 text-gray-600">
-            <p className="text-sm">해당 티어의 대리점장이 없습니다.</p>
+            <p className="text-sm">해당 티어의 지사장이 없습니다.</p>
           </div>
         ) : (
           tierFilteredManagers.map((mgr) => (

@@ -324,7 +324,7 @@ export default function AffiliateTeamDashboardPage() {
     };
   }, [fetchPendingCount]);
 
-  // ── 대리점장 CRM 연결 정보 (활성화/비활성화/삭제용) ──────────────────────
+  // ── 지사장 CRM 연결 정보 (활성화/비활성화/삭제용) ──────────────────────
   const [managerLookup, setManagerLookup] = useState<Map<number, {
     userId: string; orgId: string; orgName: string; isActive: boolean;
   }>>(new Map());
@@ -351,7 +351,7 @@ export default function AffiliateTeamDashboardPage() {
       })
       .catch(err => {
         if (err instanceof Error && err.name === 'AbortError') return;
-        showError('대리점장 정보를 불러오지 못했습니다. 페이지를 새로고침해주세요.');
+        showError('지사장 정보를 불러오지 못했습니다. 페이지를 새로고침해주세요.');
       });
     return () => ctrl.abort();
   }, []);
@@ -379,7 +379,7 @@ export default function AffiliateTeamDashboardPage() {
 
   const handleDeleteManager = async (userId: string, orgId: string, name: string, affiliateId: number) => {
     const confirmed = await confirm({
-      message: `"${name}" 대리점장을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`,
+      message: `"${name}" 지사장을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`,
       isDangerous: true,
     });
     if (!confirmed) return;
@@ -814,8 +814,8 @@ export default function AffiliateTeamDashboardPage() {
     return recipients.filter(r =>
       r.name?.toLowerCase().includes(query) ||
       r.role?.toLowerCase().includes(query) ||
-      (r.role === 'manager' && '대리점장'.includes(query)) ||
-      (r.role === 'agent' && '판매원'.includes(query))
+      (r.role === 'manager' && '지사장'.includes(query)) ||
+      (r.role === 'agent' && '대리점장'.includes(query))
     );
   }, [recipients, recipientSearchQuery]);
 
@@ -823,10 +823,10 @@ export default function AffiliateTeamDashboardPage() {
     if (!totals) return [];
     const cards = [
       {
-        title: '활성 대리점장',
+        title: '활성 지사장',
         value: `${totals.managerCount.toLocaleString('ko-KR')}명`,
         icon: <Users className="w-6 h-6" />,
-        description: '대리점장 어필리에이트 프로필 수',
+        description: '지사장 어필리에이트 프로필 수',
       },
       {
         title: '팀 판매 건수',
@@ -859,7 +859,7 @@ export default function AffiliateTeamDashboardPage() {
       title: '세후 지급 예상',
       value: formatCurrency(totals.totalNetCommission),
       icon: <TrendingUp className="w-6 h-6" />,
-      description: '대리점장 예상 입금액 (세후)',
+      description: '지사장 예상 입금액 (세후)',
     });
 
     if (totals.hq) {
@@ -903,7 +903,7 @@ export default function AffiliateTeamDashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">어필리에이트 팀 성과 대시보드</h1>
-          <p className="mt-1 text-sm text-slate-600">대리점장별 판매/리드/커미션 현황과 판매원 실적을 한눈에 확인할 수 있습니다.</p>
+          <p className="mt-1 text-sm text-slate-600">지사장별 판매/리드/커미션 현황과 대리점장 실적을 한눈에 확인할 수 있습니다.</p>
         </div>
         <div className="flex items-center gap-3">
           {/* 승인 대기 알림 뱃지 */}
@@ -1022,11 +1022,11 @@ export default function AffiliateTeamDashboardPage() {
           <div className="rounded-3xl bg-white/80 p-10 text-center text-slate-500 shadow-sm">데이터를 불러오는 중입니다...</div>
         ) : metrics.length === 0 ? (
           <div className="rounded-3xl bg-white/80 p-10 text-center text-slate-500 shadow-sm">
-            조건에 맞는 대리점장 데이터가 없습니다. 필터를 조정해 주세요.
+            조건에 맞는 지사장 데이터가 없습니다. 필터를 조정해 주세요.
           </div>
         ) : (
           metrics.map((item) => {
-            const managerName = item.manager.displayName || item.manager.nickname || `대리점장 #${item.manager.id}`;
+            const managerName = item.manager.displayName || item.manager.nickname || `지사장 #${item.manager.id}`;
             const branchLabel = item.manager.branchLabel ? `(${item.manager.branchLabel})` : '';
             const managerStatus = affiliateStatusLabel[item.manager.status] || item.manager.status;
             return (
@@ -1041,17 +1041,17 @@ export default function AffiliateTeamDashboardPage() {
                       <span className="rounded-full bg-emerald-50 px-3 py-1 font-semibold text-emerald-600">{managerStatus}</span>
                       <span className="rounded-full bg-red-50 px-3 py-1 font-semibold text-red-600">본사 직속</span>
                       {item.manager.contactPhone && <span>{item.manager.contactPhone}</span>}
-                      <span className="text-slate-400">판매원 {item.agentCount.toLocaleString('ko-KR')}명</span>
+                      <span className="text-slate-400">대리점장 {item.agentCount.toLocaleString('ko-KR')}명</span>
                       <span className="text-slate-400">리드 {item.leads.total.toLocaleString('ko-KR')}건</span>
                       <span className="text-slate-400">판매 {item.sales.count.toLocaleString('ko-KR')}건</span>
                     </div>
                   </div>
-                  {/* 대리점장 관리 버튼 */}
+                  {/* 지사장 관리 버튼 */}
                   {(() => {
                     const crm = managerLookup.get(item.manager.id);
                     if (!crm) return null;
                     const isActing = actingManager === crm.userId;
-                    const mgrName = item.manager.displayName || item.manager.nickname || `대리점장 #${item.manager.id}`;
+                    const mgrName = item.manager.displayName || item.manager.nickname || `지사장 #${item.manager.id}`;
                     return (
                       <div className="flex items-center gap-1">
                         <button
@@ -1115,7 +1115,7 @@ export default function AffiliateTeamDashboardPage() {
                     <div className="mt-4 space-y-2 text-sm text-slate-600">
                       <div className="flex justify-between"><span>브랜치</span><span className="font-semibold">{formatCurrency(item.sales.branchCommission)}</span></div>
                       <div className="flex justify-between"><span>오버라이드</span><span className="font-semibold">{formatCurrency(item.sales.overrideCommission)}</span></div>
-                      <div className="flex justify-between"><span>판매원 수당</span><span className="font-semibold">{formatCurrency(item.sales.salesCommission)}</span></div>
+                      <div className="flex justify-between"><span>대리점장 수당</span><span className="font-semibold">{formatCurrency(item.sales.salesCommission)}</span></div>
                       <div className="flex justify-between text-red-500"><span>원천징수</span><span className="font-semibold">- {formatCurrency(item.ledger.totalWithholding)}</span></div>
                       <div className="mt-2 border-t border-slate-200 pt-2 text-emerald-600">
                         <div className="flex justify-between font-semibold">
@@ -1143,17 +1143,17 @@ export default function AffiliateTeamDashboardPage() {
                 {expanded[item.manager.id] && (
                   <div className="mt-6 space-y-4">
                     <div className="rounded-2xl border border-slate-100 bg-white p-4">
-                      <h3 className="text-lg font-semibold text-slate-900">팀 판매원 현황</h3>
+                      <h3 className="text-lg font-semibold text-slate-900">팀 대리점장 현황</h3>
                       <div className="mt-4 overflow-x-auto">
                         <table className="min-w-full divide-y divide-slate-200 text-sm">
                           <thead className="bg-slate-50">
                             <tr>
-                              <th className="px-4 py-3 text-left font-semibold text-slate-600">판매원</th>
+                              <th className="px-4 py-3 text-left font-semibold text-slate-600">대리점장</th>
                               <th className="px-4 py-3 text-left font-semibold text-slate-600">연결 상태</th>
                               <th className="px-4 py-3 text-left font-semibold text-slate-600">리드</th>
                               <th className="px-4 py-3 text-left font-semibold text-slate-600">판매</th>
                               <th className="px-4 py-3 text-left font-semibold text-slate-600">판매금액</th>
-                              <th className="px-4 py-3 text-left font-semibold text-slate-600">판매원 수당</th>
+                              <th className="px-4 py-3 text-left font-semibold text-slate-600">대리점장 수당</th>
                               <th className="px-4 py-3 text-left font-semibold text-slate-600">오버라이드</th>
                               <th className="px-4 py-3 text-left font-semibold text-slate-600">정산(지급완료/대기)</th>
                             </tr>
@@ -1162,21 +1162,21 @@ export default function AffiliateTeamDashboardPage() {
                             {item.agents.length === 0 ? (
                               <tr>
                                 <td colSpan={8} className="px-4 py-6 text-center text-sm text-slate-500">
-                                  연결된 판매원이 없습니다.
+                                  연결된 대리점장이 없습니다.
                                 </td>
                               </tr>
                             ) : (
                               item.agents.map((agentItem) => {
-                                const agentName = agentItem.agent?.displayName || agentItem.agent?.nickname || `판매원 #${agentItem.agent?.id ?? 'N/A'}`;
+                                const agentName = agentItem.agent?.displayName || agentItem.agent?.nickname || `대리점장 #${agentItem.agent?.id ?? 'N/A'}`;
                                 const relationLabel = relationStatusLabel[agentItem.relation.status] || agentItem.relation.status;
-                                const managerLabel = item.manager.displayName || item.manager.nickname || `대리점장 #${item.manager.id}`;
+                                const managerLabel = item.manager.displayName || item.manager.nickname || `지사장 #${item.manager.id}`;
                                 return (
                                   <tr key={`${agentItem.agent?.id ?? 'none'}-${agentItem.relation.connectedAt ?? 'rel'}`} className="hover:bg-slate-50">
                                     <td className="px-4 py-3">
                                       <div className="font-semibold text-slate-900">{agentName}</div>
                                       <div className="text-sm text-slate-500">코드 {agentItem.agent?.affiliateCode ?? '-'}</div>
                                       {agentItem.agent?.contactPhone && <div className="text-sm text-slate-500">{agentItem.agent.contactPhone}</div>}
-                                      <div className="text-[11px] text-slate-400">소속 대리점장: {managerLabel}</div>
+                                      <div className="text-[11px] text-slate-400">소속 지사장: {managerLabel}</div>
                                     </td>
                                     <td className="px-4 py-3 text-sm text-slate-600">
                                       <div className="font-semibold text-slate-700">{relationLabel}</div>
@@ -1225,7 +1225,7 @@ export default function AffiliateTeamDashboardPage() {
                               <th className="px-4 py-2 text-right font-semibold">판매 금액</th>
                               <th className="px-4 py-2 text-right font-semibold">지점 수당</th>
                               <th className="px-4 py-2 text-right font-semibold">오버라이드</th>
-                              <th className="px-4 py-2 text-right font-semibold">판매원 수당</th>
+                              <th className="px-4 py-2 text-right font-semibold">대리점장 수당</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1512,11 +1512,11 @@ export default function AffiliateTeamDashboardPage() {
                                   </h3>
                                   {message.messageType && message.messageType !== 'team-dashboard' && (
                                     <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-sm">
-                                      {message.messageType === 'agent-manager' ? '판매원→대리점장' :
-                                       message.messageType === 'manager-agent' ? '대리점장→판매원' :
-                                       message.messageType === 'manager-manager' ? '대리점장→대리점장' :
-                                       message.messageType === 'agent-admin' ? '판매원→관리자' :
-                                       message.messageType === 'manager-admin' ? '대리점장→관리자' : message.messageType}
+                                      {message.messageType === 'agent-manager' ? '대리점장→지사장' :
+                                       message.messageType === 'manager-agent' ? '지사장→대리점장' :
+                                       message.messageType === 'manager-manager' ? '지사장→지사장' :
+                                       message.messageType === 'agent-admin' ? '대리점장→관리자' :
+                                       message.messageType === 'manager-admin' ? '지사장→관리자' : message.messageType}
                                     </span>
                                   )}
                                 </div>
@@ -1758,7 +1758,7 @@ export default function AffiliateTeamDashboardPage() {
                                     <span className={`px-1.5 py-0.5 rounded text-sm ${
                                       activity.profile.type === 'BRANCH_MANAGER' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'
                                     }`}>
-                                      {activity.profile.type === 'BRANCH_MANAGER' ? '대리점장' : '판매원'}
+                                      {activity.profile.type === 'BRANCH_MANAGER' ? '지사장' : '대리점장'}
                                     </span>
                                   </span>
                                 )}
@@ -1881,7 +1881,7 @@ export default function AffiliateTeamDashboardPage() {
                             r.role === 'admin' ? 'bg-purple-100 text-purple-700' :
                             'bg-green-100 text-green-700'
                           }`}>
-                            {r.role === 'manager' ? '대리점장' : r.role === 'admin' ? '관리자' : '판매원'}
+                            {r.role === 'manager' ? '지사장' : r.role === 'admin' ? '관리자' : '대리점장'}
                           </span>
                         </label>
                       ))

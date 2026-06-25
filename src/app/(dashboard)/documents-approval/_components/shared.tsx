@@ -68,7 +68,7 @@ export function validUntilKo(days: number): string {
   return d.toLocaleDateString('ko-KR');
 }
 
-// ─── 현재 담당자(대리점/판매원) 정보 훅 ─────────────────────────────────────────
+// ─── 현재 담당자(대리점/대리점장) 정보 훅 ─────────────────────────────────────────
 // 서류 "담당자 연락처"에 로그인 사용자의 이름/전화번호 자동 표시
 export type CurrentAgent = { displayName: string | null; phone: string | null };
 

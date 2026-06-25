@@ -7,7 +7,7 @@ import { logger } from "@/lib/logger";
  * GET /api/landing-pages/shareable-orgs
  * 공유 가능한 조직 목록 (OWNER + GLOBAL_ADMIN)
  * - GLOBAL_ADMIN: 본사 제외 + 대리점 전체
- * - OWNER(대리점장): 자기 org 제외 + 본사("본사") + 다른 대리점
+ * - OWNER(지사장): 자기 org 제외 + 본사("본사") + 다른 대리점
  */
 export async function GET() {
   try {
@@ -26,7 +26,7 @@ export async function GET() {
       orderBy: { name: "asc" },
     });
 
-    // 대리점장 멤버 조회 (DB role: BRANCH_MANAGER 또는 OWNER)
+    // 지사장 멤버 조회 (DB role: BRANCH_MANAGER 또는 OWNER)
     // auth.ts에서 둘 다 CRM session role 'OWNER'로 매핑됨
     const allOrgIds = orgs.map((o) => o.id);
     const members = await prisma.organizationMember.findMany({
@@ -47,13 +47,13 @@ export async function GET() {
       .filter((v): v is string => Boolean(v))
       .slice(0, 3);
 
-    // organizationId → 모든 대리점장 매핑
+    // organizationId → 모든 지사장 매핑
     const ownerMap: Record<string, { userIds: string[]; displayNames: string[] }> = {};
     for (const m of members) {
       if (!ownerMap[m.organizationId]) {
         ownerMap[m.organizationId] = { userIds: [], displayNames: [] };
       }
-      const name = m.displayName?.trim() || "대리점장";
+      const name = m.displayName?.trim() || "지사장";
       if (!ownerMap[m.organizationId].displayNames.includes(name)) {
         ownerMap[m.organizationId].userIds.push(m.userId);
         ownerMap[m.organizationId].displayNames.push(name);

@@ -236,7 +236,7 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    logger.log('[team/agents] 판매원 리더보드 조회', {
+    logger.log('[team/agents] 대리점장 리더보드 조회', {
       role: ctx.role,
       orgId: effectiveOrgId ?? 'global',
       agentCount: agents.length,

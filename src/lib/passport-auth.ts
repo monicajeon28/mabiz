@@ -9,7 +9,7 @@ import { logger } from '@/lib/logger';
  *
  * 역할 매핑:
  *   크루즈닷몰 admin     → CRM GLOBAL_ADMIN
- *   크루즈닷몰 affiliate → CRM OWNER (대리점장)
+ *   크루즈닷몰 affiliate → CRM OWNER (지사장)
  *   크루즈닷몰 agent     → CRM AGENT
  */
 
@@ -42,7 +42,7 @@ export async function requireCrmAdmin(): Promise<AdminUser | null> {
   }
 }
 
-// ── Admin + OWNER 인증 (관리자 또는 대리점장) ────────────────
+// ── Admin + OWNER 인증 (관리자 또는 지사장) ────────────────
 
 export interface ManagerUser {
   id: number;
@@ -73,7 +73,7 @@ export async function requireCrmManager(): Promise<ManagerUser | null> {
   }
 }
 
-// ── Partner 인증 (OWNER = 대리점장) ─────────────────────────
+// ── Partner 인증 (OWNER = 지사장) ─────────────────────────
 
 export interface PartnerContext {
   sessionUser: {

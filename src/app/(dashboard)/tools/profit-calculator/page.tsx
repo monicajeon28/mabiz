@@ -138,7 +138,7 @@ function CalculatorContent() {
   const onCostKrw = (v: string) => { setCostPrice(v); if (rateReady) setCostUsd(toUsd(parseFloat(v) || 0)); };
   const onCostUsd = (v: string) => { setCostUsd(v); setCostPrice(toKrw(parseFloat(v) || 0)); };
 
-  // ─ 대리점장
+  // ─ 지사장
   const [agentPctInput, setAgentPctInput] = useState('5.0');
   const [agentAmtInput, setAgentAmtInput] = useState('');
   const [agentUsd, setAgentUsd] = useState('');
@@ -147,7 +147,7 @@ function CalculatorContent() {
   const onAgentAmt = (v: string) => { setAgentAmtInput(v); setAgentMode('amount'); if (rateReady) setAgentUsd(toUsd(parseFloat(v) || 0)); };
   const onAgentUsd = (v: string) => { setAgentUsd(v); setAgentAmtInput(toKrw(parseFloat(v) || 0)); setAgentMode('amount'); };
 
-  // ─ 소속판매원
+  // ─ 소속대리점장
   const [memberPctInput, setMemberPctInput] = useState('3.0');
   const [memberAmtInput, setMemberAmtInput] = useState('');
   const [memberUsd, setMemberUsd] = useState('');
@@ -157,7 +157,7 @@ function CalculatorContent() {
   const onMemberUsd = (v: string) => { setMemberUsd(v); setMemberAmtInput(toKrw(parseFloat(v) || 0)); setMemberMode('amount'); };
 
 
-  // ─ 자유판매원
+  // ─ 자유대리점장
   const [freeAgentAmtInput, setFreeAgentAmtInput] = useState('');
   const [freeAgentUsd, setFreeAgentUsd] = useState('');
   const onFreeAmt = (v: string) => { setFreeAgentAmtInput(v); if (rateReady) setFreeAgentUsd(toUsd(parseFloat(v) || 0)); };
@@ -317,15 +317,15 @@ function CalculatorContent() {
     setCostPrice(costPriceStr);
     setSaleUsd(toUsd(entry.salePrice));
     setCostUsd(toUsd(entry.costPrice));
-    // 대리점장
+    // 지사장
     setAgentMode(agentModeVal);
     if (agentModeVal === 'pct') { setAgentPctInput(String(entry.agentPct)); setAgentAmtInput(''); }
     else { setAgentAmtInput(agentAmtStr); setAgentUsd(toUsd(entry.agentAmt)); }
-    // 소속판매원
+    // 소속대리점장
     setMemberMode(memberModeVal);
     if (memberModeVal === 'pct') { setMemberPctInput(String(entry.memberPct)); setMemberAmtInput(''); }
     else { setMemberAmtInput(memberAmtStr); setMemberUsd(toUsd(entry.memberAmt)); }
-    // 자유판매원 / 오버라이딩
+    // 자유대리점장 / 오버라이딩
     setFreeAgentAmtInput(freeAmtStr);
     setFreeAgentUsd(entry.freeAmt > 0 ? toUsd(entry.freeAmt) : '');
     setOverridingAmtInput(overridingAmtStr);
@@ -449,10 +449,10 @@ function CalculatorContent() {
               </div>
             )}
 
-            {/* 대리점장 */}
+            {/* 지사장 */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <label className="w-28 text-sm font-semibold text-slate-700 shrink-0">대리점장</label>
+                <label className="w-28 text-sm font-semibold text-slate-700 shrink-0">지사장</label>
                 <div className="flex flex-1 gap-1.5">
                   {/* % */}
                   <div className="relative w-20 shrink-0">
@@ -487,11 +487,11 @@ function CalculatorContent() {
                 </div>
               </div>
 
-              {/* 소속/자유판매원/오버라이딩 */}
+              {/* 소속/자유대리점장/오버라이딩 */}
               <div className="ml-5 pl-3 border-l-2 border-slate-200 space-y-2">
-                {/* 소속판매원 */}
+                {/* 소속대리점장 */}
                 <div className="flex items-center gap-2">
-                  <label className="w-24 text-sm text-slate-600 shrink-0">소속판매원</label>
+                  <label className="w-24 text-sm text-slate-600 shrink-0">소속대리점장</label>
                   <div className="flex flex-1 gap-1.5">
                     <div className="relative w-20 shrink-0">
                       <input type="number" min={0} max={100} step={0.1}
@@ -523,9 +523,9 @@ function CalculatorContent() {
                   </div>
                 </div>
 
-                {/* 자유판매원 */}
+                {/* 자유대리점장 */}
                 <div className="flex items-center gap-2">
-                  <label className="w-24 text-sm text-slate-600 shrink-0">자유판매원</label>
+                  <label className="w-24 text-sm text-slate-600 shrink-0">자유대리점장</label>
                   <div className="flex flex-1 gap-1.5">
                     <div className="relative flex-1">
                       <input type="number" min={0} value={freeAgentAmtInput} onChange={e => onFreeAmt(e.target.value)}
@@ -582,7 +582,7 @@ function CalculatorContent() {
                 <span className="ml-2 text-slate-400 font-normal text-sm">{pct(calc.hqMargin)}%</span>
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-1">= 세전순이익 − 대리점장 − 소속판매원 − 자유판매원 − 오버라이딩</p>
+            <p className="text-xs text-slate-400 mt-1">= 세전순이익 − 지사장 − 소속대리점장 − 자유대리점장 − 오버라이딩</p>
           </div>
         </section>
 
@@ -650,10 +650,10 @@ function CalculatorContent() {
                 { label: `카드수수료 (${(CARD_FEE_RATE * 100).toFixed(1)}%)`, krw: calc.cardFee },
                 { label: '영업이익', krw: calc.operatingProfit, sub: pct(calc.operatingMargin) + '%', hi: true },
                 { label: '세전순이익', krw: calc.netProfitBeforeTax, sub: pct(calc.netMargin) + '%', hi: true },
-                { label: '대리점장 수당', krw: calc.agentAmt, sub: pct(calc.agentPct) + '%' },
-                { label: '소속판매원 수당', krw: calc.memberAmt, sub: pct(calc.memberPct) + '%' },
-                { label: '자유판매원 수당', krw: calc.freeAmt, sub: pct(calc.freeAgentPct) + '%' },
-                { label: '대리점장 오버라이딩', krw: calc.overridingAmt, sub: pct(calc.overridingPct) + '%' },
+                { label: '지사장 수당', krw: calc.agentAmt, sub: pct(calc.agentPct) + '%' },
+                { label: '소속대리점장 수당', krw: calc.memberAmt, sub: pct(calc.memberPct) + '%' },
+                { label: '자유대리점장 수당', krw: calc.freeAmt, sub: pct(calc.freeAgentPct) + '%' },
+                { label: '지사장 오버라이딩', krw: calc.overridingAmt, sub: pct(calc.overridingPct) + '%' },
                 { label: '본사 순이익', krw: calc.hqProfit, sub: pct(calc.hqMargin) + '%', hi: true, red: calc.hqProfit < 0 },
               ].map(row => (
                 <div key={row.label} className={`flex justify-between items-center px-5 py-2.5 text-sm ${row.hi ? 'bg-slate-50' : ''}`}>
@@ -690,9 +690,9 @@ function DetailModal({ calc, onClose, onLoad }: { calc: SavedCalc; onClose: () =
     { label: '판매가', value: `${Math.round(calc.salePrice).toLocaleString('ko-KR')} 원` },
     { label: '입금가', value: `${Math.round(calc.costPrice).toLocaleString('ko-KR')} 원` },
     { label: '세전순이익', value: `${Math.round(calc.snapshotNetProfit).toLocaleString('ko-KR')} 원`, highlight: true },
-    { label: `대리점장 수당 (${calc.agentMode === 'pct' ? calc.agentPct.toFixed(1) + '%' : '금액'})`, value: `${Math.round(calc.agentAmt).toLocaleString('ko-KR')} 원` },
-    { label: `소속판매원 수당 (${calc.memberMode === 'pct' ? calc.memberPct.toFixed(1) + '%' : '금액'})`, value: `${Math.round(calc.memberAmt).toLocaleString('ko-KR')} 원` },
-    { label: `자유판매원 수당 (${calc.freePct.toFixed(1)}%)`, value: `${Math.round(calc.freeAmt).toLocaleString('ko-KR')} 원` },
+    { label: `지사장 수당 (${calc.agentMode === 'pct' ? calc.agentPct.toFixed(1) + '%' : '금액'})`, value: `${Math.round(calc.agentAmt).toLocaleString('ko-KR')} 원` },
+    { label: `소속대리점장 수당 (${calc.memberMode === 'pct' ? calc.memberPct.toFixed(1) + '%' : '금액'})`, value: `${Math.round(calc.memberAmt).toLocaleString('ko-KR')} 원` },
+    { label: `자유대리점장 수당 (${calc.freePct.toFixed(1)}%)`, value: `${Math.round(calc.freeAmt).toLocaleString('ko-KR')} 원` },
     { label: `오버라이딩 수당 (${calc.overridingPct.toFixed(1)}%)`, value: `${Math.round(calc.overridingAmt).toLocaleString('ko-KR')} 원` },
     { label: '본사 순이익', value: `${Math.round(calc.snapshotHqProfit).toLocaleString('ko-KR')} 원`, highlight: true, red: calc.snapshotHqProfit < 0 },
   ];

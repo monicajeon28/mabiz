@@ -19,7 +19,7 @@ export async function POST(req: Request) {
         orgId,
       });
       return NextResponse.json(
-        { ok: false, message: "이메일 발송 권한이 없습니다. 관리자 또는 대리점장에게 문의해주세요." },
+        { ok: false, message: "이메일 발송 권한이 없습니다. 관리자 또는 지사장에게 문의해주세요." },
         { status: 403 }
       );
     }

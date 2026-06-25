@@ -20,9 +20,9 @@ import {
 type AffiliateType = 'BRANCH_MANAGER' | 'SALES_AGENT' | 'PRE_SALES' | 'HQ';
 
 const TYPE_LABELS: Record<AffiliateType, string> = {
-  BRANCH_MANAGER: '대리점장',
-  SALES_AGENT: '판매원',
-  PRE_SALES: '프리세일즈',
+  BRANCH_MANAGER: '지사장',
+  SALES_AGENT: '대리점장',
+  PRE_SALES: '마케터',
   HQ: '본사',
 };
 
@@ -355,7 +355,7 @@ function IssuanceForm() {
                   type="text"
                   value={displayName}
                   onChange={e => setDisplayName(e.target.value)}
-                  placeholder="예: 홍대리점장"
+                  placeholder="예: 홍지사장"
                   className={inputCls}
                 />
               </Field>
@@ -519,11 +519,11 @@ function IssuanceForm() {
               </Field>
 
               {needsManager && (
-                <Field label="소속 대리점장">
+                <Field label="소속 지사장">
                   {managersLoading ? (
                     <div className={inputCls + ' flex items-center gap-2 text-gray-400'}>
                       <Loader2 size={14} className="animate-spin" />
-                      대리점장 목록 불러오는 중...
+                      지사장 목록 불러오는 중...
                     </div>
                   ) : (
                     <select
@@ -542,7 +542,7 @@ function IssuanceForm() {
                     </select>
                   )}
                   <p className="text-xs text-gray-400 mt-1">
-                    SALES_AGENT / PRE_SALES는 소속 대리점장을 지정할 수 있습니다.
+                    SALES_AGENT / PRE_SALES는 소속 지사장을 지정할 수 있습니다.
                   </p>
                 </Field>
               )}

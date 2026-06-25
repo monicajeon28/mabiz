@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getMabizSession } from "@/lib/auth";
 
-// GET /api/branch-managers - GLOBAL_ADMIN용 대리점장 목록 조회
+// GET /api/branch-managers - GLOBAL_ADMIN용 지사장 목록 조회
 export async function GET() {
   try {
     const ctx = await getMabizSession();

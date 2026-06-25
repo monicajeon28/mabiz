@@ -247,10 +247,10 @@ function DetailModal({
             </div>
           )}
 
-          {/* 담당 대리점장 */}
+          {/* 담당 지사장 */}
           {meta?.supervisorName && (
             <div className="bg-white rounded-xl border border-gray-100 border-l-2 border-l-teal-300 p-4">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">담당 대리점장</p>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">담당 지사장</p>
               <p className="text-sm text-gray-900 font-medium">
                 {meta.supervisorName} <span className="text-gray-500 font-normal">({meta.supervisorAgency || '-'})</span>
               </p>

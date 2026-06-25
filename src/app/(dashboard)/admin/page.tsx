@@ -24,7 +24,7 @@ const MENU_CARDS = [
   {
     icon: Building2,
     title: '대리점 관리',
-    description: '대리점장 계정·판매원·계약 관리',
+    description: '지사장 계정·대리점장·계약 관리',
     href: '/admin/organizations',
   },
   {

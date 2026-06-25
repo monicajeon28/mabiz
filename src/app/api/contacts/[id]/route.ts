@@ -391,7 +391,7 @@ export async function DELETE(_req: Request, { params }: Params) {
 
     if (!canDelete(ctx)) {
       return NextResponse.json(
-        { ok: false, message: "삭제 권한이 없습니다. (판매원은 삭제할 수 없습니다)" },
+        { ok: false, message: "삭제 권한이 없습니다. (대리점장은 삭제할 수 없습니다)" },
         { status: 403 }
       );
     }

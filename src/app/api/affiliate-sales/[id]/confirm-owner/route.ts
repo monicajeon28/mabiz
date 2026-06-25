@@ -10,7 +10,7 @@ import { sendPurchaseConfirm } from '@/lib/affiliate/notify-cruisedot-purchase-c
 
 /**
  * POST /api/affiliate-sales/[id]/confirm-owner
- * 대리점장 구매확인 — 수당귀속(PRESALES | BRANCH_MANAGER)을 확정하고 몰로 발신한다.
+ * 지사장 구매확인 — 수당귀속(PRESALES | BRANCH_MANAGER)을 확정하고 몰로 발신한다.
  *
  * 돈+외부발신 안전장치:
  *  - 권한: OWNER(자기 조직 managerId 건만) / GLOBAL_ADMIN. AGENT/FREE_SALES 금지.
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const ctx = await getMabizSession();
     if (!ctx) return NextResponse.json({ ok: false, error: '인증이 필요합니다.' }, { status: 401 });
-    // 대리점장(OWNER) 또는 본사(GLOBAL_ADMIN)만 확정 가능
+    // 지사장(OWNER) 또는 본사(GLOBAL_ADMIN)만 확정 가능
     if (ctx.role !== 'OWNER' && ctx.role !== 'GLOBAL_ADMIN') {
       return NextResponse.json({ ok: false, error: '구매확인 권한이 없습니다.' }, { status: 403 });
     }

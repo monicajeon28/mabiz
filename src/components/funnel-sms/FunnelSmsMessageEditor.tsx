@@ -30,7 +30,7 @@ const VARIABLES_HELP = [
   { label: '[이름]', description: '고객 이름' },
   { label: '[전화번호]', description: '고객 휴대폰 번호' },
   { label: '[날짜]', description: '발송 예정일' },
-  { label: '[담당자]', description: '담당 판매원 이름' },
+  { label: '[담당자]', description: '담당 대리점장 이름' },
 ];
 
 interface ProductLink {

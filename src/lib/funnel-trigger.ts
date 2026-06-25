@@ -5,7 +5,7 @@
  *   - triggerType = "DDAY"       → contact.departureDate 기준으로 D-150, D-90... 계산
  *   - triggerType = "DAYS_AFTER" → 오늘부터 N일 후
  *
- * 판매원이 할 것: 출발일 입력 + 그룹 배정
+ * 대리점장이 할 것: 출발일 입력 + 그룹 배정
  * 자동으로 되는 것: 발송 날짜 계산 + Cron 자동 발송
  */
 

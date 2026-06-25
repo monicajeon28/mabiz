@@ -53,7 +53,7 @@ export async function POST(req: Request) {
     }
 
     // 발신 계정 해석: 개인(UserSmsConfig) > 조직(OrgSmsConfig) > 시스템 env.
-    // 판매원·대리점장이 자기 알리고를 연결하면 본인 발신번호로 나간다.
+    // 대리점장·지사장이 자기 알리고를 연결하면 본인 발신번호로 나간다.
     const config = await resolveUserSmsConfig(orgId, ctx.userId);
     if (!config) {
       logger.error('[sms/send] 알리고 설정 없음', { orgId, userId: ctx.userId });

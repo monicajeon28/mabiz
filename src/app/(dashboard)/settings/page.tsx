@@ -44,7 +44,7 @@ const items = [
     href: '/settings/members',
     icon: Users,
     title: '팀원 관리',
-    desc: '판매원 초대, 할 일 설정',
+    desc: '대리점장 초대, 할 일 설정',
     color: 'bg-purple-50 text-purple-600',
   },
   {

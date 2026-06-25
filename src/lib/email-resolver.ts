@@ -30,7 +30,7 @@ export interface ResolvedEmailConfig {
 export async function resolveUserEmailConfig(
   organizationId: string,
   options?: {
-    /** 판매원/대리점장 개인 SMTP */
+    /** 대리점장/지사장 개인 SMTP */
     userId?: string;
     /** 그룹별 SMTP */
     groupId?: string;

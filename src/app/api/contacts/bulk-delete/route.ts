@@ -6,7 +6,7 @@ import { logger } from '@/lib/logger';
 /**
  * POST /api/contacts/bulk-delete
  * 고객 일괄(복수) 삭제 — 휴지통(소프트 삭제: deletedAt + 삭제자 기록)으로 이동
- * 대리점장(OWNER) 및 관리자(GLOBAL_ADMIN)만 가능 (판매원 AGENT/FREE_SALES 불가)
+ * 지사장(OWNER) 및 관리자(GLOBAL_ADMIN)만 가능 (대리점장 AGENT/FREE_SALES 불가)
  *
  * Request:
  *   {
@@ -26,11 +26,11 @@ export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
 
-    // ⚠️ 대리점장(OWNER)과 관리자(GLOBAL_ADMIN)만 삭제 가능
-    // 판매원(AGENT, FREE_SALES)은 canDelete=false로 차단됨
+    // ⚠️ 지사장(OWNER)과 관리자(GLOBAL_ADMIN)만 삭제 가능
+    // 대리점장(AGENT, FREE_SALES)은 canDelete=false로 차단됨
     if (!canDelete(ctx)) {
       return NextResponse.json(
-        { ok: false, message: '삭제 권한이 없습니다. (판매원은 삭제할 수 없습니다)', code: 'FORBIDDEN' },
+        { ok: false, message: '삭제 권한이 없습니다. (대리점장은 삭제할 수 없습니다)', code: 'FORBIDDEN' },
         { status: 403 }
       );
     }

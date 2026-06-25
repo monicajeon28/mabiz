@@ -1516,7 +1516,7 @@ export default function EditLandingPage() {
         <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
           <div className="max-w-lg mx-auto">
             <h2 className="text-base font-semibold text-gray-800 mb-4">파트너 공유</h2>
-            <p className="text-xs text-gray-500 mb-4">대리점장(OWNER)에게 이 랜딩페이지를 공유합니다. 공유받은 파트너는 이 페이지를 조회할 수 있습니다.</p>
+            <p className="text-xs text-gray-500 mb-4">지사장(OWNER)에게 이 랜딩페이지를 공유합니다. 공유받은 파트너는 이 페이지를 조회할 수 있습니다.</p>
 
             {/* 공유 추가 */}
             <div className="flex gap-2 mb-4">

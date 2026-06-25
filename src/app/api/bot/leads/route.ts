@@ -1,5 +1,5 @@
 /**
- * GET /api/bot/leads — 판매원 봇 대시보드용 내 핫리드 목록 (작업지시서 Phase 6)
+ * GET /api/bot/leads — 대리점장 봇 대시보드용 내 핫리드 목록 (작업지시서 Phase 6)
  *
  * per-user 격리: AGENT/FREE_SALES 는 본인 귀속(attributedAgentId)만, OWNER/GLOBAL_ADMIN 은 조직 전체.
  * 손님 발화는 저장 시점에 이미 마스킹됨 + 전화는 추가 마스킹해서 노출.

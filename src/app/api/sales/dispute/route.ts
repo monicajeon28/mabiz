@@ -2,7 +2,7 @@
  * POST /api/sales/dispute
  * GET /api/sales/dispute
  *
- * 정산 이의 제기 관리 (관리자/대리점장만)
+ * 정산 이의 제기 관리 (관리자/지사장만)
  * - 정산 내역에 대한 이의 제기
  * - 이의 현황 조회
  * - 이의 처리 (승인/거절)
@@ -98,14 +98,14 @@ export async function GET(request: Request) {
     if (user.role === 'GLOBAL_ADMIN') {
       // 관리자: 전체 이의 조회
     } else if (user.role === 'OWNER') {
-      // 대리점장: 자신의 직속 팀원 이의만 (managerId = user.id)
+      // 지사장: 자신의 직속 팀원 이의만 (managerId = user.id)
       whereFilter = {
         user: {
           managerId: user.id,
         },
       };
     } else {
-      // 판매원: 자신의 이의만
+      // 대리점장: 자신의 이의만
       whereFilter = {
         userEmail: user.email,
       };
@@ -209,11 +209,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // 📌 Step 2: 권한 체크 (이의 제기 권한: 관리자/대리점장)
+    // 📌 Step 2: 권한 체크 (이의 제기 권한: 관리자/지사장)
     if (!canDispute(user.role)) {
       return new Response(
         JSON.stringify({
-          error: '이의를 제기할 권한이 없습니다 (관리자/대리점장만)',
+          error: '이의를 제기할 권한이 없습니다 (관리자/지사장만)',
           code: 'DISPUTE_DENIED',
         }),
         { status: 403, headers: { 'Content-Type': 'application/json' } }
@@ -251,15 +251,15 @@ export async function POST(request: Request) {
       );
     }
 
-    // 📌 Step 4: 대리점장 권한 체크
-    // 대리점장은 자신의 팀원 이의만 제기 가능
+    // 📌 Step 4: 지사장 권한 체크
+    // 지사장은 자신의 팀원 이의만 제기 가능
     if (user.role === 'OWNER') {
       const targetUser = await prisma.organizationMember.findUnique({
         where: { id: userId },
         select: { managerId: true },
       });
 
-      // 대리점장은 자신이 관리하는 팀원(managerId = 본인 id)의 이의만 제기 가능
+      // 지사장은 자신이 관리하는 팀원(managerId = 본인 id)의 이의만 제기 가능
       if (!targetUser || targetUser.managerId !== user.id) {
         return new Response(
           JSON.stringify({

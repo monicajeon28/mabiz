@@ -11,7 +11,7 @@ interface PreviewRequest {
 }
 
 // GET /api/funnels/preview
-// 판매원이 입력한 Day 0-3 메시지 미리보기
+// 대리점장이 입력한 Day 0-3 메시지 미리보기
 export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext()

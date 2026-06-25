@@ -35,7 +35,7 @@ export async function GET(req: Request) {
       );
     }
 
-    // 고객 PII 백업 기록은 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용
+    // 고객 PII 백업 기록은 지사장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용
     if (!canManageSettings(ctx)) {
       return NextResponse.json({ ok: false, error: '권한이 없습니다' }, { status: 403 });
     }
@@ -108,8 +108,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // 고객 PII 전체 백업 실행은 대리점장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용
-    // (인증된 판매원이 조직 전체 고객 PII를 Excel로 내보내던 누수 차단)
+    // 고객 PII 전체 백업 실행은 지사장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용
+    // (인증된 대리점장이 조직 전체 고객 PII를 Excel로 내보내던 누수 차단)
     if (!canManageSettings(ctx)) {
       return NextResponse.json({ ok: false, error: '권한이 없습니다' }, { status: 403 });
     }

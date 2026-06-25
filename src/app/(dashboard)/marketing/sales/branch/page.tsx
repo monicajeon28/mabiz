@@ -37,14 +37,14 @@ interface BranchApiData {
   pagination: { page: number; limit: number; totalCount: number; totalPages: number };
 }
 
-// ─── 판매원별 테이블 (PC) ─────────────────────────────────────
+// ─── 대리점장별 테이블 (PC) ─────────────────────────────────────
 function AgentSalesTable({ agents, loading }: { agents: AgentSalesRow[]; loading: boolean }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead className="bg-gray-50">
           <tr>
-            <th scope="col" className="text-left px-4 py-3 text-base font-medium text-gray-600">판매원명</th>
+            <th scope="col" className="text-left px-4 py-3 text-base font-medium text-gray-600">대리점장명</th>
             <th scope="col" className="text-right px-4 py-3 text-base font-medium text-gray-600">이번 달 매출</th>
             <th scope="col" className="text-right px-4 py-3 text-base font-medium text-gray-600">건수</th>
             <th scope="col" className="text-right px-4 py-3 text-base font-medium text-gray-600">전환율</th>
@@ -101,7 +101,7 @@ function TopAgentsSection({ topAgents, loading }: { topAgents: Array<{ rank: 1 |
         ))
       ) : topAgents.length === 0 ? (
         <div className="col-span-1 md:col-span-3 text-center py-8 text-gray-500">
-          <p className="text-base">판매원 데이터가 없습니다</p>
+          <p className="text-base">대리점장 데이터가 없습니다</p>
         </div>
       ) : (
         topAgents.map((agent) => (
@@ -343,15 +343,15 @@ export default function BranchSalesDashboard() {
           />
         </div>
 
-        {/* 판매원별 매출 섹션 */}
+        {/* 대리점장별 매출 섹션 */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">판매원별 매출 현황</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-6">대리점장별 매출 현황</h2>
           <AgentSalesTable agents={data.salesByAgent} loading={loading} />
         </div>
 
         {/* TOP 3 리더보드 */}
         <div className="mb-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">🏆 판매원 TOP 3</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-6">🏆 대리점장 TOP 3</h2>
           <TopAgentsSection topAgents={data.topAgents} loading={loading} />
         </div>
 
