@@ -21,6 +21,7 @@ import { getBotModel, resolveTurnModelRole, BOT_MAX_TOKENS } from "@/lib/bot-mod
 import {
   nextFsmState,
   incrementsCloseAttempt,
+  getFsmProfile,
   FSM_GOAL,
   FSM_NEXT_QUESTION,
   type BotFsmState,
@@ -263,9 +264,12 @@ export async function POST(req: Request) {
       let facts = productCodes.length ? await getProductFactsByCodes(productCodes) : [];
       if (facts.length === 0) facts = await searchProductFacts(message);
       factsText = formatFactsForPrompt(facts);
+      // 공개(가벼운) 봇 — 깊은 플레이북을 다 주입하지 않는다(=응답으로 새어 카피되는 것 방지).
+      // 상위 1개 가벼운 안심 멘트만. 깊은 클로징·이의대응은 사람(상담원)에게 남긴다.
       const persuasion = await getPersuasionPatterns({
         organizationId: convo.organizationId,
         objectionType: signals.objectionType,
+        take: 1,
       });
       persuasionText = formatPersuasionForPrompt(persuasion);
     }
@@ -281,7 +285,9 @@ export async function POST(req: Request) {
       positiveSignal: signals.positive,
       strongRefusal: signals.refusal,
     };
-    const newState = nextFsmState(fsmSignals);
+    // botType별 FSM 강도 — cruise(공개)는 클로징을 빨리 줄이고 사람 연결로 더 일찍 넘긴다.
+    // recruit는 기존 프로파일(무영향).
+    const newState = nextFsmState(fsmSignals, getFsmProfile(botType));
     const newCloseAttempts =
       convo.closeAttempts + (incrementsCloseAttempt(prevState, newState) ? 1 : 0);
     const newIntent = Math.max(0, Math.min(100, convo.intentScore + signals.intentDelta));

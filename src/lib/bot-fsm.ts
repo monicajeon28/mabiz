@@ -28,6 +28,51 @@ export const MAX_CLOSE_ATTEMPTS = 3;
 /** intentScore 가 이 값을 넘으면 핫리드로 보고 사람에게 핸드오프 */
 export const HOT_LEAD_INTENT = 70;
 
+/**
+ * FSM 튜닝 프로파일 — botType 별로 "밀어붙임" 강도를 다르게 준다.
+ *
+ * 🔑 해자(moat) 전략: 공개 크루즈 상담봇은 **가벼운 리드캡처 엔진**으로 둔다.
+ *   깊은 클로징·이의대응 플레이북은 사람(상담원)에게 남기고(=카피 방지), 봇은
+ *   흥미·신뢰·리드캡처만. 그래서 cruise 프로파일은 클로징 시도를 빨리 줄이고
+ *   CTA/핸드오프(사람 연결)로 더 일찍 넘어간다.
+ *
+ *   recruit(교육생 모집봇)는 기존 동작을 그대로 유지한다(무영향).
+ *   - maxCloseAttempts: 이 횟수만큼만 클로징/이의 재시도 후 우아하게 빠진다.
+ *   - hotLeadIntent: 이 점수 이상이면 사람에게 핸드오프.
+ *   - fastHandoffFromValue: true면 VALUE 단계 후 가정 클로징을 길게 끌지 않고
+ *     곧장 CTA(담당 전문가 연결)로 넘긴다.
+ */
+export interface FsmProfile {
+  maxCloseAttempts: number;
+  hotLeadIntent: number;
+  fastHandoffFromValue: boolean;
+  /** 클로징/이의 시도 한도 초과 시 종착 상태. recruit=기존(GRACEFUL_EXIT), cruise=CTA(리드 보존). */
+  exhaustedDestination: Extract<BotFsmState, "CTA" | "GRACEFUL_EXIT">;
+}
+
+export const FSM_PROFILE: Record<"cruise" | "recruit", FsmProfile> = {
+  // 공개 봇: 가볍게 — 1회만 떠보고 바로 사람에게 넘긴다(클로징 압박 최소화).
+  //   한도 초과 시 GRACEFUL_EXIT(이탈)가 아니라 CTA(담당 전문가 연결)로 — 리드를 사람에게 넘겨 살린다.
+  cruise: {
+    maxCloseAttempts: 1,
+    hotLeadIntent: 55,
+    fastHandoffFromValue: true,
+    exhaustedDestination: "CTA",
+  },
+  // 모집봇: 기존 동작 그대로 유지(무영향) — 한도 초과 시 GRACEFUL_EXIT.
+  recruit: {
+    maxCloseAttempts: MAX_CLOSE_ATTEMPTS,
+    hotLeadIntent: HOT_LEAD_INTENT,
+    fastHandoffFromValue: false,
+    exhaustedDestination: "GRACEFUL_EXIT",
+  },
+};
+
+/** botType → 프로파일. 미지정/모르면 recruit(=기존) 기본값으로 안전하게. */
+export function getFsmProfile(botType?: string | null): FsmProfile {
+  return botType === "cruise" ? FSM_PROFILE.cruise : FSM_PROFILE.recruit;
+}
+
 /** 각 단계의 목표(시스템프롬프트에 주입). */
 export const FSM_GOAL: Record<BotFsmState, string> = {
   OPENING: "따뜻하게 인사하고 공감으로 라포를 형성한다. 아직 팔지 않는다.",
@@ -76,18 +121,24 @@ export interface FsmSignals {
 /**
  * 다음 상태 결정. 핫리드/강한거부는 어느 단계에서든 우선 분기.
  * 봇은 끝까지 밀어붙이지 않는다 — N회 초과 또는 강한 거부면 우아하게 빠진다.
+ *
+ * profile 미지정 시 기존(recruit) 동작을 그대로 유지한다(하위호환 — 호출부 무영향).
+ * cruise 프로파일을 넘기면 "가벼운 리드캡처"용으로 클로징을 빨리 줄이고
+ * CTA/핸드오프(사람 연결)로 더 일찍 넘어간다.
  */
-export function nextFsmState(s: FsmSignals): BotFsmState {
+export function nextFsmState(s: FsmSignals, profile: FsmProfile = FSM_PROFILE.recruit): BotFsmState {
+  const maxClose = profile.maxCloseAttempts;
+
   // 0) 우선 분기 — 어느 단계에서든
   if (s.strongRefusal) return "GRACEFUL_EXIT";
-  if (s.hotLeadSignal || s.intentScore >= HOT_LEAD_INTENT) return "HANDOFF";
+  if (s.hotLeadSignal || s.intentScore >= profile.hotLeadIntent) return "HANDOFF";
   if (s.state === "HANDOFF" || s.state === "CTA" || s.state === "GRACEFUL_EXIT") {
     return s.state; // 종착 상태 유지
   }
 
-  // 1) 이의 처리 루프
+  // 1) 이의 처리 루프 — 가벼운 봇은 깊은 이의대응을 하지 않고 1회 안에 빠진다.
   if (s.objectionDetected) {
-    if (s.closeAttempts >= MAX_CLOSE_ATTEMPTS) return "GRACEFUL_EXIT";
+    if (s.closeAttempts >= maxClose) return profile.exhaustedDestination;
     return "OBJECTION_LOOP";
   }
 
@@ -102,12 +153,13 @@ export function nextFsmState(s: FsmSignals): BotFsmState {
     case "SPIN_I":
       return "VALUE";
     case "VALUE":
-      return "TRIAL_CLOSE";
+      // 가벼운 봇: 가치만 짧게 전하고 곧장 사람 연결(CTA)로. 깊은 클로징은 사람 몫.
+      return profile.fastHandoffFromValue ? "CTA" : "TRIAL_CLOSE";
     case "TRIAL_CLOSE":
       return s.positiveSignal ? "CTA" : "OBJECTION_LOOP";
     case "OBJECTION_LOOP":
       if (s.positiveSignal) return "CTA";
-      if (s.closeAttempts >= MAX_CLOSE_ATTEMPTS) return "GRACEFUL_EXIT";
+      if (s.closeAttempts >= maxClose) return profile.exhaustedDestination;
       return "TRIAL_CLOSE"; // 한 번 더 가정 클로징
     default:
       return s.state;
