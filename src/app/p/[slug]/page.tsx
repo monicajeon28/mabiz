@@ -76,6 +76,47 @@ export default async function PublicLandingPage({
         : `https://pf.kakao.com/${process.env.NEXT_PUBLIC_KAKAO_CHANNEL_ID || "_cruisedot"}`;
     const hookText =
       typeof cfg.hookText === "string" && cfg.hookText.trim() ? cfg.hookText.trim() : undefined;
+    const botType = cfg.botType === "recruit" ? "recruit" : "cruise";
+
+    // 후킹용 대표 상품(실데이터) — 크루즈닷 공유 CruiseProduct에서 실제 가격·출발일을 끌어온다.
+    //   지어내지 않고 실데이터만 인용(컴플라이언스). 대표>인기>긴급, 가까운 출발 우선. 없으면 미표시.
+    let featured:
+      | { title: string; priceFrom: number; departOn: string | null; nights: number; days: number }
+      | undefined;
+    if (botType === "cruise") {
+      try {
+        const now = new Date();
+        const fp = await prisma.cruiseProduct.findFirst({
+          where: {
+            isVisible: true,
+            isActive: true,
+            deletedAt: null,
+            basePrice: { not: null },
+            saleStatus: "판매중",
+            OR: [{ startDate: { gte: now } }, { startDate: null }],
+          },
+          orderBy: [
+            { isMainProduct: "desc" },
+            { isPopular: "desc" },
+            { isUrgent: "desc" },
+            { startDate: "asc" },
+          ],
+          select: { packageName: true, basePrice: true, startDate: true, nights: true, days: true },
+        });
+        if (fp?.basePrice) {
+          featured = {
+            title: fp.packageName,
+            priceFrom: fp.basePrice,
+            departOn: fp.startDate ? fp.startDate.toISOString() : null,
+            nights: fp.nights,
+            days: fp.days,
+          };
+        }
+      } catch {
+        featured = undefined; // 상품 조회 실패해도 가이드는 그대로 동작(부가 후킹일 뿐)
+      }
+    }
+
     return (
       <BotLandingClient
         pageId={page.id}
@@ -83,10 +124,11 @@ export default async function PublicLandingPage({
         brandTitle={page.title}
         greeting={cfg.greeting}
         chips={Array.isArray(cfg.chips) ? cfg.chips : undefined}
-        botType={cfg.botType === "recruit" ? "recruit" : "cruise"}
+        botType={botType}
         homepageUrl={homepageUrl}
         kakaoChannelUrl={kakaoChannelUrl}
         hookText={hookText}
+        featured={featured}
       />
     );
   }

@@ -86,6 +86,21 @@ interface Props {
   kakaoChannelUrl?: string;
   /** 시작 게이트 훅 문구(가치 한 줄). 없으면 봇 종류별 기본 문구. */
   hookText?: string;
+  /** 후킹용 대표 상품(실데이터). 가이드 차별화 카드에 실제 가격·출발일 표시. 없으면 미표시. */
+  featured?: {
+    title: string;
+    priceFrom: number;
+    departOn: string | null;
+    nights: number;
+    days: number;
+  };
+}
+
+/** 출발일 ISO → "M월 D일" (50대 가독). 잘못된 값이면 빈 문자열. */
+function formatDepart(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getMonth() + 1}월 ${d.getDate()}일`;
 }
 
 const DEFAULT_HOMEPAGE_URL = "https://cruisedot.co.kr";
@@ -111,6 +126,7 @@ export default function BotLandingClient({
   homepageUrl,
   kakaoChannelUrl,
   hookText,
+  featured,
 }: Props) {
   const isRecruit = botType === "recruit";
   const defaultGreeting = isRecruit ? RECRUIT_GREETING : CRUISE_GREETING;
@@ -283,6 +299,23 @@ export default function BotLandingClient({
               {guideCard.title}
             </h2>
             <p className="mt-3 text-base leading-relaxed text-slate-600">{guideCard.body}</p>
+            {/* 실데이터 후킹 — 차별화 카드(2번째)에 실제 대표 상품 가격·출발일(지어내지 않음) */}
+            {guideStep === 1 && featured && (
+              <div className="mt-4 rounded-2xl border border-[#2563EB]/30 bg-[#EBF4FF] px-4 py-3">
+                <p className="text-sm font-semibold text-[#2563EB]">지금 이런 일정이 있어요</p>
+                <p className="mt-1 text-base font-bold leading-snug text-[#1E2D4E]">
+                  {featured.title}
+                </p>
+                <p className="mt-1 text-base text-slate-700">
+                  {featured.nights}박 {featured.days}일 ·{" "}
+                  {featured.priceFrom.toLocaleString("ko-KR")}원부터
+                  {featured.departOn ? ` · ${formatDepart(featured.departOn)} 출발` : ""}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  정확한 가격·잔여 좌석은 담당 전문가가 확인해 드려요
+                </p>
+              </div>
+            )}
             {/* 설득 사진 */}
             <div className="mt-4 flex flex-col gap-3">
               {guideCard.imageKeys.map((k) => {
