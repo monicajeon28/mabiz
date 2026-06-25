@@ -23,32 +23,29 @@ export async function GET(req: Request) {
     const q      = searchParams.get("q");
     const folder = searchParams.get("folder");
 
-    // ── ImageCache (읽기 전용) ──────────────────────────────
-    const cacheImages = await prisma.imageCache.findMany({
-      where: {
-        ...(q
-          ? {
-              OR: [
-                { title:    { contains: q, mode: "insensitive" as const } },
-                { fileName: { contains: q, mode: "insensitive" as const } },
-                { tags:     { has: q } },
-              ],
-            }
-          : {}),
-        ...(folder ? { folder: { contains: folder, mode: "insensitive" } } : {}),
-      },
-      orderBy: { syncedAt: "desc" },
-      take: 60,
-      select: {
-        id:           true,
-        title:        true,
-        thumbnailUrl: true,
-        driveUrl:     true,
-        folder:       true,
-        tags:         true,
-        fileName:     true,
-      },
-    });
+    // ── 페이지네이션 파라미터 (한 페이지 50개, 끝까지 페이징) ───
+    // limit 파라미터를 명시하지 않은 호출(삽입 모달/메시지 등)은
+    // 페이지네이션 UI가 없으므로 기존처럼 넉넉히 반환(하위호환 200).
+    const limitParam  = searchParams.get("limit");
+    const offsetParam = searchParams.get("offset");
+    const rawOffset = parseInt(offsetParam ?? "0", 10);
+    const rawLimit  = parseInt(limitParam ?? "200", 10);
+    const offset = Number.isFinite(rawOffset) && rawOffset > 0 ? rawOffset : 0;
+    const limit  = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 200) : 200;
+
+    // ── ImageCache 검색 조건 ────────────────────────────────
+    const cacheWhere = {
+      ...(q
+        ? {
+            OR: [
+              { title:    { contains: q, mode: "insensitive" as const } },
+              { fileName: { contains: q, mode: "insensitive" as const } },
+              { tags:     { has: q } },
+            ],
+          }
+        : {}),
+      ...(folder ? { folder: { contains: folder, mode: "insensitive" as const } } : {}),
+    };
 
     type CacheRow = {
       id: number; title: string; thumbnailUrl: string | null;
@@ -56,7 +53,7 @@ export async function GET(req: Request) {
       fileName: string;
     };
 
-    const cacheResult = (cacheImages as CacheRow[]).map((img) => {
+    const mapCacheRow = (img: CacheRow) => {
       // driveUrl에서 파일 ID 추출: https://...?id=FILE_ID 형식
       const fileIdMatch = img.driveUrl?.match(/[?&]id=([^&]+)/);
       const fileId = fileIdMatch?.[1] || img.driveUrl?.split('/').pop() || '';
@@ -73,7 +70,7 @@ export async function GET(req: Request) {
         isVideo:      false,
         source:       "cache" as const,
       };
-    });
+    };
 
     // ── GLOBAL_ADMIN: orgId null이면 전체 조직 조회 ────────
     const orgId: string | null =
@@ -81,26 +78,27 @@ export async function GET(req: Request) {
         ? null
         : resolveOrgId(ctx);
 
-    // ── ImageAsset (CRM 자체 이미지) ──────────────────────
-    const assetImages = await prisma.imageAsset.findMany({
-      where: {
-        // GLOBAL_ADMIN(orgId=null)이면 organizationId 필터 생략 → 전체 조직
-        ...(orgId ? { organizationId: orgId } : {}),
-        ...(q
-          ? {
-              OR: [
-                { originalFileName: { contains: q, mode: "insensitive" as const } },
-                { tags:             { has: q } },
-              ],
-            }
-          : {}),
-        ...(folder ? { category: { contains: folder, mode: "insensitive" } } : {}),
-      },
-      orderBy: { uploadedAt: "desc" },
-      take: 60,
-    });
+    // ── ImageAsset 검색 조건 ──────────────────────────────
+    const assetWhere = {
+      // GLOBAL_ADMIN(orgId=null)이면 organizationId 필터 생략 → 전체 조직
+      ...(orgId ? { organizationId: orgId } : {}),
+      ...(q
+        ? {
+            OR: [
+              { originalFileName: { contains: q, mode: "insensitive" as const } },
+              { tags:             { has: q } },
+            ],
+          }
+        : {}),
+      ...(folder ? { category: { contains: folder, mode: "insensitive" as const } } : {}),
+    };
 
-    const assetResult = assetImages.map((asset) => ({
+    type AssetRow = {
+      id: string; originalFileName: string; driveFileId: string;
+      category: string | null; tags: string[]; mimeType: string;
+    };
+
+    const mapAssetRow = (asset: AssetRow) => ({
       id:           asset.id,
       title:        asset.originalFileName,
       // 모달 썸네일: proxy (인증 보장)
@@ -113,11 +111,64 @@ export async function GET(req: Request) {
       isVideo:      false,
       source:       "asset" as const,
       driveFileId:  asset.driveFileId,
-    }));
+    });
+
+    // ── 정확한 total = ImageAsset + ImageCache 개수 (필터 반영) ──
+    const [assetCount, cacheCount] = await Promise.all([
+      prisma.imageAsset.count({ where: assetWhere }),
+      prisma.imageCache.count({ where: cacheWhere }),
+    ]);
+    const total = assetCount + cacheCount;
+
+    // ── 두 테이블을 [ImageAsset … ImageCache] 순서의 단일 목록으로
+    //    간주하고, offset~offset+limit 구간만 정확히 조회 ──────────
+    // 구간 1: ImageAsset (인덱스 0 ~ assetCount-1)
+    // 구간 2: ImageCache (인덱스 assetCount ~ total-1)
+    const windowEnd = offset + limit;
+
+    // ImageAsset에서 가져올 범위
+    const assetSkip = Math.min(offset, assetCount);
+    const assetTake = Math.max(0, Math.min(windowEnd, assetCount) - assetSkip);
+
+    // ImageCache에서 가져올 범위 (ImageAsset 다음 구간)
+    const cacheGlobalStart = Math.max(offset, assetCount);
+    const cacheSkip = Math.max(0, cacheGlobalStart - assetCount);
+    const cacheTake = Math.max(0, windowEnd - cacheGlobalStart);
+
+    const [assetImages, cacheImages] = await Promise.all([
+      assetTake > 0
+        ? prisma.imageAsset.findMany({
+            where: assetWhere,
+            orderBy: { uploadedAt: "desc" },
+            skip: assetSkip,
+            take: assetTake,
+          })
+        : Promise.resolve([]),
+      cacheTake > 0
+        ? prisma.imageCache.findMany({
+            where: cacheWhere,
+            orderBy: { syncedAt: "desc" },
+            skip: cacheSkip,
+            take: cacheTake,
+            select: {
+              id:           true,
+              title:        true,
+              thumbnailUrl: true,
+              driveUrl:     true,
+              folder:       true,
+              tags:         true,
+              fileName:     true,
+            },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const assetResult = (assetImages as AssetRow[]).map(mapAssetRow);
+    const cacheResult = (cacheImages as CacheRow[]).map(mapCacheRow);
 
     const result = [...assetResult, ...cacheResult];
 
-    return NextResponse.json({ ok: true, images: result, total: result.length });
+    return NextResponse.json({ ok: true, images: result, total, offset, limit });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const stack = err instanceof Error ? err.stack : undefined;

@@ -43,7 +43,7 @@ interface GoogleDriveFolder {
 }
 
 const CATEGORIES = ['후기', '크루즈정보사진', '상품'];
-const GOOGLE_DRIVE_LIMIT = 20;
+const GOOGLE_DRIVE_LIMIT = 50;
 const UPLOAD_CATEGORIES = ['후기', '크루즈정보사진', '상품'];
 
 export default function ImageLibraryPage() {
@@ -59,7 +59,7 @@ export default function ImageLibraryPage() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedTags, _setSelectedTags] = useState<string[]>([]);
   const [offset, setOffset] = useState(0);
-  const limit = 20;
+  const limit = 50;
 
   // 업로드 모달 상태
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -125,8 +125,14 @@ export default function ImageLibraryPage() {
       const json = await res.json();
       if (json.ok) {
         const imgs = json.images ?? json.data?.assets ?? [];
+        const newTotal = json.total ?? json.data?.total ?? imgs.length;
         setAssets(imgs);
-        setTotal(json.total ?? json.data?.total ?? imgs.length);
+        setTotal(newTotal);
+        // 안전장치: 데이터가 줄어 현재 offset이 범위를 벗어나면(빈 페이지) 마지막 유효 페이지로 보정
+        if (offset > 0 && offset >= newTotal) {
+          const lastPageOffset = Math.max(0, Math.floor((newTotal - 1) / limit) * limit);
+          setOffset(lastPageOffset);
+        }
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return;
@@ -592,26 +598,28 @@ export default function ImageLibraryPage() {
         </div>
       )}
 
-      {/* 페이지네이션 */}
+      {/* 페이지네이션 — 봇 위젯(우하단)과 겹치지 않도록 중앙 정렬 */}
       {total > limit && (
-        <div className="flex justify-between items-center">
-          <p className="text-sm text-gray-600">
-            {offset + 1} ~ {Math.min(offset + limit, total)} / {total}
+        <div className="flex flex-col items-center justify-center gap-3 py-6 pb-24">
+          <p className="text-base text-gray-700 font-medium">
+            {offset + 1} ~ {Math.min(offset + limit, total)} / 총 {total}개
           </p>
-          <div className="flex gap-2">
+          <div className="flex items-center justify-center gap-3">
             <button
               onClick={() => setOffset(Math.max(0, offset - limit))}
               disabled={offset === 0}
-              className="px-3 py-1 border rounded disabled:opacity-50"
+              className="flex items-center gap-1 min-h-[48px] px-5 py-3 border border-gray-300 rounded-lg text-base font-medium bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
             >
-              <ChevronLeftIcon className="w-4 h-4" />
+              <ChevronLeftIcon className="w-5 h-5" />
+              이전
             </button>
             <button
               onClick={() => setOffset(offset + limit)}
               disabled={offset + limit >= total}
-              className="px-3 py-1 border rounded disabled:opacity-50"
+              className="flex items-center gap-1 min-h-[48px] px-5 py-3 border border-gray-300 rounded-lg text-base font-medium bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
             >
-              <ChevronRightIcon className="w-4 h-4" />
+              다음
+              <ChevronRightIcon className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -767,26 +775,29 @@ export default function ImageLibraryPage() {
               );})}
           </div>
 
-          {/* 페이지네이션 */}
+          {/* 페이지네이션 — 봇 위젯(우하단)과 겹치지 않도록 중앙 정렬 */}
           {gdPagination.totalPages > 1 && (
-            <div className="flex justify-between items-center">
-              <p className="text-sm text-gray-600">
-                페이지 {gdPage} / {gdPagination.totalPages} (총 {gdPagination.total}개)
+            <div className="flex flex-col items-center justify-center gap-3 py-6 pb-24">
+              <p className="text-base text-gray-700 font-medium">
+                {(gdPage - 1) * GOOGLE_DRIVE_LIMIT + 1} ~{' '}
+                {Math.min(gdPage * GOOGLE_DRIVE_LIMIT, gdPagination.total)} / 총 {gdPagination.total}개
               </p>
-              <div className="flex gap-2">
+              <div className="flex items-center justify-center gap-3">
                 <button
                   onClick={() => setGdPage(Math.max(1, gdPage - 1))}
                   disabled={gdPage === 1}
-                  className="px-3 py-1 border rounded disabled:opacity-50"
+                  className="flex items-center gap-1 min-h-[48px] px-5 py-3 border border-gray-300 rounded-lg text-base font-medium bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
                 >
-                  <ChevronLeftIcon className="w-4 h-4" />
+                  <ChevronLeftIcon className="w-5 h-5" />
+                  이전
                 </button>
                 <button
                   onClick={() => setGdPage(gdPage + 1)}
                   disabled={gdPage >= gdPagination.totalPages}
-                  className="px-3 py-1 border rounded disabled:opacity-50"
+                  className="flex items-center gap-1 min-h-[48px] px-5 py-3 border border-gray-300 rounded-lg text-base font-medium bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
                 >
-                  <ChevronRightIcon className="w-4 h-4" />
+                  다음
+                  <ChevronRightIcon className="w-5 h-5" />
                 </button>
               </div>
             </div>
