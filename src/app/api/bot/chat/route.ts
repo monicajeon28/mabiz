@@ -10,7 +10,7 @@
  *  - anti-scraping: visitor/IP rate limit(대량 응답수집 reverse-engineering 차단).
  *  - 귀속: 클라 입력 불신, ShortLink 서버재조회 + HMAC 서명쿠키.
  */
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import crypto from "crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { Prisma } from "@prisma/client";
@@ -425,48 +425,51 @@ export async function POST(req: Request) {
     ]);
 
     // 핫리드 핸드오프 알림 — 이번 턴 처음 HANDED_OFF 가 됐을 때만 1회.
-    // Vercel 서버리스는 응답 후 비동기 완료 미보장 → 응답 전에 await(SMS ~1-2초).
+    //   ⚡ 응답 후(after)로 분리: SMS(~1-2초)·플라이휠이 손님 응답을 지연시키지 않게 한다.
+    //   Fluid Compute가 응답 반환 후에도 after 콜백 완료를 보장(graceful shutdown)하므로 알림 유실 없음.
     if (handoff && !wasHandedOff) {
-      await notifyAgentHotLead({
-        conversationId: convo.id,
-        organizationId: convo.organizationId,
-        attributedAgentId: convo.attributedAgentId,
-        intentScore: newIntent,
-        customerPhone,
-      }).catch((e) => logger.error("[bot/chat] 핸드오프 알림 실패", { e: String(e) }));
+      after(async () => {
+        await notifyAgentHotLead({
+          conversationId: convo.id,
+          organizationId: convo.organizationId,
+          attributedAgentId: convo.attributedAgentId,
+          intentScore: newIntent,
+          customerPhone,
+        }).catch((e) => logger.error("[bot/chat] 핸드오프 알림 실패", { e: String(e) }));
 
-      // ── 데이터 플라이휠: 리드 확보(=전환 신호) 시 인용 멘트 가중치 갱신 ──────────
-      // 가벼운 봇의 전환은 구매가 아니라 "사람 연결(핸드오프)=리드캡처". 이번 대화에서 인용된
-      // 모든 승인 멘트(이전 턴 ragSourceIds + 이번 턴)를 모아 useCount+1·conversionRate EMA 갱신
-      // → conversionRate desc 정렬을 통해 '리드에 기여한 멘트'가 다음 대화 상위로 올라온다.
-      // recruit 봇은 멘트 주입이 없어 자연히 무영향(citedPatternIds 비어 있음).
-      // 전체를 try/catch — 실패해도 챗 응답·핸드오프·귀속은 절대 안 깨지게(플라이휠은 부가기능).
-      try {
-        const priorMsgs = await prisma.botMessage.findMany({
-          where: {
-            conversationId: convo.id,
-            role: "assistant",
-            ragSourceIds: { not: Prisma.JsonNull },
-          },
-          select: { ragSourceIds: true },
-        });
-        const idSet = new Set<string>(recordedPatternIds);
-        for (const m of priorMsgs) {
-          const v = m.ragSourceIds;
-          if (Array.isArray(v)) {
-            for (const x of v) if (typeof x === "string" && x) idSet.add(x);
-          }
-        }
-        if (idSet.size > 0) {
-          const updated = await recordPersuasionLeadConversion({
-            organizationId: convo.organizationId,
-            patternIds: Array.from(idSet),
+        // ── 데이터 플라이휠: 리드 확보(=전환 신호) 시 인용 멘트 가중치 갱신 ──────────
+        // 가벼운 봇의 전환은 구매가 아니라 "사람 연결(핸드오프)=리드캡처". 이번 대화에서 인용된
+        // 모든 승인 멘트(이전 턴 ragSourceIds + 이번 턴)를 모아 useCount+1·conversionRate EMA 갱신
+        // → conversionRate desc 정렬을 통해 '리드에 기여한 멘트'가 다음 대화 상위로 올라온다.
+        // recruit 봇은 멘트 주입이 없어 자연히 무영향(citedPatternIds 비어 있음).
+        // 전체를 try/catch — 실패해도 챗 응답·핸드오프·귀속은 절대 안 깨지게(플라이휠은 부가기능).
+        try {
+          const priorMsgs = await prisma.botMessage.findMany({
+            where: {
+              conversationId: convo.id,
+              role: "assistant",
+              ragSourceIds: { not: Prisma.JsonNull },
+            },
+            select: { ragSourceIds: true },
           });
-          logger.info("[bot/chat] 플라이휠 갱신", { convoId: convo.id, updated });
+          const idSet = new Set<string>(recordedPatternIds);
+          for (const m of priorMsgs) {
+            const v = m.ragSourceIds;
+            if (Array.isArray(v)) {
+              for (const x of v) if (typeof x === "string" && x) idSet.add(x);
+            }
+          }
+          if (idSet.size > 0) {
+            const updated = await recordPersuasionLeadConversion({
+              organizationId: convo.organizationId,
+              patternIds: Array.from(idSet),
+            });
+            logger.info("[bot/chat] 플라이휠 갱신", { convoId: convo.id, updated });
+          }
+        } catch (e) {
+          logger.error("[bot/chat] 플라이휠 갱신 실패(무시)", { e: String(e) });
         }
-      } catch (e) {
-        logger.error("[bot/chat] 플라이휠 갱신 실패(무시)", { e: String(e) });
-      }
+      });
     }
 
     const res = NextResponse.json({
