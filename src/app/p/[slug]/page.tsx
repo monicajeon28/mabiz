@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import Script from "next/script";
 import { LandingClient } from "./LandingClient";
+import BotLandingClient from "./BotLandingClient";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
 import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
 
@@ -19,6 +20,7 @@ const getLandingPageBySlugOrShortlink = cache(async (identifier: string) => {
     },
     select: {
       id: true, title: true, htmlContent: true, commentEnabled: true,
+      pageType: true, botConfig: true,
       paymentEnabled: true, paymentType: true, productName: true, productPrice: true,
       cycleDay: true, expireDate: true,
       buttonTitle: true, completionPageUrl: true, headerScript: true,
@@ -38,14 +40,33 @@ const getLandingPageBySlugOrShortlink = cache(async (identifier: string) => {
 // 공개 랜딩페이지 — 인증 불필요 (shortlink 또는 slug로 접근 가능)
 export default async function PublicLandingPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { slug } = await params;
 
   const page = await getLandingPageBySlugOrShortlink(slug);
 
   if (!page) notFound();
+
+  // 크루즈닷봇 랜딩 — 봇 네이티브 렌더(htmlContent 경로와 분리, sanitize 우회)
+  if (page.pageType === "bot") {
+    const sp = await searchParams;
+    const refRaw = sp.ref ?? slug; // ?ref= 없으면 진입 slug(=shortlink)로 귀속
+    const refCode = Array.isArray(refRaw) ? refRaw[0] : refRaw;
+    const cfg = (page.botConfig ?? {}) as { persona?: string; greeting?: string; chips?: string[] };
+    return (
+      <BotLandingClient
+        pageId={page.id}
+        refCode={refCode}
+        brandTitle={page.title}
+        greeting={cfg.greeting}
+        chips={Array.isArray(cfg.chips) ? cfg.chips : undefined}
+      />
+    );
+  }
 
   // [P0-7] viewCount 업데이트는 서버 컴포넌트에서 제거.
   // Vercel Serverless는 응답 반환 후 비동기 작업 완료를 보장하지 않으므로
