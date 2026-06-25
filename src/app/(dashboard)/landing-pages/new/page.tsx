@@ -547,13 +547,15 @@ ${footerBlock}
     if (!pageId) return;
     setUploading(true);
     let uploaded = 0;
+    let skippedNonImage = 0;
+    let lastError = "";
     const initialImageCount = images.length;
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const isImage = file.type.startsWith("image/") || /\.(jpe?g|png|gif|webp|bmp)$/i.test(file.name);
-      if (!isImage) continue;
-      if (file.size > MAX_IMAGE_UPLOAD_BYTES) { setError(`${file.name}: 100MB 초과`); continue; }
+      if (!isImage) { skippedNonImage++; continue; }
+      if (file.size > MAX_IMAGE_UPLOAD_BYTES) { lastError = `${file.name}: 100MB 초과`; setError(lastError); continue; }
 
       try {
         const uploadFile = await prepareImageForUpload(file);
@@ -570,13 +572,24 @@ ${footerBlock}
           setImages((prev) => [...prev, data.image]);
           uploaded++;
         } else {
-          setError(data?.message || `${file.name}: 업로드 실패`);
+          lastError = data?.message || `${file.name}: 업로드 실패`;
+          setError(lastError);
         }
       } catch (e) {
-        setError(`${file.name}: ${e instanceof Error ? e.message : String(e)}`);
+        lastError = `${file.name}: ${e instanceof Error ? e.message : String(e)}`;
+        setError(lastError);
       }
     }
     setUploading(false);
+
+    // 아무것도 올라가지 않았는데 에러도 없으면(전부 비이미지 등) 명확히 안내
+    if (uploaded === 0 && !lastError) {
+      setError(
+        skippedNonImage > 0
+          ? "이미지 파일이 아닙니다. JPG · PNG · WebP · GIF 파일만 올릴 수 있어요."
+          : "이미지를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.",
+      );
+    }
   };
 
   const handleDragOver = (e: React.DragEvent, idx: number) => {
@@ -632,8 +645,12 @@ ${footerBlock}
       setCopied(false);
       return;
     }
-    // 이미지 모드: Drive URL 파싱 → POST /api/landing-pages/images (JSON) → 실제 DB id 사용
-    if (!info) return;
+    // 이미지 모드: Drive URL 파싱 후 랜딩에 추가
+    if (!info) { setError("이미지 주소를 인식하지 못했습니다. 다른 이미지를 선택해주세요."); return; }
+    setError("");
+
+    // 공개 표시용 URL (비로그인 랜딩에서도 보이는 Drive 공개 썸네일)
+    const publicUrl = info.fullUrl;
 
     // 페이지가 아직 없으면 먼저 생성
     let pageId: string | null = null;
@@ -641,6 +658,7 @@ ${footerBlock}
     if (!pageId) return;
 
     try {
+      // 1차: ImageAsset(내 업로드 자산)으로 DB 등록 시도 → 실제 DB id 확보(순서변경 가능)
       const res = await fetch("/api/landing-pages/images", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -650,14 +668,15 @@ ${footerBlock}
           sortOrder: images.length,
         }),
       });
-      const data = res.ok ? await res.json() : null;
+      const data = res.ok ? await res.json() : await res.json().catch(() => null);
+
       if (data?.ok && data.image) {
         // handleDragEnd는 실제 DB id만 사용하므로 반드시 API 응답의 id를 사용
         setImages((prev) => [...prev, {
           id:          data.image.id,
           assetId:     data.image.assetId,
           url:         data.image.url,
-          fullUrl:     info.fullUrl,
+          fullUrl:     publicUrl,
           driveFileId: data.image.driveFileId,
           width:       data.image.width,
           height:      data.image.height,
@@ -665,11 +684,31 @@ ${footerBlock}
           fileName:    data.image.fileName,
           sortOrder:   data.image.sortOrder,
         }]);
-      } else {
-        setError(data?.message ?? "라이브러리 이미지 등록 실패");
+        return;
       }
+
+      // 2차 폴백: ImageAsset에 없는 이미지(드라이브 동기화 캐시 등)는 DB 등록 없이
+      // 공개 Drive 썸네일 URL로 바로 콘텐츠에 삽입한다.
+      // (저장 시 save()가 fullUrl 기준으로 공개 HTML을 만들므로 비로그인 표시 정상)
+      if (res.status === 404) {
+        setImages((prev) => [...prev, {
+          id:          `lib-${info.driveFileId}-${Date.now()}`, // 합성 id (DB row 없음 → 순서변경 PATCH 대상 아님)
+          assetId:     "",
+          url:         info.url,        // 에디터 미리보기는 공개 썸네일로 표시
+          fullUrl:     publicUrl,       // 저장 HTML에 들어가는 공개 URL
+          driveFileId: info.driveFileId,
+          width:       0,
+          height:      0,
+          mimeType:    "image/jpeg",
+          fileName:    "라이브러리 이미지",
+          sortOrder:   images.length,
+        }]);
+        return;
+      }
+
+      setError(data?.message ?? "라이브러리 이미지 추가에 실패했습니다. 다시 시도해주세요.");
     } catch (e) {
-      setError(`라이브러리 이미지 등록 오류: ${e instanceof Error ? e.message : String(e)}`);
+      setError(`라이브러리 이미지 추가 오류: ${e instanceof Error ? e.message : String(e)}`);
     }
   };
 
