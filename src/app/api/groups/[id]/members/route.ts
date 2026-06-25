@@ -67,14 +67,45 @@ export async function GET(req: Request, { params }: Params) {
       prisma.contactGroupMember.count({ where }),
     ]);
 
+    // 신청 출처/기기 enrich — 이 그룹을 먹이는 랜딩 신청 기록(phone 매칭, 최신 1건). 배치 1쿼리.
+    const phones = members
+      .map((m) => m.contact.phone)
+      .filter((p): p is string => !!p);
+    const regs = phones.length
+      ? await prisma.crmLandingRegistration.findMany({
+          where: { phone: { in: phones }, landingPage: { groupId } },
+          select: {
+            phone: true,
+            ipAddress: true,
+            deviceType: true,
+            referer: true,
+            utmSource: true,
+            createdAt: true,
+            landingPage: { select: { title: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+        })
+      : [];
+    const regByPhone = new Map<string, (typeof regs)[number]>();
+    for (const r of regs) if (!regByPhone.has(r.phone)) regByPhone.set(r.phone, r); // desc → 최신 1건
+
     const now = new Date();
-    const result = members.map((m) => ({
-      contactId: m.contactId,
-      name: m.contact.name ?? '이름없음',
-      phone: m.contact.phone ?? '',
-      addedAt: m.addedAt.toISOString(),
-      daysSince: Math.floor((now.getTime() - m.addedAt.getTime()) / 86_400_000),
-    }));
+    const result = members.map((m) => {
+      const r = m.contact.phone ? regByPhone.get(m.contact.phone) : undefined;
+      return {
+        contactId: m.contactId,
+        name: m.contact.name ?? '이름없음',
+        phone: m.contact.phone ?? '',
+        addedAt: m.addedAt.toISOString(),
+        daysSince: Math.floor((now.getTime() - m.addedAt.getTime()) / 86_400_000),
+        // 신청 출처/기기 (랜딩 신청 기록 있을 때만)
+        ipAddress: r?.ipAddress ?? null,
+        deviceType: r?.deviceType ?? null,
+        referer: r?.referer ?? null,
+        source: r?.utmSource ?? null,
+        landingTitle: r?.landingPage?.title ?? null,
+      };
+    });
 
     return NextResponse.json({ ok: true, members: result, total, groupName: group.name });
   } catch (err) {

@@ -12,8 +12,9 @@ import { Day0SMSPreview } from "@/components/groups/Day0SMSPreview";
 import { TrustBadge } from "@/components/groups/TrustBadge";
 import { GroupEmailSettings } from "@/components/groups/GroupEmailSettings";
 import { GroupEmailFunnelBuilder } from "@/components/groups/GroupEmailFunnelBuilder";
+import { GroupMembersTab } from "@/components/groups/GroupMembersTab";
 
-type ActiveTab = "overview" | "email-settings" | "email-funnel";
+type ActiveTab = "overview" | "members" | "email-settings" | "email-funnel";
 
 type GroupDetail = {
   id: string;
@@ -265,6 +266,7 @@ export default function GroupDetailPage() {
   // ─── 탭 정의 ──────────────────────────────────────────────────────────────
   const tabs: { id: ActiveTab; label: string; icon: React.ReactNode }[] = [
     { id: "overview", label: "그룹 개요", icon: <Users className="w-4 h-4" /> },
+    { id: "members", label: "👥 신청 고객", icon: <Users className="w-4 h-4" /> },
     { id: "email-settings", label: "📧 이메일 설정", icon: <Mail className="w-4 h-4" /> },
     { id: "email-funnel", label: "📬 이메일 퍼널", icon: <Mail className="w-4 h-4" /> },
   ];
@@ -317,6 +319,9 @@ export default function GroupDetailPage() {
       </div>
 
       {/* ── 탭 콘텐츠 ────────────────────────────────────────────────── */}
+
+      {/* 신청 고객 탭 — 누가·어디서·어떤 기기로 신청했는지 */}
+      {activeTab === "members" && <GroupMembersTab groupId={groupId} />}
 
       {/* 그룹 개요 탭 */}
       {activeTab === "overview" && (
