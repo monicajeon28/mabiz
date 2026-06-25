@@ -88,6 +88,15 @@ export async function POST(req: Request, { params }: Params) {
     const utmMedium   = body.utmMedium   ?? sp.get('utm_medium')   ?? null;
     const utmCampaign = body.utmCampaign ?? sp.get('utm_campaign') ?? null;
 
+    // 신청자 출처/기기 추적 — 어디서·어떤 기기로 신청했는지(IP·기기·접속경로)
+    const ipAddress = (req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || req.headers.get('cf-connecting-ip') || '').slice(0, 100) || null;
+    const userAgent = (req.headers.get('user-agent') || '').slice(0, 300) || null;
+    const referer = (req.headers.get('referer') || '').slice(0, 300) || null;
+    const deviceType = userAgent
+      ? (/Mobi|Android|iPhone|iPad|iPod/i.test(userAgent) ? 'mobile' : 'desktop')
+      : null;
+
     // [WO-15] 전화번호 형식 검증 (정규화 이후 적용)
     const KR_PHONE_RE = /^01[016789]-\d{3,4}-\d{4}$/;
     if (!KR_PHONE_RE.test(normalizedPhone)) {
@@ -180,6 +189,10 @@ export async function POST(req: Request, { params }: Params) {
           utmSource:   utmSource   ?? null,
           utmMedium:   utmMedium   ?? null,
           utmCampaign: utmCampaign ?? null,
+          ipAddress,
+          userAgent,
+          deviceType,
+          referer,
           metadata:    metadata    ?? undefined,
           funnelStarted: false,
         },

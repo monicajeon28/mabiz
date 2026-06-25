@@ -1039,6 +1039,11 @@ model CrmLandingRegistration {
   utmSource     String?
   utmMedium     String?
   utmCampaign   String?
+  // 신청자 출처/기기 추적 (2026-06-25): 어디서·어떤 기기로 신청했는지 정확 파악
+  ipAddress     String? // 신청 IP (x-forwarded-for 첫 항목)
+  userAgent     String? // 브라우저/기기 식별 문자열
+  deviceType    String? @db.VarChar(20) // mobile | desktop
+  referer       String? // 접속 경로(HTTP Referer)
   metadata      Json?
   funnelStarted Boolean        @default(false)
   createdAt     DateTime       @default(now())
