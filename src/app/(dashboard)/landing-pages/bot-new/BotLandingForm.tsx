@@ -13,6 +13,7 @@ interface Product {
 
 interface Props {
   products: Product[];
+  initialBotType?: "cruise" | "recruit";
 }
 
 const PERSONA_OPTIONS = [
@@ -41,12 +42,16 @@ function manwon(n: number | null): string {
   return `약 ${Math.round(n / 10000).toLocaleString("ko-KR")}만원`;
 }
 
-export default function BotLandingForm({ products }: Props) {
+export default function BotLandingForm({ products, initialBotType = "cruise" }: Props) {
   const [title, setTitle] = useState("");
-  const [botType, setBotType] = useState<"cruise" | "recruit">("cruise");
+  const [botType, setBotType] = useState<"cruise" | "recruit">(initialBotType);
   const [persona, setPersona] = useState("calm");
-  const [greeting, setGreeting] = useState(CRUISE_GREETING);
-  const [chips, setChips] = useState<string[]>(CRUISE_CHIPS);
+  const [greeting, setGreeting] = useState(
+    initialBotType === "recruit" ? RECRUIT_GREETING : CRUISE_GREETING,
+  );
+  const [chips, setChips] = useState<string[]>(
+    initialBotType === "recruit" ? RECRUIT_CHIPS : CRUISE_CHIPS,
+  );
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<{ url: string } | null>(null);

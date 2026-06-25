@@ -9,6 +9,7 @@ import {
   TrendingUp, Building2, ClipboardList, CreditCard,
   BookOpen, FolderOpen, BarChart2, BarChart,
   Calculator, Phone, ShoppingBag, Award, Star, Receipt, Stamp, Images, Tag, UserPlus,
+  GraduationCap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "@/components/layout/NotificationBell";
@@ -85,6 +86,13 @@ const navSections: NavSection[] = [
     roles: ["GLOBAL_ADMIN", "OWNER", "AGENT"],
     items: [
       { href: "/groups",                icon: Tag,          label: "그룹 관리" },
+    ],
+  },
+  {
+    label: "교육생 모집",
+    roles: ["GLOBAL_ADMIN", "OWNER"], // 지사장·관리자 전용(대리점장·마케터 제외)
+    items: [
+      { href: "/recruit",               icon: GraduationCap, label: "교육생 모집" },
     ],
   },
   {

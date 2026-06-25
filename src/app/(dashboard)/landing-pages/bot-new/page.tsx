@@ -8,7 +8,11 @@ import BotLandingForm from "./BotLandingForm";
 
 export const dynamic = "force-dynamic";
 
-export default async function NewBotLandingPage() {
+export default async function NewBotLandingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const ctx = await getAuthContext().catch(() => null);
 
   if (!ctx) {
@@ -38,5 +42,10 @@ export default async function NewBotLandingPage() {
     take: 60,
   });
 
-  return <BotLandingForm products={products} />;
+  // ?type=recruit 로 들어오면 교육생 모집봇이 미리 선택됨(교육생 모집 카테고리에서 진입).
+  const sp = await searchParams;
+  const typeRaw = sp.type;
+  const initialBotType = (Array.isArray(typeRaw) ? typeRaw[0] : typeRaw) === "recruit" ? "recruit" : "cruise";
+
+  return <BotLandingForm products={products} initialBotType={initialBotType} />;
 }
