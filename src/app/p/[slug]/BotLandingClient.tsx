@@ -154,6 +154,10 @@ export default function BotLandingClient({
   const [submitting, setSubmitting] = useState(false);
   const [leadError, setLeadError] = useState("");
   const [applied, setApplied] = useState(false); // register 성공(리드 확정) 여부
+  // 동의(정보통신망법·개인정보보호법) — 기본 체크(자동동의). 손님이 해제해도 신청은 막지 않되,
+  //   해제 상태를 그대로 기록해서 광고성 카톡/문자는 '거부한 분께는 발송 안 함'(거부 존중 = 합법).
+  const [agreePrivacy, setAgreePrivacy] = useState(true);
+  const [agreeAd, setAgreeAd] = useState(true);
 
   const showChips = phase === "chat" && messages.length === 1 && !loading;
   const chipList = chips && chips.length > 0 ? chips : defaultChips;
@@ -201,7 +205,12 @@ export default function BotLandingClient({
           name,
           phone,
           loadedAt: loadedAtRef.current,
-          metadata: { flow: "bot-gate", ref: refCode ?? null },
+          metadata: {
+            flow: "bot-gate",
+            ref: refCode ?? null,
+            // 동의 기록(정보통신망법) — 광고성 카톡/문자 발송 가부 판단 근거. ad=false면 광고 발송 금지.
+            consent: { privacy: agreePrivacy, ad: agreeAd },
+          },
         }),
       });
       const data = await r.json();
@@ -216,7 +225,7 @@ export default function BotLandingClient({
     } finally {
       setSubmitting(false);
     }
-  }, [leadName, leadPhone, submitting, pageId, refCode]);
+  }, [leadName, leadPhone, agreePrivacy, agreeAd, submitting, pageId, refCode]);
 
   useEffect(() => {
     if (phase !== "chat") return;
@@ -419,6 +428,34 @@ export default function BotLandingClient({
                     aria-label="연락처"
                     className="h-12 w-full rounded-xl border border-slate-300 px-4 text-base text-slate-900 outline-none focus:border-[#2563EB]"
                   />
+                </div>
+                {/* 동의 — 기본 체크(자동), 해제해도 신청 가능. 광고수신은 해제 시 광고 발송 안 함. */}
+                <div className="mt-3 space-y-2">
+                  <label className="flex items-start gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={agreePrivacy}
+                      onChange={(e) => setAgreePrivacy(e.target.checked)}
+                      aria-label="개인정보 수집·이용 동의"
+                      className="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-300 accent-[#2563EB]"
+                    />
+                    <span className="text-sm leading-relaxed text-slate-600">
+                      상담을 위한 개인정보(성함·연락처) 수집·이용에 동의합니다.
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={agreeAd}
+                      onChange={(e) => setAgreeAd(e.target.checked)}
+                      aria-label="카톡·문자 소식 받기 동의(선택)"
+                      className="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-300 accent-[#2563EB]"
+                    />
+                    <span className="text-sm leading-relaxed text-slate-600">
+                      카톡·문자로 여행 소식·혜택 받기에 동의합니다.{" "}
+                      <span className="text-slate-400">(선택 · 언제든 수신거부 가능)</span>
+                    </span>
+                  </label>
                 </div>
                 {leadError && <p className="mt-2 text-sm text-red-600">{leadError}</p>}
                 <button
