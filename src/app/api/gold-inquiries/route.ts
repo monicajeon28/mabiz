@@ -96,8 +96,9 @@ export async function GET(req: NextRequest) {
     // 역할별 어필리에이트 필터
     const mallUserId = ctx.mallUser?.id ?? null;
 
-    // OWNER/AGENT가 GMcruise 미연동이면 403 (전체 데이터 노출 방지)
-    if ((ctx.role === 'OWNER' || ctx.role === 'AGENT') && !mallUserId) {
+    // AGENT(대리점장)는 GMcruise 미연동이면 403 (agentId 필터에 mallUser 필요).
+    // OWNER(지사장)는 조직(organizationId) 기준 스코프라 mallUser 없어도 됨.
+    if (ctx.role === 'AGENT' && !mallUserId) {
       return NextResponse.json(
         { ok: false, error: 'GMCRUISE_LINK_REQUIRED', message: '크루즈닷몰 계정 연동이 필요합니다.' },
         { status: 403 }
@@ -106,16 +107,19 @@ export async function GET(req: NextRequest) {
 
     const affiliateFilter: Prisma.Sql = (() => {
       if (ctx.role === 'GLOBAL_ADMIN') return Prisma.empty;
-      if (!mallUserId) return Prisma.empty;
+      // OWNER(지사장) = 본인 조직(지사) 전체 = 본인 + 산하 대리점장·마케터 문의. 다른 지사 불가.
       if (ctx.role === 'OWNER') {
-        // OWNER = 자신이 managerId이거나 agentId이면서 동일 조직 문의만
-        return Prisma.sql`AND (pi."managerId" = ${mallUserId} OR pi."agentId" = ${mallUserId}) AND pi."organizationId" = ${ctx.organizationId}`;
+        return ctx.organizationId
+          ? Prisma.sql`AND pi."organizationId" = ${ctx.organizationId}`
+          : Prisma.sql`AND 1=0`;
       }
+      // AGENT(대리점장) = 본인 담당(agentId)만 + 조직 격리.
       if (ctx.role === 'AGENT') {
-        // AGENT = agentId=자신 AND 동일 조직만 (organizationId 격리 필수)
-        return Prisma.sql`AND pi."agentId" = ${mallUserId} AND pi."organizationId" = ${ctx.organizationId}`;
+        return (mallUserId && ctx.organizationId)
+          ? Prisma.sql`AND pi."agentId" = ${mallUserId} AND pi."organizationId" = ${ctx.organizationId}`
+          : Prisma.sql`AND 1=0`;
       }
-      return Prisma.empty;
+      return Prisma.sql`AND 1=0`;
     })();
 
     const [rows, countRows] = await Promise.all([

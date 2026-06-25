@@ -94,7 +94,7 @@ export async function GET(req: Request) {
     if (isAdmin) {
       const result = await prisma.$queryRaw<Array<{ rate: number | null }>>`
         SELECT CASE WHEN COUNT(*) = 0 THEN 0
-          ELSE ROUND(AVG("paidCount"::float / NULLIF("totalPayments", 0)) * 100, 2)
+          ELSE ROUND((AVG("paidCount"::float / NULLIF("totalPayments", 0)) * 100)::numeric, 2)
         END AS rate
         FROM "GoldMember"
         WHERE "status" = 'ACTIVE' AND "totalPayments" > 0
@@ -106,7 +106,7 @@ export async function GET(req: Request) {
     } else if (orgId) {
       const result = await prisma.$queryRaw<Array<{ rate: number | null }>>`
         SELECT CASE WHEN COUNT(*) = 0 THEN 0
-          ELSE ROUND(AVG("paidCount"::float / NULLIF("totalPayments", 0)) * 100, 2)
+          ELSE ROUND((AVG("paidCount"::float / NULLIF("totalPayments", 0)) * 100)::numeric, 2)
         END AS rate
         FROM "GoldMember"
         WHERE "status" = 'ACTIVE' AND "totalPayments" > 0
