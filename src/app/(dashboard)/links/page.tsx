@@ -40,6 +40,7 @@ export default function LinksPage() {
   const [title,         setTitle]         = useState('');
   const [targetUrl,     setTargetUrl]     = useState('');
   const [creating,      setCreating]      = useState(false);
+  const [quickCreating, setQuickCreating] = useState(false);
   const [clickStats,    setClickStats]    = useState<Record<string, ClickStats>>({});
   const [loadingClicks, setLoadingClicks] = useState<string | null>(null);
   const [openClickId,   setOpenClickId]   = useState<string | null>(null);
@@ -142,6 +143,37 @@ export default function LinksPage() {
     finally { setCreating(false); }
   };
 
+  // 원클릭: 랜덤 단축링크 즉시 만들기 (폼 없이 바로 생성 + 클립보드 복사)
+  const quickCreate = async () => {
+    if (quickCreating) return;
+    setQuickCreating(true);
+    try {
+      const ref = affiliateCode ? `?ref=${affiliateCode}` : '';
+      const res = await fetch('/api/links', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetUrl: `https://www.cruisedot.co.kr/${ref}`,
+          title: '상담 링크',
+        }),
+      });
+      const d = await res.json() as { ok: boolean; link?: { code?: string } };
+      if (!d.ok || !d.link?.code) throw new Error();
+      const newUrl = `${APP_URL}/l/${d.link.code}`;
+      try {
+        await navigator.clipboard.writeText(newUrl);
+        showSuccess(`${newUrl} 링크가 복사되었어요`, '링크 생성 완료');
+      } catch {
+        showSuccess('링크가 생성되었어요', '링크 생성 완료');
+      }
+      load();
+    } catch {
+      showError('링크 생성 실패');
+    } finally {
+      setQuickCreating(false);
+    }
+  };
+
   const toggleClicks = async (linkId: string) => {
     if (openClickId === linkId) { setOpenClickId(null); return; }
     setOpenClickId(linkId);
@@ -167,10 +199,24 @@ export default function LinksPage() {
           <h1 className="text-2xl font-bold">🔗 상담 링크</h1>
           <p className="text-sm text-gray-500 mt-1">클릭 추적 + 고객별 개인 추적링크 + 자동 퍼널 연동</p>
         </div>
-        <button onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">
-          <Plus className="w-4 h-4" /> 새 링크
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={quickCreate} disabled={quickCreating}
+            className="flex items-center gap-2 px-5 min-h-[48px] bg-green-600 hover:bg-green-700 text-white rounded-lg text-base font-semibold disabled:opacity-50 transition-colors">
+            <Link2 className="w-5 h-5" />
+            {quickCreating ? '만드는 중...' : '바로 링크 만들기'}
+          </button>
+          <button onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 px-4 min-h-[48px] border border-gray-300 text-gray-700 rounded-lg text-base font-medium hover:bg-gray-50 transition-colors">
+            <Plus className="w-5 h-5" /> 직접 만들기
+          </button>
+        </div>
+      </div>
+
+      {/* 원클릭 안내 */}
+      <div className="bg-green-50 border border-green-100 rounded-xl p-4 mb-4">
+        <p className="text-base text-green-800">
+          <strong>「바로 링크 만들기」</strong> 버튼을 누르면 <strong>내 추적링크가 즉시 만들어지고 자동 복사</strong>돼요. 그대로 고객에게 붙여넣기 하세요.
+        </p>
       </div>
 
       {/* 빠른 생성 */}

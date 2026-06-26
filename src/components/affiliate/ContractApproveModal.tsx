@@ -13,6 +13,24 @@
 import { useState, useEffect } from 'react';
 import { CONTRACT_PRICE_TIERS, type PriceTierKey } from '@/lib/affiliate/priceTiers';
 
+interface ContractSubmission {
+  address: string | null;
+  residentIdMasked: string | null;
+  bankAccountMasked: string | null;
+  bankAccountHolder: string | null;
+  consents: {
+    privacy: boolean;
+    dbUse: boolean;
+    nonCompete: boolean;
+    penalty: boolean;
+    refund: boolean;
+  };
+  signatureImageUrl: string | null;
+  hasIdCard: boolean;
+  hasBankbook: boolean;
+  submittedAt: string | null;
+}
+
 interface ContractInfo {
   contractId: number;
   status: string;
@@ -23,6 +41,7 @@ interface ContractInfo {
   tier: { label: string; amount: number } | null;
   approvedAt: string | null;
   links: { managerCode: string; agentCode: string } | null;
+  submission?: ContractSubmission | null;
 }
 
 interface ApproveResult {
@@ -102,9 +121,9 @@ export default function ContractApproveModal({ contractId, onClose, onApproved }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
         {/* 헤더 */}
-        <div className="px-6 py-4 border-b flex items-center justify-between">
+        <div className="px-6 py-4 border-b flex items-center justify-between sticky top-0 bg-white z-10">
           <h2 className="text-lg font-semibold text-gray-900">
             {result ? '계약 승인 완료' : '대리점 계약 승인'}
           </h2>
@@ -207,7 +226,63 @@ export default function ContractApproveModal({ contractId, onClose, onApproved }
                 <InfoRow label="이름" value={contractInfo.name} />
                 <InfoRow label="이메일" value={contractInfo.email} />
                 <InfoRow label="연락처" value={contractInfo.phone} />
+                {contractInfo.submission?.address && (
+                  <InfoRow label="주소" value={contractInfo.submission.address} />
+                )}
               </div>
+
+              {/* 신청 제출 원문 (관리자 검토용) */}
+              {contractInfo.submission && (
+                <div className="p-4 bg-gray-50 rounded-lg space-y-2.5">
+                  <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">
+                    신청 제출 내용
+                  </h3>
+
+                  {/* 개인정보 (마스킹됨) */}
+                  <InfoRow label="주민번호" value={contractInfo.submission.residentIdMasked} />
+                  <InfoRow label="정산계좌" value={contractInfo.submission.bankAccountMasked} />
+                  <InfoRow label="예금주" value={contractInfo.submission.bankAccountHolder} />
+                  <p className="text-xs text-gray-400 leading-relaxed">
+                    개인정보 보호를 위해 주민번호·계좌번호는 일부만 표시됩니다.
+                  </p>
+
+                  {/* 첨부 서류 */}
+                  <div className="flex gap-4 pt-1 text-sm">
+                    <span className={contractInfo.submission.hasIdCard ? 'text-green-700' : 'text-gray-400'}>
+                      {contractInfo.submission.hasIdCard ? '✅' : '❌'} 신분증
+                    </span>
+                    <span className={contractInfo.submission.hasBankbook ? 'text-green-700' : 'text-gray-400'}>
+                      {contractInfo.submission.hasBankbook ? '✅' : '❌'} 통장사본
+                    </span>
+                  </div>
+
+                  {/* 동의 5종 */}
+                  <div className="pt-2">
+                    <p className="text-sm font-medium text-gray-700 mb-1.5">약관 동의 내역</p>
+                    <div className="space-y-1">
+                      <ConsentRow label="개인정보 수집·이용 동의" agreed={contractInfo.submission.consents.privacy} />
+                      <ConsentRow label="고객 DB 활용 동의" agreed={contractInfo.submission.consents.dbUse} />
+                      <ConsentRow label="경업금지 동의" agreed={contractInfo.submission.consents.nonCompete} />
+                      <ConsentRow label="위약 조항 동의" agreed={contractInfo.submission.consents.penalty} />
+                      <ConsentRow label="환불 정책 동의" agreed={contractInfo.submission.consents.refund} />
+                    </div>
+                  </div>
+
+                  {/* 서명 이미지 */}
+                  <div className="pt-2">
+                    <p className="text-sm font-medium text-gray-700 mb-1.5">전자 서명</p>
+                    {contractInfo.submission.signatureImageUrl ? (
+                      <img
+                        src={contractInfo.submission.signatureImageUrl}
+                        alt="계약자 서명"
+                        className="max-h-28 border border-gray-200 rounded bg-white p-2 object-contain"
+                      />
+                    ) : (
+                      <p className="text-sm text-gray-400">서명 이미지가 없습니다.</p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* 이미 승인된 경우 */}
               {contractInfo.isApproved && (
@@ -285,6 +360,17 @@ function InfoRow({ label, value }: { label: string; value: string | null }) {
     <div className="flex text-sm">
       <span className="w-16 text-gray-500 shrink-0">{label}</span>
       <span className="text-gray-900 font-medium">{value || '-'}</span>
+    </div>
+  );
+}
+
+function ConsentRow({ label, agreed }: { label: string; agreed: boolean }) {
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <span className={agreed ? 'text-green-600' : 'text-red-500'}>
+        {agreed ? '✅' : '❌'}
+      </span>
+      <span className={agreed ? 'text-gray-900' : 'text-red-600 font-medium'}>{label}</span>
     </div>
   );
 }

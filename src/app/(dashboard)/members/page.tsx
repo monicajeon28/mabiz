@@ -499,6 +499,19 @@ export default function MembersPage() {
             <h1 className="text-28 font-bold text-gray-900">회원 관리</h1>
             <p className="text-16 text-gray-600 mt-1">크루즈닷 전체 회원을 한눈에 관리합니다</p>
           </div>
+          <a
+            href="/groups"
+            className="ml-auto inline-flex items-center gap-2 px-6 py-3 text-16 font-bold text-blue-700 bg-white border-2 border-blue-300 rounded-xl hover:bg-blue-50 hover:border-blue-500 transition-colors"
+          >
+            📁 연락처 그룹 관리 →
+          </a>
+        </div>
+        {/* 회원 그룹 vs 연락처 그룹 안내 */}
+        <div className="mt-3 px-5 py-4 bg-amber-50 border-2 border-amber-200 rounded-xl">
+          <p className="text-16 text-amber-900 leading-relaxed">
+            <span className="font-bold">안내:</span> 이 페이지의 그룹은 <span className="font-bold">회원 그룹</span>(크루즈닷 가입 회원 분류)입니다.
+            랜딩·자동문자에 연결되는 <span className="font-bold">연락처 그룹</span>은 위의 <span className="font-bold">[연락처 그룹 관리]</span> 버튼에서 따로 관리합니다. 두 그룹은 서로 분리되어 있습니다.
+          </p>
         </div>
         {!loading && total > 0 && (
           <div className="mt-4 inline-block px-6 py-3 bg-white border-2 border-blue-200 rounded-xl">
@@ -925,7 +938,10 @@ export default function MembersPage() {
 
                 {/* 그룹 */}
                 <div className="bg-white border-2 border-green-200 rounded-xl p-6">
-                  <h3 className="text-20 font-bold text-green-900 mb-5">👥 그룹 관리</h3>
+                  <h3 className="text-20 font-bold text-green-900 mb-2">👥 회원 그룹</h3>
+                  <p className="text-14 text-gray-600 mb-5 leading-relaxed">
+                    크루즈닷 회원 분류용 그룹입니다. 랜딩·자동문자에 쓰는 연락처 그룹과는 다릅니다.
+                  </p>
                   <div className="space-y-5">
                     {selectedGroups.size > 0 && (
                       <div className="bg-green-50 border-2 border-green-100 rounded-lg p-4">

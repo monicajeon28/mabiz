@@ -195,13 +195,57 @@ export function useImageDownload() {
         )
       );
       const html2canvas = (await import('html2canvas')).default;
-      const canvas = await html2canvas(ref.current, {
-        backgroundColor: '#ffffff',
-        scale: 2,
-        logging: false,
-        useCORS: true,
-        imageTimeout: 3000,
-      });
+      const node = ref.current;
+
+      // ── A4 고정 + 하단까지 전체 캡처 ────────────────────────────────────────
+      // 미리보기 카드는 A4 비율(aspect-ratio 210/297)로 높이가 고정돼 있고
+      // overflow가 잘려, 화면에 보이는 부분만 캡처되면 증서 하단(직인·환불규정)이
+      // 잘려나간다. 캡처 동안만 높이 고정·overflow 클리핑을 해제해 콘텐츠 전체 높이로
+      // 펼친 뒤, 폭은 A4(794px ≈ 210mm@96dpi)로 고정해서 캡처한다.
+      const prev = {
+        height: node.style.height,
+        maxHeight: node.style.maxHeight,
+        aspectRatio: node.style.aspectRatio,
+        overflow: node.style.overflow,
+        width: node.style.width,
+        maxWidth: node.style.maxWidth,
+      };
+      const A4_WIDTH_PX = 794; // 210mm @ 96dpi
+      node.style.aspectRatio = 'auto';
+      node.style.height = 'auto';
+      node.style.maxHeight = 'none';
+      node.style.overflow = 'visible';
+      node.style.width = `${A4_WIDTH_PX}px`;
+      node.style.maxWidth = `${A4_WIDTH_PX}px`;
+
+      // 레이아웃 반영 후 전체 높이 측정
+      const fullWidth = A4_WIDTH_PX;
+      const fullHeight = Math.ceil(node.scrollHeight);
+
+      let canvas: HTMLCanvasElement;
+      try {
+        canvas = await html2canvas(node, {
+          backgroundColor: '#ffffff',
+          scale: 2,
+          logging: false,
+          useCORS: true,
+          imageTimeout: 3000,
+          width: fullWidth,
+          height: fullHeight,
+          windowWidth: fullWidth,
+          windowHeight: fullHeight,
+          scrollX: 0,
+          scrollY: 0,
+        });
+      } finally {
+        // 원래 스타일 복구 (캡처 성공/실패 무관)
+        node.style.height = prev.height;
+        node.style.maxHeight = prev.maxHeight;
+        node.style.aspectRatio = prev.aspectRatio;
+        node.style.overflow = prev.overflow;
+        node.style.width = prev.width;
+        node.style.maxWidth = prev.maxWidth;
+      }
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
       link.download = `${fileName}_${new Date().toISOString().split('T')[0]}.png`;

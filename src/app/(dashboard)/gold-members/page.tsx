@@ -7,6 +7,29 @@ import {
 } from "lucide-react";
 import { useToast } from "@/lib/api/use-toast";
 import { useSession } from "@/hooks/useSession";
+import { GoldMemberSalesTab } from "./GoldMemberSalesTab";
+
+// KST 기준 현재 월(YYYY-MM) 반환
+function getCurrentKSTMonth(): string {
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return `${kst.getUTCFullYear()}-${String(kst.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+// 최근 12개월 옵션 (매출현황 월 선택용)
+function getLast12Months(): Array<{ value: string; label: string }> {
+  const months: Array<{ value: string; label: string }> = [];
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  let y = kst.getUTCFullYear();
+  let m = kst.getUTCMonth() + 1;
+  for (let i = 0; i < 12; i++) {
+    months.push({ value: `${y}-${String(m).padStart(2, "0")}`, label: `${y}년 ${m}월` });
+    m -= 1;
+    if (m === 0) { m = 12; y -= 1; }
+  }
+  return months;
+}
 
 type GoldMember = {
   id: string;
@@ -69,6 +92,10 @@ export default function GoldMembersPage() {
   const isAdmin = sessionIsAdmin || role === "GLOBAL_ADMIN";
   const isOwner = role === "OWNER";
   const isAgent = role === "AGENT";
+
+  // 탭: 회원 목록 / 매출현황
+  const [activeTab, setActiveTab] = useState<"list" | "sales">("list");
+  const [salesMonth, setSalesMonth] = useState<string>(getCurrentKSTMonth);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const [members, setMembers]     = useState<GoldMember[]>([]);
@@ -339,6 +366,54 @@ export default function GoldMembersPage() {
         )}
       </div>
 
+      {/* ✅ 탭 네비게이션: 회원 목록 / 매출현황 */}
+      <div className="flex gap-2 border-b border-gray-200 mb-5 overflow-x-auto">
+        <button
+          onClick={() => setActiveTab("list")}
+          className={`px-6 py-3 text-base font-semibold border-b-2 transition-all whitespace-nowrap ${
+            activeTab === "list"
+              ? "border-navy-900 text-navy-900"
+              : "border-transparent text-gray-600 hover:text-gray-900"
+          }`}
+        >
+          📋 회원 목록
+        </button>
+        <button
+          onClick={() => setActiveTab("sales")}
+          className={`px-6 py-3 text-base font-semibold border-b-2 transition-all whitespace-nowrap ${
+            activeTab === "sales"
+              ? "border-navy-900 text-navy-900"
+              : "border-transparent text-gray-600 hover:text-gray-900"
+          }`}
+        >
+          💰 매출현황
+        </button>
+      </div>
+
+      {/* ✅ 매출현황 탭 */}
+      {activeTab === "sales" && (
+        <div className="space-y-5">
+          {/* 월 선택 */}
+          <div className="flex items-center gap-2">
+            <label htmlFor="gold-sales-month" className="text-base text-gray-600 shrink-0">📅 월 선택</label>
+            <select
+              id="gold-sales-month"
+              value={salesMonth}
+              onChange={(e) => setSalesMonth(e.target.value)}
+              className="h-12 px-3 border border-gray-300 rounded-lg bg-white text-base focus:ring-2 focus:ring-navy-900/20"
+            >
+              {getLast12Months().map(({ value, label }) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </div>
+          <GoldMemberSalesTab selectedMonth={salesMonth} />
+        </div>
+      )}
+
+      {/* ✅ 회원 목록 탭 */}
+      {activeTab === "list" && (
+      <>
       {/* 관리자/지사장: 삭제 요청 대기 배너 */}
       {(isAdmin || isOwner) && pendingCount > 0 && (
         <div className="mb-4 flex items-center gap-3 px-4 py-3 rounded-xl border border-red-200" style={{ backgroundColor: '#FADBD8' }}>
@@ -602,6 +677,8 @@ export default function GoldMembersPage() {
             </div>
           )}
         </div>
+      )}
+      </>
       )}
 
       {/* 지사장 전용: 삭제 요청 모달 */}

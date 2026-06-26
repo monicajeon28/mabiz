@@ -33,6 +33,29 @@ import { notifyCruisedotAffiliateCreated } from '@/lib/affiliate/notify-cruisedo
 import { generatePartnerContractPDF } from '@/lib/contract-pdf-generator';
 import { backupPartnerContractToGoogleDrive } from '@/lib/google-drive';
 
+// ── 개인정보 마스킹 헬퍼 (서버 전용 — 평문 전체노출 금지) ──────────
+/**
+ * 주민등록번호 마스킹: 901010-1******  (앞 7자리만 노출)
+ */
+function maskResidentId(rid: string | null | undefined): string | null {
+  if (!rid) return null;
+  const digits = rid.replace(/\D/g, '');
+  if (digits.length < 7) return '******';
+  // 생년월일 6자리 + 성별구분 1자리만 노출, 나머지 6자리 마스킹
+  return `${digits.slice(0, 6)}-${digits.slice(6, 7)}******`;
+}
+
+/**
+ * 계좌번호 마스킹: 은행명 + 뒤 4자리만 노출 (예: "국민 ****1234")
+ */
+function maskBankAccount(bankName: string | null | undefined, account: string | null | undefined): string | null {
+  if (!account) return bankName ? bankName : null;
+  const digits = account.replace(/\D/g, '');
+  const last4 = digits.length >= 4 ? digits.slice(-4) : digits;
+  const masked = `****${last4}`;
+  return bankName ? `${bankName} ${masked}` : masked;
+}
+
 // 외부 API 호출 타임아웃 래퍼
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   const timeout = new Promise<never>((_, reject) =>
@@ -558,6 +581,29 @@ export async function GET(
               agentCode: metadata.agentLinkCode,
             }
           : null,
+        // ── 제출 원문 (관리자 검토용 — 민감정보는 서버에서 마스킹) ──
+        submission: {
+          address: contract.address || null,
+          // 주민등록번호: 마스킹 (앞 7자리만)
+          residentIdMasked: maskResidentId(contract.residentId),
+          // 정산계좌: 은행명 + 뒤 4자리만
+          bankAccountMasked: maskBankAccount(contract.bankName, contract.bankAccount),
+          bankAccountHolder: contract.bankAccountHolder || null,
+          // 동의 5종 (✅/❌ 표시용 boolean)
+          consents: {
+            privacy: contract.consentPrivacy,        // 개인정보 수집·이용 동의
+            dbUse: contract.consentDbUse,            // DB 활용 동의
+            nonCompete: contract.consentNonCompete,  // 경업금지 동의
+            penalty: contract.consentPenalty,        // 위약 조항 동의
+            refund: contract.consentRefund,          // 환불 정책 동의
+          },
+          // 서명 이미지 (있을 때만 표시)
+          signatureImageUrl: contract.signatureImageUrl || null,
+          // 첨부 서류 존재 여부 (평문 경로는 노출 안 함)
+          hasIdCard: Boolean(contract.idCardPath),
+          hasBankbook: Boolean(contract.bankbookPath),
+          submittedAt: contract.submittedAt ? contract.submittedAt.toISOString() : null,
+        },
       },
     });
   } catch (err) {

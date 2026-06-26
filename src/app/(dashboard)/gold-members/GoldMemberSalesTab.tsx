@@ -28,21 +28,29 @@ interface GoldMemberData {
   error?: string;
 }
 
-interface GoldMemberTabProps {
+interface GoldMemberSalesTabProps {
   selectedMonth: string;
 }
 
-export function GoldMemberTab({ selectedMonth }: GoldMemberTabProps) {
+/**
+ * 골드회원 매출현황 탭
+ * - 기존 /api/partner/dashboard/gold API 재사용 (조직 격리 유지: 관리자=전체 / 그 외=본인 조직)
+ * - marketing/sales 페이지에서 이동된 컴포넌트
+ */
+export function GoldMemberSalesTab({ selectedMonth }: GoldMemberSalesTabProps) {
   const [data, setData] = useState<GoldMemberData['data'] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
     (async () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/partner/dashboard/gold?month=${selectedMonth}`);
+        const res = await fetch(`/api/partner/dashboard/gold?month=${selectedMonth}`, {
+          signal: controller.signal,
+        });
 
         if (!res.ok) {
           setError(
@@ -62,12 +70,14 @@ export function GoldMemberTab({ selectedMonth }: GoldMemberTabProps) {
           setError(json.error || '데이터 로드 실패');
         }
       } catch (err) {
-        logger.error('[GoldMemberTab]', { err });
+        if (err instanceof Error && err.name === 'AbortError') return;
+        logger.error('[GoldMemberSalesTab]', { err });
         setError('네트워크 오류가 발생했습니다.');
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     })();
+    return () => controller.abort();
   }, [selectedMonth]);
 
   if (loading) {

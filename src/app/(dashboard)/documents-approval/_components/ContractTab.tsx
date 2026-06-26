@@ -11,6 +11,9 @@ import {
   Search,
   CheckCircle2,
   RefreshCcw,
+  Download,
+  MessageSquare,
+  Link2,
 } from 'lucide-react';
 import { showError, showSuccess } from '@/components/ui/Toast';
 import { CANCELLATION_POLICY, CRUISE_CANCELLATION_POLICY, COMPANY_INFO } from '@/lib/company-info';
@@ -24,6 +27,7 @@ import {
   CustomerAutocomplete,
   ModalShell,
   useCurrentAgent,
+  useImageDownload,
   DocumentLetterhead,
   DocumentSeal,
   COMPANY,
@@ -230,6 +234,18 @@ export default function ContractTab() {
   // 우측 항상 표시 미리보기 (목록 행 클릭 시 업데이트)
   const [previewData, setPreviewData] = useState<ContractPreviewData>({});
 
+  // 선택된 계약서(문자 발송·다운로드용) — 행 클릭 시 id/서명토큰/연락처 보관
+  const [selectedDoc, setSelectedDoc] = useState<{
+    id: string;
+    signToken: string | null;
+    buyerName: string | null;
+    buyerTel: string | null;
+  } | null>(null);
+  const [sendingSms, setSendingSms] = useState(false);
+
+  // 우측 미리보기 PNG 다운로드 (A4 전체 캡처)
+  const { ref: previewRef, isDownloading, download } = useImageDownload();
+
   // 모달 폼 상태
   const [form, setForm] = useState<ContractFormData>(getEmptyForm);
   const [productCode, setProductCode] = useState('');
@@ -311,6 +327,13 @@ export default function ContractTab() {
   /* ── 목록 행 클릭 → 우측 미리보기 ── */
   const handleRowClick = (doc: SalesDocumentItem) => {
     const gd = doc.generatedData;
+    // 문자 발송·다운로드용으로 선택 문서 보관
+    setSelectedDoc({
+      id: doc.id,
+      signToken: gdStr(gd, 'signToken'),
+      buyerName: gdStr(gd, 'buyerName') ?? doc.contact?.name ?? null,
+      buyerTel: gdStr(gd, 'buyerTel') ?? doc.contact?.phone ?? null,
+    });
     const inc = gdArr(gd, 'includedItems');
     const exc = gdArr(gd, 'excludedItems');
     const hg = gdStr(gd, 'hasGuide') as 'Y' | 'N' | '' | null;
@@ -574,6 +597,93 @@ export default function ContractTab() {
     });
   };
 
+  /* ── 계약서 PNG 다운로드 (A4 전체) ── */
+  const handleDownload = async () => {
+    if (!previewData.buyerName && !previewData.productName) {
+      showError('먼저 목록에서 계약서를 선택해주세요.');
+      return;
+    }
+    const name = previewData.buyerName || selectedDoc?.buyerName || '고객';
+    const ok = await download(`계약서_${name}`);
+    if (ok) showSuccess('계약서 이미지가 다운로드되었습니다.');
+    else showError('이미지 다운로드 중 오류가 발생했습니다.');
+  };
+
+  /* ── 공개 서명링크 생성 (클립보드 복사용) ── */
+  const buildSignUrl = (): string | null => {
+    if (!selectedDoc?.id || !selectedDoc.signToken) return null;
+    const appUrl = (typeof window !== 'undefined' && window.location?.origin) || 'https://mabizcruisedot.com';
+    return `${appUrl}/contract/sign/${selectedDoc.id}?token=${selectedDoc.signToken}`;
+  };
+
+  /* ── 서명링크 클립보드 복사 ── */
+  const handleCopyLink = async () => {
+    const url = buildSignUrl();
+    if (!url) {
+      showError('이 계약서에는 서명 링크가 없습니다.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      showSuccess('서명 링크를 복사했어요. 원하는 곳에 붙여넣어 보내세요.');
+    } catch {
+      // clipboard API 미지원/거부 시 폴백: 임시 textarea 사용
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showSuccess('서명 링크를 복사했어요.');
+      } catch {
+        showError('복사에 실패했어요. 링크를 길게 눌러 직접 복사해주세요.');
+      }
+    }
+  };
+
+  /* ── 서명링크 문자(SMS) 발송 ── */
+  const handleSendSms = async () => {
+    if (!selectedDoc?.id) {
+      showError('먼저 목록에서 계약서를 선택해주세요.');
+      return;
+    }
+    if (!selectedDoc.signToken) {
+      showError('이 계약서에는 서명 링크가 없습니다.');
+      return;
+    }
+    // buyerTel 이 없으면 담당자에게 번호 입력 요청
+    let phone = selectedDoc.buyerTel ?? '';
+    if (!phone.trim()) {
+      const input = typeof window !== 'undefined'
+        ? window.prompt('받는 분 휴대폰 번호를 입력해주세요 (예: 010-1234-5678)')
+        : null;
+      if (!input || !input.trim()) return;
+      phone = input.trim();
+    }
+    setSendingSms(true);
+    try {
+      const res = await fetch(`/api/documents/${selectedDoc.id}/send-contract-sms`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ phone }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.ok) {
+        showSuccess(json.message || '계약서 서명 링크를 문자로 보냈어요.');
+      } else {
+        showError(json.message || '문자 발송에 실패했어요.');
+      }
+    } catch {
+      showError('문자 발송 중 오류가 발생했어요.');
+    } finally {
+      setSendingSms(false);
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,_60%)_minmax(0,_40%)]">
       {/* ═══ 좌측: 필터 + 목록 (모바일: 100%, 데스크톱: 60%) ═══════════════ */}
@@ -679,7 +789,55 @@ export default function ContractTab() {
       {/* ═══ 우측: 항상 표시 계약서 미리보기 (모바일: 100%, 데스크톱: 40%) ═══════ */}
       <div className="min-w-0">
         <p className="mb-2 text-sm font-semibold text-gray-700">계약서 미리보기</p>
-        <FullContractPreview data={previewData} agent={agent} />
+        <div ref={previewRef}>
+          <FullContractPreview data={previewData} agent={agent} />
+        </div>
+
+        {/* ── 다운로드 · 보내기 액션 (계약서 선택 시 활성) ────────────────── */}
+        {selectedDoc && (
+          <div className="mt-3 space-y-2">
+            {/* 다운로드 (A4 전체 캡처) */}
+            <button
+              type="button"
+              onClick={handleDownload}
+              disabled={isDownloading}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gray-800 px-4 py-3 text-base font-bold text-white hover:bg-gray-900 disabled:opacity-50"
+            >
+              {isDownloading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
+              {isDownloading ? '다운로드 중...' : '계약서 다운로드 (이미지)'}
+            </button>
+
+            {/* 서명 링크가 있을 때만 문자·복사 노출 */}
+            {selectedDoc.signToken ? (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={handleSendSms}
+                  disabled={sendingSms}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-3 text-base font-bold text-white hover:bg-green-700 disabled:opacity-50"
+                >
+                  {sendingSms ? <Loader2 className="h-5 w-5 animate-spin" /> : <MessageSquare className="h-5 w-5" />}
+                  {sendingSms ? '보내는 중...' : '문자로 보내기'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-gray-300 bg-white px-4 py-3 text-base font-bold text-gray-700 hover:bg-gray-50"
+                >
+                  <Link2 className="h-5 w-5" />
+                  링크 복사
+                </button>
+              </div>
+            ) : (
+              <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-center text-sm text-gray-400">
+                이 계약서에는 서명 링크가 없어 문자 발송이 어렵습니다.
+              </p>
+            )}
+            <p className="text-center text-xs text-gray-400">
+              문자로 보내면 고객이 받은 링크에서 바로 서명할 수 있어요 (7일 이내).
+            </p>
+          </div>
+        )}
       </div>
 
       {/* ═══ 계약서 작성 모달 (2-panel: 입력 폼 + 실시간 미리보기) ═════════ */}

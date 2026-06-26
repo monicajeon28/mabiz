@@ -657,6 +657,17 @@ export default function GroupsPage() {
       )}
 
       <div className="flex flex-col h-full p-4 md:p-6 space-y-3">
+        {/* ═══ 페이지 제목 + 회원그룹 구분 안내 ═══════════════════════════ */}
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">연락처 그룹 관리</h1>
+          <p className="text-base text-gray-600 mt-1 leading-relaxed">
+            랜딩페이지·자동문자에 연결되는 연락처 그룹입니다. 크루즈닷 회원 분류는{" "}
+            <a href="/members" className="font-bold text-blue-700 underline hover:text-blue-900">
+              회원 관리
+            </a>
+            에서 관리합니다. 두 그룹은 서로 분리되어 있습니다.
+          </p>
+        </div>
         {/* ═══ 상단 버튼바 1행 ════════════════════════════════════════════ */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">

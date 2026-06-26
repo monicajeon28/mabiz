@@ -10,7 +10,6 @@ import { StatusBadge } from "@/components/marketing/StatusBadge";
 import { SalesBarChart } from "@/components/marketing/SalesBarChart";
 import { KpiCard } from "@/components/marketing/KpiCard";
 import { cn } from "@/lib/utils";
-import { GoldMemberTab } from "./GoldMemberTab";
 import type { RecentRow, SalesApiData, SalesSummary, OrgBreakdown, AdminPersonalSales } from "@/types/marketing";
 
 
@@ -301,7 +300,6 @@ export default function MarketingSalesPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentKSTMonth);
   const [organizations, setOrganizations] = useState<{ id: string; name: string | null }[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'gold'>('overview');
   const refreshCtrlRef = useRef<AbortController | null>(null);
 
   const load = useCallback((pageNum: number = 1, signal?: AbortSignal) => {
@@ -398,39 +396,8 @@ export default function MarketingSalesPage() {
         </button>
       </div>
 
-      {/* ✅ 탭 네비게이션 */}
-      <div className="flex gap-2 border-b border-gray-200 mb-6 overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('overview')}
-          className={`px-6 py-3 text-base font-semibold border-b-2 transition-all whitespace-nowrap ${
-            activeTab === 'overview'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          📊 매출 현황
-        </button>
-
-        <button
-          onClick={() => setActiveTab('gold')}
-          className={`px-6 py-3 text-base font-semibold border-b-2 transition-all whitespace-nowrap ${
-            activeTab === 'gold'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          👑 골드회원
-        </button>
-      </div>
-
-      {/* ✅ 골드회원 탭 */}
-      {activeTab === 'gold' && (
-        <GoldMemberTab selectedMonth={selectedMonth} />
-      )}
-
-      {/* ✅ 매출 현황 탭 */}
-      {activeTab === 'overview' && (
-        <div className="space-y-6">
+      {/* ✅ 매출 현황 */}
+      <div className="space-y-6">
           {/* 필터 영역: 월 선택 + 대리점 선택 */}
           <div className="flex flex-wrap items-center gap-3">
         {/* 월 선택 */}
@@ -704,8 +671,7 @@ export default function MarketingSalesPage() {
           );
         })()}
       </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
