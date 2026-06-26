@@ -69,6 +69,10 @@ type RefundData = {
   note?: string | null;
   // 직접입력 환불규정 자유서식 — 환불완료증서 본문에 렌더
   refundPolicyText?: string | null;
+  // 발급 시점 환불정책 스냅샷 (서버 generatedData) — 재조회/새로고침/PNG 재생성에도 보존
+  // 상품 환불규정이 나중에 비워져도 발급본의 규정이 사라지지 않게 함 (법무 요건)
+  refundPolicy?: RefundPolicyJson | null;
+  refundPolicyLines?: { label: string; value: string }[];
 };
 
 type ProductInfo = {
@@ -396,18 +400,20 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
           // 직접입력 환불규정 자유서식 — 구매확인증서 본문 환불규정 영역에 렌더(우선순위 최상)
           refundPolicyText: directInput.refundPolicyText || null,
           cancelledAt: directInput.cancelDate || null,
-          departureDate: directInput.departureDate || null,
+          // 출발일: 사용자 입력 우선, 없으면 선택한 상품의 출발일(startDate) — 미리보기와 동일 규칙
+          departureDate: directInput.departureDate || productInfo?.startDate || null,
         };
 
         // 환불인증서 직접 입력: 자동 계산
-        // 상품을 드롭다운으로 선택해 productInfo가 로드됐으면 그 상품정책으로 계산,
+        // 상품을 드롭다운으로 선택해 productInfo가 로드됐으면 그 상품정책/출발일로 계산,
         // 아니면 법정기준(null). 미리보기(RefundPreviewDraft)와 동일 입력으로 통일.
-        if (mode === 'refund' && gen.amount && directInput.departureDate) {
+        const effectiveDepartureDate = directInput.departureDate || productInfo?.startDate || '';
+        if (mode === 'refund' && gen.amount && effectiveDepartureDate) {
           try {
             const baseDate = directInput.cancelDate ? new Date(directInput.cancelDate) : undefined;
             const calc = calcRefundAmount(
               gen.amount,
-              new Date(directInput.departureDate),
+              new Date(effectiveDepartureDate),
               productInfo?.refundPolicy ?? null,
               baseDate
             );
@@ -416,6 +422,11 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
             gen.penaltyAmount = calc.penaltyAmount;
             gen.daysBeforeDep = calc.daysBeforeDep;
             gen.refundBasis = calc.basis;
+            // 발급 시점 환불정책 스냅샷 저장 (상품 환불규정이 나중에 비워져도 발급본 보존 — 법무 요건)
+            if (productInfo?.refundPolicy) {
+              gen.refundPolicy = productInfo.refundPolicy;
+              gen.refundPolicyLines = refundPolicyToLines(productInfo.refundPolicy);
+            }
           } catch {
             // 계산 실패 시 원금 그대로
             gen.refundAmount = gen.amount;
@@ -1025,11 +1036,15 @@ function RefundPreview({
   const title = data.isRefundPending ? '환불예정확인서' : '환불완료증서';
   const hasPenalty = (data.penaltyRate ?? 0) > 0;
 
-  // 취소료 단계표 — 우선순위: 직접입력 자유서식 > 상품별 정책(slots) > 법정요약
+  // 취소료 단계표 — 우선순위: 직접입력 자유서식 > 발급본 스냅샷 > 라이브 상품정보 > 법정요약
+  // (구매확인증서 PurchasePreview 와 동일 규칙. 상품 환불규정이 나중에 비워져도 발급본 스냅샷이 보존)
   const directText = data.refundPolicyText?.trim();
-  const policyLines = refundPolicyToLines(productInfo?.refundPolicy ?? null);
-  const cancellationRows = policyLines.length > 0 ? policyLines : CANCELLATION_POLICY;
-  const isProductPolicy = policyLines.length > 0;
+  const snapshotLines = data.refundPolicyLines && data.refundPolicyLines.length > 0
+    ? data.refundPolicyLines
+    : null;
+  const liveLines = refundPolicyToLines(data.refundPolicy ?? productInfo?.refundPolicy ?? null);
+  const cancellationRows = snapshotLines ?? (liveLines.length > 0 ? liveLines : CANCELLATION_POLICY);
+  const isProductPolicy = !!(snapshotLines || liveLines.length > 0);
 
   return (
     <div

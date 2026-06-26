@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
+import { resolveUserSmsConfig, sendSms } from "@/lib/aligo";
 import { triggerGroupFunnel } from "@/lib/funnel-trigger";
 import { triggerGroupFunnelSms } from "@/lib/funnel-sms-trigger";
 import { triggerFunnelEmail } from "@/lib/funnel-email-trigger";
@@ -460,6 +461,54 @@ export async function POST(req: Request, { params }: Params) {
         logger.warn("[LandingRegister] 일부 비블로킹 작업 실패 (신청은 유지)", {
           failedCount: failedTasks.length,
           totalCount: results.length,
+        });
+      }
+
+      // ★ 새 상담신청 알림 SMS — 귀속 담당자(랜딩페이지 생성자)에게 발송
+      // after()로 응답 이후 실행 → SMS 실패/지연이 등록 응답·성공을 절대 막지 않음.
+      // 봇 게이트(이름·연락처)로 들어온 핫리드 누수 차단(P0·매출).
+      if (landingPage.createdByUserId) {
+        const agentUserId = landingPage.createdByUserId;
+        const leadName = name;
+        const leadPhone = normalizedPhone;
+        const pageTitle = landingPage.title;
+        const isBotGate = (metadata as Record<string, unknown> | undefined)?.flow === 'bot-gate';
+        after(async () => {
+          try {
+            // 담당자 전화 조회 (동일 org·활성)
+            const agent = await prisma.organizationMember.findFirst({
+              where: { userId: agentUserId, organizationId: orgId, isActive: true },
+              select: { phone: true, displayName: true },
+            });
+            if (!agent?.phone) {
+              logger.log('[LandingRegister] 담당자 전화 없음 — 신규신청 알림 스킵', { agentUserId });
+              return;
+            }
+            // 담당자 개인 Aligo 우선, 미설정 시 조직/시스템으로 폴백
+            const config = await resolveUserSmsConfig(orgId, agentUserId);
+            if (!config) {
+              logger.warn('[LandingRegister] SMS 설정 없음 — 신규신청 알림 스킵', { orgId });
+              return;
+            }
+            const greet = agent.displayName ? `${agent.displayName}님, ` : '';
+            const channelLine = isBotGate ? '상담봇' : pageTitle;
+            const msg = `[새 상담신청] ${greet}${leadName}님이 방금 ${channelLine}을 통해 신청했어요. 빠르게 연락해 주세요.\n신청자 연락처: ${leadPhone}`;
+            const res = await sendSms({
+              config,
+              receiver: agent.phone,
+              msg,
+              title: '새 상담신청',
+              organizationId: orgId,
+              channel: 'MANUAL',
+            });
+            const ok = (res.result_code ?? -1) > 0;
+            logger.log('[LandingRegister] 새 상담신청 알림', { ok, code: res.result_code, isBotGate });
+          } catch (err) {
+            // 알림 실패해도 등록은 이미 성공 — 조용히 로그만
+            logger.error('[LandingRegister] 새 상담신청 알림 실패', {
+              err: err instanceof Error ? err.message : String(err),
+            });
+          }
         });
       }
 

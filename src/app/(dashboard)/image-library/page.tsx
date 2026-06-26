@@ -47,7 +47,7 @@ const GOOGLE_DRIVE_LIMIT = 50;
 const UPLOAD_CATEGORIES = ['후기', '크루즈정보사진', '상품'];
 
 export default function ImageLibraryPage() {
-  const [activeTab, _setActiveTab] = useState<'local' | 'drive'>('local');
+  const [activeTab, setActiveTab] = useState<'local' | 'drive'>('local');
 
   // 로컬 이미지 상태
   const [assets, setAssets] = useState<ImageAsset[]>([]);
@@ -627,7 +627,7 @@ export default function ImageLibraryPage() {
     </div>
   );
 
-  const _renderGdTab = () => (
+  const renderGdTab = () => (
     <div className="space-y-4">
       {/* 폴더 선택 + 폴더 추가 버튼 */}
       <div className="flex gap-2 flex-wrap items-center">
@@ -811,11 +811,35 @@ export default function ImageLibraryPage() {
     <div className="space-y-6 p-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">이미지 라이브러리</h1>
-        <p className="text-gray-600 mt-2">로컬 이미지 관리</p>
+        <p className="text-gray-600 mt-2">내 이미지와 크루즈 자료(구글 드라이브)를 관리합니다</p>
+      </div>
+
+      {/* 탭 전환 */}
+      <div className="flex gap-2 border-b border-gray-200">
+        <button
+          onClick={() => setActiveTab('local')}
+          className={`min-h-[48px] px-5 py-3 text-base font-medium border-b-2 transition ${
+            activeTab === 'local'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          내 이미지
+        </button>
+        <button
+          onClick={() => setActiveTab('drive')}
+          className={`min-h-[48px] px-5 py-3 text-base font-medium border-b-2 transition ${
+            activeTab === 'drive'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          크루즈 자료 (구글 드라이브)
+        </button>
       </div>
 
       {/* 콘텐츠 */}
-      {renderLocalTab()}
+      {activeTab === 'local' ? renderLocalTab() : renderGdTab()}
 
       {/* 업로드 카테고리 선택 모달 */}
       {showUploadModal && (

@@ -48,9 +48,10 @@ interface FolderSummary {
 // ────────────────────────────────────────────────────────────────
 
 const DEFAULT_FOLDERS: FolderDef[] = [
-  { name: '후기',           id: '1po1OyLETzyRUA_WHWe9QlUGdoh34pm51' },
   { name: '크루즈 정보사진', id: '17QT8_NTQXpOzcfaZ3silp-hqD0sgOAck' },
-  { name: '상품',           id: '18YuEBt313yyKI3F7PSzjFFRF3Af-bVPH' },
+  { name: '후기',           id: '1po1OyLETzyRUA_WHWe9QlUGdoh34pm51' },
+  { name: '로고',           id: '1s3dL8SCPHlsG8qcVo4TzG6MFvdql4bYf' },
+  { name: '크루즈 자료',     id: '1NKe7U-VKROfuJL6LvhP4KT1Gp28bpK1-' },
 ];
 
 function getBaseFolders(): FolderDef[] {
@@ -131,8 +132,8 @@ async function fetchFolderImages(folder: FolderDef): Promise<DriveImageItem[]> {
         name: file.name,
         mimeType: file.mimeType,
         thumbnailUrl: `/api/landing-pages/images/proxy?id=${file.id}`,
-        publicUrl: `/api/landing-pages/images/proxy?id=${file.id}`,
-        altPublicUrl: `/api/landing-pages/images/proxy?id=${file.id}`,
+        publicUrl: `https://drive.google.com/thumbnail?id=${file.id}&sz=w2000`,
+        altPublicUrl: `https://drive.google.com/thumbnail?id=${file.id}&sz=w2000`,
         webViewLink: file.webViewLink ?? '',
         folderId: folder.id,
         folderName: folder.name,

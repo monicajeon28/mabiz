@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMabizSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { BONSA_ORG_ID } from "@/lib/rbac";
 
 // GET /api/tools/profit-calculations — 저장 목록 조회
 export async function GET() {
   const session = await getMabizSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { organizationId, userId } = session;
-  if (!organizationId) return NextResponse.json({ error: "No organization" }, { status: 403 });
+  const { userId } = session;
+  // GLOBAL_ADMIN(organizationId=null)은 본사 조직으로 폴백 — 저장·조회 통과
+  const organizationId = session.organizationId ?? BONSA_ORG_ID;
 
   const items = await prisma.profitCalculation.findMany({
     where: { organizationId, userId },
@@ -45,8 +47,8 @@ export async function POST(req: NextRequest) {
   const session = await getMabizSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { organizationId, userId } = session;
-  if (!organizationId) return NextResponse.json({ error: "No organization" }, { status: 403 });
+  const { userId } = session;
+  const organizationId = session.organizationId ?? BONSA_ORG_ID;
 
   let body: unknown;
   try {
@@ -91,8 +93,8 @@ export async function DELETE(req: NextRequest) {
   const session = await getMabizSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { organizationId, userId } = session;
-  if (!organizationId) return NextResponse.json({ error: "No organization" }, { status: 403 });
+  const { userId } = session;
+  const organizationId = session.organizationId ?? BONSA_ORG_ID;
 
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });

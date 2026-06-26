@@ -4,6 +4,7 @@ import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { sendFunnelEmail } from '@/lib/email';
 import { REFUND_ACCOUNT_LABEL } from '@/lib/company-info';
+import { normalizeRefundPolicy, refundPolicyToLines } from '@/lib/refund-calculator';
 
 export async function POST(req: Request) {
   try {
@@ -79,9 +80,8 @@ export async function POST(req: Request) {
           where: { productCode },
           select: { refundPolicy: true },
         });
-        if (product?.refundPolicy) {
-          productRefundPolicy = product.refundPolicy as import('@/lib/refund-calculator').RefundPolicyJson;
-        }
+        // normalizeRefundPolicy 로 정규화 ({slots} 객체/배열 모두 호환) — purchase-cert 와 동일 규칙
+        productRefundPolicy = normalizeRefundPolicy(product?.refundPolicy);
       }
     } catch { /* 조회 실패 시 법정 기준 fallback */ }
 
@@ -125,6 +125,10 @@ export async function POST(req: Request) {
       penaltyAmount:            refundCalc.penaltyAmount,
       daysBeforeDep:            refundCalc.daysBeforeDep,
       refundBasis:              refundCalc.basis,
+      // 발급 시점 상품별 환불정책 스냅샷 (재조회/새로고침/PNG 재생성 시에도 그 상품의 규정 보존)
+      // 상품 환불규정 미입력 시 null/빈배열 → 클라이언트가 법정요약으로 폴백 (법무 요건)
+      refundPolicy:             productRefundPolicy,
+      refundPolicyLines:        refundPolicyToLines(productRefundPolicy),
       paymentMethod,
       companyAccount:           REFUND_ACCOUNT_LABEL,
       issuedAt:                 new Date().toISOString(),

@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
+import { labelForSource, labelForType, SOURCE_TYPE_LABELS, TYPE_LABELS } from '@/lib/contact-labels';
 
 /**
  * GET /api/notifications/feed
@@ -39,6 +40,8 @@ type RawFeedRow = {
   amount: bigint | null;
   link_path: string;
   created_at: Date;
+  source_type: string | null;
+  contact_type: string | null;
 };
 
 const LINK_PATH: Record<string, string> = {
@@ -103,7 +106,9 @@ export async function GET(req: Request) {
           lp.title                    AS detail,
           NULL::bigint                AS amount,
           '/contacts'::text           AS link_path,
-          r."createdAt"               AS created_at
+          r."createdAt"               AS created_at,
+          NULL::text                  AS source_type,
+          NULL::text                  AS contact_type
         FROM "CrmLandingRegistration" r
         JOIN "CrmLandingPage" lp ON lp.id = r."landingPageId"
         WHERE r."createdAt" >= ${sinceDate}
@@ -119,7 +124,9 @@ export async function GET(req: Request) {
           als."productName"                                       AS detail,
           als."saleAmount"::bigint                                AS amount,
           '/affiliate-sales'::text                                AS link_path,
-          als."createdAt"                                         AS created_at
+          als."createdAt"                                         AS created_at,
+          NULL::text                                              AS source_type,
+          NULL::text                                              AS contact_type
         FROM "CrmAffiliateSale" als
         WHERE als.status = 'PENDING'
           AND als."createdAt" >= ${sinceDate}
@@ -137,7 +144,9 @@ export async function GET(req: Request) {
           b.source                     AS detail,
           NULL::bigint                 AS amount,
           '/b2b'::text                 AS link_path,
-          b."createdAt"                AS created_at
+          b."createdAt"                AS created_at,
+          NULL::text                   AS source_type,
+          NULL::text                   AS contact_type
         FROM "AffiliateLead" b
         WHERE b.status = 'NEW'
           AND b."createdAt" >= ${sinceDate}
@@ -153,7 +162,9 @@ export async function GET(req: Request) {
           COALESCE(g.name, '지정 그룹') AS detail,
           NULL::bigint                 AS amount,
           '/contacts'::text            AS link_path,
-          c."createdAt"                AS created_at
+          c."createdAt"                AS created_at,
+          c."sourceType"               AS source_type,
+          c."type"                     AS contact_type
         FROM "Contact" c
         LEFT JOIN "ContactGroupMember" cgm ON cgm."contactId" = c.id
         LEFT JOIN "ContactGroup" g ON g.id = cgm."groupId"
@@ -170,7 +181,9 @@ export async function GET(req: Request) {
           o."contractRef"              AS detail,
           NULL::bigint                 AS amount,
           '/admin/organizations'::text AS link_path,
-          o."createdAt"                AS created_at
+          o."createdAt"                AS created_at,
+          NULL::text                   AS source_type,
+          NULL::text                   AS contact_type
         FROM "Organization" o
         WHERE o."createdAt" >= ${sinceDate}
       `);
@@ -185,7 +198,9 @@ export async function GET(req: Request) {
           an.content                   AS detail,
           (an.metadata ->> 'refundAmount')::bigint AS amount,
           '/affiliate-sales'::text     AS link_path,
-          an."createdAt"               AS created_at
+          an."createdAt"               AS created_at,
+          NULL::text                   AS source_type,
+          NULL::text                   AS contact_type
         FROM "AdminNotification" an
         WHERE an."createdAt" >= ${sinceDate}
       `);
@@ -200,7 +215,9 @@ export async function GET(req: Request) {
           cl."nextAction"              AS detail,
           NULL::bigint                 AS amount,
           ('/contacts/' || c.id)::text AS link_path,
-          cl."scheduledAt"             AS created_at
+          cl."scheduledAt"             AS created_at,
+          NULL::text                   AS source_type,
+          NULL::text                   AS contact_type
         FROM "CallLog" cl
         JOIN "Contact" c ON c.id = cl."contactId"
         WHERE (cl."scheduledAt"::date) = (NOW() AT TIME ZONE 'Asia/Seoul')::date
@@ -219,7 +236,9 @@ export async function GET(req: Request) {
           lp.title                    AS detail,
           NULL::bigint                AS amount,
           '/contacts'::text           AS link_path,
-          r."createdAt"               AS created_at
+          r."createdAt"               AS created_at,
+          NULL::text                  AS source_type,
+          NULL::text                  AS contact_type
         FROM "CrmLandingRegistration" r
         JOIN "CrmLandingPage" lp ON lp.id = r."landingPageId"
         WHERE lp."organizationId" = ${orgId}
@@ -236,7 +255,9 @@ export async function GET(req: Request) {
           als."productName"                                       AS detail,
           als."saleAmount"::bigint                                AS amount,
           '/affiliate-sales'::text                                AS link_path,
-          als."createdAt"                                         AS created_at
+          als."createdAt"                                         AS created_at,
+          NULL::text                                              AS source_type,
+          NULL::text                                              AS contact_type
         FROM "CrmAffiliateSale" als
         WHERE als."organizationId" = ${orgId}
           AND als.status = 'PENDING'
@@ -255,7 +276,9 @@ export async function GET(req: Request) {
           b.source                     AS detail,
           NULL::bigint                 AS amount,
           '/b2b'::text                 AS link_path,
-          b."createdAt"                AS created_at
+          b."createdAt"                AS created_at,
+          NULL::text                   AS source_type,
+          NULL::text                   AS contact_type
         FROM "AffiliateLead" b
         WHERE b.status = 'NEW'
           AND b."createdAt" >= ${sinceDate}
@@ -272,7 +295,9 @@ export async function GET(req: Request) {
           COALESCE(g.name, '지정 그룹') AS detail,
           NULL::bigint                 AS amount,
           '/contacts'::text            AS link_path,
-          c."createdAt"                AS created_at
+          c."createdAt"                AS created_at,
+          c."sourceType"               AS source_type,
+          c."type"                     AS contact_type
         FROM "Contact" c
         LEFT JOIN "ContactGroupMember" cgm ON cgm."contactId" = c.id
         LEFT JOIN "ContactGroup" g ON g.id = cgm."groupId"
@@ -290,7 +315,9 @@ export async function GET(req: Request) {
           an.content                   AS detail,
           (an.metadata ->> 'refundAmount')::bigint AS amount,
           '/affiliate-sales'::text     AS link_path,
-          an."createdAt"               AS created_at
+          an."createdAt"               AS created_at,
+          NULL::text                   AS source_type,
+          NULL::text                   AS contact_type
         FROM "AdminNotification" an
         WHERE an."organizationId" = ${orgId}
           AND an."createdAt" >= ${sinceDate}
@@ -306,7 +333,9 @@ export async function GET(req: Request) {
           cl."nextAction"              AS detail,
           NULL::bigint                 AS amount,
           ('/contacts/' || c.id)::text AS link_path,
-          cl."scheduledAt"             AS created_at
+          cl."scheduledAt"             AS created_at,
+          NULL::text                   AS source_type,
+          NULL::text                   AS contact_type
         FROM "CallLog" cl
         JOIN "Contact" c ON c.id = cl."contactId"
         WHERE c."organizationId" = ${orgId}
@@ -327,7 +356,9 @@ export async function GET(req: Request) {
           lp.title                    AS detail,
           NULL::bigint                AS amount,
           '/contacts'::text           AS link_path,
-          r."createdAt"               AS created_at
+          r."createdAt"               AS created_at,
+          NULL::text                  AS source_type,
+          NULL::text                  AS contact_type
         FROM "CrmLandingRegistration" r
         JOIN "CrmLandingPage" lp ON lp.id = r."landingPageId"
         WHERE lp."organizationId" = ${orgId}
@@ -344,7 +375,9 @@ export async function GET(req: Request) {
           als."productName"                                       AS detail,
           als."saleAmount"::bigint                                AS amount,
           '/affiliate-sales'::text                                AS link_path,
-          als."createdAt"                                         AS created_at
+          als."createdAt"                                         AS created_at,
+          NULL::text                                              AS source_type,
+          NULL::text                                              AS contact_type
         FROM "CrmAffiliateSale" als
         WHERE als."affiliateUserId" = ${ctx.userId}
           AND als.status = 'PENDING'
@@ -363,7 +396,9 @@ export async function GET(req: Request) {
           COALESCE(g.name, '지정 그룹') AS detail,
           NULL::bigint                 AS amount,
           '/contacts'::text            AS link_path,
-          c."createdAt"                AS created_at
+          c."createdAt"                AS created_at,
+          c."sourceType"               AS source_type,
+          c."type"                     AS contact_type
         FROM "Contact" c
         LEFT JOIN "ContactGroupMember" cgm ON cgm."contactId" = c.id
         LEFT JOIN "ContactGroup" g ON g.id = cgm."groupId"
@@ -382,7 +417,9 @@ export async function GET(req: Request) {
           an.content                   AS detail,
           (an.metadata ->> 'refundAmount')::bigint AS amount,
           '/affiliate-sales'::text     AS link_path,
-          an."createdAt"               AS created_at
+          an."createdAt"               AS created_at,
+          NULL::text                   AS source_type,
+          NULL::text                   AS contact_type
         FROM "AdminNotification" an
         WHERE an."userId" = ${ctx.userId}
           AND an."createdAt" >= ${sinceDate}
@@ -398,7 +435,9 @@ export async function GET(req: Request) {
           cl."nextAction"              AS detail,
           NULL::bigint                 AS amount,
           ('/contacts/' || c.id)::text AS link_path,
-          cl."scheduledAt"             AS created_at
+          cl."scheduledAt"             AS created_at,
+          NULL::text                   AS source_type,
+          NULL::text                   AS contact_type
         FROM "CallLog" cl
         JOIN "Contact" c ON c.id = cl."contactId"
         WHERE cl."userId" = ${ctx.userId}
@@ -415,7 +454,7 @@ export async function GET(req: Request) {
     const unionSql = Prisma.join(parts, ' UNION ALL ');
 
     const rows = await prisma.$queryRaw<RawFeedRow[]>(Prisma.sql`
-      SELECT type, id, name, phone, detail, amount, link_path, created_at
+      SELECT type, id, name, phone, detail, amount, link_path, created_at, source_type, contact_type
       FROM (
         ${unionSql}
       ) sub
@@ -423,12 +462,23 @@ export async function GET(req: Request) {
       LIMIT ${limit}
     `);
 
+    // NEW_CONTACT 한글 유형 라벨 생성:
+    //   sourceType(출처) 매핑 우선 → type(상태) 매핑 → '신규 문의'
+    //   영어 코드('product-inquiry' 등)가 화면에 절대 노출되지 않도록 함
+    function contactKoreanLabel(sourceType: string | null, contactType: string | null): string {
+      if (sourceType && SOURCE_TYPE_LABELS[sourceType]) return labelForSource(sourceType);
+      if (contactType && TYPE_LABELS[contactType]) return labelForType(contactType);
+      return '신규 문의';
+    }
+
     const items: FeedItem[] = rows.map((r) => ({
       id:        r.id,
       type:      r.type as FeedItem['type'],
       name:      r.name,
       phone:     maskPhone(r.phone),
-      detail:    r.detail ?? null,
+      detail:    r.type === 'NEW_CONTACT'
+        ? contactKoreanLabel(r.source_type, r.contact_type)
+        : (r.detail ?? null),
       amount:    r.amount != null ? Number(r.amount) : null,
       linkPath:  LINK_PATH[r.type] ?? '/',
       createdAt: r.created_at.toISOString(),

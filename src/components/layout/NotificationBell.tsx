@@ -208,13 +208,13 @@ export function NotificationBell() {
                         {relativeTime(item.createdAt)}
                       </span>
                     </div>
-                    <div className="mt-1 text-sm font-medium text-gray-800">
+                    <div className="mt-1 text-base font-medium text-gray-800">
                       {item.name}
+                      {item.detail && (
+                        <span className="text-gray-600 font-normal"> · {item.detail}</span>
+                      )}
                       {item.phone && (
                         <span className="ml-2 text-sm text-gray-500 font-normal">{item.phone}</span>
-                      )}
-                      {item.detail && (
-                        <span className="ml-2 text-sm text-gray-500 font-normal">{item.detail}</span>
                       )}
                     </div>
                     {item.amount != null && (
