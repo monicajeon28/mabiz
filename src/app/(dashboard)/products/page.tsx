@@ -142,20 +142,33 @@ function SaleStatusBadge({ status }: { status: string | null }) {
   return <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${cls}`}>{status}</span>;
 }
 
-function CabinSummaryCell({ summary, productCode, onRegister }: {
+function CabinSummaryCell({ summary, productCode, availableCount, onRegister }: {
   summary: CabinSummary | null;
   productCode: string;
+  /** 크루즈닷 공유 CruiseProduct 전체 잔여(타입별 수동 입력 없을 때 폴백 표시). */
+  availableCount: number | null;
   onRegister: (code: string) => void;
 }) {
   if (!summary || Object.keys(summary).length === 0) {
     return (
-      <button
-        onClick={() => onRegister(productCode)}
-        className="flex items-center gap-1 text-base text-gray-600 hover:text-blue-600 transition-colors min-h-[48px]"
-      >
-        <PlusCircle className="w-4 h-4" />
-        객실 등록
-      </button>
+      <div className="space-y-1 min-w-[120px]">
+        {/* 타입별 수동등록 전이면 크루즈닷 전체 잔여를 읽기전용으로 자동 표시 */}
+        {availableCount != null && (
+          <div className="flex items-center gap-1.5 text-base">
+            <span className="tabular-nums font-bold text-blue-500">전체 잔여 {availableCount}석</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-600">
+              크루즈닷 자동
+            </span>
+          </div>
+        )}
+        <button
+          onClick={() => onRegister(productCode)}
+          className="flex items-center gap-1 text-base text-gray-600 hover:text-blue-600 transition-colors min-h-[48px]"
+        >
+          <PlusCircle className="w-4 h-4" />
+          {availableCount != null ? "객실타입별 등록" : "객실 등록"}
+        </button>
+      </div>
     );
   }
 
@@ -1064,6 +1077,7 @@ export default function ProductsPage() {
                       <CabinSummaryCell
                         summary={product.cabinSummary}
                         productCode={product.code}
+                        availableCount={product.availableCount}
                         onRegister={(code) => { if (canRegisterCabin) setCabinRegisterCode(code); }}
                       />
                     </td>
