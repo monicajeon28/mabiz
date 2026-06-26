@@ -713,6 +713,53 @@ ${footerBlock}
   };
 
   // ──────────────────────────────────────────────
+  // 신청 폼 HTML 생성 (이미지형 저장용)
+  //   - 공개 랜딩(LandingClient)이 form submit을 가로채 register API로 보냄.
+  //   - LandingClient는 name 어트리뷰트(name/phone/email/gender/birthDate/address/
+  //     marketingConsent, custom_*)로 값을 읽으므로 반드시 동일한 name을 부여한다.
+  //   - 본문(이미지) 아래에 폼 → (결제 금액) → 순서로 붙는다. 푸터/후기/결제버튼은
+  //     공개 렌더러가 formConfig/payment 설정으로 별도 렌더하므로 여기서 중복 생성하지 않음.
+  // ──────────────────────────────────────────────
+  const buildSignupFormHtml = useCallback((): string => {
+    const esc = (t: string): string =>
+      String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    const req = (r: boolean) => (r ? " <span style='color:#e53e3e;font-size:11px'>*</span>" : "");
+
+    const fieldHtmls = Object.entries(formFields)
+      .filter(([, v]) => v.enabled)
+      .map(([key, val]) => {
+        if (key === "marketingConsent") {
+          return `<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:#555;cursor:pointer;padding:6px 0;"><input type="checkbox" name="marketingConsent" style="margin-top:2px;width:16px;height:16px;"><span>마케팅 정보 수신에 동의합니다</span></label>`;
+        }
+        if (key === "gender") {
+          return `<div style="margin-bottom:12px"><label style="display:block;font-size:13px;font-weight:600;color:#333;margin-bottom:5px">${esc(FIELD_LABELS[key])}${req(val.required)}</label><select name="gender" style="width:100%;padding:11px 13px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:15px;background:#fff;outline:none" ${val.required ? "required" : ""}><option value="">선택해주세요</option><option value="male">남성</option><option value="female">여성</option></select></div>`;
+        }
+        const type = key === "email" ? "email" : key === "birthDate" ? "date" : key === "phone" ? "tel" : "text";
+        const ph = key === "phone" ? "010-0000-0000" : key === "email" ? "example@email.com" : `${FIELD_LABELS[key]} 입력`;
+        return `<div style="margin-bottom:12px"><label style="display:block;font-size:13px;font-weight:600;color:#333;margin-bottom:5px">${esc(FIELD_LABELS[key])}${req(val.required)}</label><input type="${type}" name="${esc(key)}" placeholder="${esc(ph)}" style="width:100%;padding:11px 13px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box" ${val.required ? "required" : ""}></div>`;
+      });
+
+    additionalFields.forEach((f) => {
+      if (!f.name.trim()) return;
+      fieldHtmls.push(`<div style="margin-bottom:12px"><label style="display:block;font-size:13px;font-weight:600;color:#333;margin-bottom:5px">${esc(f.name)}${req(f.required)}</label><input type="text" name="custom_${esc(f.id)}" placeholder="${esc(f.name)} 입력" style="width:100%;padding:11px 13px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box" ${f.required ? "required" : ""}></div>`);
+    });
+
+    // 폼에 표시할 필드가 없고 결제도 없으면 폼 자체를 생략
+    if (fieldHtmls.length === 0 && !paymentEnabled) return "";
+
+    const buttonColorMap: Record<string, string> = {
+      default: '#9CA3AF', urgent: '#EF4444', explore: '#FBBF24', reserve: '#F97316',
+    };
+    const buttonColor = buttonColorMap[ctaType] || '#1E2D4E';
+    const displayButtonTitle = esc(buttonTitle || CTA_PSYCHOLOGY_MAP[ctaType]?.label || "신청하기");
+
+    const paymentBlock = paymentEnabled ? `<div style="margin:16px 0 12px;padding:14px 16px;background:#fffbeb;border-radius:10px;border:1px solid #f0d060"><p style="font-size:12px;font-weight:600;color:#7c5700;margin:0 0 3px">결제 금액</p><p style="font-size:24px;font-weight:800;color:#1a1a1a;margin:0">${productPrice ? Number(productPrice).toLocaleString() : "0"}원${paymentType === "subscription" ? "/월" : ""}</p>${productName ? `<p style="font-size:12px;color:#666;margin:3px 0 0">${esc(productName)}</p>` : ""}</div>` : "";
+
+    return `<form style="max-width:480px;margin:0 auto;padding:28px 20px 40px;background:#fff;font-family:-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif">${fieldHtmls.join("")}${paymentBlock}<button type="submit" style="width:100%;padding:15px;background:${buttonColor};color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;margin-top:6px">${displayButtonTitle}</button></form>`;
+  }, [formFields, additionalFields, paymentEnabled, productPrice, productName, paymentType, ctaType, buttonTitle]);
+
+  // ──────────────────────────────────────────────
   // 저장
   // ──────────────────────────────────────────────
   const save = async () => {
@@ -774,7 +821,10 @@ ${footerBlock}
           const ar  = img.width && img.height ? `aspect-ratio:${img.width}/${img.height};` : "";
           return `<img src="${src}" alt="" style="width:100%;display:block;${ar}" loading="lazy">`;
         }).join("\n");
-        htmlToSave = `<div style="line-height:0;">\n${imgTags}\n</div>`;
+        // 본문(이미지) 아래에 설정한 신청 폼을 함께 저장 — 공개 랜딩에서 폼이 렌더되도록.
+        // (후기·푸터는 공개 렌더러가 commentEnabled/footer 설정으로 별도 렌더)
+        const formHtml = buildSignupFormHtml();
+        htmlToSave = `<div style="line-height:0;">\n${imgTags}\n</div>${formHtml ? `\n${formHtml}` : ""}`;
       }
 
       if (blocks.length > 0 || editorMode === "image") {

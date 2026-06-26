@@ -646,8 +646,26 @@ export function LandingClient({
         role="main"
         aria-label="랜딩페이지 콘텐츠"
         dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(htmlContent, {
-          ALLOWED_TAGS: ['b', 'i', 'u', 'p', 'br', 'strong', 'em', 'a', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'span', 'div', 'section', 'article'],
-          ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'data-*'],
+          // 폼(input/select/label 등)·표·미디어까지 허용 — 서버 sanitizeHtml에서 1차 정제된 콘텐츠.
+          // 누락 시 이미지형 페이지의 신청 폼/이미지 레이아웃이 사라짐.
+          ALLOWED_TAGS: [
+            'b', 'i', 'u', 'p', 'br', 'hr', 'strong', 'em', 'a', 'img', 'picture', 'source',
+            'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code',
+            'span', 'div', 'section', 'article', 'header', 'footer', 'figure', 'figcaption',
+            'table', 'thead', 'tbody', 'tr', 'td', 'th',
+            'form', 'label', 'input', 'select', 'option', 'textarea', 'button',
+            'details', 'summary', 'mark', 'small', 'sub', 'sup',
+          ],
+          // style/width/height/loading 추가 — 이미지 width:100% 등 인라인 스타일 보존(모바일 깨짐 방지).
+          // 폼 필드는 name/type/placeholder 등을 유지해야 제출 핸들러가 값을 읽음.
+          ALLOWED_ATTR: [
+            'href', 'src', 'srcset', 'alt', 'title', 'class', 'id', 'style', 'role',
+            'width', 'height', 'loading', 'target', 'rel',
+            'name', 'type', 'placeholder', 'value', 'required', 'disabled', 'checked',
+            'maxlength', 'min', 'max', 'step', 'pattern', 'autocomplete', 'readonly',
+            'rows', 'cols', 'selected', 'for', 'colspan', 'rowspan',
+            'data-*', 'aria-label', 'aria-hidden',
+          ],
           KEEP_CONTENT: true
         }) }}
       />

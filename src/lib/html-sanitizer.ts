@@ -78,6 +78,7 @@ export function sanitizeHtml(html: string): string {
         'width': [/.*/], 'height': [/.*/],
         'max-width': [/.*/], 'max-height': [/.*/],
         'min-width': [/.*/], 'min-height': [/.*/],
+        'aspect-ratio': [/.*/], 'object-fit': [/.*/], 'object-position': [/.*/],
         'display': [/.*/],
         'flex': [/.*/], 'flex-direction': [/.*/], 'flex-wrap': [/.*/],
         'justify-content': [/.*/], 'align-items': [/.*/], 'align-self': [/.*/],
