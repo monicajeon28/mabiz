@@ -7,6 +7,7 @@ import { addLeadScore } from "@/lib/lead-score";
 import { getAuthContext } from "@/lib/rbac";
 import { validateObjectionInput } from "@/lib/objections/validation";
 import { CallLogIdSchema } from "@/lib/validators";
+import { notifyContactShareEvent, getContactSharedRecipients } from "../../_lib/contact-notify";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -218,7 +219,7 @@ export async function POST(req: Request, { params }: Params) {
       : { id, organizationId: ctx.organizationId! };
     const contact = await prisma.contact.findFirst({
       where: contactWhere,
-      select: { id: true, name: true, phone: true },
+      select: { id: true, name: true, phone: true, organizationId: true, assignedUserId: true },
     });
     if (!contact) return NextResponse.json({ ok: false }, { status: 404 });
 
@@ -293,6 +294,20 @@ export async function POST(req: Request, { params }: Params) {
     if (result && scoreMap[result]) {
       addLeadScore(id, scoreMap[result]).catch(err => logger.error('[addLeadScore failed]', { err, contactId: id }));
     }
+
+    // ── 공유받은 사람 + 담당자에게 "콜기록 추가됨" 알림 (fire-and-forget) ──
+    void (async () => {
+      const recipients = await getContactSharedRecipients(id);
+      await notifyContactShareEvent({
+        recipientUserIds: [...recipients, contact.assignedUserId],
+        organizationId: contact.organizationId,
+        notificationType: "CONTACT_NOTE_ADDED",
+        title: "전달받은 고객에 새 상담기록이 등록됐어요",
+        content: `${contact.name} 고객에 새 통화·상담 기록이 추가되었습니다. 내용을 확인해 보세요.`,
+        contactId: id,
+        actorUserId: ctx.userId,
+      });
+    })().catch((e) => logger.error("[POST call-logs] CONTACT_NOTE_ADDED 알림 실패", { id, e }));
 
     // ★ 작성자 이름 조회 (응답에 _authorName 포함 → 클라이언트 즉시 표시)
     let _authorName: string | null = null;

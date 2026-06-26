@@ -54,6 +54,10 @@ const TYPE_CONFIG: Record<string, { label: string; emoji: string; dotColor: stri
   NEW_CONTACT:  { label: '신규 고객',      emoji: '📋', dotColor: 'bg-green-500'  },
   ORG_CONTRACT: { label: '신규 대리점',    emoji: '🤝', dotColor: 'bg-purple-500' },
   CALL_DUE:     { label: '오늘 콜 예정',    emoji: '📞', dotColor: 'bg-rose-500'   },
+  CONTACT_SHARED:     { label: '고객 전달받음',  emoji: '👥', dotColor: 'bg-purple-500' },
+  CONTACT_UPDATED:    { label: '고객 정보 수정',  emoji: '✏️', dotColor: 'bg-sky-500'    },
+  CONTACT_NOTE_ADDED: { label: '상담기록 추가',   emoji: '📝', dotColor: 'bg-teal-500'   },
+  REFUND_NOTIFICATION:{ label: '환불·수당 변경',  emoji: '💸', dotColor: 'bg-red-500'    },
 };
 
 interface DashboardClientProps {

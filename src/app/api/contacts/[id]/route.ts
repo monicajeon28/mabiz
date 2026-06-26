@@ -8,6 +8,7 @@ import { logContactChange, logContactChanges } from "@/lib/audit/log-contact-cha
 import { checkRateLimitAsync } from "@/lib/rate-limit";
 import { RATE_LIMIT_CONFIG } from "@/lib/rate-limit-config";
 import { getLensScores } from "@/lib/lens-detector";
+import { notifyContactShareEvent, getContactSharedRecipients } from "../_lib/contact-notify";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -250,6 +251,23 @@ export async function PATCH(req: Request, { params }: Params) {
       where: { id, organizationId: existing.organizationId },
       data: updateData,
     });
+
+    // ── 공유받은 사람들에게 "정보 수정됨" 알림 (fire-and-forget) ──
+    // 실제로 바뀐 필드가 있을 때만 보낸다.
+    if (Object.keys(updateData).length > 0) {
+      void (async () => {
+        const recipients = await getContactSharedRecipients(id);
+        await notifyContactShareEvent({
+          recipientUserIds: recipients,
+          organizationId: existing.organizationId,
+          notificationType: "CONTACT_UPDATED",
+          title: "전달받은 고객 정보가 수정됐어요",
+          content: `${existing.name} 고객의 정보가 업데이트되었습니다. 변경 내용을 확인해 보세요.`,
+          contactId: id,
+          actorUserId: ctx.userId,
+        });
+      })().catch((e) => logger.error("[PATCH] CONTACT_UPDATED 알림 실패", { id, e }));
+    }
 
     // 변경 이력 자동 기록 (비동기, 실패해도 계속 진행)
     ;(async () => {

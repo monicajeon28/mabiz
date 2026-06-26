@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { getAuthContext } from "@/lib/rbac";
+import { notifyContactShareEvent, getContactSharedRecipients } from "../../_lib/contact-notify";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -88,6 +89,20 @@ export async function POST(req: Request, { params }: Params) {
     const memo = await prisma.contactMemo.create({
       data: { contactId: id, userId: ctx.userId, content },
     });
+
+    // ── 공유받은 사람 + 담당자에게 "메모 추가됨" 알림 (fire-and-forget) ──
+    void (async () => {
+      const recipients = await getContactSharedRecipients(id);
+      await notifyContactShareEvent({
+        recipientUserIds: [...recipients, contact.assignedUserId],
+        organizationId: contact.organizationId,
+        notificationType: "CONTACT_NOTE_ADDED",
+        title: "전달받은 고객에 새 메모가 등록됐어요",
+        content: `${contact.name} 고객에 새 메모가 추가되었습니다. 내용을 확인해 보세요.`,
+        contactId: id,
+        actorUserId: ctx.userId,
+      });
+    })().catch((e) => logger.error("[POST memos] CONTACT_NOTE_ADDED 알림 실패", { id, e }));
 
     let _authorName: string | null = null;
     if (ctx.role === 'GLOBAL_ADMIN') {

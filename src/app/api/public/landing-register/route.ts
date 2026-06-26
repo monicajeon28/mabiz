@@ -36,6 +36,14 @@ export async function POST(req: Request) {
 
     const normalizedPhone = normalizePhone(phone);
 
+    // 신청자 출처/기기 추적 — 어디서·어떤 기기로 신청했는지(IP·기기·접속경로)
+    const ipAddress = (ip && ip !== 'unknown' ? ip : '').slice(0, 100) || null;
+    const userAgent = (req.headers.get('user-agent') || '').slice(0, 300) || null;
+    const referer = (req.headers.get('referer') || '').slice(0, 300) || null;
+    const deviceType = userAgent
+      ? (/Mobi|Android|iPhone|iPad|iPod/i.test(userAgent) ? 'mobile' : 'desktop')
+      : null;
+
     // ref로 점장의 조직 찾기
     let organizationId: string | null = null;
     let refUserId: string | null = null;
@@ -89,6 +97,22 @@ export async function POST(req: Request) {
         channel: 'b2b',
         affiliateCode: ref ?? null,
         ...(refUserId ? { assignedUserId: refUserId } : {}),
+        // 신청 출처/기기 스냅샷 (스키마 변경 없이 signupHistory JSON에 저장)
+        signupCount: 1,
+        signupHistory: JSON.stringify([{
+          index: 1,
+          landingPageId: null,
+          landingPageTitle: 'B2B 유입 랜딩',
+          groupId: null,
+          groupName: null,
+          createdAt: new Date().toISOString(),
+          email: null,
+          phone: normalizedPhone,
+          ip: ipAddress,
+          userAgent,
+          deviceType,
+          referer,
+        }]),
       },
       update: {
         // 기존 이름/귀속 보존 — 덮어쓰지 않음 (수수료 귀속 변경 방지)

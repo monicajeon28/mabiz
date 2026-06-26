@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext, buildContactWhere } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
+import { notifyContactShareEvent } from "../_lib/contact-notify";
 
 /**
  * POST /api/contacts/bulk-send-db
@@ -178,6 +179,8 @@ export async function POST(req: Request) {
 
     const failedNames: string[] = [];
     let succeeded = 0;
+    // 같은 조직 배정 성공 건 → 공유받은 고객 이름 모음(알림 1건으로 묶음, 폭주 방지)
+    const sharedContactNames: string[] = [];
 
     await runWithConcurrency(ids, async (contactId) => {
       const contact = contactMap.get(contactId);
@@ -241,6 +244,25 @@ export async function POST(req: Request) {
               },
             });
           }
+
+          // ── 공유 관계 기록(ContactSharing) — "누가 공유했는지" 배지용 ──
+          try {
+            await prisma.contactSharing.upsert({
+              where: {
+                contactId_sharedBy_sharedTo: {
+                  contactId,
+                  sharedBy: ctx.userId,
+                  sharedTo: member.id,
+                },
+              },
+              create: { contactId, sharedBy: ctx.userId, sharedTo: member.id },
+              update: {},
+            });
+            sharedContactNames.push(contact.name);
+          } catch (shareErr) {
+            logger.error("[bulk-send-db] ContactSharing 기록 실패(무시하고 계속)", { contactId, shareErr });
+          }
+
           succeeded++;
           return;
         }
@@ -298,6 +320,22 @@ export async function POST(req: Request) {
         failedNames.push(contact.name);
       }
     }, CONCURRENCY);
+
+    // ── 같은 조직 배정 수신자에게 알림 1건(묶음) ──
+    // 대상은 단일 member 이므로 전달받은 고객들을 한 번에 안내(폭주 방지)
+    if (member && sharedContactNames.length > 0) {
+      const preview = sharedContactNames.slice(0, 3).join(", ");
+      const extra = sharedContactNames.length > 3 ? ` 외 ${sharedContactNames.length - 3}명` : "";
+      await notifyContactShareEvent({
+        recipientUserIds: [member.id],
+        organizationId: member.organizationId,
+        notificationType: "CONTACT_SHARED",
+        title: `새 고객 ${sharedContactNames.length}명을 전달받았어요`,
+        content: `${preview}${extra} 고객이 회원님께 전달되었습니다. 바로 확인해 보세요.`,
+        contactId: "",
+        actorUserId: ctx.userId,
+      });
+    }
 
     logger.log("[POST /api/contacts/bulk-send-db]", {
       targetUserId,

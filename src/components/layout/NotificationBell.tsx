@@ -6,7 +6,7 @@ import { logger } from "@/lib/logger";
 
 type FeedItem = {
   id:        string;
-  type:      'LANDING_REG' | 'SALE_PENDING' | 'GOLD_INQUIRY' | 'B2B_LEAD' | 'NEW_CONTACT' | 'ORG_CONTRACT' | 'CALL_DUE' | 'CONTRACT_EXPIRY';
+  type:      'LANDING_REG' | 'SALE_PENDING' | 'GOLD_INQUIRY' | 'B2B_LEAD' | 'NEW_CONTACT' | 'ORG_CONTRACT' | 'CALL_DUE' | 'CONTRACT_EXPIRY' | 'CONTACT_SHARED' | 'CONTACT_UPDATED' | 'CONTACT_NOTE_ADDED' | 'REFUND_NOTIFICATION';
   name:      string;
   phone:     string | null;
   detail:    string | null;
@@ -24,7 +24,14 @@ const TYPE_CONFIG = {
   ORG_CONTRACT: { label: '신규 대리점',    emoji: '🤝', color: 'bg-purple-50 border-purple-200', dot: 'bg-purple-500' },
   CALL_DUE:        { label: '오늘 콜 예정',  emoji: '📞', color: 'bg-rose-50 border-rose-200',   dot: 'bg-rose-500'    },
   CONTRACT_EXPIRY: { label: '계약 만료 임박', emoji: '⚠️', color: 'bg-amber-50 border-amber-200', dot: 'bg-amber-500'  },
-};
+  CONTACT_SHARED:     { label: '고객 전달받음',  emoji: '👥', color: 'bg-purple-50 border-purple-200', dot: 'bg-purple-500' },
+  CONTACT_UPDATED:    { label: '고객 정보 수정',  emoji: '✏️', color: 'bg-sky-50 border-sky-200',       dot: 'bg-sky-500'    },
+  CONTACT_NOTE_ADDED: { label: '상담기록 추가',   emoji: '📝', color: 'bg-teal-50 border-teal-200',     dot: 'bg-teal-500'   },
+  REFUND_NOTIFICATION:{ label: '환불·수당 변경',  emoji: '💸', color: 'bg-red-50 border-red-200',       dot: 'bg-red-500'    },
+} as const;
+
+// 알 수 없는 타입이 들어와도 UI가 깨지지 않도록 안전 폴백
+const FALLBACK_CFG = { label: '알림', emoji: '🔔', color: 'bg-gray-50 border-gray-200', dot: 'bg-gray-500' } as const;
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -193,7 +200,7 @@ export function NotificationBell() {
             )}
             {!loading &&
               items.map((item) => {
-                const cfg = TYPE_CONFIG[item.type];
+                const cfg = TYPE_CONFIG[item.type] ?? FALLBACK_CFG;
                 return (
                   <div
                     key={item.id}

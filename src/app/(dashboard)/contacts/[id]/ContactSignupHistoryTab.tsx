@@ -8,13 +8,23 @@
  * - VIP 고객: 응답 시간 표시
  */
 
-import { Contact } from "@/types/contact";
+import { useEffect, useState } from "react";
+import { Contact, SignupHistoryEntry } from "@/types/contact";
 import { isVIPCustomer } from "@/constants/source-types";
 import { UI_ICONS } from "@/constants/ui-icons";
 
-// Helper: 날짜 필드 확인
-function isSignupWithDate(obj: unknown): obj is { date: string } {
-  return typeof obj === "object" && obj !== null && "date" in obj;
+// Helper: 날짜 필드 확인 (date 우선, 없으면 createdAt)
+function getSignupDate(obj: unknown): string | null {
+  if (typeof obj !== "object" || obj === null) return null;
+  const o = obj as { date?: string; createdAt?: string };
+  return o.date || o.createdAt || null;
+}
+
+// Helper: 출처/기기 필드 추출
+function getSourceInfo(obj: unknown): { ip?: string | null; userAgent?: string | null; deviceType?: string | null; referer?: string | null } {
+  if (typeof obj !== "object" || obj === null) return {};
+  const o = obj as { ip?: string | null; userAgent?: string | null; deviceType?: string | null; referer?: string | null };
+  return { ip: o.ip, userAgent: o.userAgent, deviceType: o.deviceType, referer: o.referer };
 }
 
 // Helper: 응답 시간 필드 확인
@@ -23,7 +33,25 @@ function hasResponseTime(obj: unknown): obj is { responseTime?: number } {
 }
 
 export default function ContactSignupHistoryTab({ contact }: { contact: Contact }) {
-  const signups = Array.isArray(contact.signupHistory) ? contact.signupHistory : [];
+  // prop의 signupHistory가 비어있을 수 있어(목록 응답에 미포함), 전용 API로 보강 조회.
+  // 응답에 IP/기기 필드(ip, userAgent, deviceType, referer)가 그대로 포함된다.
+  const [fetched, setFetched] = useState<SignupHistoryEntry[] | null>(null);
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    fetch(`/api/contacts/${contact.id}/signup-history`, { signal: ctrl.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.ok && Array.isArray(d.history)) setFetched(d.history as SignupHistoryEntry[]);
+      })
+      .catch((err) => {
+        if (err instanceof Error && err.name === "AbortError") return;
+      });
+    return () => ctrl.abort();
+  }, [contact.id]);
+
+  const propSignups = Array.isArray(contact.signupHistory) ? contact.signupHistory : [];
+  const signups: SignupHistoryEntry[] = fetched ?? propSignups;
   const isVIP = isVIPCustomer(contact.sourceType);
 
   if (signups.length === 0) {
@@ -37,13 +65,18 @@ export default function ContactSignupHistoryTab({ contact }: { contact: Contact 
   return (
     <div className="space-y-3">
       {signups.map((signup, idx) => {
-        // signup이 객체인지 확인
-        const date = isSignupWithDate(signup) ? signup.date : null;
+        // signup이 객체인지 확인 (date 우선, 없으면 createdAt)
+        const date = getSignupDate(signup);
 
         if (!date) return null;
 
         const nextSignup = signups[idx + 1];
-        const nextDate = isSignupWithDate(nextSignup) ? nextSignup.date : null;
+        const nextDate = getSignupDate(nextSignup);
+
+        // 신청 출처/기기 정보
+        const { ip, userAgent, deviceType, referer } = getSourceInfo(signup);
+        const hasSourceInfo = !!(ip || userAgent || deviceType || referer);
+        const deviceLabel = deviceType === "mobile" ? "📱 휴대폰" : deviceType === "desktop" ? "💻 PC" : null;
 
         // signupDate를 한 번만 생성
         const signupDate = new Date(date);
@@ -85,6 +118,30 @@ export default function ContactSignupHistoryTab({ contact }: { contact: Contact 
             <p className="text-xs text-gray-500 mb-2">
               {UI_ICONS.DATE} {formattedDate}
             </p>
+            {/* 신청 IP / 기기 — 어디서·어떤 기기로 신청했는지 */}
+            {hasSourceInfo && (
+              <div className="mt-2 mb-2 rounded-lg bg-gray-50 border border-gray-100 px-3 py-2 space-y-1">
+                <p className="text-[11px] font-semibold text-gray-600">신청 IP / 기기</p>
+                {deviceLabel && (
+                  <p className="text-xs text-gray-700">{deviceLabel}</p>
+                )}
+                {ip && (
+                  <p className="text-xs text-gray-700">
+                    IP: <span className="font-mono">{ip}</span>
+                  </p>
+                )}
+                {userAgent && (
+                  <p className="text-[11px] text-gray-400 break-all" title={userAgent}>
+                    {userAgent}
+                  </p>
+                )}
+                {referer && (
+                  <p className="text-[11px] text-gray-400 break-all" title={referer}>
+                    접속경로: {referer}
+                  </p>
+                )}
+              </div>
+            )}
             {daysDiff !== null && (
               <p className="text-xs text-gray-400">
                 {UI_ICONS.CHART} 다음 신청까지: <span className="font-semibold">{daysDiff}일</span>

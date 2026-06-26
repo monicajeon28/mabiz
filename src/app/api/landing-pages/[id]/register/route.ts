@@ -97,6 +97,8 @@ export async function POST(req: Request, { params }: Params) {
     const deviceType = userAgent
       ? (/Mobi|Android|iPhone|iPad|iPod/i.test(userAgent) ? 'mobile' : 'desktop')
       : null;
+    // signupHistory 각 항목에 그대로 박아넣을 출처/기기 스냅샷 (스키마 변경 없이 JSON 저장)
+    const sourceSnapshot = { ip: ipAddress, userAgent, deviceType, referer };
 
     // [WO-15] 전화번호 형식 검증 (정규화 이후 적용)
     const KR_PHONE_RE = /^01[016789]-\d{3,4}-\d{4}$/;
@@ -230,6 +232,7 @@ export async function POST(req: Request, { params }: Params) {
                 createdAt: new Date().toISOString(),
                 email: email ?? null,
                 phone: normalizedPhone,
+                ...sourceSnapshot,
               };
               await prisma.contact.update({
                 where: { id: existing.id },
@@ -293,6 +296,7 @@ export async function POST(req: Request, { params }: Params) {
                   createdAt: new Date().toISOString(),
                   email: email ?? null,
                   phone: normalizedPhone,
+                  ...sourceSnapshot,
                 }]),
               },
               update: {
@@ -316,6 +320,7 @@ export async function POST(req: Request, { params }: Params) {
                           createdAt: new Date().toISOString(),
                           email: email ?? null,
                           phone: normalizedPhone,
+                          ...sourceSnapshot,
                         };
                         return JSON.stringify([...history, newEntry]);
                       } catch {
@@ -329,6 +334,7 @@ export async function POST(req: Request, { params }: Params) {
                           createdAt: new Date().toISOString(),
                           email: email ?? null,
                           phone: normalizedPhone,
+                          ...sourceSnapshot,
                         }]);
                       }
                     })()
@@ -341,6 +347,7 @@ export async function POST(req: Request, { params }: Params) {
                       createdAt: new Date().toISOString(),
                       email: email ?? null,
                       phone: normalizedPhone,
+                      ...sourceSnapshot,
                     }]),
               },
             });

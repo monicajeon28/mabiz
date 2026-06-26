@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { getAuthContext } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { extractCsrfToken, validateToken } from "@/lib/csrf";
+import { notifyContactShareEvent } from "../../_lib/contact-notify";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -165,6 +166,35 @@ export async function POST(req: Request, { params }: Params) {
           data: { contactId, fromOrgId: contact.organizationId, toUserId: member.id, transferType: "AGENT_ASSIGN", transferredBy: ctx.userId },
         });
       }
+
+      // ── 공유 관계 기록(ContactSharing) — "누가 공유했는지" 배지용 ──
+      // @@unique([contactId, sharedBy, sharedTo]) → upsert 로 중복 방지
+      try {
+        await prisma.contactSharing.upsert({
+          where: {
+            contactId_sharedBy_sharedTo: {
+              contactId,
+              sharedBy: ctx.userId,
+              sharedTo: member.id,
+            },
+          },
+          create: { contactId, sharedBy: ctx.userId, sharedTo: member.id },
+          update: {},
+        });
+      } catch (shareErr) {
+        logger.error("[send-db] ContactSharing 기록 실패(무시하고 계속)", { contactId, shareErr });
+      }
+
+      // ── 수신자에게 알림 ──
+      await notifyContactShareEvent({
+        recipientUserIds: [member.id],
+        organizationId: member.organizationId,
+        notificationType: "CONTACT_SHARED",
+        title: "새 고객을 전달받았어요",
+        content: `${contact.name} 고객이 회원님께 전달되었습니다. 바로 확인해 보세요.`,
+        contactId,
+        actorUserId: ctx.userId,
+      });
 
       logger.log("[send-db] 같은 조직 할당", { contactId, targetUserId, name: member.displayName });
       return NextResponse.json({ ok: true, agentName: member.displayName ?? targetUserId });

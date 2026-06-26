@@ -442,9 +442,13 @@ export default function NewLandingPage() {
       bodyContent = images.length > 0
         ? `<div style="line-height:0">${images.map((img) => {
             const ar = img.width && img.height ? `aspect-ratio:${img.width}/${img.height};` : "";
+            // 미리보기 iframe은 sandbox="allow-scripts"(same-origin 없음)이라 세션쿠키가
+            // 안 실려, 인증 게이트 proxy(/api/landing-pages/images/proxy)는 401로 깨진다.
+            // → 업로드/라이브러리 모두 인증 불필요한 공개 Drive 썸네일 URL을 사용한다.
+            // (업로드 이미지는 업로드 시 anyone:reader 권한이 부여되어 공개 접근 가능)
             const previewUrl = img.driveFileId
-              ? `/api/landing-pages/images/proxy?id=${img.driveFileId}`
-              : img.url;
+              ? `https://drive.google.com/thumbnail?id=${img.driveFileId}&sz=w800`
+              : (img.fullUrl ?? img.url);
             return `<img src="${previewUrl}" alt="" style="width:100%;display:block;${ar}" loading="lazy">`;
           }).join("\n")}</div>`
         : `<div style="height:180px;display:flex;align-items:center;justify-content:center;background:#f7f8fc;color:#bbb;font-family:sans-serif;font-size:13px">이미지를 업로드하면 여기에 표시됩니다</div>`;
@@ -1483,7 +1487,27 @@ ${footerBlock}
                         className={`flex items-center gap-3 bg-white rounded-xl border p-3 transition-all cursor-grab ${dragIdx === idx ? "border-yellow-400 shadow-md opacity-80" : "border-gray-200 hover:border-gray-300"}`}>
                         <GripVertical className="w-4 h-4 text-gray-300 shrink-0" />
                         <div className="w-14 h-10 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                          <img src={img.driveFileId ? `/api/landing-pages/images/proxy?id=${img.driveFileId}` : img.url} alt="" className="w-full h-full object-cover" />
+                          {(() => {
+                            // 업로드 자산(assetId 있음)은 인증 proxy로 표시, 라이브러리 cache
+                            // 이미지(assetId 없음)는 공개 Drive 썸네일로 표시.
+                            // proxy가 404/401이면 onError로 공개 URL로 폴백.
+                            const publicThumb = img.fullUrl
+                              ?? (img.driveFileId ? `https://drive.google.com/thumbnail?id=${img.driveFileId}&sz=w800` : img.url);
+                            const primary = img.assetId && img.driveFileId
+                              ? `/api/landing-pages/images/proxy?id=${img.driveFileId}`
+                              : publicThumb;
+                            return (
+                              <img
+                                src={primary}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  const el = e.target as HTMLImageElement;
+                                  if (el.src !== publicThumb && publicThumb) el.src = publicThumb;
+                                }}
+                              />
+                            );
+                          })()}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate text-gray-700">{img.fileName}</p>

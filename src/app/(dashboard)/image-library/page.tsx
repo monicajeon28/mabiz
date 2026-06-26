@@ -732,6 +732,16 @@ export default function ImageLibraryPage() {
         <div className="text-center py-8 text-gray-500">로딩 중...</div>
       ) : (
         <>
+          {gdImages.length === 0 ? (
+            <div className="text-center py-16 px-4 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+              <FolderIcon className="w-10 h-10 mx-auto mb-3 text-gray-400" />
+              <p className="text-base font-medium text-gray-700">이 폴더에 이미지가 없습니다</p>
+              <p className="text-sm text-gray-500 mt-2 leading-relaxed">
+                구글 드라이브 폴더가 서비스 계정에 <b>공유</b>되어 있는지 확인해 주세요.<br />
+                폴더를 우클릭 → 공유 → 서비스 계정 이메일을 <b>뷰어(보기)</b> 이상으로 추가하면 이미지가 표시됩니다.
+              </p>
+            </div>
+          ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {gdImages.map((image, idx) => {
               const gdList = gdImages.map((i) => ({ src: i.thumbnailUrl, name: i.name }));
@@ -774,6 +784,7 @@ export default function ImageLibraryPage() {
               </div>
               );})}
           </div>
+          )}
 
           {/* 페이지네이션 — 봇 위젯(우하단)과 겹치지 않도록 중앙 정렬 */}
           {gdPagination.totalPages > 1 && (

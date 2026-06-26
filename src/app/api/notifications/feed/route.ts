@@ -21,7 +21,7 @@ import { labelForSource, labelForType, labelForB2bSource, SOURCE_TYPE_LABELS, TY
 
 type FeedItem = {
   id: string;
-  type: 'LANDING_REG' | 'SALE_PENDING' | 'GOLD_INQUIRY' | 'B2B_LEAD' | 'NEW_CONTACT' | 'ORG_CONTRACT' | 'CALL_DUE' | 'REFUND_NOTIFICATION';
+  type: 'LANDING_REG' | 'SALE_PENDING' | 'GOLD_INQUIRY' | 'B2B_LEAD' | 'NEW_CONTACT' | 'ORG_CONTRACT' | 'CALL_DUE' | 'REFUND_NOTIFICATION' | 'CONTACT_SHARED' | 'CONTACT_UPDATED' | 'CONTACT_NOTE_ADDED';
   name: string;
   phone: string | null;
   detail: string | null;
@@ -53,6 +53,16 @@ const LINK_PATH: Record<string, string> = {
   ORG_CONTRACT:       '/admin/organizations',
   CALL_DUE:           '/contacts',
   REFUND_NOTIFICATION: '/affiliate-sales',
+  CONTACT_SHARED:      '/contacts',
+  CONTACT_UPDATED:     '/contacts',
+  CONTACT_NOTE_ADDED:  '/contacts',
+};
+
+// 고객 공유·변경 알림 한글 라벨 (영어 코드 화면 노출 금지)
+const CONTACT_NOTI_LABEL: Record<string, string> = {
+  CONTACT_SHARED:     '고객 전달받음',
+  CONTACT_UPDATED:    '고객 정보 수정',
+  CONTACT_NOTE_ADDED: '상담기록 추가',
 };
 
 function maskPhone(phone: string | null): string | null {
@@ -205,6 +215,24 @@ export async function GET(req: Request) {
         WHERE an."createdAt" >= ${sinceDate}
       `);
 
+      // ── 고객 공유·변경 알림 (전체) — 라우팅은 metadata 사용 ──
+      parts.push(Prisma.sql`
+        SELECT
+          an."notificationType"::text                    AS type,
+          an.id::text                                     AS id,
+          an.title                                        AS name,
+          NULL::text                                      AS phone,
+          an.content                                      AS detail,
+          NULL::bigint                                    AS amount,
+          COALESCE('/contacts/' || NULLIF(an.metadata ->> 'contactId', ''), '/contacts')::text AS link_path,
+          an."createdAt"                                  AS created_at,
+          NULL::text                                      AS source_type,
+          NULL::text                                      AS contact_type
+        FROM "AdminNotification" an
+        WHERE an."notificationType" IN ('CONTACT_SHARED','CONTACT_UPDATED','CONTACT_NOTE_ADDED')
+          AND an."createdAt" >= ${sinceDate}
+      `);
+
       // ── CALL_DUE (오늘 콜 예정) ──
       parts.push(Prisma.sql`
         SELECT
@@ -319,7 +347,26 @@ export async function GET(req: Request) {
           NULL::text                   AS source_type,
           NULL::text                   AS contact_type
         FROM "AdminNotification" an
-        WHERE an."organizationId" = ${orgId}
+        WHERE (an.metadata ->> 'organizationId') = ${orgId}
+          AND an."createdAt" >= ${sinceDate}
+      `);
+
+      // ── 고객 공유·변경 알림 (조직 필터) — 라우팅은 metadata 사용 ──
+      parts.push(Prisma.sql`
+        SELECT
+          an."notificationType"::text                    AS type,
+          an.id::text                                     AS id,
+          an.title                                        AS name,
+          NULL::text                                      AS phone,
+          an.content                                      AS detail,
+          NULL::bigint                                    AS amount,
+          COALESCE('/contacts/' || NULLIF(an.metadata ->> 'contactId', ''), '/contacts')::text AS link_path,
+          an."createdAt"                                  AS created_at,
+          NULL::text                                      AS source_type,
+          NULL::text                                      AS contact_type
+        FROM "AdminNotification" an
+        WHERE an."notificationType" IN ('CONTACT_SHARED','CONTACT_UPDATED','CONTACT_NOTE_ADDED')
+          AND (an.metadata ->> 'organizationId') = ${orgId}
           AND an."createdAt" >= ${sinceDate}
       `);
 
@@ -421,7 +468,26 @@ export async function GET(req: Request) {
           NULL::text                   AS source_type,
           NULL::text                   AS contact_type
         FROM "AdminNotification" an
-        WHERE an."userId" = ${ctx.userId}
+        WHERE (an.metadata ->> 'recipientUserId') = ${ctx.userId}
+          AND an."createdAt" >= ${sinceDate}
+      `);
+
+      // ── 고객 공유·변경 알림 (본인이 받은 것만) — metadata.recipientUserId ──
+      parts.push(Prisma.sql`
+        SELECT
+          an."notificationType"::text                    AS type,
+          an.id::text                                     AS id,
+          an.title                                        AS name,
+          NULL::text                                      AS phone,
+          an.content                                      AS detail,
+          NULL::bigint                                    AS amount,
+          COALESCE('/contacts/' || NULLIF(an.metadata ->> 'contactId', ''), '/contacts')::text AS link_path,
+          an."createdAt"                                  AS created_at,
+          NULL::text                                      AS source_type,
+          NULL::text                                      AS contact_type
+        FROM "AdminNotification" an
+        WHERE an."notificationType" IN ('CONTACT_SHARED','CONTACT_UPDATED','CONTACT_NOTE_ADDED')
+          AND (an.metadata ->> 'recipientUserId') = ${ctx.userId}
           AND an."createdAt" >= ${sinceDate}
       `);
 
@@ -482,9 +548,13 @@ export async function GET(req: Request) {
           ? labelForB2bSource(r.detail)
           : r.type === 'ORG_CONTRACT'
             ? (r.detail ? `계약 ${r.detail}` : '신규 대리점 계약')
-            : (r.detail ?? null),
+            : (CONTACT_NOTI_LABEL[r.type]
+                // 고객 공유·변경 알림: content(본문)를 그대로 보여줌
+                ? (r.detail ?? CONTACT_NOTI_LABEL[r.type])
+                : (r.detail ?? null)),
       amount:    r.amount != null ? Number(r.amount) : null,
-      linkPath:  LINK_PATH[r.type] ?? '/',
+      // 고객 공유·변경 알림은 해당 고객 상세로 딥링크(r.link_path) 사용
+      linkPath:  CONTACT_NOTI_LABEL[r.type] ? (r.link_path || '/contacts') : (LINK_PATH[r.type] ?? '/'),
       createdAt: r.created_at.toISOString(),
     }));
 

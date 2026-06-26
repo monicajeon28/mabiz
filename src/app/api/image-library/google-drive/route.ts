@@ -118,7 +118,11 @@ async function fetchFolderImages(folder: FolderDef): Promise<DriveImageItem[]> {
   do {
     const response = await drive.files.list({
       q: `'${folder.id}' in parents and mimeType contains 'image/' and trashed = false`,
-      spaces: 'drive',
+      // 공유 드라이브(Shared Drive) 및 서비스계정에 공유된 폴더의 항목까지 모두 포함.
+      // 이 플래그가 없으면 서비스계정의 "내 드라이브"만 검색하여 0건이 반환됨.
+      corpora: 'allDrives',
+      includeItemsFromAllDrives: true,
+      supportsAllDrives: true,
       fields: 'nextPageToken, files(id, name, mimeType, webViewLink)',
       pageSize: 100,
       ...(pageToken ? { pageToken } : {}),

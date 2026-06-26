@@ -48,8 +48,13 @@ export interface SignupHistoryEntry {
   createdAt?: string;
   email?: string;
   phone?: string;
-  date: string;
+  date?: string;
   responseTime?: number;
+  // 신청자 출처/기기 추적 (2026-06-26): 어디서·어떤 기기로 신청했는지
+  ip?: string | null;
+  userAgent?: string | null;
+  deviceType?: string | null; // mobile | desktop
+  referer?: string | null;
 }
 
 export type ContactVisibility = 'SHARED' | 'ADMIN_ONLY';

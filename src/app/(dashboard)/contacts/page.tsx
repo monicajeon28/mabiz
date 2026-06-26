@@ -1552,8 +1552,8 @@ export default function ContactsPage() {
                             {c.inquiryProductCode && <span className="text-gray-600">상품: {c.inquiryProductCode}</span>}
                           </>
                         )}
-                        {/* Team-A: 공유 출처 표시 (공유 탭에서만) */}
-                        {activeTab === 'SHARED' && c.sharedByName && (
+                        {/* Team-A: 공유 출처 표시 — 모든 탭에서 노출(공유받은 고객은 어디서 봐도 누가 줬는지 표시) */}
+                        {c.sharedByName && (
                           <span className="px-2.5 py-0.5 rounded-lg bg-purple-100 text-purple-700 font-medium text-sm border border-purple-200">
                             👥 {c.sharedByName}가 공유
                           </span>
