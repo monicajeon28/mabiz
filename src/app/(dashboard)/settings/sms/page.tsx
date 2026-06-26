@@ -65,6 +65,12 @@ export default function SmsSettingsPage() {
   const [consultingSaving, setConsultingSaving] = useState(false);
   const [consultingMsg, setConsultingMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
+  // ── 알리고 발송 서버 IP 도우미 (알리고 IP 화이트리스트 등록용) ──
+  const [serverIp, setServerIp] = useState<string | null>(null);
+  const [serverIpLoading, setServerIpLoading] = useState(false);
+  const [seenIps, setSeenIps] = useState<string[]>([]); // 새로고침하며 본 서로 다른 IP들(바뀌면 여러 개)
+  const [serverIpNote, setServerIpNote] = useState<string>("");
+
   // ── 초기 로드 ──
   useEffect(() => {
     const ctrl = new AbortController();
@@ -122,6 +128,26 @@ export default function SmsSettingsPage() {
 
     return () => ctrl.abort();
   }, []);
+
+  // ── 알리고 발송 서버 IP 확인 (운영 서버 egress IP를 보여줘 알리고에 등록하게) ──
+  const checkServerIp = async () => {
+    setServerIpLoading(true);
+    try {
+      const r = await fetch("/api/settings/aligo/server-ip");
+      const d = await r.json();
+      if (d?.ok && d.ip) {
+        setServerIp(d.ip);
+        setServerIpNote(d.note || "");
+        setSeenIps((prev) => (prev.includes(d.ip) ? prev : [...prev, d.ip]));
+      } else {
+        setServerIpNote(d?.message || "서버 IP 확인에 실패했어요. 잠시 후 다시 시도해 주세요.");
+      }
+    } catch {
+      setServerIpNote("서버 IP 확인 중 오류가 발생했어요.");
+    } finally {
+      setServerIpLoading(false);
+    }
+  };
 
   // ── 조직 설정 저장 ──
   const save = async () => {
@@ -363,10 +389,73 @@ export default function SmsSettingsPage() {
         </ul>
         <p className="mt-1.5 text-blue-600">개인 계정을 연결하면 내 발신번호가 우선 사용됩니다.</p>
         <p className="mt-2 pt-2 border-t border-blue-200 text-amber-700 font-medium">
-          ⚠️ 발송 서버 IP는 알리고(aligo.in) 콘솔에서 <strong>반드시 비워두세요(전체 허용).</strong>
-          특정 IP를 등록하면 문자 발송이 막힙니다. (발송 서버 IP가 자주 바뀌고 여러 서버가 공유하기 때문)
-          API Key·User ID·발신번호만 입력하면 됩니다.
+          ⚠️ 알리고는 <strong>발송 서버 IP 등록이 필수</strong>입니다(비워두면 발송이 안 됩니다).
+          그런데 우리 서버 IP는 고정이 아니라 바뀔 수 있어, 등록한 IP가 옛것이 되면 발송이 막힙니다(인증오류-IP).
+          아래 <strong>“발송 서버 IP 확인”</strong>으로 지금 IP를 알아내 알리고 콘솔의 “발송 서버 IP”에 등록하세요.
         </p>
+      </div>
+
+      {/* ━━━━ 알리고 발송 서버 IP 도우미 ━━━━ */}
+      <div className="mb-6 bg-amber-50 border-2 border-amber-300 rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xl">📡</span>
+          <h2 className="text-base font-bold text-amber-900">알리고 발송 서버 IP 확인 (등록용)</h2>
+        </div>
+        <p className="text-sm leading-relaxed text-amber-800">
+          문자가 “인증오류-IP”로 안 나가면, 아래 버튼으로 <strong>지금 우리 서버의 발송 IP</strong>를 확인해
+          알리고 콘솔의 <strong>“발송 서버 IP”</strong>에 등록하세요.
+        </p>
+
+        <button
+          type="button"
+          onClick={checkServerIp}
+          disabled={serverIpLoading}
+          className="mt-3 min-h-[48px] w-full rounded-xl bg-amber-600 px-5 text-base font-bold text-white transition active:scale-[0.99] disabled:opacity-50"
+        >
+          {serverIpLoading ? "확인 중…" : serverIp ? "🔄 다시 확인 (바뀌었는지)" : "발송 서버 IP 확인하기"}
+        </button>
+
+        {serverIp && (
+          <div className="mt-3 rounded-xl border border-amber-300 bg-white px-4 py-3">
+            <p className="text-xs font-medium text-gray-500">지금 우리 서버 발송 IP</p>
+            <div className="mt-1 flex items-center justify-between gap-2">
+              <span className="select-all text-lg font-bold tracking-wide text-gray-900">{serverIp}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard?.writeText(serverIp).catch(() => {});
+                }}
+                className="shrink-0 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 active:scale-95"
+              >
+                복사
+              </button>
+            </div>
+          </div>
+        )}
+
+        {serverIpNote && <p className="mt-2 text-sm text-amber-700">{serverIpNote}</p>}
+
+        {seenIps.length > 1 && (
+          <div className="mt-3 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+            <p className="font-bold">⚠️ 서버 IP가 {seenIps.length}개로 바뀌고 있어요</p>
+            <p className="mt-1 leading-relaxed">
+              확인된 IP: {seenIps.join(", ")}
+              <br />
+              IP가 계속 바뀌면 하나씩 등록으로는 안정적이지 않습니다. 이 경우 <strong>고정 IP(프록시)</strong>로
+              영구 해결해야 하니 담당자에게 알려주세요.
+            </p>
+          </div>
+        )}
+
+        <details className="mt-3">
+          <summary className="cursor-pointer text-sm font-medium text-amber-800">알리고에 등록하는 방법 (눌러서 보기)</summary>
+          <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm leading-relaxed text-amber-800">
+            <li>알리고(스마트문자나라) 로그인 → API 연동 / 문자 API 설정</li>
+            <li>“발송 서버 IP” 항목에서 위에 나온 IP를 추가</li>
+            <li>(같은 알리고를 크루즈닷·판매원도 쓰면, 그 계정들에도 같은 IP 등록)</li>
+            <li>등록 후 문자 테스트 → 그래도 안 되면 위 버튼으로 IP가 바뀌었는지 다시 확인</li>
+          </ol>
+        </details>
       </div>
 
       {/* ━━━━ 내 상담 링크 ━━━━ */}
