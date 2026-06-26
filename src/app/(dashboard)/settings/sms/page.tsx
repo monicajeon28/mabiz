@@ -30,6 +30,12 @@ type UserConfig = {
 type UserRole = "GLOBAL_ADMIN" | "OWNER" | "AGENT" | "FREE_SALES";
 
 export default function SmsSettingsPage() {
+  // ── 환경 판별 (하이드레이션 안전: 서버/첫 렌더는 false → 마운트 후 갱신) ──
+  const [isLocalhost, setIsLocalhost] = useState(false);
+  useEffect(() => {
+    setIsLocalhost(window.location.hostname === "localhost");
+  }, []);
+
   // ── 로그인 역할 (조직 공용 섹션은 GLOBAL_ADMIN에게만 노출) ──
   const [role, setRole]       = useState<UserRole | null>(null);
   const [roleLoading, setRoleLoading] = useState(true);
@@ -153,14 +159,19 @@ export default function SmsSettingsPage() {
   const save = async () => {
     setSaving(true);
     setMsg(null);
+    const payload = {
+      aligoKey:    form.aligoKey.trim(),
+      aligoUserId: form.aligoUserId.trim(),
+      senderPhone: form.senderPhone.trim(),
+    };
     const res  = await fetch("/api/settings/sms", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     setMsg({ type: data.ok ? "ok" : "err", text: data.ok ? "저장되었습니다." : (data.message ?? "저장 실패") });
-    if (data.ok) setConfig((c) => ({ ...c, aligoUserId: form.aligoUserId, senderPhone: form.senderPhone }));
+    if (data.ok) setConfig((c) => ({ ...c, aligoUserId: payload.aligoUserId, senderPhone: payload.senderPhone }));
     setSaving(false);
   };
 
@@ -347,7 +358,7 @@ export default function SmsSettingsPage() {
           <div>
             <p className="font-semibold text-purple-900 mb-2">
               🌍 현재 환경: <span className="inline-block px-2 py-0.5 bg-purple-200 rounded text-xs font-mono">
-                {typeof window !== "undefined" && window.location.hostname === "localhost"
+                {isLocalhost
                   ? "로컬 (localhost)"
                   : "운영 (mabizcruisedot.com)"}
               </span>
@@ -357,7 +368,7 @@ export default function SmsSettingsPage() {
                 <span className="text-purple-400 mt-0.5">→</span>
                 <span>
                   <strong>로컬 (localhost):</strong> 내 개인 알리고 사용
-                  {typeof window !== "undefined" && window.location.hostname === "localhost" && (
+                  {isLocalhost && (
                     <span className="block text-xs text-purple-600 mt-0.5">
                       아래의 "내 개인 알리고 연결"에서 설정한 계정으로 발송됩니다.
                     </span>
@@ -368,7 +379,7 @@ export default function SmsSettingsPage() {
                 <span className="text-purple-400 mt-0.5">→</span>
                 <span>
                   <strong>운영 (mabizcruisedot.com):</strong> 회사 공용 알리고 사용
-                  {typeof window !== "undefined" && window.location.hostname !== "localhost" && (
+                  {!isLocalhost && (
                     <span className="block text-xs text-purple-600 mt-0.5">
                       아래의 "조직 공용 설정"에서 설정한 계정으로 발송됩니다.
                     </span>
@@ -595,7 +606,7 @@ export default function SmsSettingsPage() {
         )}
 
         {/* 개인 연결 폼 */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+        <form onSubmit={(e) => { e.preventDefault(); saveUserConfig(); }} className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Aligo API Key {!userConfig && <span className="text-red-500">*</span>}
@@ -635,14 +646,14 @@ export default function SmsSettingsPage() {
             <p className="text-sm text-gray-600 mt-1">내 Aligo 계정에 등록된 발신번호와 동일해야 합니다.</p>
           </div>
           <button
-            onClick={saveUserConfig}
+            type="submit"
             disabled={userSaving}
             className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {userSaving && <Loader2 className="w-4 h-4 animate-spin" />}
             {userConfig ? "계정 정보 업데이트" : "내 알리고 연결"}
           </button>
-        </div>
+        </form>
 
         {/* 개인 발신번호 인증 */}
         {userConfig && !userConfig.senderVerified && (
@@ -760,7 +771,7 @@ export default function SmsSettingsPage() {
         </ol>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+      <form onSubmit={(e) => { e.preventDefault(); save(); }} className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Aligo API Key <span className="text-red-500">*</span>
@@ -801,14 +812,14 @@ export default function SmsSettingsPage() {
         </div>
 
         <button
-          onClick={save}
+          type="submit"
           disabled={saving}
           className="w-full bg-navy-900 text-white py-2.5 rounded-lg font-medium text-sm hover:bg-navy-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {saving && <Loader2 className="w-4 h-4 animate-spin" />}
           {saving ? "저장 중..." : "저장"}
         </button>
-      </div>
+      </form>
 
       {/* 발신번호 인증 */}
       {config.id && !config.senderVerified && (

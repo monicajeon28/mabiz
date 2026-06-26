@@ -107,7 +107,7 @@ const ROLE_LABEL: Record<string, string> = {
   SALES_AGENT: '대리점장',
   FREE_SALES: '마케터',
   PRE_SALES: '마케터',
-  AGENT: '에이전트',
+  AGENT: '대리점장1',
 };
 const ROLE_BADGE: Record<string, string> = {
   BRANCH_MANAGER: 'bg-blue-100 text-blue-700',
@@ -119,12 +119,12 @@ const ROLE_BADGE: Record<string, string> = {
 };
 
 const TIER_LABEL: Record<string, string> = {
-  SALES_330: '직속마케터 330만',
-  SALES_540: '직속인솔스탭 540만',
-  BRANCH_750: '대리점',
-  BASIC: '직속마케터 330만',
-  STANDARD: '직속인솔스탭 540만',
-  PREMIUM: '대리점',
+  SALES_330: '마케터 330만',
+  SALES_540: '대리점장1 540만',
+  BRANCH_750: '대리점장2 750만',
+  BASIC: '마케터 330만',
+  STANDARD: '대리점장1 540만',
+  PREMIUM: '대리점장2 750만',
 };
 
 const CONTRACT_STATUS_BADGE: Record<string, string> = {

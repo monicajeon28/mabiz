@@ -46,3 +46,30 @@ export function labelForType(code?: string | null): string {
   if (!code) return "잠재고객";
   return TYPE_LABELS[code]?.label ?? code;
 }
+
+// B2B 유입 출처(source) → 한글 라벨 SSoT
+// (정답 매핑은 marketing-funnel SharedCustomerDetailModal getSourceBadge에서 이관)
+// 영어 코드가 알림벨 등 화면에 절대 노출되지 않도록 한글 폴백 보장.
+export const B2B_SOURCE_LABELS: Record<string, string> = {
+  "product-inquiry": "상품문의",
+  "phone-consultation": "전화문의",
+  "landing-page": "랜딩페이지",
+  "test-guide": "3일체험",
+  "cruise-guide": "구매고객",
+  "mall-signup": "크루즈몰가입",
+  "affiliate-manual": "수동등록",
+  "affiliate-manual-creation": "수동등록",
+  "affiliate-contract-approval": "계약승인",
+};
+
+// B2B source 코드 → 한글 라벨
+//   - 'mall-' 접두사(mall-{id} 등) → '크루즈몰가입'
+//   - 'affiliate-manual' 계열 → '수동등록'
+//   - 매핑에 없으면 'B2B 문의' 한글 폴백
+export function labelForB2bSource(source?: string | null): string {
+  if (!source) return "B2B 문의";
+  if (B2B_SOURCE_LABELS[source]) return B2B_SOURCE_LABELS[source];
+  if (source.startsWith("mall-")) return "크루즈몰가입";
+  if (source.startsWith("affiliate-manual")) return "수동등록";
+  return "B2B 문의";
+}

@@ -3,28 +3,28 @@
 
 // 수수료율은 상품별로 별도 관리 (어필리에이트 수당 등록) — 여기서 설정하지 않음
 export const CONTRACT_PRICE_TIERS = {
-  /** 직속마케터 330만 */
+  /** 마케터 330만 */
   SALES_330: {
-    label: '직속마케터',
+    label: '마케터',
     priceKRW: 3_300_000,
     memberType: 'SALES_AGENT' as const,
-    description: '직속마케터 계약 · 330만원',
-    contractTitle: '직속마케터 판매 계약서',
+    description: '마케터 계약 · 330만원',
+    contractTitle: '마케터 판매 계약서',
   },
-  /** 직속인솔스탭 540만 */
+  /** 대리점장1 540만 */
   SALES_540: {
-    label: '직속인솔스탭',
+    label: '대리점장1',
     priceKRW: 5_400_000,
     memberType: 'SALES_AGENT' as const,
-    description: '직속인솔스탭 계약 · 540만원',
-    contractTitle: '직속인솔스탭 판매 계약서',
+    description: '대리점장1 계약 · 540만원',
+    contractTitle: '대리점장1 판매 계약서',
   },
-  /** 대리점 */
+  /** 대리점장2 750만 (대리점장 교육 + 1년 마케팅 지원) */
   BRANCH_750: {
-    label: '대리점',
+    label: '대리점장2',
     priceKRW: 7_500_000,
     memberType: 'BRANCH_MANAGER' as const,
-    description: '대리점 계약',
+    description: '대리점장2 계약 · 750만원 (대리점장 교육 + 1년 마케팅 지원)',
     contractTitle: 'B2B 지사장 계약서',
   },
 } as const;

@@ -194,7 +194,9 @@ export function useImageDownload() {
             })
         )
       );
-      const html2canvas = (await import('html2canvas')).default;
+      // Tailwind v4의 oklch() 색상은 html2canvas가 파싱하지 못해 캡처가 빈 이미지가 된다.
+      // oklch를 지원하는 drop-in 대체 라이브러리 html2canvas-pro로 캡처 (옵션 동일).
+      const html2canvas = (await import('html2canvas-pro')).default;
       const node = ref.current;
 
       // ── A4 고정 + 하단까지 전체 캡처 ────────────────────────────────────────

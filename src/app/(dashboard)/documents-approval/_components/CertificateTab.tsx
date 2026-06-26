@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { showError, showSuccess } from '@/components/ui/Toast';
 import { CANCELLATION_POLICY } from '@/lib/company-info';
-import { calcRefundAmount, refundPolicyToLines, type RefundPolicyJson } from '@/lib/refund-calculator';
+import { calcRefundAmount, refundPolicyToLines, LEGAL_REFUND_POLICY, type RefundPolicyJson } from '@/lib/refund-calculator';
 import {
   SaleResult,
   CurrentAgent,
@@ -263,10 +263,15 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
       const json = await res.json();
       if (!res.ok || !json.ok || !json.product) return;
       const prod = json.product as ProductInfo & { refundPolicyLines?: { label: string; value: string }[] };
-      setProductInfo(prod);
+      // 상품에 환불정책이 없으면 법정 기본값(국외여행 특수약관)으로 폴백 — 계약서와 동일 패턴.
+      // productInfo.refundPolicy 도 폴백값으로 채워 발급 시 generatedData 에 규정이 누락되지 않게 함.
+      const effectivePolicy = prod.refundPolicy ?? LEGAL_REFUND_POLICY;
+      setProductInfo({ ...prod, refundPolicy: effectivePolicy });
       // 상품별 환불규정이 있으면 사람이 읽는 문자열로 refundPolicyText 자동 채움
       // (사용자가 아직 직접 입력 안 했을 때만 — 입력값 보존). 50자 게이트 자연 통과.
-      const lines = prod.refundPolicyLines ?? refundPolicyToLines(prod.refundPolicy ?? null);
+      const lines = (prod.refundPolicyLines && prod.refundPolicyLines.length > 0)
+        ? prod.refundPolicyLines
+        : refundPolicyToLines(effectivePolicy);
       if (lines.length > 0) {
         const text = `[${prod.productName} 취소·환불 규정]\n` + lines.map((l) => `· ${l.label}: ${l.value}`).join('\n');
         setDirectInput((prev) => (prev.refundPolicyText.trim().length === 0 ? { ...prev, refundPolicyText: text } : prev));

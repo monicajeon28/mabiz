@@ -1,6 +1,21 @@
 import { z } from "zod";
 
 /**
+ * 한국 휴대폰 발신번호 스키마 (관대한 입력 → 정규화 후 검증)
+ * 사용자가 공백/하이픈을 섞어 넣어도 통과하도록 trim + 공백/하이픈 제거 후 검증한다.
+ * (예: " 010-1234-5678 ", "010 1234 5678", "01012345678" 모두 허용)
+ */
+const koreanSenderPhone = z.preprocess(
+  (val) => (typeof val === "string" ? val.trim().replace(/[\s-]/g, "") : val),
+  z
+    .string()
+    .regex(
+      /^01[0-9]\d{3,4}\d{4}$/,
+      "발신번호는 유효한 한국 휴대폰 형식이어야 합니다 (예: 010-1234-5678)"
+    )
+);
+
+/**
  * 프로필 수정 검증 스키마
  */
 export const updateUserProfileSchema = z.object({
@@ -142,12 +157,7 @@ export const orgSmsSettingsSchema = z.object({
     .string()
     .min(2, "User ID는 최소 2자 이상이어야 합니다")
     .max(100, "User ID는 100자 이하여야 합니다"),
-  senderPhone: z
-    .string()
-    .regex(
-      /^01[0-9]-?\d{3,4}-?\d{4}$/,
-      "발신번호는 유효한 한국 휴대폰 형식이어야 합니다 (예: 010-1234-5678)"
-    ),
+  senderPhone: koreanSenderPhone,
 });
 
 export type OrgSmsSettingsInput = z.infer<typeof orgSmsSettingsSchema>;
@@ -156,12 +166,15 @@ export type OrgSmsSettingsInput = z.infer<typeof orgSmsSettingsSchema>;
  * SMS 테스트 발송 검증
  */
 export const smsSendTestSchema = z.object({
-  testPhone: z
-    .string()
-    .regex(
-      /^01[0-9]-?\d{3,4}-?\d{4}$/,
-      "수신 전화번호는 유효한 한국 휴대폰 형식이어야 합니다 (예: 010-1234-5678)"
-    ),
+  testPhone: z.preprocess(
+    (val) => (typeof val === "string" ? val.trim().replace(/[\s-]/g, "") : val),
+    z
+      .string()
+      .regex(
+        /^01[0-9]\d{3,4}\d{4}$/,
+        "수신 전화번호는 유효한 한국 휴대폰 형식이어야 합니다 (예: 010-1234-5678)"
+      )
+  ),
 });
 
 export type SmsSendTestInput = z.infer<typeof smsSendTestSchema>;
@@ -199,12 +212,7 @@ export const userSmsSettingsSchema = z.object({
     .string()
     .min(2, "User ID는 최소 2자 이상이어야 합니다")
     .max(100, "User ID는 100자 이하여야 합니다"),
-  senderPhone: z
-    .string()
-    .regex(
-      /^01[0-9]-?\d{3,4}-?\d{4}$/,
-      "발신번호는 유효한 한국 휴대폰 형식이어야 합니다 (예: 010-1234-5678)"
-    ),
+  senderPhone: koreanSenderPhone,
 });
 
 export type UserSmsSettingsInput = z.infer<typeof userSmsSettingsSchema>;

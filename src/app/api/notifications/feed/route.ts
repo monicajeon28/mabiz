@@ -5,7 +5,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { getAuthContext, requireOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
-import { labelForSource, labelForType, SOURCE_TYPE_LABELS, TYPE_LABELS } from '@/lib/contact-labels';
+import { labelForSource, labelForType, labelForB2bSource, SOURCE_TYPE_LABELS, TYPE_LABELS } from '@/lib/contact-labels';
 
 /**
  * GET /api/notifications/feed
@@ -478,7 +478,11 @@ export async function GET(req: Request) {
       phone:     maskPhone(r.phone),
       detail:    r.type === 'NEW_CONTACT'
         ? contactKoreanLabel(r.source_type, r.contact_type)
-        : (r.detail ?? null),
+        : r.type === 'B2B_LEAD'
+          ? labelForB2bSource(r.detail)
+          : r.type === 'ORG_CONTRACT'
+            ? (r.detail ? `계약 ${r.detail}` : '신규 대리점 계약')
+            : (r.detail ?? null),
       amount:    r.amount != null ? Number(r.amount) : null,
       linkPath:  LINK_PATH[r.type] ?? '/',
       createdAt: r.created_at.toISOString(),

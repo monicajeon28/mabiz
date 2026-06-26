@@ -38,7 +38,22 @@ export async function GET(req: Request) {
     const endDate = new Date(year, month, 1);
 
     const isAdmin = ctx.sessionUser.role === 'admin';
-    const orgFilter = isAdmin ? {} : { organizationId: ctx.organizationId ?? "" };
+    const isAgent = ctx.sessionUser.role === 'agent';
+
+    // AGENT(대리점장)는 본인 담당 골드회원만 조회 (list API /api/gold-members 와 동일 기준:
+    // where.agentId = parseInt(ctx.userId)=CRM User.id). NaN이면 격리 불가 → 접근 차단.
+    let agentId: number | undefined;
+    if (isAgent) {
+      const numericId = parseInt(ctx.sessionUser.crmUserId, 10);
+      if (isNaN(numericId)) {
+        return NextResponse.json({ ok: false, error: '사용자 ID 오류' }, { status: 403 });
+      }
+      agentId = numericId;
+    }
+
+    const orgFilter = isAdmin
+      ? {}
+      : { organizationId: ctx.organizationId ?? "", ...(isAgent ? { agentId } : {}) };
 
     if (type === 'members') {
       const [rows, total] = await Promise.all([
@@ -72,7 +87,9 @@ export async function GET(req: Request) {
     }
 
     if (type === 'consultations') {
-      const consultOrgFilter = isAdmin ? {} : { organizationId: ctx.organizationId ?? "" };
+      const consultOrgFilter = isAdmin
+        ? {}
+        : { organizationId: ctx.organizationId ?? "", ...(isAgent ? { agentId } : {}) };
       const [rows, total] = await Promise.all([
         prisma.goldMemberConsultation.findMany({
           where: {

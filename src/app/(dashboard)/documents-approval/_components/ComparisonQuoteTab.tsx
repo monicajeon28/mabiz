@@ -64,6 +64,8 @@ type QuoteForm = {
   excludedItems: string[];
   hasGuide: '' | 'Y' | 'N';
   hasCruisedotStaff: '' | 'Y' | 'N';
+  competitorHasGuide: '' | 'Y' | 'N';   // ✅ 신규: 타사 여행 인솔자 유무
+  competitorHasStaff: '' | 'Y' | 'N';   // ✅ 신규: 타사 전담 스탭 유무
   optionItems: string[];
 };
 
@@ -94,6 +96,8 @@ const EMPTY_FORM: QuoteForm = {
   excludedItems: ['선상팁'],
   hasGuide: '',
   hasCruisedotStaff: '',
+  competitorHasGuide: '',
+  competitorHasStaff: '',
   optionItems: [],
 };
 
@@ -342,6 +346,8 @@ export default function ComparisonQuoteTab() {
           optionItems: form.optionItems.filter((o) => o.trim()),
           hasGuide: form.hasGuide || undefined,
           hasCruisedotStaff: form.hasCruisedotStaff || undefined,
+          competitorHasGuide: form.competitorHasGuide || undefined,
+          competitorHasStaff: form.competitorHasStaff || undefined,
           itinerary: form.itinerary || undefined,
           departureDate: form.departureDate || undefined,
         }),
@@ -626,15 +632,47 @@ export default function ComparisonQuoteTab() {
         {/* 서비스 비교 (인솔자 / 크루즈닷스탭) */}
         <div className="space-y-3">
           <p className="text-sm font-semibold text-gray-700">서비스 비교</p>
+
+          {/* 여행 인솔자: 타사 / 크루즈닷 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="mb-2 block text-xs font-medium text-gray-500">여행 인솔자</label>
+              <label className="mb-2 block text-xs font-medium text-gray-500">여행 인솔자 (타사)</label>
+              <div className="flex gap-3 sm:gap-4">
+                {(['', 'Y', 'N'] as const).map((v) => (
+                  <label key={v} className="flex cursor-pointer items-center gap-2 text-sm">
+                    <input type="radio" name="competitorHasGuide" value={v} checked={form.competitorHasGuide === v}
+                      onChange={() => setField('competitorHasGuide', v)}
+                      className="accent-gray-500 w-4 h-4" />
+                    {v === '' ? '미정' : v === 'Y' ? '있음' : '없음'}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="mb-2 block text-xs font-medium text-gray-500">여행 인솔자 (크루즈닷)</label>
               <div className="flex gap-3 sm:gap-4">
                 {(['', 'Y', 'N'] as const).map((v) => (
                   <label key={v} className="flex cursor-pointer items-center gap-2 text-sm">
                     <input type="radio" name="hasGuide" value={v} checked={form.hasGuide === v}
                       onChange={() => setField('hasGuide', v)}
                       className="accent-indigo-600 w-4 h-4" />
+                    {v === '' ? '미정' : v === 'Y' ? '있음' : '없음'}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* 전담스탭: 타사 / 크루즈닷 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="mb-2 block text-xs font-medium text-gray-500">전담스탭 (타사)</label>
+              <div className="flex gap-3 sm:gap-4">
+                {(['', 'Y', 'N'] as const).map((v) => (
+                  <label key={v} className="flex cursor-pointer items-center gap-2 text-sm">
+                    <input type="radio" name="competitorHasStaff" value={v} checked={form.competitorHasStaff === v}
+                      onChange={() => setField('competitorHasStaff', v)}
+                      className="accent-gray-500 w-4 h-4" />
                     {v === '' ? '미정' : v === 'Y' ? '있음' : '없음'}
                   </label>
                 ))}
@@ -807,7 +845,7 @@ export default function ComparisonQuoteTab() {
           </div>
 
           {/* 서비스 비교표 */}
-          {(form.hasGuide || form.hasCruisedotStaff || form.competitorServiceNotes) && (
+          {(form.hasGuide || form.hasCruisedotStaff || form.competitorHasGuide || form.competitorHasStaff || form.competitorServiceNotes) && (
             <div>
               <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-500">🎯 서비스 비교</p>
               <div className="overflow-hidden rounded-xl border border-gray-300">
@@ -820,21 +858,25 @@ export default function ComparisonQuoteTab() {
                     </tr>
                   </thead>
                   <tbody>
-                    {form.hasGuide && (
+                    {(form.hasGuide || form.competitorHasGuide) && (
                       <tr className="hover:bg-gray-50">
                         <td className="border border-gray-300 px-4 py-2.5 font-medium text-gray-800">여행 인솔자</td>
-                        <td className="border border-gray-300 px-4 py-2.5 text-center text-gray-400">-</td>
-                        <td className="border border-red-200 bg-red-50 px-4 py-2.5 text-center font-bold text-green-600">
-                          {form.hasGuide === 'Y' ? '✓ 있음' : '없음'}
+                        <td className={`border border-gray-300 px-4 py-2.5 text-center font-medium ${form.competitorHasGuide === 'Y' ? 'text-green-600' : form.competitorHasGuide === 'N' ? 'text-red-500' : 'text-gray-400'}`}>
+                          {form.competitorHasGuide === 'Y' ? '✓ 있음' : form.competitorHasGuide === 'N' ? '✗ 없음' : '-'}
+                        </td>
+                        <td className={`border border-red-200 bg-red-50 px-4 py-2.5 text-center font-bold ${form.hasGuide === 'Y' ? 'text-green-600' : form.hasGuide === 'N' ? 'text-red-500' : 'text-gray-400'}`}>
+                          {form.hasGuide === 'Y' ? '✓ 있음' : form.hasGuide === 'N' ? '✗ 없음' : '-'}
                         </td>
                       </tr>
                     )}
-                    {form.hasCruisedotStaff && (
+                    {(form.hasCruisedotStaff || form.competitorHasStaff) && (
                       <tr className="hover:bg-gray-50">
-                        <td className="border border-gray-300 px-4 py-2.5 font-medium text-gray-800">크루즈닷 전담스탭</td>
-                        <td className="border border-gray-300 px-4 py-2.5 text-center text-gray-400">-</td>
-                        <td className="border border-red-200 bg-red-50 px-4 py-2.5 text-center font-bold text-green-600">
-                          {form.hasCruisedotStaff === 'Y' ? '✓ 있음' : '없음'}
+                        <td className="border border-gray-300 px-4 py-2.5 font-medium text-gray-800">전담스탭</td>
+                        <td className={`border border-gray-300 px-4 py-2.5 text-center font-medium ${form.competitorHasStaff === 'Y' ? 'text-green-600' : form.competitorHasStaff === 'N' ? 'text-red-500' : 'text-gray-400'}`}>
+                          {form.competitorHasStaff === 'Y' ? '✓ 있음' : form.competitorHasStaff === 'N' ? '✗ 없음' : '-'}
+                        </td>
+                        <td className={`border border-red-200 bg-red-50 px-4 py-2.5 text-center font-bold ${form.hasCruisedotStaff === 'Y' ? 'text-green-600' : form.hasCruisedotStaff === 'N' ? 'text-red-500' : 'text-gray-400'}`}>
+                          {form.hasCruisedotStaff === 'Y' ? '✓ 있음' : form.hasCruisedotStaff === 'N' ? '✗ 없음' : '-'}
                         </td>
                       </tr>
                     )}

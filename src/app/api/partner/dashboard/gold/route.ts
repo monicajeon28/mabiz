@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { requirePartnerContext } from '@/lib/passport-auth';
 import { logger } from '@/lib/logger';
@@ -41,9 +42,27 @@ export async function GET(req: Request) {
     const prevEnd = startDate;
 
     const isAdmin = ctx.sessionUser.role === 'admin';
+    const isAgent = ctx.sessionUser.role === 'agent';
     const orgId = isAdmin ? undefined : (ctx.organizationId ?? undefined);
-    const orgFilter = isAdmin ? {} : { organizationId: orgId };
-    const consultOrgFilter = isAdmin ? {} : { organizationId: orgId };
+
+    // AGENT(대리점장)는 본인 담당 골드회원만 조회 (list API /api/gold-members 와 동일 기준:
+    // where.agentId = parseInt(ctx.userId)=CRM User.id). NaN이면 격리 불가 → 접근 차단.
+    let agentId: number | undefined;
+    if (isAgent) {
+      const numericId = parseInt(ctx.sessionUser.crmUserId, 10);
+      if (isNaN(numericId)) {
+        logger.warn('[dashboard/gold] AGENT crmUserId 파싱 실패 → 접근 차단', { crmUserId: ctx.sessionUser.crmUserId });
+        return NextResponse.json({ ok: false, error: '사용자 ID 오류' }, { status: 403 });
+      }
+      agentId = numericId;
+    }
+
+    const orgFilter = isAdmin
+      ? {}
+      : { organizationId: orgId, ...(isAgent ? { agentId } : {}) };
+    const consultOrgFilter = isAdmin
+      ? {}
+      : { organizationId: orgId, ...(isAgent ? { agentId } : {}) };
 
     // GoldMember 테이블 존재 여부 확인 (마이그레이션 미적용 환경 대비)
     try {
@@ -104,6 +123,10 @@ export async function GET(req: Request) {
         ? Number(result[0]?.rate ?? 0)
         : 0;
     } else if (orgId) {
+      // AGENT면 본인 담당(agentId)만, OWNER면 조직 전체
+      const agentClause = isAgent && agentId !== undefined
+        ? Prisma.sql`AND "agentId" = ${agentId}`
+        : Prisma.empty;
       const result = await prisma.$queryRaw<Array<{ rate: number | null }>>`
         SELECT CASE WHEN COUNT(*) = 0 THEN 0
           ELSE ROUND((AVG("paidCount"::float / NULLIF("totalPayments", 0)) * 100)::numeric, 2)
@@ -111,6 +134,7 @@ export async function GET(req: Request) {
         FROM "GoldMember"
         WHERE "status" = 'ACTIVE' AND "totalPayments" > 0
           AND "organizationId" = ${orgId}
+          ${agentClause}
       `;
       // Array.isArray 체크 + 안전한 접근
       paymentRate = result && Array.isArray(result) && result.length > 0
