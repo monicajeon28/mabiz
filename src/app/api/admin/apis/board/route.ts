@@ -22,7 +22,7 @@ import { Prisma } from '@prisma/client';
  * 권한: OWNER / GLOBAL_ADMIN + OWNER 테넌트격리(organizationId).
  */
 
-/** updatedBy(Int userId) → 표시 이름 배치 조회 결과 */
+/** updatedBy(Int userId) → 표시 이름 배치 조회 결과 (raw SQL 컬럼과 1:1) */
 type UpdatedByRow = {
   reservationId: number;
   travelerId: number;
@@ -32,6 +32,7 @@ type UpdatedByRow = {
   engSurname: string | null;
   engGivenName: string | null;
   korName: string | null;
+  residentNum: string | null;
   gender: string | null;
   birthDate: string | null;
   nationality: string | null;
@@ -40,9 +41,35 @@ type UpdatedByRow = {
   expiryDate: string | null;
   phone: string | null;
   companionGroupId: number | null;
+  roomingGroupId: number | null;
+  notes: string | null;
+  // APIS 매니페스트 운영필드 (수동 입력 전용)
+  cabinCategory: string | null;
+  airline: string | null;
+  paymentDate: string | null;
+  paymentMethod: string | null;
+  paymentAmount: number | null;
   updatedAt: Date;
   updatedBy: number | null;
 };
+
+/**
+ * 주민번호 마스킹: 앞 7자리(생년월일 6 + 성별 1)만 노출, 뒤 6자리는 가린다.
+ * 예: '9010101234567' / '901010-1234567' → '901010-1******'.
+ * 평문 전체는 절대 응답에 싣지 않는다(서버 마스킹 책임). 빈값이면 빈 문자열.
+ */
+function maskResidentNum(raw: string | null): string {
+  if (!raw) return '';
+  const digits = String(raw).replace(/\D/g, '');
+  if (digits.length === 0) return '';
+  // 앞 7자리(생년월일6+성별1)만 노출, 그 뒤는 마스킹. 7자리 미만이면 있는 만큼만 노출.
+  const front = digits.slice(0, Math.min(7, digits.length));
+  const front6 = front.slice(0, 6);
+  const genderDigit = front.slice(6, 7);
+  const maskedTail = '*'.repeat(Math.max(0, 13 - front.length));
+  if (!genderDigit) return front6; // 6자리 이하만 있으면 그대로
+  return `${front6}-${genderDigit}${maskedTail}`;
+}
 
 const REQUIRED_FIELDS = 6; // 영문성·영문이름·성별·생년월일·여권번호·여권만료일
 
@@ -125,9 +152,11 @@ export async function GET(req: NextRequest) {
       : await prisma.$queryRaw<UpdatedByRow[]>(Prisma.sql`
           SELECT "reservationId", id AS "travelerId", version, "roomNumber",
                  "isSingleCharge",
-                 "engSurname", "engGivenName", "korName", gender, "birthDate",
+                 "engSurname", "engGivenName", "korName", "residentNum", gender, "birthDate",
                  nationality, "passportNo", "issueDate", "expiryDate", phone,
-                 "companionGroupId", "updatedAt", "updatedBy"
+                 "companionGroupId", "roomingGroupId", notes,
+                 "cabinCategory", airline, "paymentDate", "paymentMethod", "paymentAmount",
+                 "updatedAt", "updatedBy"
           FROM "Traveler"
           WHERE "reservationId" = ANY(ARRAY[${Prisma.join(reservationIds)}]::int[])
           ORDER BY "roomNumber" ASC, id ASC
@@ -282,6 +311,8 @@ export async function GET(req: NextRequest) {
               korName: tv.korName ?? '',
               engSurname: tv.engSurname ?? '',
               engGivenName: tv.engGivenName ?? '',
+              // 주민번호는 서버에서 마스킹해서만 내려보낸다(평문 전체 금지).
+              residentNum: maskResidentNum(tv.residentNum),
               gender: tv.gender ?? '',
               birthDate: tv.birthDate ?? '',
               nationality: tv.nationality ?? '',
@@ -290,6 +321,14 @@ export async function GET(req: NextRequest) {
               expiryDate: tv.expiryDate ?? '',
               phone: tv.phone ?? '',
               companionGroupId: tv.companionGroupId,
+              roomingGroupId: tv.roomingGroupId,
+              notes: tv.notes ?? '',
+              // APIS 매니페스트 운영필드 (수동 입력 전용)
+              cabinCategory: tv.cabinCategory ?? '',
+              airline: tv.airline ?? '',
+              paymentDate: tv.paymentDate ?? '',
+              paymentMethod: tv.paymentMethod ?? '',
+              paymentAmount: tv.paymentAmount,
               isCompanion: tv.companionGroupId != null,
               agentName: agentNameMap.get(tv.reservationId) ?? '',
               updatedAt: tv.updatedAt,

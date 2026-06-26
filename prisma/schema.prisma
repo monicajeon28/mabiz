@@ -2917,6 +2917,12 @@ model GmTraveler {
   companionGroupId Int?
   roomingGroupId   Int?
   passportDriveUrl String?
+  // APIS 매니페스트 운영필드(2026-06-26 추가). 날짜는 모델 컨벤션상 String.
+  cabinCategory    String? // 객실 카테고리 (발코니/내측/오션뷰 등)
+  airline          String? // 항공
+  paymentDate      String? // 최종 결제일
+  paymentMethod    String? // 결제 방법 (현금영수증/카드 등)
+  paymentAmount    Int? // 결제 금액 (원)
   // 협업 편집 기반: 저장 시 자동 갱신(낙관적 잠금 기준값) + 수정자 추적
   updatedAt        DateTime @updatedAt
   version          Int      @default(0) // 낙관적 잠금: 저장 시 +1, 불일치하면 충돌(409)

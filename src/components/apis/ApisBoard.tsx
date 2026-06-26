@@ -56,6 +56,8 @@ interface BoardTraveler {
   korName: string;
   engSurname: string;
   engGivenName: string;
+  /** 주민번호 — 서버에서 마스킹된 값(예: 901010-1******). 표시 전용. */
+  residentNum: string;
   gender: string;
   birthDate: string;
   nationality: string;
@@ -64,6 +66,14 @@ interface BoardTraveler {
   expiryDate: string;
   phone: string;
   companionGroupId: number | null;
+  roomingGroupId: number | null;
+  notes: string;
+  // APIS 매니페스트 운영필드 (수동 입력 전용)
+  cabinCategory: string;
+  airline: string;
+  paymentDate: string;
+  paymentMethod: string;
+  paymentAmount: number | null;
   isCompanion: boolean;
   agentName: string;
   updatedAt: string;
@@ -146,6 +156,13 @@ const MORE_FIELDS = [
   { key: 'nationality', label: '국적', placeholder: 'KOR' },
   { key: 'issueDate', label: '여권 발급일', placeholder: 'YYYY-MM-DD' },
   { key: 'phone', label: '연락처', placeholder: '010-0000-0000' },
+  // APIS 매니페스트 운영필드 (수동 입력 전용 — OCR는 추출하지 않음)
+  { key: 'cabinCategory', label: '객실 카테고리', placeholder: '발코니 / 내측 / 오션뷰' },
+  { key: 'airline', label: '항공', placeholder: '대한항공 KE123' },
+  { key: 'paymentDate', label: '최종 결제일', placeholder: 'YYYY-MM-DD' },
+  { key: 'paymentMethod', label: '결제 방법', placeholder: '카드 / 현금영수증 / 계좌이체' },
+  { key: 'paymentAmount', label: '결제 금액(원)', placeholder: '1500000' },
+  { key: 'notes', label: '메모', placeholder: '특이사항' },
 ] as const;
 
 type EditableKey =
@@ -166,6 +183,12 @@ const FIELD_LABELS: Record<string, string> = {
   phone: '연락처',
   roomNumber: '방 번호',
   isSingleCharge: '싱글차지',
+  cabinCategory: '객실 카테고리',
+  airline: '항공',
+  paymentDate: '최종 결제일',
+  paymentMethod: '결제 방법',
+  paymentAmount: '결제 금액',
+  notes: '메모',
 };
 
 // 경고 코드 → 한국어 + 색
@@ -364,6 +387,14 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
     issueDate: '',
     expiryDate: '',
     phone: '',
+    residentNum: '',
+    // APIS 매니페스트 운영필드 (수동 입력 전용)
+    cabinCategory: '',
+    airline: '',
+    paymentDate: '',
+    paymentMethod: '',
+    paymentAmount: '',
+    notes: '',
   });
 
   // 저장됨·되돌리기 토스트
@@ -805,11 +836,18 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
       '영문이름',
       '성별',
       '생년월일',
+      '주민번호',
       '국적',
       '여권번호',
       '발급일',
       '만료일',
       '연락처',
+      '객실카테고리',
+      '항공',
+      '결제일',
+      '결제방법',
+      '결제금액',
+      '메모',
       '담당자',
       '상태',
     ];
@@ -826,11 +864,18 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
             t.engGivenName,
             t.gender,
             t.birthDate,
+            t.residentNum, // 서버 마스킹값(앞 7자리만)
             t.nationality,
             t.passportNo,
             t.issueDate,
             t.expiryDate,
             t.phone,
+            t.cabinCategory,
+            t.airline,
+            t.paymentDate,
+            t.paymentMethod,
+            t.paymentAmount != null ? String(t.paymentAmount) : '',
+            t.notes,
             t.agentName,
             statusText,
           ]
@@ -879,6 +924,13 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
         issueDate: '',
         expiryDate: '',
         phone: '',
+        residentNum: '',
+        cabinCategory: '',
+        airline: '',
+        paymentDate: '',
+        paymentMethod: '',
+        paymentAmount: '',
+        notes: '',
       });
       showToast('탑승객을 추가했어요.', 'ok');
       await loadBoard();
@@ -1206,6 +1258,87 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
                       placeholder="010-0000-0000"
                       value={manualForm.phone}
                       onChange={(e) => setManualForm((f) => ({ ...f, phone: e.target.value }))}
+                      className="w-full rounded-xl border-2 border-gray-200 px-3 py-2 text-base focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-1">여권 발급일</label>
+                    <input
+                      type="text"
+                      placeholder="YYYY-MM-DD"
+                      value={manualForm.issueDate}
+                      onChange={(e) => setManualForm((f) => ({ ...f, issueDate: e.target.value }))}
+                      className="w-full rounded-xl border-2 border-gray-200 px-3 py-2 text-base focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-1">주민번호</label>
+                    <input
+                      type="text"
+                      placeholder="901010-1234567"
+                      value={manualForm.residentNum}
+                      onChange={(e) => setManualForm((f) => ({ ...f, residentNum: e.target.value }))}
+                      className="w-full rounded-xl border-2 border-gray-200 px-3 py-2 text-base focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-1">객실 카테고리</label>
+                    <input
+                      type="text"
+                      placeholder="발코니 / 내측 / 오션뷰"
+                      value={manualForm.cabinCategory}
+                      onChange={(e) => setManualForm((f) => ({ ...f, cabinCategory: e.target.value }))}
+                      className="w-full rounded-xl border-2 border-gray-200 px-3 py-2 text-base focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-1">항공</label>
+                    <input
+                      type="text"
+                      placeholder="대한항공 KE123"
+                      value={manualForm.airline}
+                      onChange={(e) => setManualForm((f) => ({ ...f, airline: e.target.value }))}
+                      className="w-full rounded-xl border-2 border-gray-200 px-3 py-2 text-base focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-1">최종 결제일</label>
+                    <input
+                      type="text"
+                      placeholder="YYYY-MM-DD"
+                      value={manualForm.paymentDate}
+                      onChange={(e) => setManualForm((f) => ({ ...f, paymentDate: e.target.value }))}
+                      className="w-full rounded-xl border-2 border-gray-200 px-3 py-2 text-base focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-1">결제 방법</label>
+                    <input
+                      type="text"
+                      placeholder="카드 / 현금영수증 / 계좌이체"
+                      value={manualForm.paymentMethod}
+                      onChange={(e) => setManualForm((f) => ({ ...f, paymentMethod: e.target.value }))}
+                      className="w-full rounded-xl border-2 border-gray-200 px-3 py-2 text-base focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-1">결제 금액(원)</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="1500000"
+                      value={manualForm.paymentAmount}
+                      onChange={(e) => setManualForm((f) => ({ ...f, paymentAmount: e.target.value }))}
+                      className="w-full rounded-xl border-2 border-gray-200 px-3 py-2 text-base focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-semibold text-gray-900 mb-1">메모</label>
+                    <input
+                      type="text"
+                      placeholder="특이사항"
+                      value={manualForm.notes}
+                      onChange={(e) => setManualForm((f) => ({ ...f, notes: e.target.value }))}
                       className="w-full rounded-xl border-2 border-gray-200 px-3 py-2 text-base focus:border-emerald-500 focus:outline-none"
                     />
                   </div>
@@ -1561,7 +1694,37 @@ function TravelerBlock({
           <span>여권 {maskPassport(traveler.passportNo)}</span>
           <span>생일 {maskBirth(traveler.birthDate)}</span>
           {traveler.gender && <span>{traveler.gender}</span>}
+          {/* 주민번호는 서버가 마스킹한 값(앞 7자리만) 그대로 표시 */}
+          {traveler.residentNum && <span>주민번호 {traveler.residentNum}</span>}
+          {traveler.issueDate && <span>발급일 {traveler.issueDate}</span>}
+          {traveler.nationality && <span>국적 {traveler.nationality}</span>}
         </div>
+
+        {/* APIS 운영정보 (객실/항공/결제) — 입력된 것만 표시 */}
+        {(traveler.cabinCategory ||
+          traveler.airline ||
+          traveler.paymentDate ||
+          traveler.paymentMethod ||
+          traveler.paymentAmount != null ||
+          traveler.companionGroupId != null ||
+          traveler.roomingGroupId != null) && (
+          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-gray-500">
+            {traveler.cabinCategory && <span>객실 {traveler.cabinCategory}</span>}
+            {traveler.airline && <span>항공 {traveler.airline}</span>}
+            {traveler.paymentDate && <span>결제일 {traveler.paymentDate}</span>}
+            {traveler.paymentMethod && <span>결제수단 {traveler.paymentMethod}</span>}
+            {traveler.paymentAmount != null && (
+              <span>결제금액 {traveler.paymentAmount.toLocaleString('ko-KR')}원</span>
+            )}
+            {traveler.companionGroupId != null && <span>일행그룹 {traveler.companionGroupId}</span>}
+            {traveler.roomingGroupId != null && <span>루밍그룹 {traveler.roomingGroupId}</span>}
+          </div>
+        )}
+
+        {/* 메모 — 입력된 경우만 */}
+        {traveler.notes && (
+          <div className="mt-1 text-sm text-gray-500">메모 {traveler.notes}</div>
+        )}
 
         {/* 담당자 / 최근 수정 / 이력 */}
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
@@ -1808,8 +1971,11 @@ function EditPanel({ traveler, canManage, onClose, onSaveField }: EditPanelProps
   // 로컬 편집값 (제어 컴포넌트) — 패널 열릴 때 traveler 기준 초기화
   const initial = useMemo(() => {
     const o: Record<string, string> = {};
+    const rec = traveler as unknown as Record<string, unknown>;
     for (const f of [...CORE_FIELDS, ...MORE_FIELDS]) {
-      o[f.key] = (traveler as unknown as Record<string, string>)[f.key] ?? '';
+      const v = rec[f.key];
+      // 숫자(예: paymentAmount)·null 모두 문자열로 정규화 (제어 input 안전)
+      o[f.key] = v == null ? '' : String(v);
     }
     return o;
   }, [traveler]);
@@ -1821,8 +1987,9 @@ function EditPanel({ traveler, canManage, onClose, onSaveField }: EditPanelProps
     async (key: EditableKey) => {
       if (!canManage) return;
       const next = values[key] ?? '';
-      const prev = (traveler as unknown as Record<string, string>)[key] ?? '';
-      if (next.trim() === (prev || '').trim()) return;
+      const prevRaw = (traveler as unknown as Record<string, unknown>)[key];
+      const prev = prevRaw == null ? '' : String(prevRaw); // 숫자(paymentAmount) 안전 처리
+      if (next.trim() === prev.trim()) return;
       setSavingKey(key);
       await onSaveField(traveler, key, next, prev);
       setSavingKey(null);

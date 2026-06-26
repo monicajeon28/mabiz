@@ -10,6 +10,23 @@ import { resolveActorGmUserId } from '@/lib/apis-traveler-write';
 import { Prisma } from '@prisma/client';
 
 /**
+ * 주민번호 마스킹: 앞 7자리(생년월일6+성별1)만 노출, 뒤는 가린다.
+ * 예: '901010-1234567' → '901010-1******'. board GET 과 동일 규칙.
+ * 평문 전체는 응답에 절대 싣지 않는다. 빈값이면 빈 문자열.
+ */
+function maskResidentNum(raw: string | null): string {
+  if (!raw) return '';
+  const digits = String(raw).replace(/\D/g, '');
+  if (digits.length === 0) return '';
+  const front = digits.slice(0, Math.min(7, digits.length));
+  const front6 = front.slice(0, 6);
+  const genderDigit = front.slice(6, 7);
+  const maskedTail = '*'.repeat(Math.max(0, 13 - front.length));
+  if (!genderDigit) return front6;
+  return `${front6}-${genderDigit}${maskedTail}`;
+}
+
+/**
  * POST /api/admin/apis/traveler/manual
  *
  * productCode만으로 탑승객 수동 추가.
@@ -71,6 +88,35 @@ export async function POST(req: NextRequest) {
       typeof body?.engSurname === 'string' ? body.engSurname.trim() || null : null;
     const engGivenName: string | null =
       typeof body?.engGivenName === 'string' ? body.engGivenName.trim() || null : null;
+    const nationality: string | null =
+      typeof body?.nationality === 'string' ? body.nationality.trim() || null : null;
+    const issueDate: string | null =
+      typeof body?.issueDate === 'string' ? body.issueDate.trim() || null : null;
+    const expiryDate: string | null =
+      typeof body?.expiryDate === 'string' ? body.expiryDate.trim() || null : null;
+    const residentNum: string | null =
+      typeof body?.residentNum === 'string' ? body.residentNum.trim() || null : null;
+    const notes: string | null =
+      typeof body?.notes === 'string' ? body.notes.trim() || null : null;
+    // APIS 매니페스트 운영필드 (수동 입력 전용 — OCR 미추출)
+    const cabinCategory: string | null =
+      typeof body?.cabinCategory === 'string' ? body.cabinCategory.trim() || null : null;
+    const airline: string | null =
+      typeof body?.airline === 'string' ? body.airline.trim() || null : null;
+    const paymentDate: string | null =
+      typeof body?.paymentDate === 'string' ? body.paymentDate.trim() || null : null;
+    const paymentMethod: string | null =
+      typeof body?.paymentMethod === 'string' ? body.paymentMethod.trim() || null : null;
+    // paymentAmount(Int?) — 빈값/콤마 허용 → 정수 또는 null
+    const paymentAmount: number | null = (() => {
+      const raw = body?.paymentAmount;
+      if (raw === null || raw === undefined) return null;
+      if (typeof raw === 'number') return Number.isFinite(raw) ? Math.trunc(raw) : null;
+      const s = String(raw).trim().replace(/[,\s]/g, '');
+      if (s === '') return null;
+      const n = Number(s);
+      return Number.isFinite(n) ? Math.trunc(n) : null;
+    })();
 
     // birthDate → YYYY-MM-DD 정규화
     const birthDateRaw = body?.birthDate;
@@ -241,6 +287,17 @@ export async function POST(req: NextRequest) {
           gender: gender || null,
           engSurname: engSurname || null,
           engGivenName: engGivenName || null,
+          nationality,
+          issueDate,
+          expiryDate,
+          residentNum,
+          notes,
+          // APIS 매니페스트 운영필드 (수동 입력 전용)
+          cabinCategory,
+          airline,
+          paymentDate,
+          paymentMethod,
+          paymentAmount,
           version: 0,
           updatedBy: resolvedActorId,
         },
@@ -275,9 +332,14 @@ export async function POST(req: NextRequest) {
       roomNumber,
     });
 
+    // 응답에 주민번호 평문이 실리지 않도록 마스킹(앞 7자리만). board GET 마스킹과 동일 규칙.
+    const travelerSafe = {
+      ...result.traveler,
+      residentNum: maskResidentNum(result.traveler.residentNum),
+    };
     return NextResponse.json({
       ok: true,
-      traveler: result.traveler,
+      traveler: travelerSafe,
       reservationId: result.reservationId,
     });
   } catch (err) {

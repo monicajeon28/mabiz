@@ -176,9 +176,30 @@ const EDITABLE_FIELDS = [
   'residentNum', 'gender', 'birthDate', 'passportNo', 'issueDate', 'expiryDate',
   'nationality', 'notes', 'phone', 'companionGroupId', 'roomingGroupId',
   'passportImage', 'passportDriveUrl',
+  // APIS 매니페스트 운영필드 (수동 입력 전용). paymentAmount 는 Int 컬럼이라 아래에서 숫자 정규화.
+  'cabinCategory', 'airline', 'paymentDate', 'paymentMethod', 'paymentAmount',
 ] as const;
 
 type EditableField = typeof EDITABLE_FIELDS[number];
+
+/** Int? 컬럼들 — 화이트리스트 통과 후 빈문자/콤마 제거 → 정수 또는 null 로 정규화. */
+const INT_FIELDS = new Set<EditableField>(['paymentAmount', 'roomNumber', 'companionGroupId', 'roomingGroupId']);
+
+/**
+ * Int 컬럼 입력값 정규화. UI가 문자열로 보낼 수 있는 paymentAmount 등을 안전하게 변환한다.
+ *  - '' / null / undefined → null (값 비우기 허용)
+ *  - '1,500,000' / '1500000' → 1500000
+ *  - 변환 불가 → null (잘못된 입력으로 쓰기 실패시키지 않음)
+ * roomNumber 는 0 이하가 들어오면 변환 결과가 무의미하므로 그대로 두되 NaN 만 거른다.
+ */
+function normalizeIntField(raw: unknown): number | null {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw === 'number') return Number.isFinite(raw) ? Math.trunc(raw) : null;
+  const s = String(raw).trim().replace(/[,\s]/g, '');
+  if (s === '') return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? Math.trunc(n) : null;
+}
 
 export interface WriteTravelerParams {
   travelerId: number;
@@ -200,10 +221,12 @@ export interface WriteTravelerParams {
 export async function writeTravelerWithAudit(params: WriteTravelerParams) {
   const { travelerId, changes, userId, expectedVersion, action } = params;
 
-  // 화이트리스트로 정제 (undefined 제외)
+  // 화이트리스트로 정제 (undefined 제외). Int 컬럼은 숫자/null 로 정규화한다.
   const safe: Record<string, unknown> = {};
   for (const k of EDITABLE_FIELDS) {
-    if (k in changes && changes[k] !== undefined) safe[k] = changes[k];
+    if (k in changes && changes[k] !== undefined) {
+      safe[k] = INT_FIELDS.has(k) ? normalizeIntField(changes[k]) : changes[k];
+    }
   }
 
   return prisma.$transaction(async (tx) => {
