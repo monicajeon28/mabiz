@@ -534,9 +534,11 @@ ${footerBlock}
     if (!title.trim()) setTitle(autoTitle);
     if (!slug.trim())  setSlug(autoSlug);
     const s = autoSlug;
+    // 이미지 업로드를 위해 먼저 임시(draft) 랜딩페이지를 만든다.
+    // isActive:false → 정식 저장(save) 전까지는 공개되지 않음. save()에서 isActive:true로 갱신.
     const res  = await fetch("/api/landing-pages", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: autoTitle, slug: s, htmlContent: "", editorMode: "image", groupId: selectedGroupId && selectedGroupId.trim() ? selectedGroupId : null }),
+      body: JSON.stringify({ title: autoTitle, slug: s, htmlContent: "", editorMode: "image", isActive: false, groupId: selectedGroupId && selectedGroupId.trim() ? selectedGroupId : null }),
     });
     const data = await res.json();
     if (!data.ok) { setError(data.message ?? "페이지 생성 실패"); return null; }
@@ -777,6 +779,8 @@ ${footerBlock}
     try {
       const common = {
         title, slug, groupId: selectedGroupId && selectedGroupId.trim() ? selectedGroupId : null,
+        // 정식 저장 시 draft(isActive:false)였던 페이지를 공개(true)로 전환
+        isActive: true,
         commentEnabled,
         commentConfig: commentEnabled ? { count: commentCount, dateFrom: commentDateFrom, dateTo: commentDateTo } : undefined,
         ...(exposureTitle  ? { exposureTitle }                                   : {}),

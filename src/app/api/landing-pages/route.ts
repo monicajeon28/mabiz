@@ -139,7 +139,7 @@ export async function POST(req: Request) {
 
     const {
       title, slug, htmlContent, groupId, editorMode, commentEnabled,
-      pageFormat, ctaType, smsDayRange, companyName,
+      pageFormat, ctaType, smsDayRange, companyName, isActive,
       ...rest
     } = body;
 
@@ -169,6 +169,9 @@ export async function POST(req: Request) {
           groupId: groupId ?? null,
           editorMode: mode,
           commentEnabled: commentEnabled === true,
+          // 신규페이지 임시(draft) 생성 시 isActive:false로 비공개 — 정식 저장 시 true로 갱신.
+          // (명시적으로 false를 보낼 때만 비활성. 미지정 시 스키마 기본값 true 유지 → 기존 동작 무파괴)
+          ...(isActive === false ? { isActive: false } : {}),
           // Phase 3: pageFormat + ctaType + imageFieldConfig + smsDayRange
           pageFormat: validFormat,
           ctaType: validCtaType,

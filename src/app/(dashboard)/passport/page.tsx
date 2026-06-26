@@ -91,6 +91,77 @@ function calcDday(departureDate: string | null): { label: string; urgent: boolea
   return { label: `D-${diff}`, urgent: diff <= 7 };
 }
 
+// 고객 행 전용: 문자 발송 없이 제출 링크만 생성→클립보드 복사 (50대용 큰 버튼)
+function CopyLinkButton({
+  userId,
+  target,
+  size = 'sm',
+}: {
+  userId: number;
+  target: 'passport' | 'pnr';
+  size?: 'sm' | 'md';
+}) {
+  const [state, setState] = useState<'idle' | 'loading' | 'copied'>('idle');
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
+  const handleClick = async () => {
+    if (state === 'loading') return;
+    setState('loading');
+    try {
+      const res = await fetch('/api/passport/admin/copy-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ userId, target }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok || !data.link) {
+        showError(data.error ?? '링크를 만들지 못했습니다.');
+        setState('idle');
+        return;
+      }
+      await navigator.clipboard.writeText(data.link);
+      setState('copied');
+      showSuccess(
+        target === 'pnr'
+          ? '항공 입력 링크를 복사했어요. 카카오톡 등으로 붙여넣어 보내세요.'
+          : '여권 제출 링크를 복사했어요. 카카오톡 등으로 붙여넣어 보내세요.',
+      );
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setState('idle'), 2500);
+    } catch {
+      showError('링크 복사에 실패했습니다. 다시 시도해 주세요.');
+      setState('idle');
+    }
+  };
+
+  const label = target === 'pnr' ? '항공 입력 링크 복사' : '제출 링크 복사';
+  const padding = size === 'md' ? 'px-3 py-2' : 'px-2.5 py-1.5';
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={state === 'loading'}
+      title="문자를 보내지 않고 링크만 복사합니다 (카카오톡 등으로 직접 전달)"
+      className={`flex items-center gap-1.5 ${padding} rounded-lg text-sm font-medium border transition-colors shrink-0 disabled:opacity-60 ${
+        state === 'copied'
+          ? 'bg-green-50 border-green-300 text-green-700'
+          : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'
+      }`}
+    >
+      {state === 'loading' ? (
+        <RefreshCw className="w-4 h-4 animate-spin" />
+      ) : state === 'copied' ? (
+        <Check className="w-4 h-4" />
+      ) : (
+        <Copy className="w-4 h-4" />
+      )}
+      {state === 'copied' ? '복사됨' : label}
+    </button>
+  );
+}
+
 function CopyButton({ text, label }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -682,6 +753,10 @@ export default function PassportPage() {
             <span className="text-sm text-blue-800">발송 버튼 클릭</span>
           </div>
         </div>
+        <p className="text-sm text-blue-700 mt-2 flex items-center gap-1.5">
+          <Copy className="w-3.5 h-3.5 shrink-0" />
+          문자 대신 직접 보내고 싶다면, 각 고객 줄의 <strong>&ldquo;제출 링크 복사&rdquo;</strong> 버튼을 눌러 카카오톡 등으로 붙여넣어 보내세요.
+        </p>
       </div>
 
       {/* 통계 — Tailwind 클래스 하드코딩 (동적 클래스는 Vercel 빌드에서 사라짐) */}
@@ -1260,8 +1335,11 @@ function CustomerRow({
           )}
         </div>
         {/* 상태 */}
-        <div className="col-span-2 min-w-0">
+        <div className="col-span-2 min-w-0 space-y-1.5">
           <PassportStatusBadge status={c.submissionStatus} dday={dday} />
+          {!isSubmitted && (
+            <CopyLinkButton userId={c.id} target="passport" />
+          )}
         </div>
         {/* 상세 보기 버튼 */}
         <div className="col-span-1 flex justify-end">
@@ -1306,6 +1384,11 @@ function CustomerRow({
               </span>
             )}
           </div>
+          {!isSubmitted && (
+            <div className="mt-2">
+              <CopyLinkButton userId={c.id} target="passport" size="md" />
+            </div>
+          )}
         </div>
         <button
           onClick={() => setOpen(v => !v)}
@@ -1392,6 +1475,14 @@ function CustomerRow({
                   </div>
                 )
               )}
+            </div>
+          )}
+
+          {/* ── 링크 직접 복사 (문자 없이 카카오톡 등으로 전달) ─────── */}
+          {!isSubmitted && (
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <CopyLinkButton userId={c.id} target="passport" size="md" />
+              {c.latestTrip && <CopyLinkButton userId={c.id} target="pnr" size="md" />}
             </div>
           )}
 

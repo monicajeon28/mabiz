@@ -1119,7 +1119,7 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
             </table>
           </div>
 
-          {/* 수동 탑승객 추가 버튼 */}
+          {/* 수동 탑승객 추가 버튼 (빈 상태) — 모달은 컴포넌트 하단 공용 위치에서 렌더 */}
           {canManage && !problemFilter && (
             <div className="flex justify-end">
               <button
@@ -1132,9 +1132,46 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
               </button>
             </div>
           )}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-4">
+          {filteredRooms.map((room) => (
+            <RoomCard
+              key={`${room.reservationId}-${room.roomNumber}`}
+              room={room}
+              canManage={canManage}
+              roomOptions={roomOptions}
+              departureDate={departureDate}
+              onEdit={(id) => setEditingId(id)}
+              onMove={moveRoom}
+              onHistory={(t) => setHistoryId(t.id)}
+              onDelete={deleteTraveler}
+              onAddCompanion={(reservationId) =>
+                setAddTarget({ reservationId, roomNumber: room.roomNumber })
+              }
+              onSaleConfirm={handleSaleConfirmRequest}
+              saleConfirmLoading={saleConfirmLoading.has(room.reservationId)}
+            />
+          ))}
 
-          {/* 수동 추가 모달 */}
-          {addingManual && (
+          {/* 수동 탑승객 추가 — 방이 이미 있어도 새 탑승객을 직접 추가 */}
+          {canManage && !problemFilter && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setAddingManual(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700"
+              >
+                <UserPlus className="w-4 h-4" />
+                탑승객 수동 추가
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 수동 추가 모달 — 빈 상태/목록 양쪽에서 공용 사용 */}
+      {addingManual && canManage && (
             <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
               <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl">
                 <div className="flex items-center justify-between mb-4">
@@ -1361,29 +1398,6 @@ export default function ApisBoard({ productCode, canManage }: ApisBoardProps) {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      ) : (
-        <div className="flex flex-col gap-4">
-          {filteredRooms.map((room) => (
-            <RoomCard
-              key={`${room.reservationId}-${room.roomNumber}`}
-              room={room}
-              canManage={canManage}
-              roomOptions={roomOptions}
-              departureDate={departureDate}
-              onEdit={(id) => setEditingId(id)}
-              onMove={moveRoom}
-              onHistory={(t) => setHistoryId(t.id)}
-              onDelete={deleteTraveler}
-              onAddCompanion={(reservationId) =>
-                setAddTarget({ reservationId, roomNumber: room.roomNumber })
-              }
-              onSaleConfirm={handleSaleConfirmRequest}
-              saleConfirmLoading={saleConfirmLoading.has(room.reservationId)}
-            />
-          ))}
-        </div>
       )}
 
       {/* 슬라이드 편집 패널 */}
