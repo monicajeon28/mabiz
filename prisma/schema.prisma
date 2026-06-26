@@ -503,6 +503,9 @@ model Contact {
   @@index([partnerId])
   @@index([deletedAt])
   @@index([userId])
+  // 목록 성능(2026-06-26): 조직격리 + 소프트삭제 필터 후 기본(id)·구매(purchasedAt) 정렬 커버
+  @@index([organizationId, deletedAt, id], map: "idx_contact_org_deleted_id")
+  @@index([organizationId, deletedAt, purchasedAt], map: "idx_contact_org_deleted_purchased")
   @@index([organizationId, assignedUserId], map: "idx_contact_org_assigned")
   @@index([organizationId, channel], map: "idx_contact_org_channel")
   @@index([organizationId, signupCount(sort: Desc)], map: "idx_contact_recontact") // 재신청자 추적
