@@ -95,17 +95,33 @@ export default function ApprovalQueueTab() {
     );
   }
 
+  const guideCard = (
+    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+      <p className="text-base font-semibold text-emerald-800">
+        승인대기는 어떤 곳인가요?
+      </p>
+      <p className="mt-2 text-base leading-relaxed text-emerald-900">
+        대리점장이 올린 서류(구매확인증·환불인증서·비교견적서)를 관리자가 확인하고 승인하는 곳입니다.
+        여기서 승인하면 정식 발급되고 고객에게 승인 안내 메일이 자동으로 발송됩니다. 거절하면 발급되지 않습니다.
+      </p>
+    </div>
+  );
+
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-xl border border-gray-200 bg-white py-16 text-gray-500">
-        <FileText className="mb-2 h-10 w-10" />
-        <p className="text-sm">승인 대기 중인 서류가 없습니다.</p>
+      <div className="space-y-3">
+        {guideCard}
+        <div className="flex flex-col items-center justify-center rounded-xl border border-gray-200 bg-white py-16 text-gray-500">
+          <FileText className="mb-2 h-10 w-10" />
+          <p className="text-sm">승인 대기 중인 서류가 없습니다.</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-3">
+      {guideCard}
       <p className="text-sm text-gray-500">
         대리점장이 발급해 승인 대기 중인 서류입니다. 승인하면 고객에게 승인 안내 메일이 발송됩니다.
       </p>

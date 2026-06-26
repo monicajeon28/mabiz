@@ -59,6 +59,7 @@ export async function GET(req: NextRequest) {
           name: true,
           email: true,
           phone: true,
+          address: true,
           status: true,
           metadata: true,
           createdAt: true,

@@ -1,7 +1,7 @@
 ﻿"use client";
 import { useState, useEffect } from "react";
 import { Copy, Check, Link2, Plus, MousePointer, X, Users } from "lucide-react";
-import { showError } from "@/components/ui/Toast";
+import { showError, showSuccess } from "@/components/ui/Toast";
 
 type ShortLink = {
   id: string; code: string; title: string | null;
@@ -121,8 +121,21 @@ export default function LinksPage() {
           autoGroupId: selectedGroup?.id ?? null,
         }),
       });
-      const d = await res.json() as { ok: boolean };
+      const d = await res.json() as { ok: boolean; link?: { code?: string } };
       if (!d.ok) throw new Error();
+      // 생성된 링크 자동 복사 + 알림
+      const newCode = d.link?.code;
+      if (newCode) {
+        const newUrl = `${APP_URL}/l/${newCode}`;
+        try {
+          await navigator.clipboard.writeText(newUrl);
+          showSuccess(`${newUrl} 링크가 복사되었어요`, '링크 생성 완료');
+        } catch {
+          showSuccess('링크가 생성되었어요', '링크 생성 완료');
+        }
+      } else {
+        showSuccess('링크가 생성되었어요', '링크 생성 완료');
+      }
       resetForm();
       load();
     } catch { showError('링크 생성 실패'); }

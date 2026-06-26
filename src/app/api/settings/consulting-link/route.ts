@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
-import { nanoid } from 'nanoid';
+import { generateUniqueShortlink } from '@/lib/landing-page-utils';
 
 // GET: 내 상담 링크 조회
 export async function GET() {
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
         data: {
           organizationId: orgId,
           createdBy: ctx.userId,
-          code: nanoid(6),
+          code: await generateUniqueShortlink(),
           targetUrl: targetUrl.trim(),
           title: title?.trim() || '내 상담 링크',
           category: 'consulting',

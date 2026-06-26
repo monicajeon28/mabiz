@@ -8,6 +8,7 @@ import { useToast } from "@/lib/api/use-toast";
 import { useSession } from "@/hooks/useSession";
 import type { Contact as FullContact, InquiryTracking } from "@/types/contact";
 import { formatInquiryTrackingSummary } from "@/lib/contact-inquiry-tracking";
+import { SOURCE_TYPE_LABELS, TYPE_LABELS } from "@/lib/contact-labels";
 
 // P1-21: Code-split large components for TTI optimization
 const GroupBlastModal = lazy(() => import('./GroupBlastModal'));
@@ -56,15 +57,7 @@ type Contact = {
 type ContactTab = 'SHARED' | 'ADMIN_ONLY' | 'TEAM';
 type AssignStat = { userId: string; displayName: string; role: string; count: number };
 
-// P0-6: 출처별 라벨 및 색상
-const SOURCE_TYPE_LABELS: Record<string, { label: string; icon: string; color: string }> = {
-  user: { label: "구매고객", icon: "🟢", color: "bg-green-50 text-green-700" },
-  inquiry: { label: "상품문의", icon: "📋", color: "bg-blue-50 text-blue-700" },
-  affiliate: { label: "파트너채널", icon: "🟡", color: "bg-yellow-50 text-yellow-700" },
-  landing_page: { label: "랜딩페이지", icon: "🔵", color: "bg-cyan-50 text-cyan-700" },
-  education: { label: "교육", icon: "🎓", color: "bg-purple-50 text-purple-700" },
-  gold_member: { label: "골드회원", icon: "👑", color: "bg-amber-50 text-amber-700" },
-};
+// P0-6: 출처별 라벨/상태 라벨은 SSoT(@/lib/contact-labels)에서 import — 알림벨과 공유
 
 const getLeadTier = (score: number) => {
   if (score >= 70) return { label: "🔥 뜨거움",  color: "bg-red-100 text-red-700" };
@@ -74,29 +67,6 @@ const getLeadTier = (score: number) => {
 };
 
 type QuickCallResult = "INTERESTED" | "PENDING" | "REJECTED";
-
-const TYPE_LABELS: Record<string, { label: string; color: string }> = {
-  // 신규 상태값
-  "잠재고객":  { label: "잠재고객",  color: "bg-blue-100 text-blue-700" },
-  "문자":      { label: "문자",      color: "bg-sky-100 text-sky-700" },
-  "부재":      { label: "부재",      color: "bg-yellow-100 text-yellow-700" },
-  "3일부재":   { label: "3일부재",   color: "bg-orange-100 text-orange-700" },
-  "소통":      { label: "소통",      color: "bg-purple-100 text-purple-700" },
-  "구매완료":  { label: "구매완료",  color: "bg-green-100 text-green-700" },
-  "VIP":       { label: "👑 특별한 고객",       color: "bg-gold-100 text-gold-700 font-bold" },
-  "수신거부":  { label: "수신거부",  color: "bg-gray-100 text-gray-500" },
-  // 기존 영문 코드 → 한국어 (하위 호환)
-  LEAD:         { label: "잠재고객",  color: "bg-blue-100 text-blue-700" },
-  PROSPECT:     { label: "잠재고객",  color: "bg-blue-100 text-blue-700" },
-  INQUIRY:      { label: "문의고객",  color: "bg-sky-100 text-sky-700" },
-  CUSTOMER:     { label: "구매완료",  color: "bg-green-100 text-green-700" },
-  PURCHASED:    { label: "구매완료",  color: "bg-green-100 text-green-700" },
-  GOLD:         { label: "👑 골드회원", color: "bg-amber-100 text-amber-700" },
-  ACTIVE:       { label: "활성",      color: "bg-green-100 text-green-700" },
-  INACTIVE:     { label: "비활성",    color: "bg-gray-100 text-gray-500" },
-  UNSUBSCRIBED: { label: "수신거부",  color: "bg-gray-100 text-gray-500" },
-  BLOCKED:      { label: "차단됨",    color: "bg-red-100 text-red-600" },
-};
 
 const QUICK_CALL_OPTIONS: { result: QuickCallResult; label: string; icon: React.ReactNode; color: string }[] = [
   { result: "INTERESTED", label: "관심", icon: <CheckCircle className="w-3.5 h-3.5" />, color: "bg-green-100 text-green-700 hover:bg-green-200" },

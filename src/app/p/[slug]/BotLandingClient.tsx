@@ -321,15 +321,20 @@ export default function BotLandingClient({
         <div className="flex flex-1 flex-col px-5 py-6">
           <div className="mx-auto flex w-full max-w-md flex-1 flex-col">
             {/* 진행점 — 끝이 보이게 */}
-            <div className="mb-4 flex items-center justify-center gap-2">
-              {GUIDE_CARDS.map((_, i) => (
-                <span
-                  key={i}
-                  className={`h-2.5 rounded-full transition-all ${
-                    i === guideStep ? "w-6 bg-[#2563EB]" : "w-2.5 bg-slate-300"
-                  }`}
-                />
-              ))}
+            <div className="mb-4 flex flex-col items-center justify-center gap-1.5">
+              <div className="flex items-center justify-center gap-2">
+                {GUIDE_CARDS.map((_, i) => (
+                  <span
+                    key={i}
+                    className={`h-2.5 rounded-full transition-all ${
+                      i === guideStep ? "w-6 bg-[#2563EB]" : "w-2.5 bg-slate-300"
+                    }`}
+                  />
+                ))}
+              </div>
+              <span className="text-sm font-semibold text-slate-500">
+                {Math.min(guideStep, GUIDE_CARDS.length - 1) + 1}/{GUIDE_CARDS.length}단계
+              </span>
             </div>
             <h2 className="text-xl font-bold leading-relaxed text-[#1E2D4E]">
               {guideCard.title}
@@ -380,7 +385,11 @@ export default function BotLandingClient({
                     src={publicImageUrl(img.fileId)}
                     alt={img.label}
                     loading="lazy"
-                    className="w-full rounded-2xl border border-slate-200 shadow-sm"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                    style={{ aspectRatio: "4 / 3", minHeight: 180 }}
+                    className="w-full rounded-2xl border border-slate-200 object-cover shadow-sm"
                   />
                 );
               })}
@@ -401,6 +410,16 @@ export default function BotLandingClient({
                   className="flex min-h-[48px] w-full items-center justify-center rounded-2xl border-2 border-[#1E2D4E] px-5 text-base font-bold text-[#1E2D4E] transition active:scale-[0.99]"
                 >
                   {guideCard.secondaryLabel}
+                </button>
+              )}
+              {/* 이전 단계로 — 첫 단계가 아닐 때만 */}
+              {guideStep > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setGuideStep((s) => Math.max(s - 1, 0))}
+                  className="flex min-h-[48px] w-full items-center justify-center rounded-2xl border border-slate-300 px-5 text-base font-medium text-slate-600 transition active:scale-[0.99]"
+                >
+                  ← 이전
                 </button>
               )}
               {/* 작게 — 그냥 둘러보기(AI 채팅 비상구) */}
@@ -528,7 +547,11 @@ export default function BotLandingClient({
         <div className="flex flex-1 flex-col justify-center px-5 py-8">
           <div className="mx-auto w-full max-w-md">
             {/* 즉시 피드백 — 접수 확인 */}
-            <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-4 text-base leading-relaxed text-emerald-900">
+            <div
+              role="status"
+              aria-live="polite"
+              className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-4 text-base leading-relaxed text-emerald-900"
+            >
               ✅ 접수됐어요! 담당자가 곧 연락드릴게요 😊
             </div>
             {/* 접수 직후 보상 — 라이브방송 후킹(링크만 들고 이탈 방지 위해 여기서 처음 노출) */}
@@ -578,7 +601,11 @@ export default function BotLandingClient({
                           src={img.url}
                           alt={img.label || "안내 사진"}
                           loading="lazy"
-                          className="w-full max-w-full rounded-2xl border border-slate-200 shadow-sm"
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                          }}
+                          style={{ aspectRatio: "4 / 3", minHeight: 160 }}
+                          className="w-full max-w-full rounded-2xl border border-slate-200 object-cover shadow-sm"
                         />
                       ))}
                     </div>
@@ -594,7 +621,7 @@ export default function BotLandingClient({
             )}
 
             {loading && (
-              <div className="flex justify-start">
+              <div className="flex justify-start" role="status" aria-live="polite">
                 <div className="rounded-2xl rounded-tl-sm bg-white px-4 py-3 shadow-sm">
                   <span className="inline-flex gap-1">
                     <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.3s]" />
@@ -676,7 +703,11 @@ export default function BotLandingClient({
         <div className="flex flex-1 flex-col justify-center px-5 py-8">
           <div className="mx-auto w-full max-w-md">
             {applied && (
-              <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-4 text-base leading-relaxed text-emerald-900">
+              <div
+                role="status"
+                aria-live="polite"
+                className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-4 text-base leading-relaxed text-emerald-900"
+              >
                 ✅ 신청이 접수됐어요. 담당자가 곧 연락드릴게요. 감사합니다 😊
               </div>
             )}
