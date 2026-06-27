@@ -164,18 +164,20 @@ function DocSlot({ label, src, status }: { label: string; src: string | null; st
 
 // ── 상세 모달 ──────────────────────────────────────────────────────────
 function DetailModal({
-  app, actionLoading, onApprove, onReject, onClose,
+  app, actionLoading, onApprove, onReject, onCreateAccount, onClose,
 }: {
   app: Application;
   actionLoading: number | null;
   onApprove: (id: number) => void;
   onReject: (id: number, reason: string) => void;
+  onCreateAccount: (id: number) => void;
   onClose: () => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
   const meta = app.metadata;
+  const am = meta as Record<string, unknown> | null; // 동적 메타(documentsSubmittedAt·accountCreated 등)
   const statusCfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG.submitted;
   const busy = actionLoading === app.id;
   const isPending = app.status === 'submitted';
@@ -363,10 +365,20 @@ function DetailModal({
             )}
           </div>
         ) : (
-          <div className="flex-shrink-0 border-t border-gray-100 bg-white px-5 py-4">
+          <div className="flex-shrink-0 border-t border-gray-100 bg-white px-5 py-4 space-y-2">
             <div className={`flex items-center justify-center gap-1.5 text-sm font-medium px-3 py-2 rounded-xl border ${statusCfg.color}`}>
               {statusCfg.icon}{statusCfg.label}
             </div>
+            {/* 서류 제출 완료 + 미발급 → 계정 생성(최종 승인). 서류는 위 '첨부 서류'에서 확인 후. */}
+            {app.status === 'APPROVED' && Boolean(am?.documentsSubmittedAt) && !am?.accountCreated && (
+              <button onClick={() => onCreateAccount(app.id)} disabled={busy}
+                className="w-full py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 transition disabled:opacity-60 flex items-center justify-center gap-1.5">
+                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} 서류 확인 완료 — 계정 생성
+              </button>
+            )}
+            {Boolean(am?.accountCreated) && (
+              <p className="text-center text-sm text-emerald-600 font-medium">✅ 계정 발급됨 (아이디: {String(am?.presalesPartnerId ?? '')})</p>
+            )}
           </div>
         )}
       </div>
@@ -518,6 +530,31 @@ export default function PartnerApplicationsClient({ initialRole: _initialRole }:
     }
   }, [actionLoading, applyLocal, showToast]);
 
+  // 서류 확인 후 무료 파트너스 계정 생성(최종 승인)
+  const handleCreateAccount = useCallback(async (id: number) => {
+    if (actionLoading !== null) return;
+    setActionLoading(id);
+    try {
+      const res = await fetch(`/api/affiliate/contracts/${id}/presales-create-account`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (data?.ok) {
+        applyLocal(id, 'APPROVED', { accountCreated: true, presalesPartnerId: data?.data?.partnerId });
+        showToast(data?.message || '계정이 생성되었습니다.', 'success');
+        if (data?.data?.tempPassword) {
+          window.alert(`이메일 미발송 — 아이디: ${data.data.partnerId} / 임시비번: ${data.data.tempPassword}\n신청자에게 직접 전달하세요.`);
+        }
+      } else {
+        showToast(data?.message || '계정 생성 실패', 'error');
+      }
+    } catch {
+      showToast('오류가 발생했습니다.', 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  }, [actionLoading, applyLocal, showToast]);
+
   const handleReject = useCallback(async (id: number, reason: string) => {
     if (actionLoading !== null) return;
     setActionLoading(id);
@@ -636,6 +673,7 @@ export default function PartnerApplicationsClient({ initialRole: _initialRole }:
           actionLoading={actionLoading}
           onApprove={handleApprove}
           onReject={handleReject}
+          onCreateAccount={handleCreateAccount}
           onClose={() => setSelectedId(null)}
         />
       )}

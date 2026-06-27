@@ -840,6 +840,106 @@ export async function provisionSingleGradeAccount(
   return { ...result, linkUrl, tempPassword, grade, gradeLabel: cfg.label };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 무료 파트너스(pre-sales) 계정 — 크루즈닷 몰 판매용 (2026-06-27)
+//   330만 마케터 모집 신청서 승인+서류제출 완료 시, 무료로 크루즈닷 몰에서 팔 수 있는
+//   계정(아이디·비번) 발급. ⚠️ CRM 로그인(OrganizationMember)은 부여 안 함 — 크루즈닷 몰 셀러.
+//   GmUser(pre 아이디) + PRESALES 프로필 + 링크 + Supabase/크루즈닷 동기화. 멱등=호출측(complete) 보장.
+// ═══════════════════════════════════════════════════════════════════════════
+export interface FreePresalesProvisionInput {
+  contractId: number;
+  contractorName: string;
+  contractorEmail: string;
+  contractorPhone: string;
+}
+export interface FreePresalesProvisionResult {
+  gmUserId: number;
+  partnerId: string;
+  affiliateCode: string;
+  linkCode: string;
+  linkUrl: string;
+  tempPassword: string;
+}
+export async function provisionFreePresalesAccount(
+  input: FreePresalesProvisionInput,
+): Promise<FreePresalesProvisionResult> {
+  const { contractId, contractorName, contractorEmail, contractorPhone } = input;
+  const cruisedotBaseUrl = process.env.CRUISEDOT_BASE_URL;
+  if (!cruisedotBaseUrl) throw new Error('CRUISEDOT_BASE_URL 환경변수가 설정되지 않았습니다.');
+
+  const tempPassword = randomBytes(6).toString('base64url').slice(0, 8);
+  const passwordHash = await hashPassword(tempPassword);
+
+  const result = await prisma.$transaction(async (tx) => {
+    const partnerId = await generateUniquePartnerId('pre', tx);
+    const gmUser = await tx.gmUser.create({
+      data: {
+        name: `${contractorName} 파트너스`,
+        email: contractorEmail || null,
+        phone: partnerId,
+        password: passwordHash,
+        role: 'affiliate_presales',
+        isPasswordSet: true,
+      },
+    });
+    const affiliateCode = await generateUniqueAffiliateCode('PRE', tx);
+    const profile = await tx.gmAffiliateProfile.create({
+      data: {
+        userId: gmUser.id,
+        type: 'PRESALES_AGENT',
+        status: 'ACTIVE',
+        contractStatus: 'SIGNED',
+        displayName: `${contractorName} 파트너스`,
+        contactPhone: contractorPhone,
+        contactEmail: contractorEmail,
+        affiliateCode,
+        agentCommissionRate: null,
+        contractSignedAt: new Date(),
+        onboardedAt: new Date(),
+        publishedAt: new Date(),
+      },
+    });
+    const linkCode = await generateUniqueLinkCode(tx);
+    await tx.gmAffiliateLink.create({
+      data: { agentId: profile.id, code: linkCode, status: 'ACTIVE', issuedById: gmUser.id, metadata: { role: 'PRESALES_AGENT', grade: 'FREE_PRESALES' } },
+    });
+    await tx.gmAffiliateContract.update({ where: { id: contractId }, data: { userId: gmUser.id } });
+    return { gmUserId: gmUser.id, partnerId, affiliateCode, linkCode };
+  }, { timeout: 30000 });
+
+  const linkUrl = `${cruisedotBaseUrl}?ref=${result.linkCode}`;
+
+  // Supabase 동기화 (best-effort)
+  const supabaseUrl = process.env.SUPABASE_BACKUP_URL;
+  if (supabaseUrl) {
+    try {
+      const supabaseClient = new PgClient({ connectionString: supabaseUrl });
+      await supabaseClient.connect();
+      try {
+        await syncUserToSupabase(supabaseClient, { userId: result.gmUserId, partnerId: result.partnerId, passwordHash, name: `${contractorName} 파트너스`, role: 'affiliate_presales', email: contractorEmail });
+      } catch (e) {
+        logger.warn('[FREE-PRESALES] Supabase 동기화 실패', { gmUserId: result.gmUserId, e: e instanceof Error ? e.message : String(e) });
+      } finally { await supabaseClient.end(); }
+    } catch (e) { logger.error('[FREE-PRESALES] Supabase 네트워크 오류', { e: e instanceof Error ? e.message : String(e) }); }
+  }
+
+  // 크루즈닷 몰 어필리에이트 등록 (best-effort)
+  const provisionUrl = process.env.INTERNAL_PROVISION_URL;
+  if (provisionUrl) {
+    try {
+      await fetch(`${provisionUrl}/api/integration/affiliate/mabiz-upsert`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': process.env.CRUISEDOT_WEBHOOK_SECRET ?? '' },
+        body: JSON.stringify({ affiliates: [{ role: 'presales', partnerId: result.partnerId, affiliateCode: result.affiliateCode, linkCode: result.linkCode, linkUrl, name: contractorName, phone: contractorPhone, email: contractorEmail ?? null }], contractId }),
+        signal: AbortSignal.timeout(15_000),
+      });
+    } catch (e) { logger.error('[FREE-PRESALES] 크루즈닷 네트워크 오류', { contractId, e }); }
+  }
+
+  logger.info('[FREE-PRESALES] 무료 파트너스 계정 생성', { contractId, gmUserId: result.gmUserId, partnerId: result.partnerId });
+  return { ...result, linkUrl, tempPassword };
+}
+
 // ── 내부 유틸 ────────────────────────────────────────────────────
 
 // Supabase User INSERT/UPDATE 헬퍼 — 3개 역할(Manager/Agent/Presales)에서 공통 사용
