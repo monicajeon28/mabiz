@@ -44,6 +44,18 @@ async function validateAgent(
 }
 
 /**
+ * 페이지(랜딩) 소유자가 그 조직의 활성 판매자인지 검증해 귀속 대상으로 반환.
+ * 버튼 게이트(복제봇 개인링크)는 ref 가 불안정하므로 createdByUserId 를 귀속에 쓰되,
+ * 비활성·이관된 소유자가 그대로 박히지 않게 이 검증을 통과시킨다.
+ */
+export async function resolvePageOwnerAgent(
+  createdBy: string | null,
+  organizationId: string,
+): Promise<string | null> {
+  return validateAgent(createdBy, organizationId);
+}
+
+/**
  * 진입 귀속 해결 — 클라이언트 입력을 신뢰하지 않고 서버가 ShortLink 를 재조회·검증한다.
  * @param shortLinkCode 현재 진입 추적코드(?ref= 또는 /p/{shortlink})
  * @param visitToken    최근 접촉 쿠키(=ShortLink.id, /l 리다이렉트가 설정) → last_touch 폴백
@@ -51,14 +63,19 @@ async function validateAgent(
 export async function resolveAttribution(input: {
   shortLinkCode?: string | null;
   visitToken?: string | null;
+  /** 봇이 떠 있는 랜딩의 조직(권위) — 있으면 폴백 조회를 이 org 로 가둬 크로스조직 오귀속 차단. */
+  pageOrganizationId?: string | null;
 }): Promise<AttributionResult> {
   const code = input.shortLinkCode?.trim() || null;
   const visit = input.visitToken?.trim() || null;
+  const pageOrg = input.pageOrganizationId?.trim() || null;
+  // pageOrg 있으면 숏링크/last_touch 를 그 org 로 제한(타 조직 코드/쿠키 매칭 차단).
+  const orgScope = pageOrg ? { organizationId: pageOrg } : {};
 
   // 1) 현재 숏링크(최우선)
   if (code) {
     const link = await prisma.shortLink.findFirst({
-      where: { code, isActive: true },
+      where: { code, isActive: true, ...orgScope },
       select: { code: true, createdBy: true, organizationId: true },
     });
     if (link) {
@@ -67,7 +84,7 @@ export async function resolveAttribution(input: {
         return {
           attributedAgentId: agentId,
           attributionSource: "shortlink",
-          organizationId: link.organizationId,
+          organizationId: pageOrg ?? link.organizationId,
           shortLinkCode: link.code,
         };
       }
@@ -77,7 +94,7 @@ export async function resolveAttribution(input: {
   // 2) 최근 접촉 대리점장(last_touch) — 사용자 확정 폴백
   if (visit) {
     const link = await prisma.shortLink.findFirst({
-      where: { id: visit, isActive: true },
+      where: { id: visit, isActive: true, ...orgScope },
       select: { code: true, createdBy: true, organizationId: true },
     });
     if (link) {
@@ -86,18 +103,18 @@ export async function resolveAttribution(input: {
         return {
           attributedAgentId: agentId,
           attributionSource: "last_touch",
-          organizationId: link.organizationId,
+          organizationId: pageOrg ?? link.organizationId,
           shortLinkCode: link.code,
         };
       }
     }
   }
 
-  // 3) 무귀속 — null 을 조용히 삼키지 말고 source=none 으로 가시화(리포트에서 무귀속 집계)
+  // 3) 무귀속 — null 을 조용히 삼키지 말고 source=none 으로 가시화. org 는 페이지 org 보존.
   return {
     attributedAgentId: null,
     attributionSource: "none",
-    organizationId: null,
+    organizationId: pageOrg,
     shortLinkCode: code,
   };
 }

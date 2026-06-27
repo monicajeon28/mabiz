@@ -36,6 +36,9 @@ export async function GET() {
         intentScore: true,
         closeAttempts: true,
         attributionSource: true,
+        source: true, // chat | button_gate
+        qualifiers: true, // {when,who} — 버튼 플로우 자격검증(공략 설계도)
+        objectionTags: true, // 누적 반론 태그
         customerPhone: true,
         customerName: true,
         lastMessageAt: true,
@@ -55,6 +58,10 @@ export async function GET() {
       intentScore: c.intentScore,
       closeAttempts: c.closeAttempts,
       attributionSource: c.attributionSource,
+      source: c.source, // 출처(상담봇 채팅 vs 버튼 신청)
+      // 핫DB 공략 설계도 — 희망(시기·동행) + 관심·걱정(반론). 판매원 콜 준비용.
+      qualifiers: (c.qualifiers as { when?: string; who?: string } | null) ?? null,
+      objectionTags: Array.isArray(c.objectionTags) ? (c.objectionTags as string[]) : [],
       hasPhone: !!c.customerPhone,
       customerPhoneMasked: c.customerPhone ? maskPhone(c.customerPhone) : null,
       customerName: c.customerName,

@@ -14,6 +14,8 @@ import sanitizeHtml from "sanitize-html";
 import { replaceMessagePlaceholders } from "@/lib/message-replacements";
 import { scheduleDay0To3Sms } from "@/lib/landing-page-sms-scheduler";
 import { computeFlowHeat, type FlowPathStep, type FlowHeatResult } from "@/lib/bot-flow";
+import { rlIncr } from "@/lib/redis";
+import { resolvePageOwnerAgent } from "@/lib/bot-attribution";
 
 // [P1-11] FormConfig Zod 검증 스키마
 // .passthrough()로 미래의 알 수 없는 키도 허용 (strict() 제거로 b2bEduType 파싱 실패 해결)
@@ -44,6 +46,20 @@ export async function POST(req: Request, { params }: Params) {
     // 클라가 보낸 점수는 신뢰하지 않고 경로만 받아 computeFlowHeat 로 재산출.
     const metaObj = (metadata ?? {}) as Record<string, unknown>;
     const isBotGate = metaObj.flow === "bot-gate";
+    // 광고 수신 동의(정보통신망법) — false 명시면 마케팅 발송(Day0-3·퍼널 SMS/이메일) 차단.
+    //   consent 없는 레거시 랜딩은 기존대로(true 취급). 상담 알림·거래성은 동의와 무관하게 발송.
+    const consentObj = (metaObj.consent ?? null) as { privacy?: boolean; ad?: boolean } | null;
+    const adConsentOk = !consentObj || consentObj.ad !== false;
+
+    // 레이트리밋 — 무인증 공개 엔드포인트. IP+페이지 분당 과다 제출 차단(담당자 SMS 증폭·DB 오염 방어).
+    {
+      const rlIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+      const n = await rlIncr(`landing:reg:${landingPageId}:${rlIp}`, 60);
+      if (n !== null && n > 8) {
+        logger.warn("[LandingRegister] 레이트리밋 초과", { landingPageId, ip: rlIp.slice(0, 20) });
+        return NextResponse.json({ ok: false, message: "잠시 후 다시 시도해 주세요." }, { status: 429 });
+      }
+    }
     let flowHeat: FlowHeatResult | null = null;
     if (isBotGate && Array.isArray(metaObj.flowPath)) {
       try {
@@ -547,9 +563,11 @@ export async function POST(req: Request, { params }: Params) {
       //   best-effort(after) — 실패해도 신청 등록은 유지. (notifyAgent SMS는 위에서 이미 발송)
       if (isBotGate && flowHeat) {
         const heatSnapshot = flowHeat;
-        const agentId = landingPage.createdByUserId ?? null;
+        const createdBy = landingPage.createdByUserId ?? null;
         after(async () => {
           try {
+            // 귀속 검증 — 페이지 소유자(담당자)가 그 org 활성 판매자일 때만 귀속(비활성·이관 방어, 크로스조직 차단)
+            const agentId = await resolvePageOwnerAgent(createdBy, orgId);
             const existing = await prisma.botConversation.findFirst({
               where: { organizationId: orgId, landingPageId, customerPhone: normalizedPhone, source: "button_gate" },
               select: { id: true },
@@ -571,7 +589,7 @@ export async function POST(req: Request, { params }: Params) {
                   organizationId: orgId,
                   landingPageId,
                   attributedAgentId: agentId,
-                  attributionSource: "button_gate",
+                  attributionSource: agentId ? "button_gate" : "none",
                   visitorId: `gate-${regId}`,
                   source: "button_gate",
                   channel: "bot_landing",
@@ -632,7 +650,7 @@ export async function POST(req: Request, { params }: Params) {
         }).then(async (triggered) => {
           // ★ 퍼널문자(FunnelSms) 트리거 — 그룹에 funnelSmsId가 연결된 경우
           // fire-and-forget: 실패해도 신청 등록은 유지
-          const smsTriggered = await triggerGroupFunnelSms({
+          const smsTriggered = !adConsentOk ? false : await triggerGroupFunnelSms({
             contactId:      contactId,
             groupId:        groupId,
             organizationId: orgId,
@@ -644,7 +662,7 @@ export async function POST(req: Request, { params }: Params) {
           });
 
           // ★ 자동이메일(FunnelEmail) 트리거 — 그룹에 funnelEmailId가 연결된 경우
-          const emailTriggered = await triggerFunnelEmail({
+          const emailTriggered = !adConsentOk ? false : await triggerFunnelEmail({
             contactId:      contactId,
             groupId:        groupId,
             organizationId: orgId,
@@ -673,9 +691,9 @@ export async function POST(req: Request, { params }: Params) {
       }
     }
 
-    // [P0-2] Day 0-3 SMS 자동 예약 (smsL6Day0Enabled ON + orgId + contact 존재 시)
-    // PASONA 프레임워크 기반 4일간 자동 시퀀스
-    if (orgId && landingPage.smsL6Day0Enabled) {
+    // [P0-2] Day 0-3 SMS 자동 예약 (smsL6Day0Enabled ON + orgId + contact + 광고 수신동의)
+    // PASONA 프레임워크 기반 4일간 자동 시퀀스 — 광고성이므로 ad=false면 발송 안 함(정보통신망법)
+    if (orgId && landingPage.smsL6Day0Enabled && adConsentOk) {
       const smsContact = await prisma.contact.findFirst({
         where: { phone: normalizedPhone, organizationId: orgId },
         select: { id: true, optOutAt: true, lensMetadata: true },

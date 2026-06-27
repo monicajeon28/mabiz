@@ -14,6 +14,9 @@ interface Lead {
   customerName: string | null;
   lastUserMessage: string | null;
   lastMessageAt: string;
+  source?: string | null; // chat | button_gate
+  qualifiers?: { when?: string; who?: string } | null; // 희망(시기·동행)
+  objectionTags?: string[]; // 관심·걱정(반론)
 }
 
 const STATUS_LABEL: Record<string, { text: string; cls: string }> = {
@@ -134,8 +137,33 @@ export default function BotLeadsPage() {
                 </div>
 
                 <p className="mt-3 line-clamp-2 text-base text-slate-700">
-                  💬 {l.lastUserMessage || "(대화 내용 없음)"}
+                  💬 {l.lastUserMessage || "(버튼 신청 — 대화 없음)"}
                 </p>
+
+                {/* 핫DB 공략 설계도 — 희망(시기·동행) + 관심·걱정(반론). 콜 준비용. */}
+                {((l.qualifiers && (l.qualifiers.when || l.qualifiers.who)) ||
+                  (l.objectionTags && l.objectionTags.length > 0)) && (
+                  <div className="mt-2 space-y-1">
+                    {l.qualifiers && (l.qualifiers.when || l.qualifiers.who) && (
+                      <p className="text-sm text-slate-700">
+                        🎯 희망:{" "}
+                        <span className="font-semibold">
+                          {[l.qualifiers.when, l.qualifiers.who].filter(Boolean).join(" · ")}
+                        </span>
+                      </p>
+                    )}
+                    {l.objectionTags && l.objectionTags.length > 0 && (
+                      <p className="flex flex-wrap items-center gap-1 text-sm text-slate-600">
+                        💡 관심·걱정:
+                        {l.objectionTags.map((t) => (
+                          <span key={t} className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                            {t}
+                          </span>
+                        ))}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
                   {l.customerName && <span>{l.customerName}</span>}

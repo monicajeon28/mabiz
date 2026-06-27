@@ -206,17 +206,18 @@ export async function POST(req: Request) {
     let issuedAttribution: { agentId: string | null; source: AttributionSource; org: string | null } | null = null;
 
     if (!convo) {
-      const resolved = await resolveAttribution({ shortLinkCode: refCode, visitToken });
+      // 페이지 조직을 권위로 먼저 확정 → 귀속 폴백을 그 org 로 가둬 크로스조직 오귀속 차단(Phase A).
       const page = landingPageId
         ? await prisma.crmLandingPage.findUnique({
             where: { id: landingPageId },
             select: { id: true, organizationId: true, pageType: true },
           })
         : null;
-      const organizationId = resolved.organizationId ?? page?.organizationId ?? null;
+      const organizationId = page?.organizationId ?? null;
       if (!organizationId || (page && page.pageType !== "bot")) {
         return NextResponse.json({ ok: false, message: "상담을 시작할 수 없습니다." }, { status: 400 });
       }
+      const resolved = await resolveAttribution({ shortLinkCode: refCode, visitToken, pageOrganizationId: organizationId });
       convo = await prisma.botConversation.create({
         data: {
           organizationId,

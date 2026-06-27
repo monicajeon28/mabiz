@@ -179,17 +179,22 @@ export function computeFlowHeat(path: FlowPathStep[]): FlowHeatResult {
   const tags = new Set<ObjectionTag>();
   let cautious = false;
   const qualifiers: { when?: string; who?: string } = {};
+  // 경로 연결성 검증: 시작은 hook, 이후 step은 직전 choice.to 와 일치해야 함.
+  //   → 조작된 비연결 경로(임의 고득점 노드 나열)로 heat 부풀리기 차단(서버 재계산 신뢰성).
+  let expected: string | null = FLOW_V1_START;
 
   for (const step of path) {
-    const node = FLOW_V1[step.nodeId];
-    if (!node) continue;
-    const choice = node.choices[step.choiceIndex];
-    if (!choice) continue;
+    if (expected === null || step.nodeId !== expected) break; // 끊긴/위조 경로 → 중단
+    const node: FlowNode | undefined = FLOW_V1[step.nodeId];
+    if (!node) break;
+    const choice: FlowChoice | undefined = node.choices[step.choiceIndex];
+    if (!choice) break;
     heat += choice.intentDelta;
     if (choice.signalTag) tags.add(choice.signalTag);
     if (choice.cautiousHighIntent) cautious = true;
     if (node.id === "qualify_when") qualifiers.when = choice.label;
     if (node.id === "qualify_who") qualifiers.who = choice.label;
+    expected = choice.to === "lead" || choice.to === "chat" ? null : choice.to;
   }
 
   return {
