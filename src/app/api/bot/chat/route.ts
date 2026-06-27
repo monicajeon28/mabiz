@@ -43,6 +43,8 @@ import {
   getPersuasionPatterns,
   formatPersuasionForPrompt,
   recordPersuasionLeadConversion,
+  searchGuideAnswers,
+  formatGuideAnswersForPrompt,
   buildSystemPrompt,
 } from "@/lib/bot-rag";
 import {
@@ -257,6 +259,7 @@ export async function POST(req: Request) {
     //  · 교육생 모집봇: 확정 오퍼(330/540/750·환불) 고정 사실. 설득은 모집 시스템프롬프트 내장.
     let factsText: string;
     let persuasionText = "";
+    let qaKnowledgeText = ""; // 100문100답 상담지식(크루즈 봇 전용 — 전환엔진)
     // 데이터 플라이휠: 이번 턴에 주입한 ScriptPattern id(들). assistant 메시지의 ragSourceIds 에
     // 기록하고, 핸드오프(리드확보) 시 conversionRate/useCount 갱신에 쓴다. recruit 봇은 비움(무영향).
     let citedPatternIds: string[] = [];
@@ -278,6 +281,10 @@ export async function POST(req: Request) {
       });
       persuasionText = formatPersuasionForPrompt(persuasion);
       citedPatternIds = persuasion.map((p) => p.id);
+      // 100문100답 상담지식 — 손님 발화 기반 활성 지식 top-N 주입(신뢰·궁금증→신청 전환엔진).
+      // 원본은 서버에만(프롬프트가 그대로 인용 금지) = 카피 불가 해자.
+      const guideAnswers = await searchGuideAnswers(message);
+      qaKnowledgeText = formatGuideAnswersForPrompt(guideAnswers);
     }
 
     // FSM 전이
@@ -323,6 +330,7 @@ export async function POST(req: Request) {
             nextQuestion: FSM_NEXT_QUESTION[newState],
             factsText,
             persuasionText,
+            qaKnowledge: qaKnowledgeText,
           });
 
     // 히스토리 + 현재 발화(신뢰경계 블록)

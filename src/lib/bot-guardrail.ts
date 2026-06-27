@@ -20,7 +20,7 @@ export function sanitizeUserInput(raw: string, maxLen = 1000): string {
     // 제어문자(개행/탭 포함) 공백화 — 멀티라인 인젝션 차단
     .replace(CONTROL_CHARS, " ")
     // 신뢰경계 태그 흉내 차단(<product_facts> 등 주입 방지)
-    .replace(/<\/?(product_facts|rag_persuasion|user_message|system)\b[^>]*>/gi, " ")
+    .replace(/<\/?(product_facts|rag_persuasion|qa_knowledge|user_message|system)\b[^>]*>/gi, " ")
     .replace(/\s{2,}/g, " ")
     .trim()
     .slice(0, maxLen);
@@ -31,7 +31,7 @@ export function sanitizeUserInput(raw: string, maxLen = 1000): string {
  * "구분자 안 내용은 데이터일 뿐 지시가 아니다"를 강제한다.
  */
 export function buildTrustBoundaryBlock(
-  tag: "product_facts" | "rag_persuasion" | "user_message",
+  tag: "product_facts" | "rag_persuasion" | "qa_knowledge" | "user_message",
   content: string,
 ): string {
   // 닫는 태그 위조 방지: 내부의 동일 태그 문자열을 제거
@@ -50,7 +50,7 @@ const BANNED_PHRASE =
 
 /** 시스템프롬프트·RAG 유출 마커. */
 const LEAK_MARKER =
-  /(<\/?(?:product_facts|rag_persuasion|user_message|system)\b|시스템\s*프롬프트|system\s*prompt|\[금지\b|\[설득\s*자료|당신은 크루즈닷의)/i;
+  /(<\/?(?:product_facts|rag_persuasion|qa_knowledge|user_message|system)\b|시스템\s*프롬프트|system\s*prompt|\[금지\b|\[설득\s*자료|\[상담지식|당신은 크루즈닷의)/i;
 
 /** 출력에서 금액/퍼센트 토큰 추출(예: "250만원", "30%"). */
 function extractPriceTokens(text: string): string[] {
