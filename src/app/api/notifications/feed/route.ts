@@ -213,6 +213,7 @@ export async function GET(req: Request) {
           NULL::text                   AS contact_type
         FROM "AdminNotification" an
         WHERE an."createdAt" >= ${sinceDate}
+          AND an."notificationType" NOT IN ('CONTACT_SHARED','CONTACT_UPDATED','CONTACT_NOTE_ADDED')
       `);
 
       // ── 고객 공유·변경 알림 (전체) — 라우팅은 metadata 사용 ──
@@ -349,6 +350,7 @@ export async function GET(req: Request) {
         FROM "AdminNotification" an
         WHERE (an.metadata ->> 'organizationId') = ${orgId}
           AND an."createdAt" >= ${sinceDate}
+          AND an."notificationType" NOT IN ('CONTACT_SHARED','CONTACT_UPDATED','CONTACT_NOTE_ADDED')
       `);
 
       // ── 고객 공유·변경 알림 (조직 필터) — 라우팅은 metadata 사용 ──
@@ -470,6 +472,7 @@ export async function GET(req: Request) {
         FROM "AdminNotification" an
         WHERE (an.metadata ->> 'recipientUserId') = ${ctx.userId}
           AND an."createdAt" >= ${sinceDate}
+          AND an."notificationType" NOT IN ('CONTACT_SHARED','CONTACT_UPDATED','CONTACT_NOTE_ADDED')
       `);
 
       // ── 고객 공유·변경 알림 (본인이 받은 것만) — metadata.recipientUserId ──
