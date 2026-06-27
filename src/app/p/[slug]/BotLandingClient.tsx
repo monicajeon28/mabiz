@@ -183,6 +183,11 @@ export default function BotLandingClient({
       setLeadError("연락처를 입력해 주세요.");
       return;
     }
+    // 개인정보 수집·이용 + 담당 상담사 전달은 필수 동의(개인정보보호법) — 미동의 시 신청 불가
+    if (!agreePrivacy) {
+      setLeadError("상담을 위해 개인정보 수집·이용 동의가 필요해요.");
+      return;
+    }
     if (submitting) return;
     setSubmitting(true);
     try {
@@ -443,18 +448,20 @@ export default function BotLandingClient({
                     className="h-12 w-full rounded-xl border border-slate-300 px-4 text-base text-slate-900 outline-none focus:border-[#2563EB]"
                   />
                 </div>
-                {/* 동의 — 기본 체크(자동), 해제해도 신청 가능. 광고수신은 해제 시 광고 발송 안 함. */}
+                {/* 동의 — 개인정보 수집·이용+담당자 전달은 [필수], 광고수신은 [선택](분리·끼워넣기 금지) */}
                 <div className="mt-3 space-y-2">
                   <label className="flex items-start gap-2.5">
                     <input
                       type="checkbox"
                       checked={agreePrivacy}
                       onChange={(e) => setAgreePrivacy(e.target.checked)}
-                      aria-label="개인정보 수집·이용 동의"
+                      aria-label="개인정보 수집·이용 및 담당 상담사 전달 동의(필수)"
                       className="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-300 accent-[#2563EB]"
                     />
                     <span className="text-sm leading-relaxed text-slate-600">
-                      상담을 위한 개인정보(성함·연락처) 수집·이용에 동의합니다.
+                      <b className="text-slate-700">[필수]</b> 상담을 위해 성함·연락처를 수집·이용하고,{" "}
+                      <b>담당 상담사에게 전달</b>하여 연락드리는 데 동의합니다.{" "}
+                      <span className="text-slate-400">(보유: 상담 종료 후 1년)</span>
                     </span>
                   </label>
                   <label className="flex items-start gap-2.5">
@@ -462,15 +469,32 @@ export default function BotLandingClient({
                       type="checkbox"
                       checked={agreeAd}
                       onChange={(e) => setAgreeAd(e.target.checked)}
-                      aria-label="카톡·문자 소식 받기 동의(선택)"
+                      aria-label="광고성 정보 수신 동의(선택)"
                       className="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-300 accent-[#2563EB]"
                     />
                     <span className="text-sm leading-relaxed text-slate-600">
-                      카톡·문자로 여행 소식·혜택 받기에 동의합니다.{" "}
-                      <span className="text-slate-400">(선택 · 언제든 수신거부 가능)</span>
+                      <span className="text-slate-500">[선택]</span> 카톡·문자로 여행 소식·혜택 받기에 동의합니다.{" "}
+                      <span className="text-slate-400">(미동의해도 상담 가능 · 언제든 수신거부)</span>
                     </span>
                   </label>
                 </div>
+                {/* 사업자 정보·환불 고지 (전자상거래법 제13·17조) — 50대용 접이식 */}
+                <details className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <summary className="cursor-pointer text-sm font-medium text-slate-500">
+                    사업자 정보 · 환불 안내
+                  </summary>
+                  <div className="mt-2 space-y-0.5 text-xs leading-relaxed text-slate-500">
+                    <p>상호: 크루즈닷 · 대표: 배연성</p>
+                    <p>사업자등록번호: 714-57-00419</p>
+                    <p>통신판매업: 제2025-화성동부-0320호 · 여행업: 제2025-000004호</p>
+                    <p>주소: 경기 화성시 효행로 1068 (리더스프라자) 603-A60호</p>
+                    <p>문의: 카카오채널 · jmonica@cruisedot.co.kr</p>
+                    <p className="pt-1">
+                      환불: 유료 상품은 결제일로부터 7일 이내(콘텐츠 미이용 시) 청약철회·환불이 가능합니다.
+                      여행상품은 여행약관·위약 규정에 따릅니다.
+                    </p>
+                  </div>
+                </details>
                 {leadError && <p className="mt-2 text-sm text-red-600">{leadError}</p>}
                 <button
                   type="button"

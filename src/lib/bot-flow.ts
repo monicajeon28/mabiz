@@ -233,3 +233,18 @@ export function validateFlow(flow: Record<string, FlowNode> = FLOW_V1): string[]
   for (const id of ids) if (!reachable.has(id)) problems.push(`${id}: 시작에서 도달 불가(고아)`);
   return problems;
 }
+
+// ── 정적 카피 린트 (Phase E) — 버튼 카피는 AI 출력가드 밖이므로 카피 자체가 합법이어야 ───────
+// 절대표현(표시광고법) + 수익·부업·모집(다단계 오인) 금지. 위반 목록 반환(빈 배열=정상).
+const BANNED_COPY =
+  /(최저가|무조건|업계\s*최고|유일무이|평생\s*보장|전액\s*보장|완벽\s*보장|100\s*%\s*(?:보장|환불|성공|만족|책임)|반드시\s*(?:성공|수익)|수익\s*보장|부업|돈\s*벌|투자\s*수익|파트너\s*모집|월\s*\d+\s*만\s*원\s*수익)/;
+
+export function validateFlowCopy(flow: Record<string, FlowNode> = FLOW_V1): string[] {
+  const hits: string[] = [];
+  for (const node of Object.values(flow)) {
+    const text = `${node.title} ${node.body} ${node.choices.map((c) => c.label).join(" ")}`;
+    const m = text.match(BANNED_COPY);
+    if (m) hits.push(`${node.id}: 금지표현 '${m[0]}'`);
+  }
+  return hits;
+}
