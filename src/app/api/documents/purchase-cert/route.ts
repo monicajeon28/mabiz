@@ -34,7 +34,7 @@ export async function POST(req: Request) {
         buyerName?: string | null; buyerTel?: string | null; buyerEmail?: string | null;
         productName?: string | null; amount?: number | null;
       };
-      if (!d.buyerName || !d.productName || !d.amount) {
+      if (!d.buyerName || !d.productName || d.amount == null) {
         return NextResponse.json({ ok: false, message: '직접 입력: 고객명·상품명·금액 필수' }, { status: 400 });
       }
       const status = (ctx.role === 'OWNER' || ctx.role === 'GLOBAL_ADMIN') ? 'APPROVED' : 'PENDING_APPROVAL';

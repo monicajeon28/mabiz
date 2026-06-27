@@ -99,7 +99,9 @@ export async function POST(req: Request) {
 
     // 이메일 발송 (contactEmail 또는 직접입력 customerEmail, fire-and-forget)
     const recipientEmail = contactEmail ?? (body.customerEmail?.includes('@') ? body.customerEmail : null);
-    const greetingName = contactName ?? body.customerName ?? null;
+    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    const rawGreeting = contactName ?? body.customerName ?? null;
+    const greetingName = rawGreeting ? esc(rawGreeting) : null;
     if (recipientEmail) {
       const savingsTop = (body.competitorPrices ?? []).reduce((max, c) => Math.max(max, c.price - body.price), 0);
       sendFunnelEmail({

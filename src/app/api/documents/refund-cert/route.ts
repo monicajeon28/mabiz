@@ -30,9 +30,10 @@ export async function POST(req: Request) {
         buyerName?: string | null; buyerEmail?: string | null;
         productName?: string | null; amount?: number | null;
       };
-      if (!d.buyerName || !d.productName || !d.amount) {
+      if (!d.buyerName || !d.productName || d.amount == null) {
         return NextResponse.json({ ok: false, message: '직접 입력: 고객명·상품명·금액 필수' }, { status: 400 });
       }
+      const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
       const status = ctx.role === 'GLOBAL_ADMIN' ? 'APPROVED' : 'PENDING_APPROVAL';
       const generatedData = { ...body.direct, issuedAt: new Date().toISOString(), issuerOrgId: orgId, source: 'direct' };
 
@@ -60,10 +61,10 @@ export async function POST(req: Request) {
         sendFunnelEmail({
           organizationId: orgId,
           to:      d.buyerEmail,
-          subject: `[환불확인증] ${d.productName} 환불 확인증이 발급되었습니다`,
+          subject: `[환불확인증] ${esc(d.productName)} 환불 확인증이 발급되었습니다`,
           html: `<div style="font-family:sans-serif;line-height:1.8;max-width:600px;margin:0 auto;padding:32px 24px">
 <h2 style="color:#1a1a2e;margin:0 0 16px">환불 확인증 발급 안내</h2>
-<p>${d.buyerName}님, 아래 내용으로 환불 확인증이 발급되었습니다.</p>
+<p>${esc(d.buyerName)}님, 아래 내용으로 환불 확인증이 발급되었습니다.</p>
 <p style="color:#666;font-size:14px">환불 처리는 3~5 영업일 소요됩니다. 문의사항이 있으시면 담당 에이전트에게 연락해 주세요.</p>
 </div>`,
           channel: 'MANUAL',

@@ -50,8 +50,12 @@ export async function GET(req: Request) {
     // NIGHT_BLOCKED: 야간 차단 후 오전 8시 재시도를 위해 포함
     const pendingMessages = await prisma.scheduledEmailMessage.findMany({
       where: {
-        status: { in: ["PENDING", "NIGHT_BLOCKED"] },
-        scheduledAt: { lte: now },
+        OR: [
+          { status: { in: ["PENDING", "NIGHT_BLOCKED"] }, scheduledAt: { lte: now } },
+          // 멈춘 SENDING 복구: 이전 cron이 잠금(→SENDING) 후 타임아웃/크래시로 발송·상태변경
+          // 둘 다 못한 경우, 30분 경과분을 재시도(영구 미발송 방지). 잠금이 중복발송은 막음.
+          { status: "SENDING", scheduledAt: { lte: new Date(now.getTime() - 30 * 60 * 1000) } },
+        ],
       },
       orderBy: { scheduledAt: "asc" },
       take: BATCH_SIZE,
@@ -107,7 +111,8 @@ export async function GET(req: Request) {
 
         // 2-1b. 낙관적 잠금 — 동일 메시지 중복 발송 방지(cron 자기겹침/중복 인스턴스)
         const locked = await prisma.scheduledEmailMessage.updateMany({
-          where: { id: msg.id, status: { in: ["PENDING", "NIGHT_BLOCKED"] } },
+          // SENDING 포함: 위에서 복구 대상으로 집어온 멈춘 SENDING도 재잠금 가능
+          where: { id: msg.id, status: { in: ["PENDING", "NIGHT_BLOCKED", "SENDING"] } },
           data:  { status: "SENDING" },
         });
         if (locked.count === 0) continue; // 이미 다른 실행이 선점 → skip

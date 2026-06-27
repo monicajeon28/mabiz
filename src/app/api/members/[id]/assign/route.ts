@@ -50,11 +50,16 @@ export async function POST(req: Request, { params }: Params) {
     // assignedUserId가 활성 지사장/세일즈 유저인지 확인
     // GET /api/org/agents의 응답 구조를 따르면, 활성 유저만 반환된다고 가정
     // 하지만 검증을 위해 organizationMember 테이블에서 확인
+    // 담당자는 호출자 조직 소속만 지정 가능 (OWNER는 본인 조직, GLOBAL_ADMIN은 전체)
+    // — 교차조직 배정(타 조직 담당자에게 회원 귀속) 차단
     const assignedUser = await prisma.organizationMember.findFirst({
       where: {
         id: assignedUserId,
         isActive: true,
         role: { in: ['OWNER', 'AGENT', 'FREE_SALES'] },
+        ...(session.role !== 'GLOBAL_ADMIN' && session.organizationId
+          ? { organizationId: session.organizationId }
+          : {}),
       },
     });
 
