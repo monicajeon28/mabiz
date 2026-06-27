@@ -31,13 +31,14 @@ export async function POST(_req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, message: "복사 권한이 없습니다." }, { status: 403 });
     }
 
-    // 공유 유효성 확인 (내 조직 또는 전체 공유)
+    // 공유 유효성 확인 — 나에게 지정공유 OR 우리 조직 전체공유 OR 전체공유 (목록 GET과 정확히 일치)
     const share = await prisma.crmLandingShare.findFirst({
       where: {
         landingPageId: id,
         OR: [
-          { sharedToOrgId: orgId },
-          { isGlobal: true },
+          { sharedToUserId: ctx.userId },
+          { sharedToOrgId: orgId, sharedToUserId: "" },
+          { isGlobal: true, sharedToUserId: "" },
         ],
       },
     });

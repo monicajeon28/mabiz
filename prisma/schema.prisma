@@ -989,6 +989,7 @@ model CrmLandingShare {
   id             String         @id @default(cuid())
   landingPageId  String
   sharedToOrgId  String
+  sharedToUserId String         @default("") // "" = 조직/전체 공유, 그 외 = 특정 담당자(지사/대리점장) 지정공유
   sharedByUserId String
   sharedByOrgId  String
   sharedByName   String
@@ -996,8 +997,9 @@ model CrmLandingShare {
   createdAt      DateTime       @default(now())
   landingPage    CrmLandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
 
-  @@unique([landingPageId, sharedToOrgId])
+  @@unique([landingPageId, sharedToOrgId, sharedToUserId])
   @@index([sharedToOrgId])
+  @@index([sharedToUserId])
   @@index([sharedByOrgId])
   @@map("CrmLandingShare")
 }

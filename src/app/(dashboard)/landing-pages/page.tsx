@@ -55,8 +55,17 @@ type ExistingShare = {
   id: string;
   sharedToOrgId: string;
   sharedToOrgName: string;
+  sharedToUserId?: string | null; // 지정공유 대상(담당자)
+  sharedToLabel?: string; // 표시 라벨(담당자명 또는 조직/전체)
   isGlobal: boolean;
   sharedByName: string;
+};
+
+type ShareableMember = {
+  userId: string;
+  displayName: string;
+  roleLabel: string; // 지사 | 대리점장
+  orgName: string;
 };
 
 // ─── 미리보기 팝업 ──────────────────────────────────────
@@ -100,19 +109,24 @@ function ShareModal({ pageId, pageTitle, onClose }: {
   onClose: () => void;
 }) {
   const [orgs, setOrgs] = useState<ShareableOrg[]>([]);
+  const [members, setMembers] = useState<ShareableMember[]>([]); // 지정공유 대상(관리자만 로드됨)
   const [existing, setExisting] = useState<ExistingShare[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isGlobal, setIsGlobal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [sharingMember, setSharingMember] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
       fetch("/api/landing-pages/shareable-orgs").then((r) => r.json()),
       fetch(`/api/landing-pages/${pageId}/share`).then((r) => r.json()),
-    ]).then(([orgsData, sharesData]) => {
+      // 지정공유 대상 — 관리자만 200, 그 외 403(members 빈 배열 유지=섹션 숨김)
+      fetch("/api/landing-pages/shareable-members").then((r) => r.json()).catch(() => ({ ok: false })),
+    ]).then(([orgsData, sharesData, membersData]) => {
       if (orgsData.ok) setOrgs(orgsData.orgs);
+      if (membersData?.ok) setMembers(membersData.members);
       if (sharesData.ok) {
         setExisting(sharesData.shares);
         const globalShare = sharesData.shares.find((s: ExistingShare) => s.isGlobal);
@@ -120,6 +134,29 @@ function ShareModal({ pageId, pageTitle, onClose }: {
       }
     }).finally(() => setLoading(false));
   }, [pageId]);
+
+  const sharedMemberIds = new Set(existing.map((s) => s.sharedToUserId).filter(Boolean));
+
+  const handleShareMember = async (userId: string) => {
+    setSharingMember(userId);
+    try {
+      const r = await fetch(`/api/landing-pages/${pageId}/share`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sharedToUserId: userId }),
+      });
+      const d = await r.json();
+      if (d.ok && d.share) {
+        const m = members.find((x) => x.userId === userId);
+        setExisting((prev) => [
+          { id: d.share.id, sharedToOrgId: d.share.sharedToOrgId, sharedToOrgName: "", sharedToUserId: userId, sharedToLabel: m ? `담당자: ${m.displayName}` : "담당자", isGlobal: false, sharedByName: "" },
+          ...prev,
+        ]);
+      }
+    } finally {
+      setSharingMember(null);
+    }
+  };
 
   const alreadySharedOrgIds = new Set(existing.map((s) => s.sharedToOrgId));
 
@@ -165,14 +202,16 @@ function ShareModal({ pageId, pageTitle, onClose }: {
     }
   };
 
-  const handleRemove = async (sharedToOrgId: string) => {
-    setRemoving(sharedToOrgId);
+  const handleRemove = async (s: ExistingShare) => {
+    const key = s.sharedToUserId || s.sharedToOrgId;
+    setRemoving(key);
     try {
-      await fetch(`/api/landing-pages/${pageId}/share?sharedToOrgId=${encodeURIComponent(sharedToOrgId)}`, {
-        method: "DELETE",
-      });
-      setExisting((prev) => prev.filter((s) => s.sharedToOrgId !== sharedToOrgId));
-      if (sharedToOrgId === "__ALL__") setIsGlobal(false);
+      const qs = s.sharedToUserId
+        ? `sharedToUserId=${encodeURIComponent(s.sharedToUserId)}`
+        : `sharedToOrgId=${encodeURIComponent(s.sharedToOrgId)}`;
+      await fetch(`/api/landing-pages/${pageId}/share?${qs}`, { method: "DELETE" });
+      setExisting((prev) => prev.filter((x) => x.id !== s.id));
+      if (s.sharedToOrgId === "__ALL__") setIsGlobal(false);
     } finally {
       setRemoving(null);
     }
@@ -198,22 +237,25 @@ function ShareModal({ pageId, pageTitle, onClose }: {
             <div>
               <p className="text-sm font-semibold text-gray-500 mb-2">현재 공유 중</p>
               <div className="space-y-1.5">
-                {existing.map((s) => (
+                {existing.map((s) => {
+                  const key = s.sharedToUserId || s.sharedToOrgId;
+                  return (
                   <div key={s.id} className="flex items-center justify-between bg-blue-50 rounded-lg px-3 py-2">
                     <div>
                       <span className="text-sm font-medium text-blue-800">
-                        {s.isGlobal ? "전체 공유 (모든 지사장)" : s.sharedToOrgName}
+                        {s.sharedToLabel ?? (s.isGlobal ? "전체 공유 (모든 지사장)" : s.sharedToOrgName)}
                       </span>
                     </div>
                     <button
-                      onClick={() => handleRemove(s.sharedToOrgId)}
-                      disabled={removing === s.sharedToOrgId}
+                      onClick={() => handleRemove(s)}
+                      disabled={removing === key}
                       className="text-sm text-red-500 hover:text-red-700 disabled:opacity-40"
                     >
-                      {removing === s.sharedToOrgId ? "취소중..." : "공유취소"}
+                      {removing === key ? "취소중..." : "공유취소"}
                     </button>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -286,6 +328,38 @@ function ShareModal({ pageId, pageTitle, onClose }: {
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* 특정 담당자 지정 공유 — 관리자(GLOBAL_ADMIN)만 로드됨 */}
+          {members.length > 0 && (
+            <div>
+              <p className="text-sm font-semibold text-gray-500 mb-1">특정 지사·대리점장에게 지정 공유</p>
+              <p className="text-xs text-gray-400 mb-2">이 봇을 고른 사람에게만 보냅니다. 받은 사람이 자기 링크로 복제해요.</p>
+              <div className="space-y-1.5 max-h-52 overflow-y-auto">
+                {members.map((m) => {
+                  const shared = sharedMemberIds.has(m.userId);
+                  return (
+                    <div key={m.userId} className="flex items-center justify-between gap-2 p-2.5 border border-gray-200 rounded-lg">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0 ${m.roleLabel === "지사" ? "bg-purple-100 text-purple-600" : "bg-gray-100 text-gray-500"}`}>{m.roleLabel}</span>
+                          <p className="text-sm font-medium text-gray-800 truncate">{m.displayName}</p>
+                        </div>
+                        <p className="text-[10px] text-gray-400 mt-0.5 truncate">{m.orgName}</p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={shared || sharingMember === m.userId}
+                        onClick={() => handleShareMember(m.userId)}
+                        className="shrink-0 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40"
+                      >
+                        {shared ? "공유됨" : sharingMember === m.userId ? "공유 중…" : "공유"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>

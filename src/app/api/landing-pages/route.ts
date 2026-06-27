@@ -58,9 +58,11 @@ export async function GET() {
     //         2) select 사용 (N+1 제거, include 대신 더 효율적)
     const receivedShares = await prisma.crmLandingShare.findMany({
       where: {
+        // 지정공유는 sharedToUserId===본인만, 조직/전체공유는 센티넬 ""만 → 타인 지정분 격리
         OR: [
-          { sharedToOrgId: myOrgId },
-          { isGlobal: true },
+          { sharedToUserId: ctx.userId },
+          { sharedToOrgId: myOrgId, sharedToUserId: "" },
+          { isGlobal: true, sharedToUserId: "" },
         ],
         // 내 페이지는 제외 (자기 자신이 소유한 페이지)
         landingPage: {
