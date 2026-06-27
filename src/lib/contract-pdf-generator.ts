@@ -6,9 +6,20 @@
  * - generateContractPdf: 계약서 + 감사추적 로그 포함
  */
 
-import puppeteer, { Browser } from 'puppeteer';
+import puppeteer from 'puppeteer';
+import puppeteerCore from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 import { logger } from '@/lib/logger';
 import { DEFAULT_CONTRACT_TEMPLATES, AFFILIATE_CONTRACT_TEMPLATE } from '@/lib/contract-templates-data';
+
+// puppeteer / puppeteer-core 공통 최소 인터페이스 (Browser 타입 충돌 회피)
+type PdfPage = {
+  setContent: (html: string, opts?: { waitUntil?: string }) => Promise<void>;
+  setViewport: (vp: { width: number; height: number }) => Promise<void>;
+  pdf: (opts?: Record<string, unknown>) => Promise<Uint8Array>;
+  close: () => Promise<void>;
+};
+type LaunchedBrowser = { newPage: () => Promise<PdfPage>; close: () => Promise<void>; connected?: boolean };
 
 interface AuditLogRecord {
   id: string | number | bigint;
@@ -33,14 +44,24 @@ interface ContractPdfOptions {
   auditLogs?: AuditLogRecord[];
 }
 
-let browserInstance: Browser | null = null;
+let browserInstance: LaunchedBrowser | null = null;
 
-async function getBrowser(): Promise<Browser> {
-  if (!browserInstance) {
-    browserInstance = await puppeteer.launch({
+async function getBrowser(): Promise<LaunchedBrowser> {
+  if (browserInstance && browserInstance.connected !== false) return browserInstance;
+  // Vercel/Lambda 서버리스: puppeteer-core + @sparticuz/chromium (번들 Chromium은 서버리스 미동작)
+  const isServerless = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+  if (isServerless) {
+    const executablePath = await chromium.executablePath();
+    browserInstance = (await puppeteerCore.launch({
+      args: chromium.args,
+      executablePath,
+      headless: true,
+    })) as unknown as LaunchedBrowser;
+  } else {
+    browserInstance = (await puppeteer.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
+    })) as unknown as LaunchedBrowser;
   }
   return browserInstance;
 }
@@ -66,7 +87,17 @@ export async function generatePartnerContractPDF(
   const roleLabel = ROLE_LABELS[partnerRole] || partnerRole;
 
   // 계약 본문 조항(제1조~) — grade별 계약 템플릿 전체를 PDF에 그대로 포함(서명+내용 완비).
-  const template = DEFAULT_CONTRACT_TEMPLATES[partnerRole] ?? AFFILIATE_CONTRACT_TEMPLATE;
+  // ⚠️ partnerRole(역할 라벨용)을 그대로 템플릿키로 쓰면 금액 오매핑(대리점장1 540이 330짜리)됨.
+  //    금액 정합 매핑: 마케터330(PRE_SALES)→SALES_AGENT(330만) / 대리점장1=540(SALES_AGENT)→
+  //    CRUISE_STAFF(540만) / 대리점장2=750(BRANCH_MANAGER)→BRANCH_MANAGER(750만).
+  const TEMPLATE_KEY_BY_ROLE: Record<string, string> = {
+    PRE_SALES: 'SALES_AGENT',       // 330만
+    SALES_AGENT: 'CRUISE_STAFF',    // 540만
+    BRANCH_MANAGER: 'BRANCH_MANAGER', // 750만
+    HQ: 'AFFILIATE',
+  };
+  const templateKey = TEMPLATE_KEY_BY_ROLE[partnerRole] ?? 'AFFILIATE';
+  const template = DEFAULT_CONTRACT_TEMPLATES[templateKey] ?? AFFILIATE_CONTRACT_TEMPLATE;
   const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const articlesHtml = template.sections
     .map((sec) => `
