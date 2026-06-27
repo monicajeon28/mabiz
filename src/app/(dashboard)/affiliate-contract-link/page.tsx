@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 const TIERS = [
   { key: 'SALES_330', label: '마케터 (330만원)' },
   { key: 'SALES_540', label: '대리점장1 (540만원)' },
-  { key: 'BRANCH_750', label: '대리점장2 / 지사 (750만원)' },
+  { key: 'BRANCH_750', label: '대리점장2 (750만원)' },
+  { key: 'BRANCH_OFFICE', label: '지사 (협력계약 · 금액 없음)' },
 ] as const;
 
 export default function AffiliateContractLinkPage() {
@@ -38,10 +39,15 @@ export default function AffiliateContractLinkPage() {
     if (!form.name.trim() || !form.phone.trim()) { setErr('이름과 연락처는 필수입니다.'); return; }
     setIssuing(true);
     try {
+      // 지사는 협력계약(금액 없음) — tierKey 대신 contractType 전송
+      const isBranchOffice = form.tierKey === 'BRANCH_OFFICE';
+      const payload = isBranchOffice
+        ? { name: form.name, phone: form.phone, email: form.email, contractType: 'BRANCH_OFFICE' as const }
+        : { name: form.name, phone: form.phone, email: form.email, tierKey: form.tierKey };
       const res = await fetch('/api/affiliate/contracts/issue-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.ok) setResult({ signUrl: data.signUrl, expiresAt: data.expiresAt });

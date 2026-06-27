@@ -559,6 +559,8 @@ export async function GET(
       ? getPriceTierByAmount(metadata.amount)
       : null;
     const tierInfo = tierKey ? getPriceTierInfo(tierKey) : null;
+    // 지사 협력계약(BRANCH_OFFICE) — 금액·계정생성 없는 별도 승인경로 사용
+    const isBranchOffice = metadata?.contractTemplate === 'BRANCH_OFFICE';
 
     return NextResponse.json({
       ok: true,
@@ -569,6 +571,7 @@ export async function GET(
         email: contract.email,
         phone: contract.phone,
         isApproved: contract.status === 'APPROVED',
+        isBranchOffice,
         tier: tierInfo
           ? {
               label: tierInfo.label,

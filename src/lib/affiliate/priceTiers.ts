@@ -25,7 +25,7 @@ export const CONTRACT_PRICE_TIERS = {
     priceKRW: 7_500_000,
     memberType: 'BRANCH_MANAGER' as const,
     description: '대리점장2 계약 · 750만원 (대리점장 교육 + 1년 마케팅 지원)',
-    contractTitle: 'B2B 지사장 계약서',
+    contractTitle: '대리점장2 계약서',
   },
 } as const;
 

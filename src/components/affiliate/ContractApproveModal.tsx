@@ -38,6 +38,7 @@ interface ContractInfo {
   email: string | null;
   phone: string | null;
   isApproved: boolean;
+  isBranchOffice?: boolean; // 지사 협력계약(금액·계정생성 없음 — 별도 승인경로)
   tier: { label: string; amount: number } | null;
   approvedAt: string | null;
   links: { managerCode: string; agentCode: string } | null;
@@ -64,6 +65,7 @@ export default function ContractApproveModal({ contractId, onClose, onApproved }
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<ApproveResult | null>(null);
+  const [branchApproved, setBranchApproved] = useState(false); // 지사 협력계약 승인 완료
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -90,6 +92,22 @@ export default function ContractApproveModal({ contractId, onClose, onApproved }
     setError(null);
 
     try {
+      // 지사 협력계약 — 금액·계정생성 없이 별도 경로(PDF 보관 + 본사·지사 이메일)
+      if (contractInfo.isBranchOffice) {
+        const res = await fetch(`/api/affiliate/contracts/${contractId}/approve-branch-office`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          setBranchApproved(true); // 닫기 시 목록 새로고침(onClose)
+        } else {
+          setError(data.message || '지사 협력계약 승인에 실패했습니다.');
+        }
+        return;
+      }
+
       const res = await fetch(`/api/affiliate/contracts/${contractId}/approve`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -125,7 +143,9 @@ export default function ContractApproveModal({ contractId, onClose, onApproved }
         {/* 헤더 */}
         <div className="px-6 py-4 border-b flex items-center justify-between sticky top-0 bg-white z-10">
           <h2 className="text-lg font-semibold text-gray-900">
-            {result ? '계약 승인 완료' : '대리점 계약 승인'}
+            {result || branchApproved
+              ? '계약 승인 완료'
+              : contractInfo?.isBranchOffice ? '지사 협력계약 승인' : '대리점 계약 승인'}
           </h2>
           <button onClick={onClose} className="text-gray-600 hover:text-gray-600 transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -215,8 +235,31 @@ export default function ContractApproveModal({ contractId, onClose, onApproved }
             </div>
           )}
 
+          {/* 지사 협력계약 승인 완료 */}
+          {branchApproved && (
+            <div className="space-y-4">
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-green-800 font-medium text-sm">
+                  ✓ 지사 협력계약이 승인·보관되었습니다.
+                </p>
+                <p className="text-green-700 text-sm mt-1">
+                  서명된 계약서가 PDF로 보관되고 본사·지사에게 이메일로 발송되었습니다.
+                </p>
+              </div>
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                지사 계정(아이디·비밀번호)은 <b>어필리에이트 발급</b> 메뉴에서 따로 생성하세요.
+              </div>
+              <button
+                onClick={onClose}
+                className="w-full py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+              >
+                닫기
+              </button>
+            </div>
+          )}
+
           {/* 승인 폼 */}
-          {!isLoading && !result && contractInfo && (
+          {!isLoading && !result && !branchApproved && contractInfo && (
             <div className="space-y-5">
               {/* 계약자 정보 */}
               <div className="p-4 bg-gray-50 rounded-lg space-y-1.5">
@@ -293,8 +336,29 @@ export default function ContractApproveModal({ contractId, onClose, onApproved }
                 </div>
               )}
 
-              {/* 가격 티어 선택 */}
-              {!contractInfo.isApproved && (
+              {/* 지사 협력계약 — 등급/금액 없이 승인(PDF 보관 + 본사·지사 이메일) */}
+              {!contractInfo.isApproved && contractInfo.isBranchOffice && (
+                <>
+                  <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
+                    <span className="font-medium">지사 협력계약</span> 승인 시:
+                    <ul className="mt-1.5 space-y-0.5 text-blue-700 text-sm">
+                      <li>• 서명된 지사 협력 계약서를 PDF로 보관(Google Drive)</li>
+                      <li>• 본사·지사에게 계약서 PDF 첨부 이메일 발송</li>
+                      <li>• 지사 계정(아이디·비번)은 어필리에이트 발급에서 별도 생성</li>
+                    </ul>
+                  </div>
+                  <button
+                    onClick={handleApprove}
+                    disabled={isSubmitting}
+                    className="w-full py-3 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isSubmitting ? '처리 중...' : '지사 협력계약 승인'}
+                  </button>
+                </>
+              )}
+
+              {/* 가격 티어 선택 (일반 등급 계약) */}
+              {!contractInfo.isApproved && !contractInfo.isBranchOffice && (
                 <>
                   <div>
                     <h3 className="text-sm font-medium text-gray-700 mb-3">계약 등급 선택</h3>

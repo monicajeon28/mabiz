@@ -66,11 +66,12 @@ async function getBrowser(): Promise<LaunchedBrowser> {
   return browserInstance;
 }
 
-// 확정 용어: BRANCH_MANAGER=대리점장2 / SALES_AGENT=대리점장1 / PRE_SALES=마케터
+// 확정 용어: BRANCH_MANAGER=대리점장2 / SALES_AGENT=대리점장1 / PRE_SALES=마케터 / BRANCH_OFFICE=지사
 const ROLE_LABELS: Record<string, string> = {
   BRANCH_MANAGER: '대리점장2',
   SALES_AGENT: '대리점장1',
   PRE_SALES: '마케터',
+  BRANCH_OFFICE: '지사',
   HQ: '본사',
 };
 
@@ -80,7 +81,7 @@ const ROLE_LABELS: Record<string, string> = {
 export async function generatePartnerContractPDF(
   partnerId: string,
   partnerName: string,
-  partnerRole: 'BRANCH_MANAGER' | 'SALES_AGENT' | 'PRE_SALES' | 'HQ',
+  partnerRole: 'BRANCH_MANAGER' | 'SALES_AGENT' | 'PRE_SALES' | 'HQ' | 'BRANCH_OFFICE',
   contractSignedAt: Date,
   signatureImageUrl?: string
 ): Promise<Uint8Array> {
@@ -94,6 +95,7 @@ export async function generatePartnerContractPDF(
     PRE_SALES: 'SALES_AGENT',       // 330만
     SALES_AGENT: 'CRUISE_STAFF',    // 540만
     BRANCH_MANAGER: 'BRANCH_MANAGER', // 750만
+    BRANCH_OFFICE: 'BRANCH_OFFICE', // 지사 협력계약(금액 없음)
     HQ: 'AFFILIATE',
   };
   const templateKey = TEMPLATE_KEY_BY_ROLE[partnerRole] ?? 'AFFILIATE';

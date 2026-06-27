@@ -26,6 +26,7 @@ export async function POST(req: Request) {
       phone?: string;
       email?: string;
       tierKey?: PriceTierKey;
+      contractType?: 'BRANCH_OFFICE'; // 지사 협력계약(금액·등급 없음)
     };
 
     const name = (body.name ?? '').trim();
@@ -33,12 +34,14 @@ export async function POST(req: Request) {
     if (!name || !phone) {
       return NextResponse.json({ ok: false, message: '이름과 연락처는 필수입니다.' }, { status: 400 });
     }
-    // 등급(선택) — 지정 시 검증
-    if (body.tierKey && !CONTRACT_PRICE_TIERS[body.tierKey]) {
+    // 지사 협력계약은 등급(금액) 없는 별도 계약 — BRANCH_OFFICE 템플릿 사용
+    const isBranchOffice = body.contractType === 'BRANCH_OFFICE';
+    // 등급(선택) — 지정 시 검증 (지사 협력계약은 등급 없음)
+    if (!isBranchOffice && body.tierKey && !CONTRACT_PRICE_TIERS[body.tierKey]) {
       return NextResponse.json({ ok: false, message: '유효하지 않은 등급입니다.' }, { status: 400 });
     }
-    const tierKey = body.tierKey ?? null;
-    const tierLabel = tierKey ? CONTRACT_PRICE_TIERS[tierKey].label : null;
+    const tierKey = isBranchOffice ? null : (body.tierKey ?? null);
+    const tierLabel = isBranchOffice ? '지사 협력' : (tierKey ? CONTRACT_PRICE_TIERS[tierKey].label : null);
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://mabizcruisedot.com';
     const token = randomBytes(32).toString('hex'); // 64자 (VarChar64)
@@ -56,7 +59,9 @@ export async function POST(req: Request) {
         signatureLinkExpiresAt: expiresAt,
         metadata: {
           contractKind: 'link', // 관리자 발급 링크 계약
-          ...(tierKey ? { tierKey, tierLabel } : {}),
+          ...(isBranchOffice
+            ? { contractTemplate: 'BRANCH_OFFICE', tierLabel } // 지사 협력계약
+            : (tierKey ? { tierKey, tierLabel } : {})),
           issuedByMemberId: ctx.userId,
           issuedByRole: ctx.role,
           issuedAt: new Date().toISOString(),
