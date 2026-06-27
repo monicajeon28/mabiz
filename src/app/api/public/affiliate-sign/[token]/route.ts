@@ -79,6 +79,10 @@ export async function POST(req: Request, { params }: Params) {
     if (!body.signatureImageUrl || !body.signatureImageUrl.startsWith('data:image/')) {
       return NextResponse.json({ ok: false, message: '서명을 완료해주세요.' }, { status: 400 });
     }
+    // 서명 base64 크기 상한 (대용량 페이로드/DoS 방지) — 약 1MB
+    if (body.signatureImageUrl.length > 1_000_000) {
+      return NextResponse.json({ ok: false, message: '서명 이미지가 너무 큽니다.' }, { status: 413 });
+    }
     // 필수 동의 검증
     if (!body.consentPrivacy || !body.consentNonCompete || !body.consentDbUse || !body.consentPenalty || !body.consentRefund) {
       return NextResponse.json({ ok: false, message: '필수 동의 항목에 모두 동의해주세요.' }, { status: 400 });
@@ -100,18 +104,10 @@ export async function POST(req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, message: '이미 작성이 완료된 계약입니다.' }, { status: 409 });
     }
 
-    // 낙관적 잠금 — 중복 제출 방지
-    const locked = await prisma.gmAffiliateContract.updateMany({
+    // 원자적 제출 — status='link_sent'인 경우에만 전체 갱신+submitted.
+    // (잠금→업데이트 2단계 비트랜잭션은 중간 실패 시 PROCESSING 고착 → 단일 updateMany로 원자화)
+    const updated = await prisma.gmAffiliateContract.updateMany({
       where: { id: contract.id, status: 'link_sent' },
-      data: { status: 'PROCESSING' },
-    });
-    if (locked.count === 0) {
-      return NextResponse.json({ ok: false, message: '이미 처리 중인 계약입니다.' }, { status: 409 });
-    }
-
-    // 정보 업데이트 + 서명 → submitted (이름·연락처는 발급 시 값 유지, 입력값 있으면 갱신)
-    await prisma.gmAffiliateContract.update({
-      where: { id: contract.id },
       data: {
         name: body.name?.trim() || contract.name,
         phone: body.phone?.trim() || contract.phone,
@@ -129,6 +125,9 @@ export async function POST(req: Request, { params }: Params) {
         contractSignedAt: now,
       },
     });
+    if (updated.count === 0) {
+      return NextResponse.json({ ok: false, message: '이미 처리되었거나 만료된 계약입니다.' }, { status: 409 });
+    }
 
     // 토큰 사용 처리(추적 레코드) — best-effort
     await prisma.gmAffiliateSignatureToken.updateMany({

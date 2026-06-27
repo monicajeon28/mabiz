@@ -207,8 +207,9 @@ export async function PUT(
           select: { userId: true },
         });
         if (referrer) {
+          // GmUser 기반 멤버의 userId는 전역에서 `gm-${id}` 접두사로 저장됨 (provision 패턴)
           const crmMember = await prisma.organizationMember.findFirst({
-            where: { userId: String(referrer.userId) },
+            where: { userId: `gm-${referrer.userId}`, isActive: true },
             select: { id: true, organizationId: true },
           });
           if (crmMember) {
@@ -267,7 +268,7 @@ export async function PUT(
         contract.name || '계약자',
         profileType,
         new Date(),
-        undefined // signatureImageUrl은 나중에 서명 이미지가 있을 때 사용
+        contract.signatureImageUrl ?? undefined // 서명 이미지 삽입(서명 흐름에서 저장됨)
       );
       // Uint8Array → Buffer 변환
       const pdfBuffer = Buffer.from(pdfUint8Array);

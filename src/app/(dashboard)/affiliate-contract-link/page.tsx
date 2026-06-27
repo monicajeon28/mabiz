@@ -57,6 +57,9 @@ export default function AffiliateContractLinkPage() {
     if (!result) return;
     navigator.clipboard.writeText(result.signUrl).then(() => {
       setCopied(true); setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      // clipboard 미지원/거부 — 수동 복사 안내
+      window.prompt('아래 링크를 복사하세요:', result.signUrl);
     });
   };
 

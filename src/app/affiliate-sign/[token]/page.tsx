@@ -181,8 +181,8 @@ export default function AffiliateSignPage({ params }: { params: Promise<{ token:
             ['consentPenalty', '콘텐츠·브랜드 보호 및 위약 조항에 동의합니다 (필수)'],
             ['consentRefund', '교육 환불 규정에 동의합니다 (필수)'],
           ].map(([k, t]) => (
-            <label key={k} className="flex items-start gap-2 text-sm text-gray-700">
-              <input type="checkbox" className="mt-0.5 w-5 h-5" checked={consents[k as keyof typeof consents]}
+            <label key={k} className="flex items-start gap-2.5 py-1.5 text-base text-gray-700 cursor-pointer">
+              <input type="checkbox" className="mt-0.5 w-6 h-6 shrink-0" checked={consents[k as keyof typeof consents]}
                 onChange={(e) => setConsents((c) => ({ ...c, [k]: e.target.checked }))} />
               <span>{t}</span>
             </label>
@@ -198,7 +198,7 @@ export default function AffiliateSignPage({ params }: { params: Promise<{ token:
           <canvas
             ref={canvasRef} width={520} height={180}
             className="w-full border-2 border-dashed border-gray-300 rounded-lg bg-white touch-none"
-            onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerLeave={end}
+            onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerLeave={end} onPointerCancel={end}
           />
         </div>
 

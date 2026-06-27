@@ -16,8 +16,8 @@ import { CONTRACT_PRICE_TIERS, type PriceTierKey } from '@/lib/affiliate/priceTi
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
-    // 관리자(GLOBAL_ADMIN) 또는 지사(OWNER)만 링크 발급 가능
-    if (!ctx || (ctx.role !== 'GLOBAL_ADMIN' && ctx.role !== 'OWNER')) {
+    // 관리자(GLOBAL_ADMIN) 전용 — 계약서 링크 발급 (발급 페이지·사이드바도 GLOBAL_ADMIN)
+    if (!ctx || ctx.role !== 'GLOBAL_ADMIN') {
       return NextResponse.json({ ok: false, message: '권한이 없습니다.' }, { status: 403 });
     }
 
