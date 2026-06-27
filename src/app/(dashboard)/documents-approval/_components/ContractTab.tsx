@@ -789,7 +789,9 @@ export default function ContractTab() {
       {/* ═══ 우측: 항상 표시 계약서 미리보기 (모바일: 100%, 데스크톱: 40%) ═══════ */}
       <div className="min-w-0">
         <p className="mb-2 text-sm font-semibold text-gray-700">계약서 미리보기</p>
-        <div ref={previewRef}>
+        {/* 스크롤 클리핑을 래퍼(=캡처 노드)에 둠 → useImageDownload가 캡처 중 maxHeight/overflow를
+            해제해 계약서 하단(표준약관·개인정보)까지 잘림 없이 PNG 캡처 */}
+        <div ref={previewRef} className="max-h-[calc(100vh-200px)] overflow-y-auto">
           <FullContractPreview data={previewData} agent={agent} />
         </div>
 
@@ -1599,7 +1601,7 @@ function FullContractPreview({
   })();
 
   return (
-    <div className="max-h-[calc(100vh-200px)] overflow-y-auto rounded-xl border border-gray-200 bg-white text-[12px] leading-relaxed text-gray-800 shadow-sm">
+    <div className="rounded-xl border border-gray-200 bg-white text-[12px] leading-relaxed text-gray-800 shadow-sm">
       <div className="p-5 space-y-4">
         {/* 헤더 */}
         <DocumentLetterhead title="크루즈닷 여행계약서" accentClass="border-orange-100" />
