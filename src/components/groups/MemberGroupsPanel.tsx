@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Users, X } from "lucide-react";
-import { showError } from "@/components/ui/Toast";
+import { Plus, Users, X, Pencil, Trash2 } from "lucide-react";
+import { showError, showSuccess } from "@/components/ui/Toast";
 import { logger } from "@/lib/logger";
 
 // ─── 타입 ─────────────────────────────────────────────────────────────────────
@@ -158,6 +158,33 @@ export function MemberGroupsPanel() {
     void loadGroups();
   }, [loadGroups]);
 
+  const handleRename = useCallback(async (g: MemberGroupRow) => {
+    const next = window.prompt("새 그룹 이름을 입력하세요.", g.name);
+    if (next === null) return;
+    const name = next.trim();
+    if (!name || name === g.name) return;
+    try {
+      const res = await fetch(`/api/members/groups/${g.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const data = (await res.json()) as { ok: boolean; error?: string };
+      if (data.ok) { showSuccess("이름을 변경했습니다."); void loadGroups(); }
+      else showError(data.error ?? "이름 변경에 실패했습니다.");
+    } catch { showError("네트워크 오류가 발생했습니다."); }
+  }, [loadGroups]);
+
+  const handleDelete = useCallback(async (g: MemberGroupRow) => {
+    if (!window.confirm(`'${g.name}' 그룹을 삭제할까요?\n소속 회원의 그룹 연결도 함께 해제됩니다(회원 자체는 삭제되지 않습니다).`)) return;
+    try {
+      const res = await fetch(`/api/members/groups/${g.id}`, { method: "DELETE" });
+      const data = (await res.json()) as { ok: boolean; error?: string };
+      if (data.ok) { showSuccess("그룹을 삭제했습니다."); void loadGroups(); }
+      else showError(data.error ?? "삭제에 실패했습니다.");
+    } catch { showError("네트워크 오류가 발생했습니다."); }
+  }, [loadGroups]);
+
   return (
     <>
       {showCreate && (
@@ -249,13 +276,31 @@ export function MemberGroupsPanel() {
                         .trim()}
                     </td>
                     <td className="px-3 py-3 text-center">
-                      <button
-                        onClick={() => router.push("/members")}
-                        className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-gray-200 rounded hover:bg-gray-50 text-gray-600"
-                      >
-                        <Users className="w-3 h-3" />
-                        회원 배정
-                      </button>
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          onClick={() => router.push("/members")}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-gray-200 rounded hover:bg-gray-50 text-gray-600"
+                        >
+                          <Users className="w-3 h-3" />
+                          회원 배정
+                        </button>
+                        <button
+                          onClick={() => handleRename(g)}
+                          aria-label="이름 변경"
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-gray-200 rounded hover:bg-gray-50 text-gray-600"
+                        >
+                          <Pencil className="w-3 h-3" />
+                          이름변경
+                        </button>
+                        <button
+                          onClick={() => handleDelete(g)}
+                          aria-label="그룹 삭제"
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-red-200 rounded hover:bg-red-50 text-red-600"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          삭제
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

@@ -53,6 +53,10 @@ export async function POST(req: Request) {
     if (!session) {
       return NextResponse.json({ ok: false, error: '로그인이 필요합니다.' }, { status: 401 });
     }
+    // 회원그룹은 관리자 전용 기능(UI도 GLOBAL_ADMIN만 노출) — API도 동일 게이트
+    if (session.role !== 'GLOBAL_ADMIN') {
+      return NextResponse.json({ ok: false, error: '권한이 없습니다.' }, { status: 403 });
+    }
 
     const body = await req.json();
     const { name, color } = body;
