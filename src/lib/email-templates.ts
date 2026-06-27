@@ -91,10 +91,12 @@ export interface PartnerJoinedEmailParams {
   crmUrl:       string;
 }
 
+// 확정 용어: OWNER=지사 / AGENT=대리점장 / FREE_SALES=마케터 (영어·구명칭 노출 금지)
 const ROLE_LABEL: Record<string, string> = {
-  AGENT:      '영업파트너',
-  FREE_SALES: '프리마케터',
-  OWNER:      '대리점장',
+  AGENT:        '대리점장',
+  FREE_SALES:   '마케터',
+  OWNER:        '지사',
+  GLOBAL_ADMIN: '관리자',
 };
 
 export function renderPartnerJoinedEmail(p: PartnerJoinedEmailParams): { subject: string; html: string } {

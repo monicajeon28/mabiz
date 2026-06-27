@@ -101,13 +101,15 @@ type PendingContract = {
 
 // ─── Constants ────────────────────────────────────────────────
 
+// 역할(role) 라벨 — 확정 용어: OWNER=지사 / AGENT=대리점장(등급 1·2는 TIER_LABEL로 구분) / FREE_SALES=마케터
+// BRANCH_MANAGER(구 memberType)=대리점장2. 등급1/2 구분은 TIER_LABEL 사용.
 const ROLE_LABEL: Record<string, string> = {
-  BRANCH_MANAGER: '지사장',
-  OWNER: '지점장',
+  BRANCH_MANAGER: '대리점장2',
+  OWNER: '지사',
   SALES_AGENT: '대리점장',
   FREE_SALES: '마케터',
   PRE_SALES: '마케터',
-  AGENT: '대리점장1',
+  AGENT: '대리점장',
 };
 const ROLE_BADGE: Record<string, string> = {
   BRANCH_MANAGER: 'bg-blue-100 text-blue-700',
