@@ -13,6 +13,7 @@ import { sendFunnelEmail } from "@/lib/email";
 import sanitizeHtml from "sanitize-html";
 import { replaceMessagePlaceholders } from "@/lib/message-replacements";
 import { scheduleDay0To3Sms } from "@/lib/landing-page-sms-scheduler";
+import { computeFlowHeat, type FlowPathStep, type FlowHeatResult } from "@/lib/bot-flow";
 
 // [P1-11] FormConfig Zod 검증 스키마
 // .passthrough()로 미래의 알 수 없는 키도 허용 (strict() 제거로 b2bEduType 파싱 실패 해결)
@@ -38,6 +39,23 @@ export async function POST(req: Request, { params }: Params) {
     const { id: landingPageId } = await params;
     const body = await req.json();
     const { name, phone, email, metadata } = body;
+
+    // 버튼 A/B 플로우(bot-gate) 신청 — 클릭 경로로 heat·자격검증(시기/동행)·반론을 서버에서 재계산(핫DB).
+    // 클라가 보낸 점수는 신뢰하지 않고 경로만 받아 computeFlowHeat 로 재산출.
+    const metaObj = (metadata ?? {}) as Record<string, unknown>;
+    const isBotGate = metaObj.flow === "bot-gate";
+    let flowHeat: FlowHeatResult | null = null;
+    if (isBotGate && Array.isArray(metaObj.flowPath)) {
+      try {
+        const path = (metaObj.flowPath as unknown[])
+          .filter((s): s is FlowPathStep =>
+            !!s && typeof s === "object" &&
+            typeof (s as FlowPathStep).nodeId === "string" &&
+            typeof (s as FlowPathStep).choiceIndex === "number")
+          .slice(0, 30);
+        flowHeat = computeFlowHeat(path);
+      } catch { /* 경로 파싱 실패 — heat 없이 진행 */ }
+    }
 
     // [P1-6] formConfig JSON 유효성 검증 (body에 있으면 검증)
     if (body.formConfig) {
@@ -479,7 +497,7 @@ export async function POST(req: Request, { params }: Params) {
         const leadName = name;
         const leadPhone = normalizedPhone;
         const pageTitle = landingPage.title;
-        const isBotGate = (metadata as Record<string, unknown> | undefined)?.flow === 'bot-gate';
+        const heat = flowHeat; // 핫DB 컨텍스트(시기·동행·반론·점수)를 알림에 포함
         after(async () => {
           try {
             // 담당자 전화 조회 (동일 org·활성)
@@ -499,7 +517,12 @@ export async function POST(req: Request, { params }: Params) {
             }
             const greet = agent.displayName ? `${agent.displayName}님, ` : '';
             const channelLine = isBotGate ? '상담봇' : pageTitle;
-            const msg = `[새 상담신청] ${greet}${leadName}님이 방금 ${channelLine}을 통해 신청했어요. 빠르게 연락해 주세요.\n신청자 연락처: ${leadPhone}`;
+            // 핫DB: 버튼 플로우 신청이면 시기·동행·관심/걱정·🔥 핫리드 표시(판매원 공략 설계도)
+            const hot = heat && heat.heat >= 50 ? '🔥핫리드 ' : '';
+            const qParts = [heat?.qualifiers?.when, heat?.qualifiers?.who].filter(Boolean) as string[];
+            const qLine = qParts.length ? `\n희망: ${qParts.join(' · ')}` : '';
+            const tagLine = heat?.tags?.length ? `\n관심·걱정: ${heat.tags.join('·')}` : '';
+            const msg = `[새 상담신청] ${hot}${greet}${leadName}님이 방금 ${channelLine}을 통해 신청했어요. 빠르게 연락해 주세요.${qLine}${tagLine}\n신청자 연락처: ${leadPhone}`;
             const res = await sendSms({
               config,
               receiver: agent.phone,
@@ -514,6 +537,52 @@ export async function POST(req: Request, { params }: Params) {
             // 알림 실패해도 등록은 이미 성공 — 조용히 로그만
             logger.error('[LandingRegister] 새 상담신청 알림 실패', {
               err: err instanceof Error ? err.message : String(err),
+            });
+          }
+        });
+      }
+
+      // 🔥 핫DB: 버튼 플로우 신청 → BotConversation(intentScore=heat + 자격검증·반론) 생성/갱신
+      //   → 기존 /api/bot/leads(heat 정렬 대시보드)·핫리드 큐에 합류. 손님 phone 기준 멱등(중복 방지).
+      //   best-effort(after) — 실패해도 신청 등록은 유지. (notifyAgent SMS는 위에서 이미 발송)
+      if (isBotGate && flowHeat) {
+        const heatSnapshot = flowHeat;
+        const agentId = landingPage.createdByUserId ?? null;
+        after(async () => {
+          try {
+            const existing = await prisma.botConversation.findFirst({
+              where: { organizationId: orgId, landingPageId, customerPhone: normalizedPhone, source: "button_gate" },
+              select: { id: true },
+            });
+            const common = {
+              intentScore: heatSnapshot.heat,
+              customerName: name,
+              customerPhone: normalizedPhone,
+              qualifiers: heatSnapshot.qualifiers as object,
+              objectionTags: heatSnapshot.tags as object,
+              status: "HANDED_OFF",
+              lastMessageAt: new Date(),
+            };
+            if (existing) {
+              await prisma.botConversation.update({ where: { id: existing.id }, data: common });
+            } else {
+              await prisma.botConversation.create({
+                data: {
+                  organizationId: orgId,
+                  landingPageId,
+                  attributedAgentId: agentId,
+                  attributionSource: "button_gate",
+                  visitorId: `gate-${regId}`,
+                  source: "button_gate",
+                  channel: "bot_landing",
+                  fsmState: "HANDOFF",
+                  ...common,
+                },
+              });
+            }
+          } catch (e) {
+            logger.warn("[LandingRegister] 핫DB BotConversation 생성 실패(신청 유지)", {
+              err: e instanceof Error ? e.message : String(e),
             });
           }
         });

@@ -7983,7 +7983,10 @@ model BotConversation {
   status            String   @default("ACTIVE") // ACTIVE | CONVERTED | ABANDONED | HANDED_OFF
   fsmState          String   @default("OPENING") // 대화 상태머신 현재 단계
   closeAttempts     Int      @default(0) // 클로징 시도 횟수
-  intentScore       Int      @default(0) // 구매의사 점수 0-100
+  intentScore       Int      @default(0) // 구매의사 점수 0-100 (버튼 플로우 heat 포함)
+  source            String   @default("chat") // chat | button_gate (핫DB 출처)
+  qualifiers        Json? // 자격검증 {when,who} — button_gate 신청 시 (BANT)
+  objectionTags     Json? // 누적 반론 태그 [가격,건강,…] — 판매원 공략 설계도
   purchaseInquiryId Int? // 전환 시 CruiseProductInquiry 역참조(느슨한 참조)
   createdAt         DateTime @default(now())
   lastMessageAt     DateTime @default(now())

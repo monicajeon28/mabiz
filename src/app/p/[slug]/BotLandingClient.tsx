@@ -196,6 +196,8 @@ export default function BotLandingClient({
           metadata: {
             flow: "bot-gate",
             ref: refCode ?? null,
+            // 버튼 A/B 클릭 경로 — 서버가 heat·자격검증(시기/동행)·반론을 재계산(핫DB). 점수는 클라가 안 보냄.
+            flowPath,
             // 동의 기록(정보통신망법) — 광고성 카톡/문자 발송 가부 판단 근거. ad=false면 광고 발송 금지.
             consent: { privacy: agreePrivacy, ad: agreeAd },
           },
