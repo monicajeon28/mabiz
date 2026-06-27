@@ -2,10 +2,13 @@
  * CrmLandingShare 지정공유 컬럼 (2026-06-28, 봇 업그레이드 Phase F)
  *   sharedToUserId TEXT DEFAULT '' — "" = 조직/전체 공유, 그 외 = 특정 담당자(지사/대리점장) 지정공유.
  *   유니크를 (landingPageId, sharedToOrgId) → (landingPageId, sharedToOrgId, sharedToUserId) 로 교체.
- *   순서: ①ADD COLUMN('' 백필) ②3컬럼 UNIQUE INDEX CONCURRENTLY(쓰기 무중단) ③보조 인덱스 ④구 유니크 제거.
- *   CONCURRENTLY는 트랜잭션 밖이어야 함(개별 실행). 운영 적용:
- *     node --env-file=.env.local scripts/apply-landing-share-userid.mjs
- *   ⚠️ Neon은 크루즈닷과 공유 DB — 저트래픽 시간 권장.
+ *   순서: ①ADD COLUMN('' 백필) ②3컬럼 UNIQUE INDEX ③보조 인덱스 ④구 유니크 제거.
+ *   ⚠️ CONCURRENTLY 미사용 이유: 운영 DATABASE_URL이 Neon **-pooler(PgBouncer)** 라 CONCURRENTLY 불가 +
+ *      Prisma $executeRawUnsafe 가 트랜잭션 래핑할 수 있음. CrmLandingShare는 소형 테이블이라
+ *      일반 CREATE UNIQUE INDEX의 락은 순간(무시 가능). 큰 테이블이면 direct(non-pooler) URL+CONCURRENTLY 필요.
+ *   🔴 **배포 결합**: ④ 구 2컬럼 유니크 DROP은 현재 배포된 구버전 share 코드의 upsert(landingPageId_sharedToOrgId)를
+ *      깨뜨린다. **반드시 새 코드 배포와 동시(직전)에 실행**할 것. 코드 배포 전에 단독 실행 금지.
+ *   운영 적용(배포 직전, 저트래픽): node --env-file=.env.local scripts/apply-landing-share-userid.mjs
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -38,18 +41,18 @@ async function run() {
     console.log('  ✅ 컬럼 추가');
   }
 
-  // 2) 신규 3컬럼 UNIQUE INDEX (CONCURRENTLY — 트랜잭션 밖). 기존행 모두 sharedToUserId='' 라 충돌 없음.
+  // 2) 신규 3컬럼 UNIQUE INDEX (소형 테이블 — 비concurrent 순간 락). 기존행 모두 sharedToUserId='' 라 충돌 없음.
   const newIdx = 'CrmLandingShare_landingPageId_sharedToOrgId_sharedToUserId_key';
   if (!(await indexExists(newIdx))) {
     await prisma.$executeRawUnsafe(
-      `CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS "${newIdx}" ON "CrmLandingShare"("landingPageId","sharedToOrgId","sharedToUserId")`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS "${newIdx}" ON "CrmLandingShare"("landingPageId","sharedToOrgId","sharedToUserId")`,
     );
     console.log('  ✅ 3컬럼 UNIQUE INDEX 생성');
   } else console.log('  ✅ 3컬럼 UNIQUE INDEX 이미 존재');
 
   // 3) 보조 인덱스
   await prisma.$executeRawUnsafe(
-    `CREATE INDEX CONCURRENTLY IF NOT EXISTS "CrmLandingShare_sharedToUserId_idx" ON "CrmLandingShare"("sharedToUserId")`,
+    `CREATE INDEX IF NOT EXISTS "CrmLandingShare_sharedToUserId_idx" ON "CrmLandingShare"("sharedToUserId")`,
   );
   console.log('  ✅ sharedToUserId 인덱스 확인');
 
