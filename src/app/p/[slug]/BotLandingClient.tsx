@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { BOT_IMAGES, publicImageUrl } from "@/lib/bot-images";
+import { FLOW_V1, FLOW_V1_START, type FlowNode } from "@/lib/bot-flow";
 
 interface Msg {
   role: "user" | "bot";
@@ -19,58 +19,7 @@ interface Msg {
  */
 type Phase = "guide" | "gate" | "choice" | "chat" | "endcta";
 
-/**
- * 크루즈봇 버튼 가이드(PASONA 4장) — AI 호출 0회, 0.2초 즉시 전환(로딩·비용 0).
- *   사진 9종으로 공감→차별화→신뢰→후기 여정을 클릭만으로 통과시키고, 끝에서 게이트(이름·연락처)로.
- *   🔴 문구는 사실만. '최저가/유일/100%/보장' 등 절대표현 금지(광고법). 가격·일정 단정은 게이트 이후 담당 전문가가.
- */
-interface GuideCard {
-  title: string;
-  body: string;
-  imageKeys: string[]; // bot-images.ts BOT_IMAGES 키
-  primaryLabel: string;
-  primaryTo: "next" | "lead";
-  secondaryLabel?: string;
-  secondaryTo?: "lead" | "chat";
-}
-const GUIDE_CARDS: GuideCard[] = [
-  {
-    title: "티켓만 들고 떠나는 자유여행, 막막하지 않으세요?",
-    body: "말도 안 통하고, 길도 헤매고, 끼니와 안전까지… 자유여행은 신경 쓸 게 참 많죠.",
-    imageKeys: ["opening", "problem1"],
-    primaryLabel: "네, 궁금해요",
-    primaryTo: "next",
-    secondaryLabel: "바로 상담받을게요",
-    secondaryTo: "lead",
-  },
-  {
-    title: "크루즈닷은 그 걱정을 이렇게 덜어드려요",
-    body: "한국어 안내방송과 전담 스탭이 함께해서, 복잡한 준비 없이 편하게 즐기시면 됩니다.",
-    imageKeys: ["solution1", "solution2"],
-    primaryLabel: "오, 그러네요",
-    primaryTo: "next",
-    secondaryLabel: "바로 상담받을게요",
-    secondaryTo: "lead",
-  },
-  {
-    title: "믿고 맡기셔도 괜찮아요",
-    body: "선사 인증을 받은 전담 스탭이 처음부터 끝까지 안내해 드려요. 정확한 가격·일정은 담당 전문가가 확인해 드립니다.",
-    imageKeys: ["trust1", "trust2"],
-    primaryLabel: "신뢰가 가네요",
-    primaryTo: "next",
-    secondaryLabel: "궁금한 게 있어요",
-    secondaryTo: "chat",
-  },
-  {
-    title: "다녀오신 분들이 가장 좋았다고 하세요",
-    body: "함께 다녀오신 분들의 후기예요. 마음 편한 여행, 직접 느껴보세요.",
-    imageKeys: ["review1", "review2"],
-    primaryLabel: "저도 상담받을게요",
-    primaryTo: "lead",
-    secondaryLabel: "더 궁금한 게 있어요",
-    secondaryTo: "chat",
-  },
-];
+// 버튼 A/B 플로우는 src/lib/bot-flow.ts FLOW_V1(서버 상수)에서 정의(콜 9대 반론·heat·컴플라이언스 카피).
 
 interface Props {
   pageId: string;
@@ -146,7 +95,9 @@ export default function BotLandingClient({
 
   // 단계 — 크루즈봇은 버튼 가이드(PASONA 4장)부터, 모집봇은 기존대로 게이트부터(무영향).
   const [phase, setPhase] = useState<Phase>(botType === "recruit" ? "gate" : "guide");
-  const [guideStep, setGuideStep] = useState(0);
+  // 버튼 A/B 플로우(FLOW_V1) — 현재 노드 + 클릭 경로(신청 시 서버가 heat 재계산)
+  const [nodeId, setNodeId] = useState<string>(FLOW_V1_START);
+  const [flowPath, setFlowPath] = useState<{ nodeId: string; choiceIndex: number }[]>([]);
 
   const [messages, setMessages] = useState<Msg[]>([
     { role: "bot", text: greeting || defaultGreeting },
@@ -179,20 +130,30 @@ export default function BotLandingClient({
   const homeLink = isRecruit ? homepageUrl || "" : homepageUrl || DEFAULT_HOMEPAGE_URL;
   const gateHook = hookText || (isRecruit ? RECRUIT_HOOK : CRUISE_HOOK);
 
-  // 가이드 버튼 동작: 다음 카드 / 게이트(이름·연락처 입력) / 채팅(AI 비상구)
-  const onGuide = (to: "next" | "lead" | "chat") => {
-    if (to === "next") {
-      setGuideStep((s) => Math.min(s + 1, GUIDE_CARDS.length - 1));
-    } else if (to === "lead") {
+  // 버튼 A/B 플로우: 선택 → 다음 노드 / 게이트(신청) / 채팅(AI 비상구). 경로 누적(서버 heat용).
+  const flowNode: FlowNode | null = phase === "guide" ? FLOW_V1[nodeId] ?? null : null;
+  const onFlowChoice = (choiceIndex: number) => {
+    const node = FLOW_V1[nodeId];
+    const choice = node?.choices[choiceIndex];
+    if (!choice) return;
+    setFlowPath((p) => [...p, { nodeId, choiceIndex }]);
+    if (choice.to === "lead") {
       setLeadError("");
       setShowLeadForm(true);
       setPhase("gate");
-    } else {
+    } else if (choice.to === "chat") {
       setPhase("chat");
+    } else {
+      setNodeId(choice.to);
     }
   };
-  const guideCard =
-    phase === "guide" ? GUIDE_CARDS[Math.min(guideStep, GUIDE_CARDS.length - 1)] : null;
+  const onFlowBack = () => {
+    setFlowPath((p) => {
+      if (p.length === 0) return p;
+      setNodeId(p[p.length - 1].nodeId);
+      return p.slice(0, -1);
+    });
+  };
 
   // 라이브방송 후킹 카드 — 접수 직후(choice/endcta)에만. 손님이 직접 누르는 오픈카톡 링크(자동발송 아님).
   const liveCard = live ? (
@@ -316,32 +277,27 @@ export default function BotLandingClient({
         </p>
       </header>
 
-      {/* ── 0단계: 버튼 가이드 (PASONA 4장 · 9종 이미지 · AI 호출 0회) ── */}
-      {phase === "guide" && guideCard && (
+      {/* ── 0단계: 버튼 A/B 플로우 (사장님 스토리보드 · 콜 9대 반론 · AI 호출 0회) ── */}
+      {phase === "guide" && flowNode && (
         <div className="flex flex-1 flex-col px-5 py-6">
           <div className="mx-auto flex w-full max-w-md flex-1 flex-col">
-            {/* 진행점 — 끝이 보이게 */}
-            <div className="mb-4 flex flex-col items-center justify-center gap-1.5">
-              <div className="flex items-center justify-center gap-2">
-                {GUIDE_CARDS.map((_, i) => (
-                  <span
-                    key={i}
-                    className={`h-2.5 rounded-full transition-all ${
-                      i === guideStep ? "w-6 bg-[#2563EB]" : "w-2.5 bg-slate-300"
-                    }`}
-                  />
-                ))}
-              </div>
-              <span className="text-sm font-semibold text-slate-500">
-                {Math.min(guideStep, GUIDE_CARDS.length - 1) + 1}/{GUIDE_CARDS.length}단계
-              </span>
+            {/* 진행점 — 경로 깊이로 표시(그래프라 고정 길이 없음) */}
+            <div className="mb-4 flex items-center justify-center gap-2">
+              {Array.from({ length: Math.min(flowPath.length + 1, 6) }).map((_, i) => (
+                <span
+                  key={i}
+                  className={`h-2.5 rounded-full transition-all ${
+                    i === flowPath.length ? "w-6 bg-[#2563EB]" : "w-2.5 bg-slate-300"
+                  }`}
+                />
+              ))}
             </div>
             <h2 className="text-xl font-bold leading-relaxed text-[#1E2D4E]">
-              {guideCard.title}
+              {flowNode.title}
             </h2>
-            <p className="mt-3 text-base leading-relaxed text-slate-600">{guideCard.body}</p>
-            {/* 실데이터 후킹 — 차별화 카드(2번째)에 실제 대표 상품 가격·출발일(지어내지 않음) */}
-            {guideStep === 1 && featured && (
+            <p className="mt-3 text-base leading-relaxed text-slate-600">{flowNode.body}</p>
+            {/* 실데이터 후킹 — 오퍼 화면(price)에 실제 대표 상품 가격·출발일(지어내지 않음) */}
+            {nodeId === "price" && featured && (
               <div className="mt-4 rounded-2xl border border-[#2563EB]/30 bg-[#EBF4FF] px-4 py-3">
                 <p className="text-sm font-semibold text-[#2563EB]">지금 이런 일정이 있어요</p>
                 <p className="mt-1 text-base font-bold leading-snug text-[#1E2D4E]">
@@ -374,49 +330,42 @@ export default function BotLandingClient({
                 </p>
               </div>
             )}
-            {/* 설득 사진 */}
-            <div className="mt-4 flex flex-col gap-3">
-              {guideCard.imageKeys.map((k) => {
-                const img = BOT_IMAGES[k];
-                if (!img) return null;
-                return (
-                  <img
-                    key={k}
-                    src={publicImageUrl(img.fileId)}
-                    alt={img.label}
-                    loading="lazy"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                    }}
-                    style={{ aspectRatio: "4 / 3", minHeight: 180 }}
-                    className="w-full rounded-2xl border border-slate-200 object-cover shadow-sm"
-                  />
-                );
-              })}
-            </div>
-            {/* 버튼 */}
+            {/* 설득 사진 (사장님 스토리보드 — /public/bot) */}
+            {flowNode.image && (
+              <div className="mt-4">
+                <img
+                  src={flowNode.image}
+                  alt={flowNode.title}
+                  loading="lazy"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
+                  style={{ minHeight: 180 }}
+                  className="w-full rounded-2xl border border-slate-200 object-contain shadow-sm"
+                />
+              </div>
+            )}
+            {/* 버튼 — 첫 선택지=강조(초록), 나머지=보조(테두리). 50대: 48px+ · 16px+ · 동등 크기 */}
             <div className="mt-auto space-y-3 pt-6">
-              <button
-                type="button"
-                onClick={() => onGuide(guideCard.primaryTo)}
-                className="flex min-h-[56px] w-full items-center justify-center rounded-2xl bg-[#27AE60] px-5 text-lg font-bold text-white shadow-sm transition active:scale-[0.99]"
-              >
-                {guideCard.primaryLabel}
-              </button>
-              {guideCard.secondaryLabel && guideCard.secondaryTo && (
+              {flowNode.choices.map((c, i) => (
                 <button
+                  key={i}
                   type="button"
-                  onClick={() => guideCard.secondaryTo && onGuide(guideCard.secondaryTo)}
-                  className="flex min-h-[48px] w-full items-center justify-center rounded-2xl border-2 border-[#1E2D4E] px-5 text-base font-bold text-[#1E2D4E] transition active:scale-[0.99]"
+                  onClick={() => onFlowChoice(i)}
+                  className={
+                    i === 0
+                      ? "flex min-h-[56px] w-full items-center justify-center rounded-2xl bg-[#27AE60] px-5 text-lg font-bold text-white shadow-sm transition active:scale-[0.99]"
+                      : "flex min-h-[52px] w-full items-center justify-center rounded-2xl border-2 border-[#1E2D4E] px-5 text-base font-bold text-[#1E2D4E] transition active:scale-[0.99]"
+                  }
                 >
-                  {guideCard.secondaryLabel}
+                  {c.label}
                 </button>
-              )}
-              {/* 이전 단계로 — 첫 단계가 아닐 때만 */}
-              {guideStep > 0 && (
+              ))}
+              {/* 이전 — 첫 화면이 아닐 때만 */}
+              {flowPath.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => setGuideStep((s) => Math.max(s - 1, 0))}
+                  onClick={onFlowBack}
                   className="flex min-h-[48px] w-full items-center justify-center rounded-2xl border border-slate-300 px-5 text-base font-medium text-slate-600 transition active:scale-[0.99]"
                 >
                   ← 이전
