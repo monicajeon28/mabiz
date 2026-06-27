@@ -298,9 +298,10 @@ export async function generatePartnerContractPDF(
 </html>
   `.trim();
 
+  let page: PdfPage | null = null;
   try {
     const browser = await getBrowser();
-    const page = await browser.newPage();
+    page = await browser.newPage();
 
     // HTML 콘텐츠 설정
     await page.setContent(htmlContent, { waitUntil: 'load' });
@@ -311,8 +312,6 @@ export async function generatePartnerContractPDF(
       margin: { top: '0.5in', right: '0.5in', bottom: '0.5in', left: '0.5in' },
       printBackground: true,
     });
-
-    await page.close();
 
     logger.log('[ContractPDF] PDF 생성 완료', {
       partnerId,
@@ -328,6 +327,8 @@ export async function generatePartnerContractPDF(
       error: error instanceof Error ? error.message : String(error),
     });
     throw error;
+  } finally {
+    if (page) await page.close().catch(() => {}); // throw 시에도 page 정리(누수 방지)
   }
 }
 

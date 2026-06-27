@@ -1,4 +1,6 @@
 export const dynamic = 'force-dynamic';
+// PDF 생성(puppeteer chromium 콜드스타트)·Drive·이메일까지 시간 여유
+export const maxDuration = 60;
 
 /**
  * PUT  /api/affiliate/contracts/[contractId]/approve  — 계약 승인 + 계정 자동 생성
@@ -263,7 +265,7 @@ export async function PUT(
       const profileType: 'BRANCH_MANAGER' | 'SALES_AGENT' | 'PRE_SALES' =
         tierKey === 'SALES_330' ? 'PRE_SALES' : tierKey === 'BRANCH_750' ? 'BRANCH_MANAGER' : 'SALES_AGENT';
 
-      // PDF 생성
+      // PDF 생성 (실패 시 catch로 — PDF 없이는 이메일·보관 불가)
       const pdfUint8Array = await generatePartnerContractPDF(
         provisionResult.crmMemberId,
         contract.name || '계약자',
@@ -271,15 +273,28 @@ export async function PUT(
         new Date(),
         contract.signatureImageUrl ?? undefined // 서명 이미지 삽입(서명 흐름에서 저장됨)
       );
-      // Uint8Array → Buffer 변환
       const pdfBuffer = Buffer.from(pdfUint8Array);
 
-      // Google Drive 저장
-      const driveResult = await backupPartnerContractToGoogleDrive(
-        provisionResult.crmMemberId,
-        contract.name || '계약자',
-        pdfBuffer
-      );
+      // Google Drive 저장 (독립 try — 실패해도 PDF 첨부 이메일은 진행)
+      let driveFileId: string | null = null;
+      try {
+        const driveResult = await backupPartnerContractToGoogleDrive(
+          provisionResult.crmMemberId, contract.name || '계약자', pdfBuffer,
+        );
+        driveFileId = driveResult.contractFileId ?? null;
+        // contractFileId를 계약 metadata에 저장 → CRM에서 발급 계약서 재조회·다운로드 가능
+        if (driveFileId) {
+          const cur = await prisma.gmAffiliateContract.findUnique({ where: { id: contractId }, select: { metadata: true } });
+          await prisma.gmAffiliateContract.update({
+            where: { id: contractId },
+            data: { metadata: { ...((cur?.metadata as Record<string, unknown> | null) ?? {}), contractPdfDriveId: driveFileId } },
+          });
+        }
+      } catch (driveErr) {
+        logger.warn('[AFFILIATE-PROVISION] 계약서 Drive 백업 실패(첨부 이메일은 진행)', {
+          contractId, error: driveErr instanceof Error ? driveErr.message : String(driveErr),
+        });
+      }
 
       // 계약서 PDF(서명·내용 그대로) 첨부 이메일 — 신청자 + 본사(ADMIN_EMAIL) 양쪽에
       // 본사 SMTP(NODEMAILER_*)로 자동 발송. 모든 계약서는 본사 발신으로 전달된다.
@@ -293,7 +308,7 @@ export async function PUT(
             partnerName: contract.name || '파트너',
             partnerEmail: contract.email,
             contractSignedAt: new Date().toLocaleDateString('ko-KR'),
-            driveLinkUrl: `https://drive.google.com/file/d/${driveResult.contractFileId}/view`,
+            driveLinkUrl: driveFileId ? `https://drive.google.com/file/d/${driveFileId}/view` : '',
             adminEmail,
           });
           try {
@@ -308,7 +323,7 @@ export async function PUT(
               }],
             });
             logger.log('[AFFILIATE-PROVISION] 계약서 PDF 첨부 이메일 발송', {
-              contractId, recipients: recipients.length, sent, driveFileId: driveResult.contractFileId,
+              contractId, recipients: recipients.length, sent, driveFileId,
             });
           } catch (emailErr) {
             logger.warn('[AFFILIATE-PROVISION] 계약서 이메일 발송 실패(승인 유지)', {
