@@ -8,6 +8,7 @@
 
 import puppeteer, { Browser } from 'puppeteer';
 import { logger } from '@/lib/logger';
+import { DEFAULT_CONTRACT_TEMPLATES, AFFILIATE_CONTRACT_TEMPLATE } from '@/lib/contract-templates-data';
 
 interface AuditLogRecord {
   id: string | number | bigint;
@@ -63,6 +64,17 @@ export async function generatePartnerContractPDF(
   signatureImageUrl?: string
 ): Promise<Uint8Array> {
   const roleLabel = ROLE_LABELS[partnerRole] || partnerRole;
+
+  // 계약 본문 조항(제1조~) — grade별 계약 템플릿 전체를 PDF에 그대로 포함(서명+내용 완비).
+  const template = DEFAULT_CONTRACT_TEMPLATES[partnerRole] ?? AFFILIATE_CONTRACT_TEMPLATE;
+  const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const articlesHtml = template.sections
+    .map((sec) => `
+      <div class="article">
+        <h3 class="article-title">${escapeHtml(sec.title)}</h3>
+        <p class="article-content">${escapeHtml(sec.content).replace(/\n/g, '<br/>')}</p>
+      </div>`)
+    .join('');
 
   // HTML 템플릿 생성
   const htmlContent = `
@@ -129,6 +141,32 @@ export async function generatePartnerContractPDF(
     .info-value {
       flex: 1;
       color: #333;
+    }
+    .contract-body {
+      margin-top: 32px;
+    }
+    .contract-body > h2 {
+      font-size: 17px;
+      color: #1a1a2e;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    .article {
+      margin-bottom: 18px;
+      page-break-inside: avoid;
+    }
+    .article-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin: 0 0 6px;
+    }
+    .article-content {
+      font-size: 12.5px;
+      line-height: 1.7;
+      color: #333;
+      margin: 0;
+      white-space: normal;
     }
     .signature-section {
       margin-top: 50px;
@@ -200,6 +238,11 @@ export async function generatePartnerContractPDF(
         <div class="info-label">계약 상태</div>
         <div class="info-value">✅ 서명 완료</div>
       </div>
+    </div>
+
+    <div class="contract-body">
+      <h2>${escapeHtml(template.title)}</h2>
+      ${articlesHtml}
     </div>
 
     ${
