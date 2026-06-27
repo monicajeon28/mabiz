@@ -48,9 +48,19 @@ interface ContractInfo {
 interface ApproveResult {
   contractId: number;
   tier: { key: string; label: string; amount: number };
-  manager: { gmUserId: number; crmMemberId: string; affiliateCode: string; linkCode: string; linkUrl: string };
-  agent: { gmUserId: number; affiliateCode: string; linkCode: string; linkUrl: string };
+  // 계약당 1계정 — 생성된 단일 등급 계정 (구 manager/agent 2계정 구조 폐기)
+  account: {
+    grade: string;
+    gradeLabel: string;
+    partnerId: string;
+    gmUserId: number;
+    crmMemberId: string;
+    affiliateCode: string;
+    linkCode: string;
+    linkUrl: string;
+  };
   smsSent: boolean;
+  emailSent?: boolean;
 }
 
 interface Props {
@@ -181,44 +191,33 @@ export default function ContractApproveModal({ contractId, onClose, onApproved }
                 </p>
               </div>
 
-              {/* 지사장 정보 */}
+              {/* 생성된 등급 계정 (계약당 1계정) */}
               <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-2">지사장 계정</h3>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">
+                  {result.account?.gradeLabel || '파트너'} 계정
+                </h3>
                 <div className="space-y-2">
                   <ResultRow
+                    label="아이디"
+                    value={result.account?.partnerId ?? '-'}
+                    onCopy={() => copyToClipboard(result.account?.partnerId ?? '', 'acc-id')}
+                    copied={copied === 'acc-id'}
+                  />
+                  <ResultRow
                     label="어필리에이트 코드"
-                    value={result.manager.affiliateCode}
-                    onCopy={() => copyToClipboard(result.manager.affiliateCode, 'mgr-code')}
-                    copied={copied === 'mgr-code'}
+                    value={result.account?.affiliateCode ?? '-'}
+                    onCopy={() => copyToClipboard(result.account?.affiliateCode ?? '', 'acc-code')}
+                    copied={copied === 'acc-code'}
                   />
                   <ResultRow
                     label="추적 링크"
-                    value={result.manager.linkUrl}
-                    onCopy={() => copyToClipboard(result.manager.linkUrl, 'mgr-link')}
-                    copied={copied === 'mgr-link'}
+                    value={result.account?.linkUrl ?? '-'}
+                    onCopy={() => copyToClipboard(result.account?.linkUrl ?? '', 'acc-link')}
+                    copied={copied === 'acc-link'}
                   />
                   <div className="text-sm text-gray-500">
-                    CRM 멤버 ID: {result.manager.crmMemberId}
+                    CRM 멤버 ID: {result.account?.crmMemberId ?? '-'}
                   </div>
-                </div>
-              </div>
-
-              {/* 대리점장 정보 */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-2">대리점장 계정</h3>
-                <div className="space-y-2">
-                  <ResultRow
-                    label="어필리에이트 코드"
-                    value={result.agent.affiliateCode}
-                    onCopy={() => copyToClipboard(result.agent.affiliateCode, 'agt-code')}
-                    copied={copied === 'agt-code'}
-                  />
-                  <ResultRow
-                    label="추적 링크"
-                    value={result.agent.linkUrl}
-                    onCopy={() => copyToClipboard(result.agent.linkUrl, 'agt-link')}
-                    copied={copied === 'agt-link'}
-                  />
                 </div>
               </div>
 

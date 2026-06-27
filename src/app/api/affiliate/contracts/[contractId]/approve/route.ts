@@ -441,7 +441,7 @@ export async function PUT(
         data: {
           contractId,
           action: 'APPROVED',
-          approvedBy: ctx.userId ? Number(ctx.userId) : null,
+          approvedBy: Number.isInteger(Number(ctx.userId)) ? Number(ctx.userId) : null,
           approvalTier: tierKey,
         },
       });

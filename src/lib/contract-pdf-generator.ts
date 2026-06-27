@@ -101,6 +101,11 @@ export async function generatePartnerContractPDF(
   const templateKey = TEMPLATE_KEY_BY_ROLE[partnerRole] ?? 'AFFILIATE';
   const template = DEFAULT_CONTRACT_TEMPLATES[templateKey] ?? AFFILIATE_CONTRACT_TEMPLATE;
   const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // 서명 이미지: data:image base64만 엄격 허용 (속성 탈출/onerror 인젝션 차단 — 서버 puppeteer 실행)
+  const safeSignatureUrl =
+    signatureImageUrl && /^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+/=\s]+$/.test(signatureImageUrl)
+      ? signatureImageUrl
+      : undefined;
   const articlesHtml = template.sections
     .map((sec) => `
       <div class="article">
@@ -244,15 +249,15 @@ export async function generatePartnerContractPDF(
       <h2>파트너 정보</h2>
       <div class="info-row">
         <div class="info-label">파트너명</div>
-        <div class="info-value">${partnerName}</div>
+        <div class="info-value">${escapeHtml(partnerName)}</div>
       </div>
       <div class="info-row">
         <div class="info-label">역할</div>
-        <div class="info-value">${roleLabel}</div>
+        <div class="info-value">${escapeHtml(roleLabel)}</div>
       </div>
       <div class="info-row">
         <div class="info-label">파트너 ID</div>
-        <div class="info-value">${partnerId}</div>
+        <div class="info-value">${escapeHtml(partnerId)}</div>
       </div>
     </div>
 
@@ -279,11 +284,11 @@ export async function generatePartnerContractPDF(
     </div>
 
     ${
-      signatureImageUrl
+      safeSignatureUrl
         ? `
     <div class="signature-section">
       <h2>서명</h2>
-      <img src="${signatureImageUrl}" alt="서명" class="signature-image" />
+      <img src="${safeSignatureUrl}" alt="서명" class="signature-image" />
       <p style="color: #666; font-size: 12px;">위 파트너가 본 계약서에 서명하였습니다.</p>
     </div>
     `

@@ -92,7 +92,7 @@ export async function POST(req: Request, { params }: Params) {
     const now = new Date();
     const contract = await prisma.gmAffiliateContract.findFirst({
       where: { signatureToken: token },
-      select: { id: true, status: true, signatureTokenExpiresAt: true, name: true, phone: true },
+      select: { id: true, status: true, signatureTokenExpiresAt: true, name: true, phone: true, email: true },
     });
     if (!contract) {
       return NextResponse.json({ ok: false, message: '계약을 찾을 수 없습니다.' }, { status: 404 });
@@ -111,7 +111,7 @@ export async function POST(req: Request, { params }: Params) {
       data: {
         name: body.name?.trim() || contract.name,
         phone: body.phone?.trim() || contract.phone,
-        email: body.email?.trim() || null,
+        email: body.email?.trim() || contract.email || null, // 서명자가 비워도 발급 시 입력한 이메일 보존
         address: body.address?.trim() || null,
         residentId: body.residentId?.trim() || null,
         bankName: body.bankName?.trim() || null,

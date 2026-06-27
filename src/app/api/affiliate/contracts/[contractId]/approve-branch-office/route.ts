@@ -140,7 +140,7 @@ export async function PUT(
     // 감사 로그 (best-effort)
     try {
       await prisma.gmAffiliateContractAudit.create({
-        data: { contractId, action: 'APPROVED', approvedBy: ctx.userId ? Number(ctx.userId) : null, approvalTier: 'BRANCH_OFFICE' },
+        data: { contractId, action: 'APPROVED', approvedBy: Number.isInteger(Number(ctx.userId)) ? Number(ctx.userId) : null, approvalTier: 'BRANCH_OFFICE' },
       });
     } catch (auditErr) {
       logger.warn('[BRANCH-OFFICE-APPROVE] 감사 로그 저장 실패', { auditErr });
