@@ -28,6 +28,7 @@ import {
 import { sendSms, getOrgSmsConfig } from '@/lib/aligo';
 import { sendFunnelEmail } from '@/lib/email';
 import { renderPartnerWelcomeEmail, renderPartnerContractSignedEmail } from '@/lib/email-templates';
+import { sendSystemEmail } from '@/lib/system-email';
 import { checkSmsRateLimit, checkEmailRateLimit } from '@/lib/affiliate-rate-limit';
 import { notifyCruisedotAffiliateCreated } from '@/lib/affiliate/notify-cruisedot';
 import { generatePartnerContractPDF } from '@/lib/contract-pdf-generator';
@@ -280,44 +281,40 @@ export async function PUT(
         pdfBuffer
       );
 
-      // 이메일 발송 (Drive 링크 포함)
-      if (contract.email) {
-        const emailTemplate = renderPartnerContractSignedEmail({
-          partnerName: contract.name || '파트너',
-          partnerEmail: contract.email,
-          contractSignedAt: new Date().toLocaleDateString('ko-KR'),
-          driveLinkUrl: `https://drive.google.com/file/d/${driveResult.contractFileId}/view`,
-          adminEmail: 'admin@cruisedot.co.kr',
-        });
-
-        // 이메일 발송 (Drive 링크로 대체)
-        try {
-          const emailResult = await sendFunnelEmail({
-            organizationId,
-            to: contract.email,
-            subject: emailTemplate.subject,
-            html: emailTemplate.html,
+      // 계약서 PDF(서명·내용 그대로) 첨부 이메일 — 신청자 + 본사(ADMIN_EMAIL) 양쪽에
+      // 본사 SMTP(NODEMAILER_*)로 자동 발송. 모든 계약서는 본사 발신으로 전달된다.
+      {
+        const adminEmail = process.env.ADMIN_EMAIL ?? process.env.GLOBAL_ADMIN_NOTIFY_EMAIL ?? '';
+        const recipients = [contract.email, adminEmail].filter(
+          (e): e is string => !!e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e),
+        );
+        if (recipients.length > 0) {
+          const emailTemplate = renderPartnerContractSignedEmail({
+            partnerName: contract.name || '파트너',
+            partnerEmail: contract.email,
+            contractSignedAt: new Date().toLocaleDateString('ko-KR'),
+            driveLinkUrl: `https://drive.google.com/file/d/${driveResult.contractFileId}/view`,
+            adminEmail,
           });
-          if (emailResult.result_code === 1) {
-            logger.log('[AFFILIATE-PROVISION] 계약서 이메일 발송 완료', {
-              contractId,
-              email: contract.email,
-              driveFileId: driveResult.contractFileId,
+          try {
+            const sent = await sendSystemEmail({
+              to: recipients,
+              subject: emailTemplate.subject,
+              html: emailTemplate.html,
+              attachments: [{
+                filename: `계약서_${contract.name || '파트너'}.pdf`,
+                content: pdfBuffer,
+                contentType: 'application/pdf',
+              }],
             });
-          } else {
-            logger.warn('[AFFILIATE-PROVISION] 계약서 이메일 발송 실패', {
-              contractId,
-              email: contract.email,
-              result_code: emailResult.result_code,
+            logger.log('[AFFILIATE-PROVISION] 계약서 PDF 첨부 이메일 발송', {
+              contractId, recipients: recipients.length, sent, driveFileId: driveResult.contractFileId,
+            });
+          } catch (emailErr) {
+            logger.warn('[AFFILIATE-PROVISION] 계약서 이메일 발송 실패(승인 유지)', {
+              contractId, error: emailErr instanceof Error ? emailErr.message : String(emailErr),
             });
           }
-        } catch (emailErr) {
-          logger.warn('[AFFILIATE-PROVISION] 계약서 이메일 발송 실패', {
-            contractId,
-            email: contract.email,
-            error: emailErr instanceof Error ? emailErr.message : String(emailErr),
-          });
-          // 이메일 실패는 계약 승인을 취소하지 않음
         }
       }
     } catch (contractPdfErr) {
