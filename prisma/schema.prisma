@@ -2757,6 +2757,7 @@ model GmUser {
   passwordResetTokenExpiresAt DateTime?
   sourceAgentId               Int?
   affiliateCode               String?                @unique @db.VarChar(4)
+  assignedUserId              String?                // 담당자(OrganizationMember.id, CUID) — 각자 자기 고객 관리/서류 담당
   socialEmail                 String?
   socialId                    String?
   socialProvider              String?
@@ -2782,6 +2783,7 @@ model GmUser {
   @@index([role, customerStatus])
   @@index([role])
   @@index([sourceAgentId])
+  @@index([assignedUserId])
   @@index([customerStatus, customerSource, createdAt], map: "idx_user_customer_status_source_created")
   @@index([phone], map: "idx_user_phone")
   @@map("User")

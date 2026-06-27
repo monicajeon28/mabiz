@@ -65,14 +65,15 @@ export async function POST(req: Request, { params }: Params) {
       );
     }
 
-    // 이전 affiliateCode 값 저장 (변경 기록용)
-    const oldAffiliateCode = user.affiliateCode || '';
+    // 이전 담당자 값 저장 (변경 기록용)
+    const oldAssignedUserId = user.assignedUserId || '';
 
-    // GmUser 업데이트
+    // GmUser 담당자 지정 — 전용 컬럼 assignedUserId 사용
+    // (과거엔 담당자 CUID를 affiliateCode(VarChar4·unique)에 잘못 기록 → 500·수당코드 손상)
     const updatedUser = await prisma.gmUser.update({
       where: { id: gmUserId },
       data: {
-        affiliateCode: assignedUserId,
+        assignedUserId,
       },
     });
 
@@ -81,7 +82,7 @@ export async function POST(req: Request, { params }: Params) {
       data: {
         gmUserId,
         field: 'assignedUserId',
-        oldValue: oldAffiliateCode || null,
+        oldValue: oldAssignedUserId || null,
         newValue: assignedUserId,
         reason: reason || null,
         changedBy: session.userId,
