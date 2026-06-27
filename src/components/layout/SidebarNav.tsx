@@ -60,6 +60,7 @@ const navSections: NavSection[] = [
       { href: "/products",          icon: ShoppingBag,   label: "상품 관리",    roles: ["GLOBAL_ADMIN", "OWNER"] },
       { href: "/members",           icon: Users,         label: "크루즈닷 회원관리", roles: ["GLOBAL_ADMIN"] },
       { href: "/affiliate-issuance", icon: UserPlus,     label: "어필리에이트 발급", roles: ["GLOBAL_ADMIN"] },
+      { href: "/affiliate-contract-link", icon: FileText, label: "계약서 링크 발급", roles: ["GLOBAL_ADMIN"] },
       { href: "/passport",          icon: Stamp,         label: "여권 관리",    roles: ["GLOBAL_ADMIN", "OWNER"] },
       { href: "/passport/apis",     icon: FileText,      label: "APIS 관리",    roles: ["GLOBAL_ADMIN", "OWNER"] },
       { href: "/partner-dashboard", icon: BarChart,      label: "파트너 현황",  roles: ["GLOBAL_ADMIN", "OWNER"] },
