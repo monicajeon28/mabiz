@@ -15,21 +15,22 @@ export interface AffiliateCreatedPayload {
   contractRef?: string;
   contractorName: string;
   approvedAt: string;
-  manager: {
+  // 계약당 1계정 모델: 등급에 맞는 슬롯 1개만 전송(나머지 생략). 구 3계정 호환 위해 선택적.
+  manager?: {
     partnerId: string;
     role: 'affiliate_manager';
     affiliateCode: string;
     linkCode: string;
     linkUrl: string;
   };
-  agent: {
+  agent?: {
     partnerId: string;
     role: 'affiliate_agent';
     affiliateCode: string;
     linkCode: string;
     linkUrl: string;
   };
-  presales: {
+  presales?: {
     partnerId: string;
     role: 'affiliate_presales';
     affiliateCode: string;
@@ -77,9 +78,7 @@ export async function notifyCruisedotAffiliateCreated(
     } else {
       logger.info('[CRUISEDOT-NOTIFY] ✅ 웹훅 발송 성공', {
         contractId: payload.contractId,
-        managerLinkCode: payload.manager.linkCode,
-        agentLinkCode: payload.agent.linkCode,
-        presalesLinkCode: payload.presales.linkCode,
+        linkCode: payload.manager?.linkCode ?? payload.agent?.linkCode ?? payload.presales?.linkCode,
       });
     }
   } catch (err) {

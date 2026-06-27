@@ -44,10 +44,11 @@ async function getBrowser(): Promise<Browser> {
   return browserInstance;
 }
 
+// 확정 용어: BRANCH_MANAGER=대리점장2 / SALES_AGENT=대리점장1 / PRE_SALES=마케터
 const ROLE_LABELS: Record<string, string> = {
-  BRANCH_MANAGER: '대리점장',
-  SALES_AGENT: '판매원',
-  PRE_SALES: '프리세일즈',
+  BRANCH_MANAGER: '대리점장2',
+  SALES_AGENT: '대리점장1',
+  PRE_SALES: '마케터',
   HQ: '본사',
 };
 

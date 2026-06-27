@@ -18,7 +18,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { getAuthContext } from '@/lib/rbac';
-import { provisionAffiliateAccounts } from '@/lib/affiliate/provision';
+import { provisionSingleGradeAccount } from '@/lib/affiliate/provision';
 import {
   VALID_AMOUNTS,
   VALID_AMOUNTS_LABEL,
@@ -195,8 +195,10 @@ export async function PUT(
       );
     }
 
-    // 7. 담당자 자동 할당 (agentCode 파라미터가 있으면 매니저ID 자동 조회)
-    let managerId: number | undefined;
+    // 7. 추천 지사(소속) 자동 해소 — agentCode가 있으면 신규 계정을 '추천 지사의 조직' 밑으로
+    //    귀속(managerId=추천 지사 멤버). 추천 지사 없으면 본사(organizationId) 소속.
+    let supervisorOrganizationId = organizationId; // 기본 = 본사
+    let supervisorMemberId: string | null = null;
     const contractMeta = contract.metadata as ContractMeta | null;
     if (contractMeta?.agentCode) {
       try {
@@ -204,32 +206,24 @@ export async function PUT(
           where: { affiliateCode: contractMeta.agentCode },
           select: { userId: true },
         });
-        // ✅ P1-8: CRM Member 관계로 organizationId 검증 (cross-tenant 방지)
         if (referrer) {
           const crmMember = await prisma.organizationMember.findFirst({
             where: { userId: String(referrer.userId) },
-            select: { organizationId: true },
+            select: { id: true, organizationId: true },
           });
-          if (crmMember && crmMember.organizationId === organizationId) {
-            managerId = referrer.userId;
-            logger.info('[AFFILIATE-PROVISION] agentCode로 매니저 자동 할당', {
-              contractId,
-              agentCode: contractMeta.agentCode,
-              managerId,
-            });
-          } else if (crmMember) {
-            logger.warn('[AFFILIATE-PROVISION] agentCode 테넌트 불일치', {
-              contractId,
-              agentCode: contractMeta.agentCode,
-              contractOrg: organizationId,
-              referrerOrg: crmMember.organizationId,
+          if (crmMember) {
+            // 신규 계정은 추천 지사의 조직 밑으로 귀속
+            supervisorOrganizationId = crmMember.organizationId;
+            supervisorMemberId = crmMember.id;
+            logger.info('[AFFILIATE-PROVISION] 추천 지사 소속 자동 해소', {
+              contractId, agentCode: contractMeta.agentCode,
+              supervisorOrganizationId, supervisorMemberId,
             });
           }
         }
       } catch (err) {
-        logger.warn('[AFFILIATE-PROVISION] agentCode 매니저 조회 실패', {
-          contractId,
-          agentCode: contractMeta.agentCode,
+        logger.warn('[AFFILIATE-PROVISION] agentCode 추천 지사 조회 실패', {
+          contractId, agentCode: contractMeta.agentCode,
           error: err instanceof Error ? err.message : String(err),
         });
       }
@@ -239,17 +233,18 @@ export async function PUT(
     let provisionResult;
     try {
       provisionResult = await withTimeout(
-        provisionAffiliateAccounts({
+        provisionSingleGradeAccount({
           contractId,
           contractorName: contract.name || '계약자',
           contractorEmail: contract.email,
           contractorPhone: contract.phone || '',
-          organizationId,
           approvedByMemberId: ctx.userId,
-          managerId,
+          grade: tierKey,                  // 계약금액→등급(마케터330/대리점장1=540/대리점장2=750)
+          supervisorOrganizationId,        // 추천 지사 → 없으면 본사
+          supervisorMemberId,
         }),
         30_000,
-        'provisionAffiliateAccounts',
+        'provisionSingleGradeAccount',
       );
     } catch (provisionErr) {
       // 프로비저닝 실패 시 계약 상태 원복
@@ -262,12 +257,13 @@ export async function PUT(
 
     // 8.5. 계약서 PDF 생성 + Google Drive 저장 + 이메일 발송
     try {
-      const contractMeta = contract.metadata as ContractMeta | null;
-      const profileType = (contractMeta?.type as 'BRANCH_MANAGER' | 'SALES_AGENT' | 'PRE_SALES' | 'HQ') || 'SALES_AGENT';
+      // 등급(grade)으로 PDF 역할 결정 (마케터=PRE_SALES / 대리점장1=SALES_AGENT / 대리점장2=BRANCH_MANAGER)
+      const profileType: 'BRANCH_MANAGER' | 'SALES_AGENT' | 'PRE_SALES' =
+        tierKey === 'SALES_330' ? 'PRE_SALES' : tierKey === 'BRANCH_750' ? 'BRANCH_MANAGER' : 'SALES_AGENT';
 
       // PDF 생성
       const pdfUint8Array = await generatePartnerContractPDF(
-        provisionResult.manager.crmMemberId,
+        provisionResult.crmMemberId,
         contract.name || '계약자',
         profileType,
         new Date(),
@@ -278,7 +274,7 @@ export async function PUT(
 
       // Google Drive 저장
       const driveResult = await backupPartnerContractToGoogleDrive(
-        provisionResult.manager.crmMemberId,
+        provisionResult.crmMemberId,
         contract.name || '계약자',
         pdfBuffer
       );
@@ -348,9 +344,9 @@ export async function PUT(
           const smsConfig = await getOrgSmsConfig(organizationId);
           if (smsConfig) {
             const msg = [
-              `[마비즈] ${contract.name} 대리점장님, 계약이 승인되었습니다.`,
-              `대리점 코드: ${provisionResult.manager.affiliateCode}`,
-              `임시 비밀번호: ${provisionResult.managerTempPassword}`,
+              `[마비즈] ${contract.name} ${provisionResult.gradeLabel}님, 계약이 승인되었습니다.`,
+              `코드: ${provisionResult.affiliateCode}`,
+              `임시 비밀번호: ${provisionResult.tempPassword}`,
               `로그인: ${process.env.NEXT_PUBLIC_APP_URL}/login`,
             ].join('\n');
 
@@ -391,10 +387,10 @@ export async function PUT(
           const { subject, html } = renderPartnerWelcomeEmail({
             name: contract.name,
             tier: tierInfo.label,
-            managerCode: provisionResult.manager.affiliateCode,
-            managerLink: provisionResult.manager.linkUrl,
-            agentCode: provisionResult.agent?.affiliateCode,
-            agentLink: provisionResult.agent?.linkUrl,
+            managerCode: provisionResult.affiliateCode,
+            managerLink: provisionResult.linkUrl,
+            agentCode: undefined,
+            agentLink: undefined,
             appUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://mabizcruisedot.com',
           });
 
@@ -420,8 +416,9 @@ export async function PUT(
       contractId,
       amount,
       tierKey,
-      managerId: provisionResult.manager.gmUserId,
-      crmMemberId: provisionResult.manager.crmMemberId,
+      gmUserId: provisionResult.gmUserId,
+      crmMemberId: provisionResult.crmMemberId,
+      grade: provisionResult.grade,
       approvedBy: ctx.userId,
     });
 
@@ -447,27 +444,26 @@ export async function PUT(
       contractRef: contractMeta2?.contractRef ?? undefined,
       contractorName: contract.name || '계약자',
       approvedAt: new Date().toISOString(),
-      manager: {
-        partnerId: provisionResult.managerPartnerId,
-        role: 'affiliate_manager',
-        affiliateCode: provisionResult.manager.affiliateCode,
-        linkCode: provisionResult.manager.linkCode,
-        linkUrl: provisionResult.manager.linkUrl,
-      },
-      agent: {
-        partnerId: provisionResult.agentPartnerId,
-        role: 'affiliate_agent',
-        affiliateCode: provisionResult.agent.affiliateCode,
-        linkCode: provisionResult.agent.linkCode,
-        linkUrl: provisionResult.agent.linkUrl,
-      },
-      presales: {
-        partnerId: provisionResult.presalesPartnerId,
-        role: 'affiliate_presales',
-        affiliateCode: provisionResult.presales.affiliateCode,
-        linkCode: provisionResult.presales.linkCode,
-        linkUrl: provisionResult.presales.linkUrl,
-      },
+      // 등급에 맞는 슬롯 1개만 전송 (마케터=presales / 대리점장1·2=agent)
+      ...(tierKey === 'SALES_330'
+        ? {
+            presales: {
+              partnerId: provisionResult.partnerId,
+              role: 'affiliate_presales' as const,
+              affiliateCode: provisionResult.affiliateCode,
+              linkCode: provisionResult.linkCode,
+              linkUrl: provisionResult.linkUrl,
+            },
+          }
+        : {
+            agent: {
+              partnerId: provisionResult.partnerId,
+              role: 'affiliate_agent' as const,
+              affiliateCode: provisionResult.affiliateCode,
+              linkCode: provisionResult.linkCode,
+              linkUrl: provisionResult.linkUrl,
+            },
+          }),
     }).catch((e) =>
       logger.error('[AFFILIATE-PROVISION] 크루즈닷몰 웹훅 발송 실패', { contractId, error: e })
     );
@@ -483,24 +479,16 @@ export async function PUT(
           label: tierInfo.label,
           amount,
         },
-        manager: {
-          gmUserId: provisionResult.manager.gmUserId,
-          crmMemberId: provisionResult.manager.crmMemberId,
-          affiliateCode: provisionResult.manager.affiliateCode,
-          linkCode: provisionResult.manager.linkCode,
-          linkUrl: provisionResult.manager.linkUrl,
-        },
-        agent: {
-          gmUserId: provisionResult.agent.gmUserId,
-          affiliateCode: provisionResult.agent.affiliateCode,
-          linkCode: provisionResult.agent.linkCode,
-          linkUrl: provisionResult.agent.linkUrl,
-        },
-        presales: {
-          gmUserId: provisionResult.presales.gmUserId,
-          affiliateCode: provisionResult.presales.affiliateCode,
-          linkCode: provisionResult.presales.linkCode,
-          linkUrl: provisionResult.presales.linkUrl,
+        // 계약당 1계정 — 생성된 단일 계정 반환
+        account: {
+          grade: provisionResult.grade,
+          gradeLabel: provisionResult.gradeLabel,
+          partnerId: provisionResult.partnerId,
+          gmUserId: provisionResult.gmUserId,
+          crmMemberId: provisionResult.crmMemberId,
+          affiliateCode: provisionResult.affiliateCode,
+          linkCode: provisionResult.linkCode,
+          linkUrl: provisionResult.linkUrl,
         },
         smsSent,
         emailSent,
