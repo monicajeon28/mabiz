@@ -619,6 +619,227 @@ export async function provisionAffiliateAccounts(
   };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 계약 = 등급 1계정 (Phase 2, 2026-06-27)
+//   마케터(330)/대리점장1(540)/대리점장2(750) 계약 승인 시 해당 등급 계정 1개만 생성.
+//   지사(OWNER)는 여기서 안 만듦 — affiliate-issuance 수동 생성 전용.
+//   소속: supervisorOrganizationId(추천 지사 → 없으면 본사) 밑으로 귀속(새 조직 생성 X).
+//   ⚠️ 대리점장2 ≡ 대리점장1 (역할 AGENT·profileType SALES_AGENT·sales아이디 전부 동일) —
+//      수당은 Partner.tier/상품별로 결정되므로 동일 보장. 차이는 contract.metadata.grade(표시 마커)뿐.
+// ═══════════════════════════════════════════════════════════════════════════
+
+type GradeKey = 'SALES_330' | 'SALES_540' | 'BRANCH_750';
+
+const GRADE_PROVISION: Record<GradeKey, {
+  memberRole: string; gmRole: string; idPrefix: 'boss' | 'sales' | 'pre';
+  profileType: string; codePrefix: string; label: string; cruisedotRole: string;
+}> = {
+  SALES_330:  { memberRole: 'FREE_SALES', gmRole: 'affiliate_presales', idPrefix: 'pre',   profileType: 'PRESALES_AGENT', codePrefix: 'PRE', label: '마케터',    cruisedotRole: 'presales' },
+  SALES_540:  { memberRole: 'AGENT',      gmRole: 'affiliate_agent',    idPrefix: 'sales', profileType: 'SALES_AGENT',    codePrefix: 'AGT', label: '대리점장1', cruisedotRole: 'agent' },
+  BRANCH_750: { memberRole: 'AGENT',      gmRole: 'affiliate_agent',    idPrefix: 'sales', profileType: 'SALES_AGENT',    codePrefix: 'AGT', label: '대리점장2', cruisedotRole: 'agent' },
+};
+
+export interface SingleGradeProvisionInput {
+  contractId: number;
+  contractorName: string;
+  contractorEmail: string;
+  contractorPhone: string;
+  approvedByMemberId: string;
+  grade: GradeKey;
+  supervisorOrganizationId: string;   // 추천 지사 org, 없으면 본사 org
+  supervisorMemberId?: string | null; // 추천 지사 OrganizationMember.id (managerId)
+}
+
+export interface SingleGradeProvisionResult {
+  gmUserId: number;
+  crmMemberId: string;
+  partnerId: string;
+  affiliateCode: string;
+  linkCode: string;
+  linkUrl: string;
+  tempPassword: string;
+  grade: GradeKey;
+  gradeLabel: string;
+}
+
+/**
+ * 계약 승인 → 등급 1계정만 생성 (단일 트랜잭션). 기존 provisionAffiliateAccounts(3계정)의 대체.
+ * 실패 시 전체 롤백. Supabase/크루즈닷 동기화는 best-effort(실패해도 계정은 생성됨).
+ */
+export async function provisionSingleGradeAccount(
+  input: SingleGradeProvisionInput,
+): Promise<SingleGradeProvisionResult> {
+  const {
+    contractId, contractorName, contractorEmail, contractorPhone,
+    approvedByMemberId, grade, supervisorOrganizationId, supervisorMemberId,
+  } = input;
+  const cfg = GRADE_PROVISION[grade];
+  if (!cfg) throw new Error(`알 수 없는 등급: ${grade}`);
+
+  const cruisedotBaseUrl = process.env.CRUISEDOT_BASE_URL;
+  if (!cruisedotBaseUrl) throw new Error('CRUISEDOT_BASE_URL 환경변수가 설정되지 않았습니다.');
+
+  const tempPassword = randomBytes(6).toString('base64url').slice(0, 8);
+  const passwordHash = await hashPassword(tempPassword);
+
+  const result = await prisma.$transaction(async (tx) => {
+    const partnerId = await generateUniquePartnerId(cfg.idPrefix, tx);
+
+    // 1) GmUser (GMcruise 포털 계정) — 1개만
+    const gmUser = await tx.gmUser.create({
+      data: {
+        name: `${contractorName} ${cfg.label}`,
+        email: contractorEmail || null,
+        phone: partnerId,
+        password: passwordHash,
+        role: cfg.gmRole,
+        isPasswordSet: true,
+      },
+    });
+
+    // 2) GmAffiliateProfile — 1개
+    const affiliateCode = await generateUniqueAffiliateCode(cfg.codePrefix, tx);
+    const profile = await tx.gmAffiliateProfile.create({
+      data: {
+        userId: gmUser.id,
+        type: cfg.profileType,
+        status: 'ACTIVE',
+        contractStatus: 'SIGNED',
+        displayName: `${contractorName} ${cfg.label}`,
+        contactPhone: contractorPhone,
+        contactEmail: contractorEmail,
+        affiliateCode,
+        agentCommissionRate: null, // 수수료율은 상품별 별도 관리
+        contractSignedAt: new Date(),
+        onboardedAt: new Date(),
+        publishedAt: new Date(),
+      },
+    });
+
+    // 3) GmAffiliateLink — 1개
+    const linkCode = await generateUniqueLinkCode(tx);
+    const link = await tx.gmAffiliateLink.create({
+      data: {
+        agentId: profile.id,
+        code: linkCode,
+        status: 'ACTIVE',
+        issuedById: gmUser.id,
+        metadata: { role: cfg.profileType, grade },
+      },
+    });
+
+    // 4) 계약 상태 업데이트 — 기존 metadata 보존 + grade(표시 마커) 기록
+    const existing = await tx.gmAffiliateContract.findUnique({
+      where: { id: contractId },
+      select: { metadata: true },
+    });
+    const existingMeta = (existing?.metadata as Record<string, unknown> | null) ?? {};
+    await tx.gmAffiliateContract.update({
+      where: { id: contractId },
+      data: {
+        userId: gmUser.id,
+        status: 'APPROVED',
+        contractSignedAt: new Date(),
+        metadata: {
+          ...existingMeta,
+          grade,
+          gradeLabel: cfg.label,
+          profileId: profile.id,
+          linkCode,
+          linkId: link.id,
+          supervisorOrganizationId,
+          approvedAt: new Date().toISOString(),
+          approvedByMemberId,
+        },
+      },
+    });
+
+    // 5) OrganizationMember — 추천 지사 org 밑으로 (새 조직 생성 안 함)
+    const crmMember = await tx.organizationMember.create({
+      data: {
+        organizationId: supervisorOrganizationId,
+        userId: `gm-${gmUser.id}`,
+        role: cfg.memberRole,
+        displayName: `${contractorName} ${cfg.label}`,
+        phone: contractorPhone || null,
+        email: contractorEmail || null,
+        passwordHash,
+        isActive: true,
+        ...(supervisorMemberId ? { managerId: supervisorMemberId } : {}),
+      },
+    });
+
+    return { gmUserId: gmUser.id, crmMemberId: crmMember.id, partnerId, affiliateCode, linkCode };
+  }, { timeout: 30000 });
+
+  const linkUrl = `${cruisedotBaseUrl}?ref=${result.linkCode}`;
+
+  // Supabase 동기화 (1명) — best-effort, 실패 시 DLQ
+  const supabaseUrl = process.env.SUPABASE_BACKUP_URL;
+  if (supabaseUrl) {
+    try {
+      const supabaseClient = new PgClient({ connectionString: supabaseUrl });
+      await supabaseClient.connect();
+      try {
+        await syncUserToSupabase(supabaseClient, {
+          userId: result.gmUserId,
+          partnerId: result.partnerId,
+          passwordHash,
+          name: `${contractorName} ${cfg.label}`,
+          role: cfg.gmRole,
+          email: contractorEmail,
+        });
+      } catch (syncErr) {
+        const errMsg = syncErr instanceof Error ? syncErr.message : String(syncErr);
+        await prisma.syncDeadLetterQueue.create({
+          data: {
+            syncType: 'NEON_TO_SUPABASE', operationType: 'INSERT', tableName: 'User',
+            recordId: String(result.gmUserId),
+            data: { gmUserId: result.gmUserId, partnerId: result.partnerId, name: `${contractorName} ${cfg.label}` },
+            error: errMsg, nextRetryAt: new Date(Date.now() + 5 * 60 * 1000), status: 'PENDING',
+          },
+        }).catch(() => {});
+        logger.warn('[PROVISION-SINGLE] Supabase 동기화 실패 → DLQ', { gmUserId: result.gmUserId, error: errMsg });
+      } finally {
+        await supabaseClient.end();
+      }
+    } catch (err) {
+      logger.error('[PROVISION-SINGLE] Supabase 네트워크 오류', { error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  // 크루즈닷 어필리에이트 등록 (1명) — best-effort
+  const provisionUrl = process.env.INTERNAL_PROVISION_URL;
+  if (provisionUrl) {
+    try {
+      const res = await fetch(`${provisionUrl}/api/integration/affiliate/mabiz-upsert`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': process.env.CRUISEDOT_WEBHOOK_SECRET ?? '' },
+        body: JSON.stringify({
+          affiliates: [{
+            role: cfg.cruisedotRole, partnerId: result.partnerId, affiliateCode: result.affiliateCode,
+            linkCode: result.linkCode, linkUrl, name: contractorName, phone: contractorPhone, email: contractorEmail ?? null,
+          }],
+          contractId,
+        }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!res.ok) {
+        logger.warn('[PROVISION-SINGLE] 크루즈닷 등록 실패', { contractId, status: res.status });
+      }
+    } catch (fetchErr) {
+      logger.error('[PROVISION-SINGLE] 크루즈닷 네트워크 오류', { contractId, err: fetchErr });
+    }
+  }
+
+  logger.info('[PROVISION-SINGLE] 등급 1계정 생성 완료', {
+    contractId, grade, gradeLabel: cfg.label, gmUserId: result.gmUserId,
+    partnerId: result.partnerId, supervisorOrganizationId,
+  });
+
+  return { ...result, linkUrl, tempPassword, grade, gradeLabel: cfg.label };
+}
+
 // ── 내부 유틸 ────────────────────────────────────────────────────
 
 // Supabase User INSERT/UPDATE 헬퍼 — 3개 역할(Manager/Agent/Presales)에서 공통 사용
