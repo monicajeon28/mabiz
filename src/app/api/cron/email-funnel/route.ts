@@ -66,9 +66,11 @@ export async function GET(req: Request) {
     const contactIds = Array.from(new Set(pendingMessages.map((m) => m.contactId)));
     const contacts = await prisma.contact.findMany({
       where: { id: { in: contactIds } },
-      select: { id: true, email: true },
+      select: { id: true, email: true, optOutAt: true },
     });
     const contactEmailMap = new Map(contacts.map((c) => [c.id, c.email ?? null]));
+    // 발송 시점 수신거부 재검(스케줄 후 고객이 거부했을 수 있음 — 컴플라이언스)
+    const contactOptOutMap = new Map(contacts.map((c) => [c.id, c.optOutAt != null]));
 
     let sentCount = 0;
     let failedCount = 0;
@@ -99,6 +101,23 @@ export async function GET(req: Request) {
             msgId: msg.id,
             kstNowHour,
             nextTry: kstTomorrowHour8,
+          });
+          continue;
+        }
+
+        // 2-1b. 낙관적 잠금 — 동일 메시지 중복 발송 방지(cron 자기겹침/중복 인스턴스)
+        const locked = await prisma.scheduledEmailMessage.updateMany({
+          where: { id: msg.id, status: { in: ["PENDING", "NIGHT_BLOCKED"] } },
+          data:  { status: "SENDING" },
+        });
+        if (locked.count === 0) continue; // 이미 다른 실행이 선점 → skip
+
+        // 2-1c. 발송 시점 수신거부 재검 — 스케줄 후 거부한 고객 차단(컴플라이언스)
+        if (contactOptOutMap.get(msg.contactId)) {
+          logger.log("[Cron/EmailFunnel] 수신거부 고객 — 발송 차단", { msgId: msg.id, contactId: msg.contactId });
+          await prisma.scheduledEmailMessage.update({
+            where: { id: msg.id },
+            data: { status: "CANCELLED", failureReason: "OPT_OUT" },
           });
           continue;
         }
