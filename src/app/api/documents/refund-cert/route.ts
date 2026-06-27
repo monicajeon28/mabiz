@@ -20,7 +20,60 @@ export async function POST(req: Request) {
       note?: string;
       cancellationRequestedAt?: string;
       refunderName?: string; // 환불 요청자 이름 (구매자와 다를 수 있음)
+      direct?: Record<string, unknown>;
     };
+
+    // ── 직접입력 발급(주문번호 없음) — 수동 데이터로 SalesDocument 저장 ──────────
+    // 주문/Payment 없는 수동·오프라인 환불증서. 과거엔 클라 state로 PNG만 만들고 미저장.
+    if (!body.orderId && body.direct) {
+      const d = body.direct as {
+        buyerName?: string | null; buyerEmail?: string | null;
+        productName?: string | null; amount?: number | null;
+      };
+      if (!d.buyerName || !d.productName || !d.amount) {
+        return NextResponse.json({ ok: false, message: '직접 입력: 고객명·상품명·금액 필수' }, { status: 400 });
+      }
+      const status = ctx.role === 'GLOBAL_ADMIN' ? 'APPROVED' : 'PENDING_APPROVAL';
+      const generatedData = { ...body.direct, issuedAt: new Date().toISOString(), issuerOrgId: orgId, source: 'direct' };
+
+      const doc = await prisma.$transaction(async (tx) => {
+        const newDoc = await tx.salesDocument.create({
+          data: {
+            organizationId: orgId, documentType: 'REFUND_CERTIFICATE', status,
+            orderId: null, affiliateSaleId: null, createdBy: ctx.userId, generatedData,
+          },
+          select: { id: true, status: true },
+        });
+        if (status === 'APPROVED') {
+          await tx.salesDocumentApproval.create({
+            data: {
+              documentId: newDoc.id, organizationId: orgId,
+              requestedBy: ctx.userId, approvedBy: ctx.userId,
+              status: 'APPROVED', processedAt: new Date(),
+            },
+          });
+        }
+        return newDoc;
+      });
+
+      if (d.buyerEmail) {
+        sendFunnelEmail({
+          organizationId: orgId,
+          to:      d.buyerEmail,
+          subject: `[환불확인증] ${d.productName} 환불 확인증이 발급되었습니다`,
+          html: `<div style="font-family:sans-serif;line-height:1.8;max-width:600px;margin:0 auto;padding:32px 24px">
+<h2 style="color:#1a1a2e;margin:0 0 16px">환불 확인증 발급 안내</h2>
+<p>${d.buyerName}님, 아래 내용으로 환불 확인증이 발급되었습니다.</p>
+<p style="color:#666;font-size:14px">환불 처리는 3~5 영업일 소요됩니다. 문의사항이 있으시면 담당 에이전트에게 연락해 주세요.</p>
+</div>`,
+          channel: 'MANUAL',
+        }).catch(() => {});
+      }
+
+      logger.log('[RefundCert] 직접입력 발급', { orgId, status, role: ctx.role });
+      return NextResponse.json({ ok: true, documentId: doc.id, status, generatedData });
+    }
+
     if (!body.orderId) return NextResponse.json({ ok: false, message: 'orderId 필수' }, { status: 400 });
 
     // P0-6: orderId 정규식 검증 (XSS 방지)

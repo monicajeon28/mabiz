@@ -20,7 +20,77 @@ export async function POST(req: Request) {
     }
     const orgId = requireOrgId(ctx);
 
-    const body = await req.json() as { orderId?: string; note?: string };
+    const body = await req.json() as {
+      orderId?: string;
+      note?: string;
+      direct?: Record<string, unknown>;
+    };
+
+    // ── 직접입력 발급(주문번호 없음) — 수동 데이터로 SalesDocument 저장 ──────────
+    // 직접입력은 시스템에 Payment/주문이 없는 수동·오프라인 케이스용. 과거엔 클라이언트
+    // state로 PNG만 만들고 저장 안 해 승인큐·감사·이메일·보관이 전무했음(법무 누락).
+    if (!body.orderId && body.direct) {
+      const d = body.direct as {
+        buyerName?: string | null; buyerTel?: string | null; buyerEmail?: string | null;
+        productName?: string | null; amount?: number | null;
+      };
+      if (!d.buyerName || !d.productName || !d.amount) {
+        return NextResponse.json({ ok: false, message: '직접 입력: 고객명·상품명·금액 필수' }, { status: 400 });
+      }
+      const status = (ctx.role === 'OWNER' || ctx.role === 'GLOBAL_ADMIN') ? 'APPROVED' : 'PENDING_APPROVAL';
+      const generatedData = { ...body.direct, issuedAt: new Date().toISOString(), issuerOrgId: orgId, source: 'direct' };
+
+      const doc = await prisma.$transaction(async (tx) => {
+        const newDoc = await tx.salesDocument.create({
+          data: {
+            organizationId: orgId,
+            documentType:   'PURCHASE_CONFIRMATION',
+            status,
+            orderId:        null,
+            affiliateSaleId: null,
+            createdBy:      ctx.userId,
+            generatedData,
+          },
+          select: { id: true, status: true },
+        });
+        if (status === 'APPROVED') {
+          await tx.salesDocumentApproval.create({
+            data: {
+              documentId:     newDoc.id,
+              organizationId: orgId,
+              requestedBy:    ctx.userId,
+              approvedBy:     ctx.userId,
+              status:         'APPROVED',
+              processedAt:    new Date(),
+            },
+          });
+        }
+        return newDoc;
+      });
+
+      if (d.buyerEmail) {
+        sendFunnelEmail({
+          organizationId: orgId,
+          to:      d.buyerEmail,
+          subject: `[구매확인증] ${d.productName} 구매 확인증이 발급되었습니다`,
+          html: `<div style="font-family:sans-serif;line-height:1.8;max-width:600px;margin:0 auto;padding:32px 24px">
+<h2 style="color:#1a1a2e;margin:0 0 16px">구매 확인증 발급 안내</h2>
+<p>${escHtml(d.buyerName ?? '')}님, 아래 내용으로 구매 확인증이 발급되었습니다.</p>
+<table style="width:100%;border-collapse:collapse;margin:20px 0">
+  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666;width:40%">상품명</td><td style="padding:10px 14px;font-weight:600">${escHtml(d.productName ?? '')}</td></tr>
+  <tr><td style="padding:10px 14px;color:#666">결제금액</td><td style="padding:10px 14px;font-weight:600">${Number(d.amount).toLocaleString()}원</td></tr>
+  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666">문서번호</td><td style="padding:10px 14px;font-size:12px;color:#888">${escHtml(doc.id)}</td></tr>
+</table>
+<p style="color:#666;font-size:14px">문의사항이 있으시면 담당 에이전트에게 연락해 주세요.</p>
+</div>`,
+          channel: 'MANUAL',
+        }).catch((e: unknown) => logger.error('[PurchaseCert] 직접발급 이메일 실패', { e }));
+      }
+
+      logger.log('[PurchaseCert] 직접입력 발급', { orgId, status, role: ctx.role });
+      return NextResponse.json({ ok: true, documentId: doc.id, status, isReissue: false, generatedData });
+    }
+
     if (!body.orderId) {
       return NextResponse.json({ ok: false, message: 'orderId 필수' }, { status: 400 });
     }

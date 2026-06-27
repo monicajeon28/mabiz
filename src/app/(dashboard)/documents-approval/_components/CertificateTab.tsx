@@ -394,7 +394,7 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
       if (inputMode === 'search' && selectedSale) {
         body = { orderId: selectedSale.orderId };
       } else {
-        // 직접 입력 모드: 클라이언트 데이터로 즉시 생성 (API 미호출)
+        // 직접 입력 모드: 클라이언트가 데이터를 구성한 뒤 API로 저장(승인큐·감사·이메일·보관)
         const gen: PurchaseData & RefundData = {
           buyerName: directInput.buyerName || null,
           buyerTel: directInput.buyerTel || null,
@@ -438,10 +438,8 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
           }
         }
 
-        if (mode === 'purchase') setPurchaseData(gen as PurchaseData);
-        else setRefundData(gen as RefundData);
-        showSuccess(`${cfg.title}가 발급되었습니다.`);
-        return;
+        // 직접입력도 API로 저장 — orderId 없이 direct 페이로드 전송(검색모드와 동일 흐름)
+        body = { direct: gen };
       }
 
       const res = await fetch(cfg.apiUrl, {
