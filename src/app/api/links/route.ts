@@ -68,6 +68,9 @@ export async function POST(req: Request) {
           'www.cruisedot.co.kr',
           'app.cruisedot.co.kr',
           'landing.cruisedot.co.kr',
+          // CRM 운영 도메인 — 대리점장 봇/랜딩 개인 판매링크가 이 도메인을 가리킴(누락 시 링크 생성 차단)
+          'mabizcruisedot.com',
+          'www.mabizcruisedot.com',
         ];
 
         if (!allowedHosts.includes(h)) {

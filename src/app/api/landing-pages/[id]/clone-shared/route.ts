@@ -25,7 +25,9 @@ export async function POST(_req: Request, { params }: Params) {
     const orgId = await getOrgId(ctx);
     const { id } = await params;
 
-    if (ctx.role === "FREE_SALES" || ctx.role === "AGENT") {
+    // 대리점장(AGENT)도 지사가 조직에 공유한 봇/랜딩을 본인 페이지로 복제 가능(개인 판매링크 확보).
+    // 마케터(FREE_SALES)는 CRM 비로그인(크루즈닷몰 전용)이라 제외.
+    if (ctx.role === "FREE_SALES") {
       return NextResponse.json({ ok: false, message: "복사 권한이 없습니다." }, { status: 403 });
     }
 

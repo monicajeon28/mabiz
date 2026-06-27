@@ -17,9 +17,10 @@ export async function GET() {
       return NextResponse.json({ ok: false, error: 'UNAUTHORIZED', message: '로그인이 필요합니다' }, { status: 401 });
     }
 
-    // 랜딩페이지는 지사장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용 기능.
-    // 대리점장(AGENT)·마케터(FREE_SALES) 조회 차단 (P0-2)
-    if (!canManageSettings(ctx)) {
+    // 지사장(OWNER)·관리자(GLOBAL_ADMIN)는 조직 전체. 대리점장(AGENT)은 본인 소유분 + 공유받은 봇만
+    // (지사가 공유한 봇을 복제해 개인 판매링크 확보 — 새 모델). 마케터(FREE_SALES)는 CRM 비로그인 → 차단.
+    const isAgentPartner = ctx.role === 'AGENT';
+    if (!canManageSettings(ctx) && !isAgentPartner) {
       return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '이 작업을 수행할 권한이 없습니다' }, { status: 403 });
     }
 
@@ -32,9 +33,12 @@ export async function GET() {
       return NextResponse.json({ ok: false, error: 'INVALID_ORG', message: '조직 정보가 유효하지 않습니다' }, { status: 400 });
     }
 
-    // 내 페이지
+    // 내 페이지 — 대리점장(AGENT)은 본인이 만든(복제 포함) 페이지만(조직 전체 노출 차단)
     const pages = await prisma.crmLandingPage.findMany({
-      where: { ...(orgId ? { organizationId: orgId } : {}) },
+      where: {
+        ...(orgId ? { organizationId: orgId } : {}),
+        ...(isAgentPartner ? { createdByUserId: ctx.userId } : {}),
+      },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
