@@ -130,6 +130,7 @@ export async function POST(req: Request, { params }: Params) {
       const member = await prisma.organizationMember.findFirst({
         where: { userId: targetUserId, isActive: true, role: { in: ["OWNER", "AGENT"] } },
         select: { organizationId: true },
+        orderBy: { id: "asc" }, // 복수 멤버십 시 결정적(라벨·유니크키 안정)
       });
       if (!member) {
         return NextResponse.json({ ok: false, message: "공유 대상을 찾을 수 없습니다." }, { status: 400 });

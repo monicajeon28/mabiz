@@ -42,6 +42,12 @@ async function run() {
     }
   }
 
+  // 핫DB 멱등 findFirst(organizationId, landingPageId, customerPhone) 커버 인덱스 — 버튼 신청마다 실행.
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS "BotConversation_organizationId_landingPageId_customerPhone_idx" ON "BotConversation"("organizationId","landingPageId","customerPhone")`,
+  );
+  console.log('  ✅ 핫DB 조회 인덱스 확인');
+
   console.log('\n=== 최종 검증 ===');
   for (const c of cols) {
     const ok = await checkColumn('BotConversation', c.name);

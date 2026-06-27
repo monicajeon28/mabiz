@@ -5,7 +5,7 @@ import { getAuthContext, resolveOrgIdOrNull, BONSA_ORG_ID, canManageSettings } f
 import { logger } from "@/lib/logger";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
 import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
-import { generateUniqueShortlink, buildLandingTargetUrl } from "@/lib/landing-page-utils";
+import { generateUniqueShortlink, buildLandingTargetUrl, sharedVisibilityOr } from "@/lib/landing-page-utils";
 import { IMAGE_FIELDS_BY_FORMAT } from "@/lib/landing-page-constants";
 
 // GET /api/landing-pages
@@ -58,12 +58,8 @@ export async function GET() {
     //         2) select 사용 (N+1 제거, include 대신 더 효율적)
     const receivedShares = await prisma.crmLandingShare.findMany({
       where: {
-        // 지정공유는 sharedToUserId===본인만, 조직/전체공유는 센티넬 ""만 → 타인 지정분 격리
-        OR: [
-          { sharedToUserId: ctx.userId },
-          { sharedToOrgId: myOrgId, sharedToUserId: "" },
-          { isGlobal: true, sharedToUserId: "" },
-        ],
+        // 지정공유는 본인만·조직/전체는 센티넬 ""만(타인 지정분 격리) — clone-shared와 공용 헬퍼
+        OR: sharedVisibilityOr(ctx.userId, myOrgId),
         // 내 페이지는 제외 (자기 자신이 소유한 페이지)
         landingPage: {
           organizationId: { not: myOrgId },
@@ -104,14 +100,23 @@ export async function GET() {
       : [];
     const byOrgMap = Object.fromEntries(byOrgs.map((o) => [o.id, o.name]));
 
-    const sharedPages = receivedShares.map((s) => ({
-      ...s.landingPage,
-      isShared: true,
-      sharedByName: s.sharedByName,
-      sharedByOrgId: s.sharedByOrgId,
-      sharedByOrgName: byOrgMap[s.sharedByOrgId] ?? s.sharedByOrgId,
-      shareId: s.id,
-    }));
+    // 같은 페이지에 조직공유+지정공유가 둘 다 있으면 한 사람에게 2행 매치 → landingPageId로 중복 제거(카드 1장).
+    const seenPageIds = new Set<string>();
+    const sharedPages = receivedShares
+      .filter((s) => {
+        const pid = s.landingPage?.id;
+        if (!pid || seenPageIds.has(pid)) return false;
+        seenPageIds.add(pid);
+        return true;
+      })
+      .map((s) => ({
+        ...s.landingPage,
+        isShared: true,
+        sharedByName: s.sharedByName,
+        sharedByOrgId: s.sharedByOrgId,
+        sharedByOrgName: byOrgMap[s.sharedByOrgId] ?? s.sharedByOrgId,
+        shareId: s.id,
+      }));
 
     return NextResponse.json({ ok: true, pages, sharedPages });
   } catch (err) {

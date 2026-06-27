@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthContext, resolveOrgId, BONSA_ORG_ID } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
-import { generateUniqueShortlink, buildClonedLandingPageData, buildLandingTargetUrl } from "@/lib/landing-page-utils";
+import { generateUniqueShortlink, buildClonedLandingPageData, buildLandingTargetUrl, sharedVisibilityOr } from "@/lib/landing-page-utils";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -31,16 +31,9 @@ export async function POST(_req: Request, { params }: Params) {
       return NextResponse.json({ ok: false, message: "복사 권한이 없습니다." }, { status: 403 });
     }
 
-    // 공유 유효성 확인 — 나에게 지정공유 OR 우리 조직 전체공유 OR 전체공유 (목록 GET과 정확히 일치)
+    // 공유 유효성 확인 — 목록 GET과 동일한 공용 헬퍼(표류 방지=격리 안전)
     const share = await prisma.crmLandingShare.findFirst({
-      where: {
-        landingPageId: id,
-        OR: [
-          { sharedToUserId: ctx.userId },
-          { sharedToOrgId: orgId, sharedToUserId: "" },
-          { isGlobal: true, sharedToUserId: "" },
-        ],
-      },
+      where: { landingPageId: id, OR: sharedVisibilityOr(ctx.userId, orgId) },
     });
     if (!share) {
       return NextResponse.json({ ok: false, message: "공유받은 랜딩페이지가 아닙니다." }, { status: 403 });

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { FLOW_V1, FLOW_V1_START, type FlowNode } from "@/lib/bot-flow";
+import { COMPANY_INFO } from "@/lib/company-info";
 
 interface Msg {
   role: "user" | "bot";
@@ -484,11 +485,11 @@ export default function BotLandingClient({
                     사업자 정보 · 환불 안내
                   </summary>
                   <div className="mt-2 space-y-0.5 text-xs leading-relaxed text-slate-500">
-                    <p>상호: 크루즈닷 · 대표: 배연성</p>
-                    <p>사업자등록번호: 714-57-00419</p>
-                    <p>통신판매업: 제2025-화성동부-0320호 · 여행업: 제2025-000004호</p>
-                    <p>주소: 경기 화성시 효행로 1068 (리더스프라자) 603-A60호</p>
-                    <p>문의: 카카오채널 · jmonica@cruisedot.co.kr</p>
+                    <p>상호: {COMPANY_INFO.name} · 대표: {COMPANY_INFO.ceo}</p>
+                    <p>사업자등록번호: {COMPANY_INFO.bizRegNo}</p>
+                    <p>통신판매업: {COMPANY_INFO.telecomSalesNo} · 여행업: {COMPANY_INFO.travelAgencyNo}</p>
+                    <p>주소: {COMPANY_INFO.address}</p>
+                    <p>문의: 카카오채널 · {COMPANY_INFO.email}</p>
                     <p className="pt-1">
                       환불: 유료 상품은 결제일로부터 7일 이내(콘텐츠 미이용 시) 청약철회·환불이 가능합니다.
                       여행상품은 여행약관·위약 규정에 따릅니다.

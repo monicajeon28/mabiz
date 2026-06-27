@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { HOT_LEAD_MIN } from "@/lib/bot-flow";
 
 interface Lead {
   id: string;
@@ -30,7 +31,7 @@ const DEFAULT_SMS =
   "안녕하세요, 크루즈닷 상담 담당자예요 😊 궁금하신 점 있으면 편하게 연락 주세요. 좋은 자리 있을 때 먼저 안내해 드릴게요!";
 
 function intentStyle(score: number): { emoji: string; cls: string } {
-  if (score >= 70) return { emoji: "🔥", cls: "bg-red-100 text-red-700" };
+  if (score >= HOT_LEAD_MIN) return { emoji: "🔥", cls: "bg-red-100 text-red-700" };
   if (score >= 40) return { emoji: "🌤️", cls: "bg-amber-100 text-amber-700" };
   return { emoji: "🌱", cls: "bg-slate-100 text-slate-600" };
 }
@@ -87,7 +88,7 @@ export default function BotLeadsPage() {
     }
   };
 
-  const hotCount = leads.filter((l) => l.intentScore >= 70).length;
+  const hotCount = leads.filter((l) => l.intentScore >= HOT_LEAD_MIN).length;
 
   return (
     <div className="mx-auto max-w-3xl p-4 sm:p-6">

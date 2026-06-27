@@ -16,6 +16,11 @@
  * 이미지: /public/bot/guide-*.webp (사장님 스토리보드, ASCII 안정경로).
  */
 
+/** 핫리드 단일 임계값 — SMS 알림 🔥·대시보드 빨강·hotCount 공용(표류 방지). */
+export const HOT_LEAD_MIN = 70;
+/** BotConversation.source 값 — 오타 1글자면 멱등 깨짐(매직스트링 상수화). */
+export const BOT_SOURCE = { CHAT: "chat", BUTTON_GATE: "button_gate" } as const;
+
 export type FlowTarget = string | "lead" | "chat"; // 노드 id | 신청 게이트 | AI 채팅(비상구)
 
 export interface FlowChoice {

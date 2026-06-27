@@ -185,3 +185,16 @@ export async function createShortLinkForPage(
 
   return { shortlink };
 }
+
+/**
+ * 공유받은 페이지 가시성 OR 절 — 목록 GET·clone-shared 인가 게이트 공용.
+ *   지정공유는 본인(userId)만, 조직/전체공유는 센티넬 ""만 → 같은 org 타인 지정분 격리.
+ *   ⚠️ 두 사용처가 반드시 동일해야 '보이는데 복제불가/안보이는데 복제가능' 표류를 막음 → 단일 헬퍼로 강제.
+ */
+export function sharedVisibilityOr(userId: string, orgId: string) {
+  return [
+    { sharedToUserId: userId },
+    { sharedToOrgId: orgId, sharedToUserId: "" },
+    { isGlobal: true, sharedToUserId: "" },
+  ];
+}

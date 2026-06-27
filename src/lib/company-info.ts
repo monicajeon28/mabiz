@@ -8,6 +8,12 @@ export const COMPANY_INFO = {
   bankName: '국민은행',
   bankAccount: '531301-04-167150',
   bankHolder: '배연성',
+  // 전자상거래법 제13조 법정 표기 (봇 게이트·랜딩·계약서 공통 SSoT)
+  bizRegNo: '714-57-00419',           // 사업자등록번호
+  telecomSalesNo: '제2025-화성동부-0320호', // 통신판매업 신고
+  travelAgencyNo: '제2025-000004호',   // 여행업 등록
+  address: '경기 화성시 효행로 1068 (리더스프라자) 603-A60호',
+  email: 'jmonica@cruisedot.co.kr',
 } as const;
 
 // 계좌이체 안내 문구 (구매확인/계약서 결제수단 표기 공통)

@@ -7999,6 +7999,7 @@ model BotConversation {
   @@index([organizationId, attributedAgentId, createdAt]) // per-user 격리 집계
   @@index([shortLinkCode])
   @@index([status, lastMessageAt]) // abandoned 정리 배치
+  @@index([organizationId, landingPageId, customerPhone]) // 핫DB 멱등 findFirst(버튼 신청마다) 커버
   @@map("BotConversation")
 }
 

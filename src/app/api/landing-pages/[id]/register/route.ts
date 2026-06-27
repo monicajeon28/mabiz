@@ -13,7 +13,7 @@ import { sendFunnelEmail } from "@/lib/email";
 import sanitizeHtml from "sanitize-html";
 import { replaceMessagePlaceholders } from "@/lib/message-replacements";
 import { scheduleDay0To3Sms } from "@/lib/landing-page-sms-scheduler";
-import { computeFlowHeat, type FlowPathStep, type FlowHeatResult } from "@/lib/bot-flow";
+import { computeFlowHeat, HOT_LEAD_MIN, BOT_SOURCE, type FlowPathStep, type FlowHeatResult } from "@/lib/bot-flow";
 import { rlIncr } from "@/lib/redis";
 import { resolvePageOwnerAgent } from "@/lib/bot-attribution";
 
@@ -50,6 +50,10 @@ export async function POST(req: Request, { params }: Params) {
     //   consent 없는 레거시 랜딩은 기존대로(true 취급). 상담 알림·거래성은 동의와 무관하게 발송.
     const consentObj = (metaObj.consent ?? null) as { privacy?: boolean; ad?: boolean } | null;
     const adConsentOk = !consentObj || consentObj.ad !== false;
+    // 개인정보 수집·이용 필수동의 서버 재검증(클라 변조·직접 POST 방어) — 봇 게이트 한정.
+    if (isBotGate && consentObj?.privacy === false) {
+      return NextResponse.json({ ok: false, message: "개인정보 수집·이용 동의가 필요합니다." }, { status: 400 });
+    }
 
     // 레이트리밋 — 무인증 공개 엔드포인트. IP+페이지 분당 과다 제출 차단(담당자 SMS 증폭·DB 오염 방어).
     {
@@ -534,7 +538,7 @@ export async function POST(req: Request, { params }: Params) {
             const greet = agent.displayName ? `${agent.displayName}님, ` : '';
             const channelLine = isBotGate ? '상담봇' : pageTitle;
             // 핫DB: 버튼 플로우 신청이면 시기·동행·관심/걱정·🔥 핫리드 표시(판매원 공략 설계도)
-            const hot = heat && heat.heat >= 50 ? '🔥핫리드 ' : '';
+            const hot = heat && heat.heat >= HOT_LEAD_MIN ? '🔥핫리드 ' : '';
             const qParts = [heat?.qualifiers?.when, heat?.qualifiers?.who].filter(Boolean) as string[];
             const qLine = qParts.length ? `\n희망: ${qParts.join(' · ')}` : '';
             const tagLine = heat?.tags?.length ? `\n관심·걱정: ${heat.tags.join('·')}` : '';
@@ -569,7 +573,7 @@ export async function POST(req: Request, { params }: Params) {
             // 귀속 검증 — 페이지 소유자(담당자)가 그 org 활성 판매자일 때만 귀속(비활성·이관 방어, 크로스조직 차단)
             const agentId = await resolvePageOwnerAgent(createdBy, orgId);
             const existing = await prisma.botConversation.findFirst({
-              where: { organizationId: orgId, landingPageId, customerPhone: normalizedPhone, source: "button_gate" },
+              where: { organizationId: orgId, landingPageId, customerPhone: normalizedPhone, source: BOT_SOURCE.BUTTON_GATE },
               select: { id: true },
             });
             const common = {
@@ -589,9 +593,9 @@ export async function POST(req: Request, { params }: Params) {
                   organizationId: orgId,
                   landingPageId,
                   attributedAgentId: agentId,
-                  attributionSource: agentId ? "button_gate" : "none",
+                  attributionSource: agentId ? "page_owner" : "none",
                   visitorId: `gate-${regId}`,
-                  source: "button_gate",
+                  source: BOT_SOURCE.BUTTON_GATE,
                   channel: "bot_landing",
                   fsmState: "HANDOFF",
                   ...common,
@@ -637,57 +641,30 @@ export async function POST(req: Request, { params }: Params) {
       }
 
       // 퍼널 시작 (비블로킹)
-      if (landingPage.groupId && typeof landingPage.groupId === "string" && member && contact) {
-        // 트랜잭션 이후: 퍼널 트리거는 비블로킹으로 진행
-        // contact.id와 member.addedAt은 트랜잭션으로 보장됨
+      // 마케팅 퍼널(VipCareSequence 등록→cron 발송)은 광고성 → 광고 미동의(ad=false)면 전체 스킵(정보통신망법).
+      //   그룹 배정(트랜잭션)은 유지하되 자동발송 트리거만 막는다. 상담 알림·핫DB는 동의 무관.
+      if (adConsentOk && landingPage.groupId && typeof landingPage.groupId === "string" && member && contact) {
         const groupId = landingPage.groupId; // 클로저에서 사용할 수 있게 캡처
-        const contactId = contact.id; // 클로저에서 사용할 수 있게 캡처
-        const anchorDate = member.addedAt; // 클로저에서 사용할 수 있게 캡처
-        triggerGroupFunnel({
-          contactId:      contactId,
-          groupId:        groupId,
-          organizationId: orgId,
-        }).then(async (triggered) => {
-          // ★ 퍼널문자(FunnelSms) 트리거 — 그룹에 funnelSmsId가 연결된 경우
-          // fire-and-forget: 실패해도 신청 등록은 유지
-          const smsTriggered = !adConsentOk ? false : await triggerGroupFunnelSms({
-            contactId:      contactId,
-            groupId:        groupId,
-            organizationId: orgId,
-            // 발송 기준일 = 고객이 그룹에 들어온 날(최초 입력일).
-            anchorDate:     anchorDate,
-          }).catch((err) => {
-            logger.error('[LandingRegister] 퍼널문자 트리거 실패', { err });
-            return false;
-          });
-
-          // ★ 자동이메일(FunnelEmail) 트리거 — 그룹에 funnelEmailId가 연결된 경우
-          const emailTriggered = !adConsentOk ? false : await triggerFunnelEmail({
-            contactId:      contactId,
-            groupId:        groupId,
-            organizationId: orgId,
-            anchorDate:     anchorDate,
-          }).catch((err) => {
-            logger.error('[LandingRegister] 자동이메일 트리거 실패', { err });
-            return false;
-          });
-
-          // [T8] OR 연산으로 true 상태 유지 (autoFunnelId + groupId 동시 사용 시 오염 방지)
-          funnelStarted = funnelStarted || triggered || smsTriggered || emailTriggered;
-
-          // funnelStarted 업데이트 (fire-and-forget)
-          if (triggered || smsTriggered || emailTriggered) {
-            // id로 특정 행만 업데이트 (updateMany 다중 행 방지)
-            void prisma.crmLandingRegistration.update({
-              where: { id: regId },
-              data:  { funnelStarted: true },
-            }).catch((err) => {
-              logger.warn('[LandingRegister] funnelStarted 업데이트 실패', { regId, err: err instanceof Error ? err.message : String(err) });
-            });
-          }
-        }).catch((err) => {
-          logger.error('[LandingRegister] 퍼널 트리거 실패', { err });
-        });
+        const contactId = contact.id;
+        const anchorDate = member.addedAt;
+        // floating promise 회피 — after()로 응답 후 완료 보장(serverless 동결 전 미완료 방지)
+        after(() =>
+          triggerGroupFunnel({ contactId, groupId, organizationId: orgId })
+            .then(async (triggered) => {
+              const smsTriggered = await triggerGroupFunnelSms({
+                contactId, groupId, organizationId: orgId, anchorDate,
+              }).catch((err) => { logger.error('[LandingRegister] 퍼널문자 트리거 실패', { err }); return false; });
+              const emailTriggered = await triggerFunnelEmail({
+                contactId, groupId, organizationId: orgId, anchorDate,
+              }).catch((err) => { logger.error('[LandingRegister] 자동이메일 트리거 실패', { err }); return false; });
+              if (triggered || smsTriggered || emailTriggered) {
+                await prisma.crmLandingRegistration.update({
+                  where: { id: regId }, data: { funnelStarted: true },
+                }).catch((err) => logger.warn('[LandingRegister] funnelStarted 업데이트 실패', { regId, err: err instanceof Error ? err.message : String(err) }));
+              }
+            })
+            .catch((err) => logger.error('[LandingRegister] 퍼널 트리거 실패', { err })),
+        );
       }
     }
 
