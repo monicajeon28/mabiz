@@ -69,6 +69,10 @@ export async function GET(req: Request) {
         isGif:        img.fileName?.toLowerCase().endsWith(".gif") ?? false,
         isVideo:      false,
         source:       "cache" as const,
+        // 캐시 출처도 driveFileId 노출 → 워터마크 다운로드(?id=) 경로 사용 가능(404 방지)
+        driveFileId:  fileId,
+        // 외부 HTML/이메일 삽입·복사용 공개 URL
+        publicUrl:    fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w1200` : "",
       };
     };
 
@@ -111,6 +115,11 @@ export async function GET(req: Request) {
       isVideo:      false,
       source:       "asset" as const,
       driveFileId:  asset.driveFileId,
+      // 외부 HTML/이메일 삽입·복사용 공개 URL (proxy는 로그인 필요 → 외부에서 안 보임).
+      // 업로드 시 anyone-reader 권한 부여되므로 공개 thumbnail 표시 가능.
+      publicUrl:    asset.driveFileId
+        ? `https://drive.google.com/thumbnail?id=${asset.driveFileId}&sz=w1200`
+        : "",
     });
 
     // ── 정확한 total = ImageAsset + ImageCache 개수 (필터 반영) ──

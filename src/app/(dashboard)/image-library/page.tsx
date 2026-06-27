@@ -22,7 +22,8 @@ interface ImageAsset {
   isGif?: boolean;
   source: 'asset' | 'cache';
   thumbnailUrl: string;
-  fullUrl: string;     // 공개 URL (API: fullUrl)
+  fullUrl: string;     // in-app 표시용 proxy URL (로그인 필요)
+  publicUrl?: string;  // 외부 HTML/이메일 삽입·복사용 공개 thumbnail URL
 }
 
 interface GoogleDriveImage {
@@ -296,7 +297,9 @@ export default function ImageLibraryPage() {
 
   const copyLocalImgSrc = (asset: ImageAsset) => {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const absoluteUrl = asset.fullUrl.startsWith('http') ? asset.fullUrl : `${origin}${asset.fullUrl}`;
+    // 외부 HTML/이메일에서 보이려면 공개 URL 사용 (proxy는 로그인 필요 → 외부 미표시)
+    const rawUrl = asset.publicUrl || asset.fullUrl;
+    const absoluteUrl = rawUrl.startsWith('http') ? rawUrl : `${origin}${rawUrl}`;
     const imgSrc = `<img src="${absoluteUrl}" alt="${asset.title}" />`;
     navigator.clipboard.writeText(imgSrc).then(() => {
       setCopiedId(asset.id);
@@ -324,7 +327,7 @@ export default function ImageLibraryPage() {
       Array.from(selected).forEach((id) => {
         const asset = assets.find((a) => a.id === id);
         if (asset) {
-          html += `<img src="${asset.fullUrl}" alt="${asset.title}" />\n`;
+          html += `<img src="${asset.publicUrl || asset.fullUrl}" alt="${asset.title}" />\n`;
         }
       });
     } else {

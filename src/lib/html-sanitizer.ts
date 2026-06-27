@@ -7,6 +7,9 @@ const ALLOWED_TAGS = [
   'strong', 'em', 'b', 'i', 'u', 'blockquote',
   'figure', 'figcaption', 'section', 'article',
   'header', 'footer', 'nav', 'main', 'aside',
+  // 신청폼 — 리드 캡처용. 속성 화이트리스트에서 form action/button formaction 차단,
+  // on* 핸들러는 sanitize-html이 제거하므로 피싱·XSS 방지된 상태로 폼 허용.
+  'form', 'input', 'button',
   'textarea', 'select', 'label', 'option',
   'video', 'source', 'picture',
   'details', 'summary', 'mark', 'small', 'sub', 'sup',
