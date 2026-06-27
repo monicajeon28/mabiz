@@ -7,7 +7,6 @@ import Link from "next/link";
 import { showError, showSuccess } from "@/components/ui/Toast";
 import { logger } from "@/lib/logger";
 import { TripleChoiceCTA } from "@/components/groups/TripleChoiceCTA";
-import { OfferSection } from "@/components/groups/OfferSection";
 import { Day0SMSPreview } from "@/components/groups/Day0SMSPreview";
 import { TrustBadge } from "@/components/groups/TrustBadge";
 import { GroupEmailSettings } from "@/components/groups/GroupEmailSettings";
@@ -329,13 +328,9 @@ export default function GroupDetailPage() {
           {/* L7 + L9: 신뢰 배지 섹션 */}
           <TrustBadge groupName={group.name} />
 
-          {/* L10 렌즈: 특별 혜택 섹션 (시간/가격/수량 희소성) */}
-          <OfferSection
-            discountPercent={40}
-            originalPrice={1500000}
-            deadlineAt={new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString()}
-            remainingSlots={3}
-          />
+          {/* 특별 혜택 섹션 제거(2026-06-27): 할인40%·마감5일·잔여3 하드코딩은 실데이터가
+              아니어서 표시광고법(거짓·과장)·소비자원 단속 패턴 리스크. 진짜 프로모션은
+              추후 관리자 설정형(법무승인 근거 동반)으로 재도입 예정. */}
 
           {/* L10 렌즈: 3중선택 CTA - 거부 불가능한 심리학 */}
           <TripleChoiceCTA
