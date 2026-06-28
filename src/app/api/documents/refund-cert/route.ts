@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { sendFunnelEmail } from '@/lib/email';
 import { REFUND_ACCOUNT_LABEL } from '@/lib/company-info';
@@ -9,7 +9,7 @@ import { normalizeRefundPolicy, refundPolicyToLines } from '@/lib/refund-calcula
 export async function POST(req: Request) {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     if (ctx.role === 'FREE_SALES' || ctx.role === 'AGENT') {
       return NextResponse.json({ ok: false, message: 'OWNER 이상만 환불증서 신청 가능' }, { status: 403 });
@@ -248,7 +248,7 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   try {
     const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
     if (ctx.role === 'FREE_SALES') return NextResponse.json({ ok: false }, { status: 403 });
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status');

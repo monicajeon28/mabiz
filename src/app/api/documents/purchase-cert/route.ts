@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { sendFunnelEmail } from '@/lib/email';
 import { BANK_TRANSFER_LABEL } from '@/lib/company-info';
@@ -14,11 +14,11 @@ function escHtml(s: string): string {
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
-    // FREE_SALES 체크를 requireOrgId 전에 해야 500 대신 403 반환
+    // FREE_SALES 체크를 resolveOrgId 전에 해야 500 대신 403 반환
     if (ctx.role === 'FREE_SALES') {
       return NextResponse.json({ ok: false, message: '권한 없음' }, { status: 403 });
     }
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     const body = await req.json() as {
       orderId?: string;
@@ -237,7 +237,7 @@ export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
     if (ctx.role === 'FREE_SALES') return NextResponse.json({ ok: false }, { status: 403 });
-    const orgId = requireOrgId(ctx);
+    const orgId = resolveOrgId(ctx);
 
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status');
