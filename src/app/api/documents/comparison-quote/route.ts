@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getAuthContext, requireOrgId, resolveOrgId, resolveOrgIdOrNull } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { sendFunnelEmail } from '@/lib/email';
 
 export async function POST(req: Request) {
   try {
-    const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const ctx = await getAuthContext();
     if (ctx.role === 'FREE_SALES') return NextResponse.json({ ok: false }, { status: 403 });
+    // GLOBAL_ADMIN(org=null)→BONSA, OWNER/AGENT→본인 org. 구매/환불증서와 동일(과거 requireOrgId가 GLOBAL_ADMIN 저장 500 유발).
+    const orgId = resolveOrgId(ctx);
 
     const body = await req.json() as {
       contactId?: string;
@@ -135,9 +136,9 @@ ${greetingName ? `<p>${greetingName}님, 요청하신 크루즈 상품 비교 �
 
 export async function GET(req: Request) {
   try {
-    const ctx   = await getAuthContext();
-    const orgId = requireOrgId(ctx);
+    const ctx = await getAuthContext();
     if (ctx.role === 'FREE_SALES') return NextResponse.json({ ok: false }, { status: 403 });
+    const orgId = resolveOrgId(ctx);
 
     const docs = await prisma.salesDocument.findMany({
       where: { organizationId: orgId, documentType: 'COMPARISON_QUOTE' },

@@ -150,15 +150,19 @@ function CabinSummaryCell({ summary, availableCount }: {
     // 수동 등록 제거 — 잔여는 크루즈닷 웹훅(자동)만. 데이터 없으면 연동 대기 표시.
     return (
       <div className="space-y-1 min-w-[120px]">
-        {availableCount != null ? (
+        {availableCount == null ? (
+          <span className="text-base text-gray-500">크루즈닷 연동 대기 — 잔여 정보가 아직 없어요</span>
+        ) : availableCount === 0 ? (
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-bold bg-red-100 text-red-600">
+            매진 (크루즈닷 자동)
+          </span>
+        ) : (
           <div className="flex items-center gap-1.5 text-base">
             <span className="tabular-nums font-bold text-blue-500">전체 잔여 {availableCount}석</span>
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-600">
               크루즈닷 자동
             </span>
           </div>
-        ) : (
-          <span className="text-sm text-gray-400">크루즈닷 연동 대기</span>
         )}
       </div>
     );
