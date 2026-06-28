@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-react';
 import { showError, showSuccess } from '@/components/ui/Toast';
+import { refundPolicyToLines, LEGAL_REFUND_POLICY } from '@/lib/refund-calculator';
 import {
   CustomerAutocomplete,
   useImageDownload,
@@ -67,6 +68,7 @@ type QuoteForm = {
   competitorHasGuide: '' | 'Y' | 'N';   // ✅ 신규: 타사 여행 인솔자 유무
   competitorHasStaff: '' | 'Y' | 'N';   // ✅ 신규: 타사 전담 스탭 유무
   optionItems: string[];
+  refundPolicyLines: { label: string; value: string }[];   // 상품별 환불정책(없으면 법정 폴백)
 };
 
 // 상품 검색 결과 타입
@@ -99,6 +101,7 @@ const EMPTY_FORM: QuoteForm = {
   competitorHasGuide: '',
   competitorHasStaff: '',
   optionItems: [],
+  refundPolicyLines: [],
 };
 
 function buildItinerary(pattern: unknown): string {
@@ -260,6 +263,11 @@ export default function ComparisonQuoteTab() {
           ? json.product.excludedItems as string[]
           : prev.excludedItems,
         hasGuide: (json.product.hasGuide as '' | 'Y' | 'N') || prev.hasGuide,
+        // 상품별 환불정책(취소·환불 규정) 자동 임포트. product-info가 {label,value}[]로 내려줌. 없으면 법정기준 폴백.
+        refundPolicyLines:
+          Array.isArray(json.product?.refundPolicyLines) && json.product.refundPolicyLines.length > 0
+            ? (json.product.refundPolicyLines as { label: string; value: string }[])
+            : refundPolicyToLines(LEGAL_REFUND_POLICY),
       }));
       showSuccess('상품 정보를 불러왔습니다. 포함/불포함 항목이 자동 반영되었습니다.');
     } catch (error) {
@@ -977,6 +985,25 @@ export default function ComparisonQuoteTab() {
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {/* 취소·환불 규정 — 상품에서 자동 임포트(없으면 법정기준) */}
+          {form.refundPolicyLines.length > 0 && (
+            <div>
+              <p className="mb-3 text-sm font-bold text-gray-700">취소·환불 규정</p>
+              <div className="overflow-hidden rounded-xl border border-gray-300">
+                <table className="w-full border-collapse text-sm">
+                  <tbody>
+                    {form.refundPolicyLines.map((r, i) => (
+                      <tr key={i}>
+                        <td className="border border-gray-300 px-4 py-3 font-medium text-gray-800">{r.label}</td>
+                        <td className="border border-gray-300 px-4 py-3 text-right text-gray-700">{r.value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
