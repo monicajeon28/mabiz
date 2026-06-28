@@ -4,12 +4,14 @@ import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { generateUniqueShortlink } from '@/lib/landing-page-utils';
 
-export async function GET(_req: Request) {
+export async function GET(req: Request) {
   try {
     const ctx   = await getAuthContext();
+    // ?deleted=1 이면 휴지통(삭제된=isActive:false) 조회 — 복원용
+    const showDeleted = new URL(req.url).searchParams.get('deleted') === '1';
     // 자기가 만든 링크만 조회 (GLOBAL_ADMIN 포함)
     const linksBase = await prisma.shortLink.findMany({
-      where:   { createdBy: ctx.userId, isActive: true },
+      where:   { createdBy: ctx.userId, isActive: !showDeleted },
       orderBy: { createdAt: 'desc' },
       take:    100,
       select:  { id: true, code: true, title: true, targetUrl: true, category: true, createdAt: true, contactId: true, autoGroupId: true, createdBy: true },

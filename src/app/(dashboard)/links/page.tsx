@@ -1,6 +1,6 @@
 ﻿"use client";
 import { useState, useEffect } from "react";
-import { Copy, Check, Link2, Plus, MousePointer, X, Users } from "lucide-react";
+import { Copy, Check, Link2, Plus, MousePointer, X, Users, Trash2, RotateCcw } from "lucide-react";
 import { showError, showSuccess } from "@/components/ui/Toast";
 
 type ShortLink = {
@@ -45,6 +45,39 @@ export default function LinksPage() {
   const [loadingClicks, setLoadingClicks] = useState<string | null>(null);
   const [openClickId,   setOpenClickId]   = useState<string | null>(null);
   const [affiliateCode, setAffiliateCode] = useState<string | null>(null);
+
+  // 삭제(휴지통)·복원
+  const [showTrash, setShowTrash] = useState(false);
+  const [trash,     setTrash]     = useState<ShortLink[]>([]);
+  const [busyId,    setBusyId]    = useState<string | null>(null);
+  const loadTrash = async () => {
+    try {
+      const res = await fetch('/api/links?deleted=1');
+      const d = await res.json();
+      if (d.ok) setTrash(d.links ?? []);
+    } catch { /* 무시 */ }
+  };
+  const deleteLink = async (id: string) => {
+    if (!confirm('이 링크를 삭제할까요?\n(휴지통에서 다시 복원할 수 있어요)')) return;
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/links/${id}`, { method: 'DELETE' });
+      const d = await res.json();
+      if (d.ok) { setLinks(prev => prev.filter(l => l.id !== id)); showSuccess('삭제했습니다. 휴지통에서 복원할 수 있어요.'); }
+      else showError(d.message ?? '삭제 실패');
+    } catch { showError('삭제 실패'); } finally { setBusyId(null); }
+  };
+  const restoreLink = async (id: string) => {
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/links/${id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'restore' }),
+      });
+      const d = await res.json();
+      if (d.ok) { setTrash(prev => prev.filter(l => l.id !== id)); showSuccess('복원했습니다.'); load(); }
+      else showError(d.message ?? '복원 실패');
+    } catch { showError('복원 실패'); } finally { setBusyId(null); }
+  };
 
   // 그룹 연결
   const [linkToGroup,    setLinkToGroup]    = useState(false);
@@ -312,6 +345,43 @@ export default function LinksPage() {
         </div>
       )}
 
+      {/* 휴지통 토글 */}
+      {!loading && (
+        <div className="mb-3 flex justify-end">
+          <button
+            onClick={() => { const next = !showTrash; setShowTrash(next); if (next) loadTrash(); }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${showTrash ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+          >
+            <Trash2 className="w-4 h-4" /> {showTrash ? '휴지통 닫기' : '삭제한 링크 (휴지통)'}
+          </button>
+        </div>
+      )}
+
+      {/* 휴지통 — 삭제된 링크 복원 */}
+      {showTrash && (
+        <div className="mb-4 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-4">
+          <p className="mb-3 text-sm font-bold text-gray-700">🗑 삭제한 링크 — 복원하려면 ↩ 버튼을 누르세요</p>
+          {trash.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-4">삭제한 링크가 없습니다.</p>
+          ) : (
+            <div className="space-y-2">
+              {trash.map(link => (
+                <div key={link.id} className="flex items-center justify-between gap-3 rounded-lg bg-white border px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate text-gray-700">{link.title ?? link.targetUrl}</p>
+                    <p className="text-sm text-gray-500 truncate">{APP_URL}/l/{link.code}</p>
+                  </div>
+                  <button onClick={() => restoreLink(link.id)} disabled={busyId === link.id}
+                    className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                    <RotateCcw className="w-4 h-4" /> 복원
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 링크 목록 */}
       {loading ? (
         <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />)}</div>
@@ -347,6 +417,10 @@ export default function LinksPage() {
                     </button>
                     <button onClick={() => copyUrl(link.code)} className="p-2 hover:bg-gray-100 rounded-lg">
                       {copied === link.code ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-500" />}
+                    </button>
+                    <button onClick={() => deleteLink(link.id)} disabled={busyId === link.id}
+                      className="p-2 hover:bg-red-50 rounded-lg disabled:opacity-50" title="삭제 (휴지통으로)">
+                      <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-500" />
                     </button>
                   </div>
                 </div>
