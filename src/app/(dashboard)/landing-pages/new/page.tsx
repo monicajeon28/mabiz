@@ -425,7 +425,7 @@ export default function NewLandingPage() {
       reserve: '#F97316', // 주황
     };
     const buttonColor = buttonColorMap[ctaType] || '#1E2D4E';
-    const displayButtonTitle = buttonTitle || CTA_PSYCHOLOGY_MAP[ctaType]?.label || "신청하기";
+    const displayButtonTitle = buttonTitle || (paymentEnabled ? (paymentType === "subscription" ? "정기결제 시작하기" : "결제하기") : (CTA_PSYCHOLOGY_MAP[ctaType]?.label || "신청하기"));
 
     const formBlock = fieldHtmls.length > 0 || paymentEnabled ? `
 <div style="max-width:480px;margin:0 auto;padding:28px 20px 48px;background:#fff;font-family:-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif">
@@ -765,7 +765,7 @@ ${footerBlock}
       default: '#9CA3AF', urgent: '#EF4444', explore: '#FBBF24', reserve: '#F97316',
     };
     const buttonColor = buttonColorMap[ctaType] || '#1E2D4E';
-    const displayButtonTitle = esc(buttonTitle || CTA_PSYCHOLOGY_MAP[ctaType]?.label || "신청하기");
+    const displayButtonTitle = esc(buttonTitle || (paymentEnabled ? (paymentType === "subscription" ? "정기결제 시작하기" : "결제하기") : (CTA_PSYCHOLOGY_MAP[ctaType]?.label || "신청하기")));
 
     const paymentBlock = paymentEnabled ? `<div style="margin:16px 0 12px;padding:14px 16px;background:#fffbeb;border-radius:10px;border:1px solid #f0d060"><p style="font-size:12px;font-weight:600;color:#7c5700;margin:0 0 3px">결제 금액</p><p style="font-size:24px;font-weight:800;color:#1a1a1a;margin:0">${productPrice ? Number(productPrice).toLocaleString() : "0"}원${paymentType === "subscription" ? "/월" : ""}</p>${productName ? `<p style="font-size:12px;color:#666;margin:3px 0 0">${esc(productName)}</p>` : ""}</div>` : "";
 

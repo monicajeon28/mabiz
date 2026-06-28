@@ -713,7 +713,7 @@ export default function EditLandingPage() {
 
     // Task 1-1: 더미 데이터 제거, 동적 폼 생성, footer 텍스트 사용
     const formFieldsHtml = buildFormFields();
-    const encodedButtonTitle = encodeHtml(buttonTitle || CTA_PSYCHOLOGY_MAP[ctaType]?.text || "신청하기");
+    const encodedButtonTitle = encodeHtml(buttonTitle || (paymentEnabled ? (paymentType === "subscription" ? "정기결제 시작하기" : "결제하기") : (CTA_PSYCHOLOGY_MAP[ctaType]?.text || "신청하기")));
     const encodedFooter = footer ? encodeHtml(footer) : "";
 
     // CTA 타입별 버튼 색상
