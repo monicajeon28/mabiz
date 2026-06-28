@@ -851,7 +851,7 @@ ${footerBlock}
           signal: controller.signal,
         });
         const data = await res.json();
-        if (data.ok) router.push(`/landing-pages/${pageId}`);
+        if (data.ok) router.push("/landing-pages"); // 저장 후 홍보페이지 목록으로
         else { setError(data.message ?? "저장 실패"); setSaving(false); }
       } else {
         const res  = await fetch("/api/landing-pages", {
@@ -860,7 +860,7 @@ ${footerBlock}
           signal: controller.signal,
         });
         const data = await res.json();
-        if (data.ok) router.push(`/landing-pages/${data.page.id}`);
+        if (data.ok) router.push("/landing-pages"); // 저장 후 홍보페이지 목록으로
         else { setError(data.message ?? "저장 실패"); setSaving(false); }
       }
     } catch (err) {
@@ -1159,7 +1159,8 @@ ${footerBlock}
         )}
 
         {/* 스크롤 본문 */}
-        <div className="flex-1 overflow-y-auto">
+        {/* pb-28: 모바일 하단 탭바(고정)에 마지막 설정(기타 설정·푸터)이 가려지지 않게 여백 확보 */}
+        <div className="flex-1 overflow-y-auto pb-28">
 
           {/* 퀵스타트 카드 */}
           <div className="px-4 py-4 bg-yellow-50 border-b border-yellow-200">
