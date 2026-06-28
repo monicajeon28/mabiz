@@ -57,6 +57,10 @@ type Comment = {
   authorName: string;
   content: string;
   createdAt: string;
+  authorRole?: string;       // 'visitor' | 'operator'(운영자 답변)
+  likeCount?: number;
+  parentId?: string | null;
+  replies?: Comment[];        // 최상위 질문에만 존재
 };
 
 /**
@@ -92,6 +96,10 @@ export function LandingClient({
   const [commentForm,  setCommentForm] = useState({ authorName: "", content: "" });
   const [posting,      setPosting]     = useState(false);
   const [commentMsg,   setCommentMsg]  = useState("");
+  // 티키타카 답글 — 한 번에 한 질문에만 답글창 열기
+  const [replyTarget,  setReplyTarget] = useState<string | null>(null);
+  const [replyForm,    setReplyForm]   = useState({ authorName: "", content: "" });
+  const [replyPosting, setReplyPosting] = useState(false);
   const containerRef  = useRef<HTMLDivElement>(null);
   const submittingRef = useRef(false);
   const loadTimeRef = useRef<number>(Date.now());
@@ -246,21 +254,30 @@ export function LandingClient({
       .catch(() => {});
   }, [slug, commentEnabled]);
 
-  const postComment = async () => {
+  const submitComment = async (opts: { parentId?: string; authorName: string; content: string }) => {
+    const res = await fetch(`/api/public/landing/${slug}/comments`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        authorName: opts.authorName,
+        content:    opts.content,
+        ...(opts.parentId ? { parentId: opts.parentId } : {}),
+      }),
+    });
+    return res.json();
+  };
+
+  // 새 질문(최상위) 등록
+  const postQuestion = async () => {
     if (!commentForm.authorName.trim() || !commentForm.content.trim()) return;
     setPosting(true);
     setCommentMsg("");
     try {
-      const res = await fetch(`/api/public/landing/${slug}/comments`, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify(commentForm),
-      });
-      const data = await res.json();
+      const data = await submitComment({ authorName: commentForm.authorName, content: commentForm.content });
       if (data.ok) {
-        setComments((prev) => [data.comment, ...prev]);
+        setComments((prev) => [{ ...data.comment, replies: [] }, ...prev]);
         setCommentForm({ authorName: "", content: "" });
-        setCommentMsg("후기가 등록됐습니다!");
+        setCommentMsg("질문이 등록됐어요! 운영자와 다른 분들이 답해드려요.");
       } else {
         setCommentMsg(data.message ?? "등록 실패");
       }
@@ -268,6 +285,25 @@ export function LandingClient({
       setCommentMsg("네트워크 오류가 발생했습니다.");
     }
     setPosting(false);
+  };
+
+  // 질문에 답글 등록(티키타카)
+  const postReply = async (questionId: string) => {
+    if (!replyForm.authorName.trim() || !replyForm.content.trim()) return;
+    setReplyPosting(true);
+    try {
+      const data = await submitComment({ parentId: questionId, authorName: replyForm.authorName, content: replyForm.content });
+      if (data.ok) {
+        setComments((prev) => prev.map((q) =>
+          q.id === questionId ? { ...q, replies: [...(q.replies ?? []), data.comment] } : q
+        ));
+        setReplyForm({ authorName: "", content: "" });
+        setReplyTarget(null);
+      }
+    } catch {
+      // 무시 — 사용자는 재시도 가능
+    }
+    setReplyPosting(false);
   };
 
   useEffect(() => {
@@ -765,60 +801,136 @@ export function LandingClient({
         </div>
       )}
 
-      {/* 방문자 후기 댓글 섹션 */}
+      {/* 커뮤니티 Q&A(티키타카) 섹션 — 질문↔답글, 운영자도 함께 답변 */}
       {commentEnabled && (
         <div className="max-w-xl mx-auto px-4 pb-12 pt-8">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">
-            💬 고객 후기 {comments.length > 0 && `(${comments.length})`}
+          <h2 className="text-xl font-bold text-gray-900 mb-1">
+            💬 궁금한 점 물어보세요 {comments.length > 0 && `(${comments.length})`}
           </h2>
+          <p className="text-sm text-gray-500 mb-4">
+            운영자와 방문자가 함께 답하는 커뮤니티예요. 무엇이든 편하게 물어보세요.
+          </p>
 
-          {/* 댓글 목록 */}
-          {comments.length > 0 && (
-            <div className="space-y-3 mb-6">
-              {comments.map((c) => (
-                <div key={c.id} className="bg-gray-50 rounded-xl p-4">
+          {/* 질문 목록 (각 질문에 답글 스레드) */}
+          {comments.length > 0 ? (
+            <div className="space-y-4 mb-6">
+              {comments.map((q) => (
+                <div key={q.id} className="bg-gray-50 rounded-xl p-4">
+                  {/* 질문 */}
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm font-semibold text-gray-800">{c.authorName}</span>
+                    <span className="text-base font-semibold text-gray-800">{q.authorName}</span>
+                    {q.authorRole === "operator" && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">운영자</span>
+                    )}
                     <span className="text-xs text-gray-400 ml-auto">
-                      {new Date(c.createdAt).toLocaleDateString("ko-KR")}
+                      {new Date(q.createdAt).toLocaleDateString("ko-KR")}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-700 leading-relaxed">{c.content}</p>
+                  <p className="text-base text-gray-700 leading-relaxed whitespace-pre-wrap">{q.content}</p>
+
+                  {/* 답글들 */}
+                  {(q.replies?.length ?? 0) > 0 && (
+                    <div className="mt-3 space-y-2 pl-4 border-l-2 border-gray-200">
+                      {q.replies!.map((r) => (
+                        <div key={r.id}>
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="text-sm font-semibold text-gray-700">{r.authorName}</span>
+                            {r.authorRole === "operator" && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-700">운영자</span>
+                            )}
+                            <span className="text-[11px] text-gray-400 ml-auto">
+                              {new Date(r.createdAt).toLocaleDateString("ko-KR")}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{r.content}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 답글 달기 */}
+                  {replyTarget === q.id ? (
+                    <div className="mt-3 pl-4 space-y-2">
+                      <input
+                        type="text"
+                        placeholder="이름"
+                        value={replyForm.authorName}
+                        onChange={(e) => setReplyForm({ ...replyForm, authorName: e.target.value })}
+                        maxLength={30}
+                        className="w-full border border-gray-300 rounded-lg px-3 min-h-[44px] text-base focus:outline-none focus:border-blue-500"
+                      />
+                      <textarea
+                        placeholder="답글을 입력하세요 (500자 이내)"
+                        value={replyForm.content}
+                        onChange={(e) => setReplyForm({ ...replyForm, content: e.target.value })}
+                        rows={2}
+                        maxLength={500}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-base resize-none focus:outline-none focus:border-blue-500"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => postReply(q.id)}
+                          disabled={replyPosting || !replyForm.authorName.trim() || !replyForm.content.trim()}
+                          className="flex-1 bg-blue-600 text-white min-h-[44px] rounded-lg text-base font-medium hover:bg-blue-500 disabled:opacity-50"
+                        >
+                          {replyPosting ? "등록 중..." : "답글 등록"}
+                        </button>
+                        <button
+                          onClick={() => { setReplyTarget(null); setReplyForm({ authorName: "", content: "" }); }}
+                          className="px-4 min-h-[44px] text-base text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { setReplyTarget(q.id); setReplyForm({ authorName: "", content: "" }); }}
+                      className="mt-2 text-sm text-blue-600 font-medium hover:underline"
+                    >
+                      💬 답글 달기
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
+          ) : (
+            <div className="bg-blue-50 rounded-xl p-5 mb-6 text-center">
+              <p className="text-base text-gray-700 font-medium">아직 질문이 없어요. 첫 질문을 남겨보세요!</p>
+              <p className="text-sm text-gray-500 mt-1">운영자가 확인 후 답해드려요.</p>
+            </div>
           )}
 
-          {/* 후기 작성 폼 */}
+          {/* 새 질문 작성 */}
           <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
-            <p className="text-sm font-semibold text-gray-700">후기 남기기</p>
+            <p className="text-base font-semibold text-gray-700">질문 남기기</p>
             <input
               type="text"
               placeholder="이름"
               value={commentForm.authorName}
               onChange={(e) => setCommentForm({ ...commentForm, authorName: e.target.value })}
               maxLength={50}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gold-500"
+              className="w-full border border-gray-300 rounded-lg px-3 min-h-[48px] text-base focus:outline-none focus:border-gold-500"
             />
             <textarea
-              placeholder="크루즈 여행 후기를 남겨주세요 (500자 이내)"
+              placeholder="여행에 대해 궁금한 점을 물어보세요 (500자 이내)"
               value={commentForm.content}
               onChange={(e) => setCommentForm({ ...commentForm, content: e.target.value })}
               rows={3}
               maxLength={500}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:border-gold-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-base resize-none focus:outline-none focus:border-gold-500"
             />
             {commentMsg && (
-              <p className={`text-xs ${commentMsg.includes("됐") ? "text-green-600" : "text-red-500"}`}>
+              <p className={`text-sm ${commentMsg.includes("됐") || commentMsg.includes("등록됐") ? "text-green-600" : "text-red-500"}`}>
                 {commentMsg}
               </p>
             )}
             <button
-              onClick={postComment}
+              onClick={postQuestion}
               disabled={posting || !commentForm.authorName.trim() || !commentForm.content.trim()}
-              className="w-full bg-navy-900 text-white py-2 rounded-lg text-sm font-medium hover:bg-navy-700 disabled:opacity-50"
+              className="w-full bg-navy-900 text-white min-h-[48px] rounded-lg text-base font-medium hover:bg-navy-700 disabled:opacity-50"
             >
-              {posting ? "등록 중..." : "후기 등록"}
+              {posting ? "등록 중..." : "질문 올리기"}
             </button>
           </div>
         </div>

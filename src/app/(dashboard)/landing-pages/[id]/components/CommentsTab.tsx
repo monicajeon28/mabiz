@@ -28,10 +28,10 @@ export function CommentsTab({
 }: Props) {
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-4">
-      {/* 댓글 설정 */}
+      {/* 게시판 설정 */}
       <div className="bg-white border border-gray-200 rounded-xl p-4">
         <div className="flex items-center justify-between mb-1">
-          <p className="text-sm font-semibold text-gray-700">방문자 후기 기능</p>
+          <p className="text-sm font-semibold text-gray-700">커뮤니티 Q&amp;A 게시판</p>
           <button
             onClick={onToggleEnabled}
             className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
@@ -41,15 +41,15 @@ export function CommentsTab({
             {commentEnabled ? "활성" : "비활성"}
           </button>
         </div>
-        <p className="text-xs text-gray-400">활성화 시 공개 랜딩페이지 하단에 후기 섹션이 노출됩니다.</p>
+        <p className="text-xs text-gray-400">활성화 시 공개 랜딩페이지 하단에 질문·답변 게시판이 노출됩니다.</p>
       </div>
 
-      {/* AI 후기 생성 */}
+      {/* AI FAQ 시드 생성 */}
       <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl p-4">
         <p className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 mb-2">
-          <Sparkles className="w-4 h-4 text-purple-500" /> AI 후기 자동 생성
+          <Sparkles className="w-4 h-4 text-purple-500" /> AI 자주 묻는 질문(FAQ) 등록
         </p>
-        <p className="text-xs text-gray-500 mb-3">랜딩페이지 내용을 분석해 실제 고객 후기처럼 보이는 댓글을 생성합니다.</p>
+        <p className="text-xs text-gray-500 mb-3">랜딩 내용을 분석해 자주 묻는 질문 + 운영자 답변을 <b>운영자 명의</b>로 등록합니다. 가짜 후기가 아니라 정직한 Q&amp;A예요.</p>
         <div className="flex items-center gap-2">
           <select
             value={genCount}
@@ -63,7 +63,7 @@ export function CommentsTab({
             disabled={generating}
             className="flex-1 bg-purple-600 text-white py-1.5 rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-1.5"
           >
-            {generating ? "생성 중..." : <><Sparkles className="w-3.5 h-3.5" /> 생성하기</>}
+            {generating ? "생성 중..." : <><Sparkles className="w-3.5 h-3.5" /> FAQ 생성</>}
           </button>
         </div>
         {commentMsg && (
@@ -76,7 +76,7 @@ export function CommentsTab({
       {/* 댓글 목록 */}
       <div className="space-y-2">
         {comments.length === 0 ? (
-          <p className="text-center text-sm text-gray-400 py-8">후기가 없습니다.</p>
+          <p className="text-center text-sm text-gray-400 py-8">등록된 질문·답변이 없습니다.</p>
         ) : (
           comments.map((c) => (
             <div key={c.id} className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3">

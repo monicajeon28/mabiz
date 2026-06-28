@@ -172,9 +172,6 @@ export default function EditLandingPage() {
   const [headerScript, setHeaderScript]         = useState("");
   const [description, setDescription]           = useState("");
   const [footer, setFooter]                     = useState("");
-  const [commentCount, setCommentCount]         = useState(5);
-  const [commentDateFrom, setCommentDateFrom]   = useState("2024-01-01");
-  const [commentDateTo, setCommentDateTo]       = useState("2025-12-31");
   const [showAdvanced, setShowAdvanced]         = useState(false);
   const [formFields, setFormFields] = useState<FormField[]>([
     { id: 'name', name: 'name', label: '이름', type: 'text', required: true, placeholder: '이름을 입력하세요' },
@@ -256,11 +253,7 @@ export default function EditLandingPage() {
         setCompletionPageUrl(pageData.page.completionPageUrl ?? "");
         setHeaderScript(pageData.page.headerScript ?? "");
         setDescription(pageData.page.description ?? "");
-        // 댓글 설정
-        const cc = pageData.page.commentConfig as { count?: number; dateFrom?: string; dateTo?: string } | null;
-        if (cc?.count)    setCommentCount(cc.count);
-        if (cc?.dateFrom) setCommentDateFrom(cc.dateFrom);
-        if (cc?.dateTo)   setCommentDateTo(cc.dateTo);
+        // 커뮤니티 Q&A: ON/OFF만(commentEnabled은 별도 로드). 개수·날짜 설정 폐지.
         // blocksConfig 복원 — new/page.tsx와 대칭: { blocks, selectedFeatures }
         if (pageData.page.blocksConfig) {
           try {
@@ -819,7 +812,6 @@ export default function EditLandingPage() {
           ...(headerScript      ? { headerScript }                      : { headerScript: null }),
           ...(description       ? { description }                       : { description: null }),
           commentEnabled,
-          commentConfig: commentEnabled ? { count: commentCount, dateFrom: commentDateFrom, dateTo: commentDateTo } : undefined,
           // blocksConfig 저장 — new/page.tsx와 대칭
           ...(blocks.length > 0 ? {
             blocksConfig: JSON.stringify({ blocks, selectedFeatures } as BlocksConfig),
@@ -1238,28 +1230,12 @@ export default function EditLandingPage() {
                     className="flex-1 border border-gray-200 rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-blue-400 resize-y"
                   />
                 </div>
-                {/* 댓글 설정 */}
+                {/* 커뮤니티 Q&A 게시판 설정 */}
                 <div className="flex items-center gap-2 flex-wrap">
                   <label className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
                     <input type="checkbox" checked={commentEnabled} onChange={(e) => { setCommentEnabled(e.target.checked); }} className="w-3 h-3" />
-                    AI 후기 생성
+                    커뮤니티 Q&amp;A 게시판 (질문·답변)
                   </label>
-                  {commentEnabled && (
-                    <>
-                      <input type="number" min={1} max={30} value={commentCount}
-                        onChange={(e) => setCommentCount(parseInt(e.target.value, 10) || 5)}
-                        className="border border-gray-200 rounded px-2 py-1 text-xs w-14"
-                      />
-                      <span className="text-xs text-gray-400">개, 기간:</span>
-                      <input type="date" value={commentDateFrom} onChange={(e) => setCommentDateFrom(e.target.value)}
-                        className="border border-gray-200 rounded px-2 py-1 text-xs"
-                      />
-                      <span className="text-xs text-gray-400">~</span>
-                      <input type="date" value={commentDateTo} onChange={(e) => setCommentDateTo(e.target.value)}
-                        className="border border-gray-200 rounded px-2 py-1 text-xs"
-                      />
-                    </>
-                  )}
                 </div>
               </div>
             )}
