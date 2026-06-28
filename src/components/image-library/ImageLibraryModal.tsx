@@ -25,6 +25,18 @@ interface ImageLibraryModalProps {
 
 const DEFAULT_FOLDERS = ["전체", "지중해", "카리브해", "알래스카", "선박", "객실", "후기", "기타"];
 
+// 썸네일 로드 실패/빈 src 시 표시할 회색 이미지 아이콘(깨진 아이콘 대신). data URI라 외부요청 없음.
+const THUMB_PLACEHOLDER =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23f3f4f6'/%3E%3Ccircle cx='38' cy='38' r='8' fill='%23d1d5db'/%3E%3Cpath d='M22 70l18-20 13 15 9-10 16 15z' fill='%23d1d5db'/%3E%3C/svg%3E";
+
+/** 썸네일 onError: 한 번만 placeholder로 교체(무한루프 방지) */
+function handleThumbError(e: React.SyntheticEvent<HTMLImageElement>) {
+  const img = e.currentTarget;
+  if (img.dataset.fallback) return;
+  img.dataset.fallback = "1";
+  img.src = THUMB_PLACEHOLDER;
+}
+
 export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModalProps) {
   const [tab, setTab]           = useState<"library" | "url" | "youtube">("library");
   const [items, setItems]       = useState<ImageItem[]>([]);
@@ -450,17 +462,19 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
                         <div className="aspect-square bg-gray-100">
                           {item.isGif ? (
                             <img
-                              src={item.fullUrl}
+                              src={item.fullUrl || THUMB_PLACEHOLDER}
                               alt={item.title}
                               className="w-full h-full object-cover"
                               loading="lazy"
+                              onError={handleThumbError}
                             />
                           ) : (
                             <img
-                              src={item.thumbnailUrl || item.fullUrl}
+                              src={item.thumbnailUrl || item.fullUrl || THUMB_PLACEHOLDER}
                               alt={item.title}
                               className="w-full h-full object-cover"
                               loading="lazy"
+                              onError={handleThumbError}
                             />
                           )}
                           {item.isGif && (

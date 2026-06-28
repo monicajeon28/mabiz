@@ -7,7 +7,7 @@ import dynamic from "next/dynamic";
 import { RegistrationsTab } from "./components/RegistrationsTab";
 import { CommentsTab } from "./components/CommentsTab";
 import FormBuilder, { FormField } from "@/components/forms/FormBuilder";
-import { MAX_IMAGE_UPLOAD_BYTES, prepareImageForUpload } from "@/lib/client-image-compress";
+import { MAX_IMAGE_UPLOAD_BYTES, GIF_MAX_UPLOAD_BYTES, prepareImageForUpload } from "@/lib/client-image-compress";
 import { Block, BlocksConfig } from "@/lib/landing-page-blocks";
 
 type Registration = {
@@ -29,6 +29,7 @@ type UploadedImage = {
   id: string; assetId: string; url: string; driveFileId: string;
   width: number; height: number; mimeType: string; fileName: string; sortOrder: number;
   altText?: string;
+  publicReady?: boolean;  // false면 드라이브 공개권한 부여 실패 → 라이브 미리보기 잠시 지연
 };
 
 // CTA 심리학 맵 (new/page.tsx와 대칭)
@@ -507,7 +508,14 @@ export default function EditLandingPage() {
 
   // Task 1-2 & 1-5: 이미지 업로드 — 배치 처리 + HTTP 에러 처리 + Race Condition 해결
   const uploadSingleFile = async (file: File, sortOrder: number): Promise<{ ok: boolean; image?: UploadedImage; error?: string }> => {
-    if (!file.type.startsWith("image/")) return { ok: false, error: `${file.name}: 이미지 형식 아님` };
+    // Windows 드래그 시 MIME이 빈 문자열일 수 있어 확장자도 함께 판정(new 페이지와 통일)
+    const isImage = file.type.startsWith("image/") || /\.(jpe?g|png|gif|webp|bmp)$/i.test(file.name);
+    if (!isImage) return { ok: false, error: `${file.name}: 이미지 형식 아님` };
+    // GIF는 압축 없이 원본 전송 → 본문 한도(~4.5MB) 직격. 4MB 사전 차단으로 정직 안내.
+    const isGif = file.type === "image/gif" || /\.gif$/i.test(file.name);
+    if (isGif && file.size > GIF_MAX_UPLOAD_BYTES) {
+      return { ok: false, error: `${file.name}: 움직이는 GIF는 약 4MB까지 가능합니다. 용량을 줄이거나 JPG·PNG로 올려주세요.` };
+    }
     if (file.size > MAX_IMAGE_UPLOAD_BYTES) return { ok: false, error: `${file.name}: 100MB 초과` };
 
     const uploadFile = await prepareImageForUpload(file);
@@ -536,7 +544,10 @@ export default function EditLandingPage() {
 
     const successImages: UploadedImage[] = [];
     const failedErrors: string[] = [];
-    const validFiles = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    // 윈도우 드래그 시 MIME 빈값 → 확장자도 함께 판정(uploadSingleFile과 통일)
+    const validFiles = Array.from(files).filter(
+      (f) => f.type.startsWith("image/") || /\.(jpe?g|png|gif|webp|bmp)$/i.test(f.name),
+    );
 
     // Task 6: 빈 배열 검증
     if (validFiles.length === 0) {
@@ -1327,7 +1338,7 @@ export default function EditLandingPage() {
                         />
                       </div>
                     )}
-                    <p className="text-xs text-gray-400 mt-1">JPG, PNG, WebP → 자동 WebP 변환 / GIF → 서버에서 움직이는 WebP로 압축 / 최대 100MB</p>
+                    <p className="text-xs text-gray-400 mt-1">JPG · PNG · WebP는 자동 압축되어 큰 파일도 OK / 움직이는 GIF는 약 4MB까지 · 가로 1200px 넘으면 자동 축소</p>
                     {!uploading && (
                       <p className="text-xs text-blue-600 mt-2">💡 팁: 최대 5개씩 선택하면 빠릅니다. (3~5개 동시 처리)</p>
                     )}
@@ -1348,6 +1359,9 @@ export default function EditLandingPage() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-800 truncate">{img.fileName}</p>
                             <p className="text-xs text-gray-400">{img.width}x{img.height} · {img.mimeType}</p>
+                            {img.publicReady === false && (
+                              <p className="text-xs text-amber-600 mt-0.5">⏳ 미리보기 준비 중 — 목록엔 정상 저장됨</p>
+                            )}
                           </div>
                           <span className="text-xs text-gray-400 shrink-0">#{idx + 1}</span>
                           <button onClick={() => removeImage(img.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg shrink-0">

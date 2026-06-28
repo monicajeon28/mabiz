@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ImageIcon, Code, Upload, X, GripVertical, Plus, Trash2, Smartphone, Copy, Check } from "lucide-react";
 import dynamic from "next/dynamic";
 import { ImageLibraryModal } from "@/components/image-library/ImageLibraryModal";
-import { MAX_IMAGE_UPLOAD_BYTES, prepareImageForUpload } from "@/lib/client-image-compress";
+import { MAX_IMAGE_UPLOAD_BYTES, GIF_MAX_UPLOAD_BYTES, prepareImageForUpload } from "@/lib/client-image-compress";
 import { BlockEditor } from "./BlockEditor";
 import { Block, BlocksConfig } from "@/lib/landing-page-blocks";
 import { LandingPageMetrics } from "./LandingPageMetrics";
@@ -209,6 +209,7 @@ type UploadedImage = {
   id: string; assetId: string; url: string; driveFileId: string;
   fullUrl?: string;  // 라이브러리 이미지는 원본 URL 별도 보관
   width: number; height: number; mimeType: string; fileName: string; sortOrder: number;
+  publicReady?: boolean;  // false면 드라이브 공개권한 부여 실패 → 라이브 미리보기 잠시 지연
 };
 
 /** Drive fileId → 표준 썸네일 정보 객체 */
@@ -561,6 +562,12 @@ ${footerBlock}
       const file = files[i];
       const isImage = file.type.startsWith("image/") || /\.(jpe?g|png|gif|webp|bmp)$/i.test(file.name);
       if (!isImage) { skippedNonImage++; continue; }
+      // GIF는 압축 없이 원본 전송 → 본문 한도(~4.5MB) 직격. 4MB 사전 차단으로 정직 안내.
+      const isGif = file.type === "image/gif" || /\.gif$/i.test(file.name);
+      if (isGif && file.size > GIF_MAX_UPLOAD_BYTES) {
+        lastError = `${file.name}: 움직이는 GIF는 약 4MB까지 가능합니다. 용량을 줄이거나 JPG·PNG로 올려주세요.`;
+        setError(lastError); continue;
+      }
       if (file.size > MAX_IMAGE_UPLOAD_BYTES) { lastError = `${file.name}: 100MB 초과`; setError(lastError); continue; }
 
       try {
@@ -1467,7 +1474,8 @@ ${footerBlock}
                 >
                   <Upload className="w-9 h-9 text-gray-600 mx-auto mb-3" />
                   <p className="text-sm font-medium text-gray-600">{uploading ? "업로드 중..." : "이미지 드래그 또는 클릭"}</p>
-                    <p className="text-sm text-gray-600 mt-1">JPG · PNG · WebP · GIF / 최대 100MB</p>
+                    <p className="text-sm text-gray-600 mt-1">JPG · PNG · WebP는 자동 압축되어 큰 파일도 OK</p>
+                    <p className="text-sm text-gray-500">움직이는 GIF는 약 4MB까지 · 가로 1200px 넘으면 자동 축소</p>
                   <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
                     onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; if (f.length) uploadFiles(f); }} />
                 </div>
@@ -1516,6 +1524,9 @@ ${footerBlock}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate text-gray-700">{img.fileName}</p>
                           <p className="text-sm text-gray-600">{img.width}×{img.height} · {img.mimeType}</p>
+                          {img.publicReady === false && (
+                            <p className="text-sm text-amber-600 mt-0.5">⏳ 미리보기 준비 중 — 목록엔 정상 저장됨</p>
+                          )}
                         </div>
                         <span className="text-sm text-gray-600 shrink-0">#{idx + 1}</span>
                         <button onClick={() => removeImage(img.id)} className="p-1 text-gray-300 hover:text-red-500 rounded shrink-0">
