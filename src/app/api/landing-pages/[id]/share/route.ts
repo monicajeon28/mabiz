@@ -120,20 +120,25 @@ export async function POST(req: Request, { params }: Params) {
     const sharedByName = ctx.member?.displayName ?? ctx.userId;
     const sharedByOrgId = orgId;
 
-    // ── 지정공유(특정 지사/대리점장) — 관리자(GLOBAL_ADMIN) 전용 ──
+    // ── 지정공유(특정 지사/대리점장 1명) — 관리자(GLOBAL_ADMIN) + 지사(OWNER) 가능 ──
+    // (외곽 canManageSettings 게이트로 이미 OWNER+ADMIN만 도달. 대리점장은 받기만이라 차단됨)
     if ("sharedToUserId" in parsed.data) {
-      if (ctx.role !== "GLOBAL_ADMIN") {
-        return NextResponse.json({ ok: false, message: "지정 공유는 관리자만 가능합니다." }, { status: 403 });
-      }
       const targetUserId = parsed.data.sharedToUserId;
+      if (targetUserId === ctx.userId) {
+        return NextResponse.json({ ok: false, message: "자기 자신에게는 공유할 수 없습니다." }, { status: 400 });
+      }
       // org는 클라가 못 정함 — 활성 멤버십에서 서버가 유도(열거/스푸핑 차단). 지사(OWNER)·대리점장(AGENT)만.
       const member = await prisma.organizationMember.findFirst({
         where: { userId: targetUserId, isActive: true, role: { in: ["OWNER", "AGENT"] } },
-        select: { organizationId: true },
+        select: { organizationId: true, role: true },
         orderBy: { id: "asc" }, // 복수 멤버십 시 결정적(라벨·유니크키 안정)
       });
       if (!member) {
         return NextResponse.json({ ok: false, message: "공유 대상을 찾을 수 없습니다." }, { status: 400 });
+      }
+      // 지사(OWNER)는 본인 조직 대리점장 + 다른 지사(OWNER)에게만. 타 조직 대리점장 직접 지정 차단.
+      if (ctx.role === "OWNER" && member.role === "AGENT" && member.organizationId !== orgId) {
+        return NextResponse.json({ ok: false, message: "다른 조직의 대리점장에게는 지정 공유할 수 없습니다." }, { status: 403 });
       }
       const share = await prisma.crmLandingShare.upsert({
         where: { landingPageId_sharedToOrgId_sharedToUserId: { landingPageId: id, sharedToOrgId: member.organizationId, sharedToUserId: targetUserId } },

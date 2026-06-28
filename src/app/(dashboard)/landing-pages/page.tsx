@@ -8,6 +8,7 @@ import {
   BarChart2, Pencil,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useSession } from "@/hooks/useSession";
 
 type LandingPage = {
   id: string;
@@ -109,7 +110,7 @@ function ShareModal({ pageId, pageTitle, onClose }: {
   onClose: () => void;
 }) {
   const [orgs, setOrgs] = useState<ShareableOrg[]>([]);
-  const [members, setMembers] = useState<ShareableMember[]>([]); // 지정공유 대상(관리자만 로드됨)
+  const [members, setMembers] = useState<ShareableMember[]>([]); // 지정공유 대상(지사·관리자만 로드됨)
   const [existing, setExisting] = useState<ExistingShare[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isGlobal, setIsGlobal] = useState(false);
@@ -122,7 +123,7 @@ function ShareModal({ pageId, pageTitle, onClose }: {
     Promise.all([
       fetch("/api/landing-pages/shareable-orgs").then((r) => r.json()),
       fetch(`/api/landing-pages/${pageId}/share`).then((r) => r.json()),
-      // 지정공유 대상 — 관리자만 200, 그 외 403(members 빈 배열 유지=섹션 숨김)
+      // 지정공유 대상 — 지사·관리자만 200, 그 외 403(members 빈 배열 유지=섹션 숨김)
       fetch("/api/landing-pages/shareable-members").then((r) => r.json()).catch(() => ({ ok: false })),
     ]).then(([orgsData, sharesData, membersData]) => {
       if (orgsData.ok) setOrgs(orgsData.orgs);
@@ -331,7 +332,7 @@ function ShareModal({ pageId, pageTitle, onClose }: {
             </div>
           )}
 
-          {/* 특정 담당자 지정 공유 — 관리자(GLOBAL_ADMIN)만 로드됨 */}
+          {/* 특정 담당자 지정 공유 — 지사(OWNER)·관리자(GLOBAL_ADMIN)만 로드됨 */}
           {members.length > 0 && (
             <div>
               <p className="text-sm font-semibold text-gray-500 mb-1">특정 지사·대리점장에게 지정 공유</p>
@@ -405,10 +406,12 @@ function PageCard({
   onShare,
   onLoadStats,
   onToggleSelect,
+  canManage,
 }: {
   page: LandingPage & Partial<SharedPage>;
   isShared: boolean;
   isSelected: boolean;
+  canManage: boolean; // 지사(OWNER)·관리자(GLOBAL_ADMIN)만 공유·등록자 열람 (대리점장은 받기만)
   statsMap: Record<string, LandingStats>;
   loadingStats: string | null;
   cloningId: string | null;
@@ -634,25 +637,30 @@ function PageCard({
               >
                 {cloningId === page.id ? <span className="text-sm text-blue-500">복제중...</span> : <Files className="w-4 h-4" />}
               </button>
-              <button
-                onClick={() => onShare(page.id, page.title)}
-                className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
-                title="공유"
-              >
-                <Share2 className="w-4 h-4" />
-              </button>
-              <Link
-                href={`/landing-pages/${page.id}?tab=registrations`}
-                className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 relative"
-                title="등록자 목록"
-              >
-                <Users className="w-4 h-4" />
-                {page._count && page._count.registrations > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold">
-                    {page._count.registrations > 9 ? "9+" : page._count.registrations}
-                  </span>
-                )}
-              </Link>
+              {/* 공유·등록자 목록은 지사(OWNER)·관리자만 — 대리점장은 받기만 + 신청자 PII 보호 */}
+              {canManage && (
+                <>
+                  <button
+                    onClick={() => onShare(page.id, page.title)}
+                    className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
+                    title="공유"
+                  >
+                    <Share2 className="w-4 h-4" />
+                  </button>
+                  <Link
+                    href={`/landing-pages/${page.id}?tab=registrations`}
+                    className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 relative"
+                    title="등록자 목록"
+                  >
+                    <Users className="w-4 h-4" />
+                    {page._count && page._count.registrations > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold">
+                        {page._count.registrations > 9 ? "9+" : page._count.registrations}
+                      </span>
+                    )}
+                  </Link>
+                </>
+              )}
               <button
                 onClick={() => onLoadStats(page.id)}
                 className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
@@ -688,6 +696,9 @@ function PageCard({
 // ─── 메인 페이지 ─────────────────────────────────────────
 export default function LandingPagesPage() {
   const router = useRouter();
+  const { role } = useSession();
+  // 지사(OWNER)·관리자(GLOBAL_ADMIN)만 공유·등록자 열람. 대리점장(AGENT)은 받기만.
+  const canManage = role === "OWNER" || role === "GLOBAL_ADMIN";
   const [pages, setPages]             = useState<LandingPage[]>([]);
   const [sharedPages, setSharedPages] = useState<SharedPage[]>([]);
   const [loading, setLoading]         = useState(true);
@@ -793,6 +804,8 @@ export default function LandingPagesPage() {
     if (data.ok) {
       await loadPages();
       router.push(`/landing-pages/${data.page.id}`);
+    } else {
+      alert(data.message ?? "복사에 실패했습니다.");
     }
     setCloningId(null);
   };
@@ -964,6 +977,7 @@ export default function LandingPagesPage() {
                   onShare={openShareModal}
                   onLoadStats={loadStats}
                   onToggleSelect={toggleSelect}
+                  canManage={canManage}
                 />
               ))
             )}
@@ -1005,6 +1019,7 @@ export default function LandingPagesPage() {
                       onDelete={deletePage}
                       onShare={openShareModal}
                       onLoadStats={loadStats}
+                      canManage={canManage}
                     />
                   ))}
                 </div>
