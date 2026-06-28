@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "@/hooks/useSession";
@@ -11,7 +11,6 @@ import {
   Download,
   Calculator,
   X,
-  PlusCircle,
   MapPin,
   FileSpreadsheet,
   Loader2,
@@ -222,222 +221,6 @@ function SkeletonRow() {
         </td>
       ))}
     </tr>
-  );
-}
-
-// ── 객실 등록 모달 ─────────────────────────────────────────────────
-
-interface CabinRegisterModalProps {
-  productCode: string;
-  productName: string;
-  organizationId: string;
-  cabinSummary: CabinSummary | null;
-  onClose: () => void;
-  onSaved: () => void;
-}
-
-function CabinRegisterModal({ productCode, productName, organizationId, cabinSummary, onClose, onSaved }: CabinRegisterModalProps) {
-  const [counts, setCounts] = useState<Record<string, string>>(() => {
-    // 기존 totalCount 로 미리 채우기
-    const init: Record<string, string> = { inside: "", oceanview: "", balcony: "", suite: "" };
-    if (cabinSummary) {
-      for (const key of Object.keys(init)) {
-        if (cabinSummary[key]) init[key] = String(cabinSummary[key]!.total);
-      }
-    }
-    return init;
-  });
-  const [customTypes, setCustomTypes] = useState<Array<{ id: string; name: string; count: string }>>([]);
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  useEffect(() => {
-    const handle = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", handle);
-    return () => window.removeEventListener("keydown", handle);
-  }, [onClose]);
-
-  async function handleSave() {
-    // organizationId 빈값 체크
-    if (!organizationId || organizationId.trim() === '') {
-      setErr("조직 정보가 없습니다. 페이지를 새로고침해주세요.");
-      return;
-    }
-
-    // UI 단에서도 판매수 미만 입력 차단
-    for (const { key, longLabel } of CABIN_TYPE_CONFIG) {
-      const val = parseInt(counts[key] ?? "", 10);
-      const sold = cabinSummary?.[key]?.booked ?? 0;
-      if (!isNaN(val) && val > 0 && val < sold) {
-        setErr(`${longLabel}: 이미 ${sold}실 판매됨 (PNR 기준) — ${sold}실 이상으로 입력해 주세요.`);
-        return;
-      }
-    }
-
-    const cabins = [
-      ...CABIN_TYPE_CONFIG
-        .map(({ key }) => ({ cabinType: key, totalCount: parseInt(counts[key] ?? "", 10) }))
-        .filter((c) => !isNaN(c.totalCount) && c.totalCount > 0),
-      ...customTypes
-        .map((ct) => ({ cabinType: ct.name, totalCount: parseInt(ct.count ?? "", 10) }))
-        .filter((c) => !isNaN(c.totalCount) && c.totalCount > 0),
-    ];
-
-    if (cabins.length === 0) {
-      setErr("최소 한 가지 객실 타입의 수량을 입력해 주세요.");
-      return;
-    }
-    setSaving(true);
-    setErr(null);
-    try {
-      const res = await fetch("/api/cabin-inventory", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          organizationId,
-          tripName: productName,
-          tripCode: productCode,
-          cabins,
-        }),
-      });
-      let data;
-      try {
-        data = await res.json();
-      } catch (e) {
-        setErr("응답 파싱 실패");
-        return;
-      }
-      if (!res.ok || !data.ok) {
-        setErr(data.error ?? "저장에 실패했습니다.");
-        return;
-      }
-      onSaved();
-      onClose();
-    } catch {
-      setErr("네트워크 오류가 발생했습니다.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const isEditing = cabinSummary && Object.keys(cabinSummary).length > 0;
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 relative">
-        <button onClick={onClose} aria-label="닫기" className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100">
-          <X className="w-5 h-5 text-gray-600" />
-        </button>
-        <div className="flex items-center gap-2 mb-1">
-          <PlusCircle className="w-5 h-5 text-blue-600" />
-          <h2 className="text-lg font-bold text-gray-900">{isEditing ? "객실 수량 수정" : "객실 수량 등록"}</h2>
-        </div>
-        <p className="text-sm text-gray-500 mb-1 font-medium">{productName}</p>
-        <p className="text-sm text-gray-600 mb-4">PNR(그룹) 기준 · 판매된 실수는 수정 불가</p>
-
-        <div className="space-y-3 mb-4">
-          {CABIN_TYPE_CONFIG.map(({ key, longLabel }) => {
-            const sold = cabinSummary?.[key]?.booked ?? 0;
-            const val = parseInt(counts[key] ?? "", 10);
-            const isTooLow = !isNaN(val) && val > 0 && val < sold;
-            return (
-              <div key={key} className="space-y-0.5">
-                <div className="flex items-center gap-3">
-                  <label className="text-sm text-gray-700 w-[140px] shrink-0">{longLabel}</label>
-                  <div className="relative flex-1">
-                    <input
-                      type="number"
-                      min={sold > 0 ? sold : 0}
-                      value={counts[key] ?? ""}
-                      onChange={(e) => { setCounts((p) => ({ ...p, [key]: e.target.value })); setErr(null); }}
-                      placeholder="0"
-                      className={`w-full pr-6 pl-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
-                        isTooLow
-                          ? "border-red-400 focus:ring-red-300/30 focus:border-red-500"
-                          : "border-gray-200 focus:ring-blue-500/20 focus:border-blue-500"
-                      }`}
-                    />
-                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-600 text-sm">실</span>
-                  </div>
-                </div>
-                {sold > 0 && (
-                  <p className="text-[11px] text-red-500 pl-[152px]">
-                    이미 판매 <span className="font-bold">{sold}실</span> — 최소 {sold}실 이상
-                  </p>
-                )}
-              </div>
-            );
-          })}
-
-          {/* 커스텀 객실 타입 */}
-          {customTypes.map((ct, idx) => (
-            <div key={ct.id} className="space-y-0.5">
-              <div className="flex items-center gap-3">
-                <input
-                  type="text"
-                  value={ct.name}
-                  onChange={(e) => {
-                    setCustomTypes((p) => p.map((t, i) => (i === idx ? { ...t, name: e.target.value } : t)));
-                    setErr(null);
-                  }}
-                  placeholder="예: 디럭스, 프리미엄"
-                  className="text-sm text-gray-700 w-[140px] shrink-0 px-2 py-1 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                />
-                <div className="relative flex-1">
-                  <input
-                    type="number"
-                    min="0"
-                    value={ct.count}
-                    onChange={(e) => {
-                      setCustomTypes((p) => p.map((t, i) => (i === idx ? { ...t, count: e.target.value } : t)));
-                      setErr(null);
-                    }}
-                    placeholder="0"
-                    className="w-full pr-6 pl-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                  />
-                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-600 text-sm">실</span>
-                </div>
-                <button
-                  onClick={() => setCustomTypes((p) => p.filter((_, i) => i !== idx))}
-                  className="p-1.5 text-gray-600 hover:text-red-500 transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          ))}
-
-          {/* 커스텀 추가 버튼 */}
-          <button
-            onClick={() => setCustomTypes((p) => [...p, { id: crypto.randomUUID(), name: '', count: '' }])}
-            className="w-full py-2 text-sm text-blue-600 border border-dashed border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
-          >
-            + 기타 객실 타입 추가
-          </button>
-        </div>
-
-        {err && <p className="text-sm text-red-600 mb-3">{err}</p>}
-
-        <div className="flex gap-2">
-          <button
-            onClick={onClose}
-            className="flex-1 py-2.5 text-sm text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
-          >
-            취소
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex-1 py-2.5 text-sm font-medium bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
-          >
-            {saving ? "저장 중..." : "저장"}
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -698,7 +481,7 @@ function ApisModal({ product, canManage, onClose }: ApisModalProps) {
       let blob;
       try {
         blob = await res.blob();
-      } catch (e) {
+      } catch {
         setError("파일 다운로드 실패");
         return;
       }
@@ -819,23 +602,16 @@ export default function ProductsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [refundProduct, setRefundProduct] = useState<Product | null>(null);
   const [apisProduct, setApisProduct] = useState<Product | null>(null);
-  const [cabinRegisterCode, setCabinRegisterCode] = useState<string | null>(null);
-  // useSession으로 role/orgId 가져오기 (layout의 SessionProvider에서 주입)
-  const { role: sessionRole, organizationId: sessionOrgId } = useSession();
+  // useSession으로 role 가져오기 (layout의 SessionProvider에서 주입)
+  const { role: sessionRole } = useSession();
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [orgId, setOrgId] = useState<string | null>(null);
 
-  // 세션에서 role과 orgId 동기화
+  // 세션에서 role 동기화
   useEffect(() => {
     if (sessionRole) setUserRole(sessionRole);
-    if (sessionOrgId) setOrgId(sessionOrgId);
-  }, [sessionRole, sessionOrgId]);
+  }, [sessionRole]);
 
   const canDownloadApis = userRole === "OWNER" || userRole === "GLOBAL_ADMIN";
-  const canRegisterCabin = userRole === "OWNER" || userRole === "GLOBAL_ADMIN";
-
-  const cabinRegisterProduct = products.find((p) => p.code === cabinRegisterCode) ?? null;
-  // orgId가 없어도 모달은 열고, 모달 내에서 에러 처리
 
   const fetchProducts = useCallback(
     (currentPage: number, q: string, isActive: ActiveFilter) => {
@@ -855,7 +631,7 @@ export default function ProductsPage() {
           if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
           try {
             return await res.json();
-          } catch (e) {
+          } catch {
             throw new Error('응답 파싱 실패');
           }
         })
