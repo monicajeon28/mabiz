@@ -5,8 +5,9 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { validateCronSecret } from '@/lib/cron-middleware';
 import { normalizePhone } from '@/lib/import-utils';
-// 조직>env 폴백 config 해석으로 발신 (멀티조직 OrgSmsConfig 지원)
+// 발송자(담당자) 개인 알리고 우선, 미설정 시 조직>env 폴백 (멀티조직 + 개인발송)
 import { resolveUserSmsConfig } from '@/lib/aligo';
+import { resolveSenderUserId } from '@/lib/aligo/sender-resolver';
 
 /**
  * POST /api/cron/sms-day0-init
@@ -45,11 +46,12 @@ interface SmsDay0Response {
 async function sendSmsViaAligo(
   organizationId: string,
   phone: string,
-  message: string
+  message: string,
+  senderUserId?: string, // 담당자 개인 알리고(미설정/미검증 시 조직>env 자동 폴백)
 ): Promise<{ success: boolean; msgId?: string; errorCode?: string }> {
   try {
-    // 조직별 알리고 설정 해석 (UserSmsConfig 미해당 → 조직 OrgSmsConfig > env 폴백)
-    const config = await resolveUserSmsConfig(organizationId);
+    // 담당자 개인 알리고 우선 (senderVerified=false면 resolveUserSmsConfig가 조직>env로 자동 폴백)
+    const config = await resolveUserSmsConfig(organizationId, senderUserId);
 
     if (!config) {
       logger.error('[SMS/ALIGO-DAY0] 발신 설정 없음 (OrgSmsConfig/env 모두 미설정)', {
@@ -130,6 +132,7 @@ export async function POST(req: Request) {
         phone: true,
         name: true,
         organizationId: true,
+        assignedUserId: true, // 담당자 개인 알리고 발송용
         lastCruiseDate: true,
         cruiseCount: true,
         vipStatus: true,
@@ -162,8 +165,9 @@ export async function POST(req: Request) {
 
 자세한 정보 보기 → http://mabiz.kr`;
 
-        // Aligo API 호출
-        const smsResult = await sendSmsViaAligo(contact.organizationId, normalizedPhone, message);
+        // 발송자(담당자) 개인 알리고로 발송 + 후속 ScheduledSms도 같은 발송자로 귀속
+        const senderUserId = resolveSenderUserId({ contactAssignedUserId: contact.assignedUserId });
+        const smsResult = await sendSmsViaAligo(contact.organizationId, normalizedPhone, message, senderUserId);
 
         if (smsResult.success) {
           // SmsLog 기록
@@ -195,6 +199,7 @@ export async function POST(req: Request) {
             data: {
               organizationId: contact.organizationId,
               contactId: contact.id,
+              createdByUserId: senderUserId ?? null, // 담당자 개인 알리고 발송(batch-sender 라우팅)
               message: `[Day 1] 크루즈에 관심이 있으신가요? 더 알아보기 → http://mabiz.kr`,
               scheduledAt: day1Time,
               status: 'PENDING',
@@ -208,6 +213,7 @@ export async function POST(req: Request) {
             data: {
               organizationId: contact.organizationId,
               contactId: contact.id,
+              createdByUserId: senderUserId ?? null,
               message: `[Day 2] 월 $2,334 절감 + 가족 건강! 지금 예약하기 → http://mabiz.kr`,
               scheduledAt: day2Time,
               status: 'PENDING',
@@ -221,6 +227,7 @@ export async function POST(req: Request) {
             data: {
               organizationId: contact.organizationId,
               contactId: contact.id,
+              createdByUserId: senderUserId ?? null,
               message: `[Day 3] ⏰ 마지막 기회! 오늘 예약하면 10% 할인 적용 → http://mabiz.kr`,
               scheduledAt: day3Time,
               status: 'PENDING',

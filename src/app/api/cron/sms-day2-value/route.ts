@@ -6,6 +6,7 @@ import { logger } from '@/lib/logger';
 import { validateCronSecret } from '@/lib/cron-middleware';
 // 조직>env 폴백 config 해석으로 발신 (멀티조직 OrgSmsConfig 지원)
 import { resolveUserSmsConfig } from '@/lib/aligo';
+import { resolveSenderUserId } from '@/lib/aligo/sender-resolver';
 
 /**
  * POST /api/cron/sms-day2-value
@@ -106,6 +107,7 @@ export async function POST(req: Request) {
         phone: true,
         name: true,
         organizationId: true,
+        assignedUserId: true, // 담당자 개인 알리고 발송
         smsDay1SentAt: true,
         cruiseCount: true,
         vipStatus: true,
@@ -162,7 +164,7 @@ ${isVip ? `⭐ VIP 멤버 할인 코드: ${discountCode} (추가 15% 할인)` : 
 `;
 
         // SMS 발송 — 조직별 알리고 설정 해석 (OrgSmsConfig > env 폴백)
-        const config = await resolveUserSmsConfig(contact.organizationId);
+        const config = await resolveUserSmsConfig(contact.organizationId, resolveSenderUserId({ contactAssignedUserId: contact.assignedUserId }));
 
         if (!config) {
           logger.error('[SMS/ALIGO-DAY2] 발신 설정 없음 (OrgSmsConfig/env 모두 미설정)', {

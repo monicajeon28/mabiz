@@ -3,6 +3,7 @@ import { timingSafeEqual } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { resolveUserSmsConfig } from '@/lib/aligo';
+import { resolveSenderUserId } from '@/lib/aligo/sender-resolver';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -77,14 +78,17 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        // Get contact and org SMS config (복호화된 키 사용)
-        const [contact, smsConfig] = await Promise.all([
-          prisma.contact.findUnique({
-            where: { id: instance.contactId },
-            select: { id: true, phone: true, name: true, optOutAt: true },
-          }),
-          resolveUserSmsConfig(instance.organizationId),
-        ]);
+        // 발송자 = 시퀀스 작성자(template.createdByUserId) 우선, 없으면 회원 담당자(assignedUserId).
+        //   개인 알리고로 발송(미설정/미검증 시 resolveUserSmsConfig가 조직>env 자동 폴백).
+        const contact = await prisma.contact.findUnique({
+          where: { id: instance.contactId },
+          select: { id: true, phone: true, name: true, optOutAt: true, assignedUserId: true },
+        });
+        const senderUserId = resolveSenderUserId({
+          funnelCreatorUserId: instance.template.createdByUserId,
+          contactAssignedUserId: contact?.assignedUserId,
+        });
+        const smsConfig = await resolveUserSmsConfig(instance.organizationId, senderUserId);
 
         if (!contact?.phone || contact.optOutAt || !smsConfig) {
           await prisma.contactSequenceInstance.update({

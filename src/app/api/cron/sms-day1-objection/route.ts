@@ -6,6 +6,7 @@ import { logger } from '@/lib/logger';
 import { validateCronSecret } from '@/lib/cron-middleware';
 // 조직>env 폴백 config 해석으로 발신 (멀티조직 OrgSmsConfig 지원)
 import { resolveUserSmsConfig } from '@/lib/aligo';
+import { resolveSenderUserId } from '@/lib/aligo/sender-resolver';
 
 /**
  * POST /api/cron/sms-day1-objection
@@ -80,6 +81,7 @@ export async function POST(req: Request) {
         phone: true,
         name: true,
         organizationId: true,
+        assignedUserId: true, // 담당자 개인 알리고 발송
         smsDay0SentAt: true,
         lensMetadata: true,
       },
@@ -154,7 +156,7 @@ export async function POST(req: Request) {
         }
 
         // SMS 발송 — 조직별 알리고 설정 해석 (OrgSmsConfig > env 폴백)
-        const config = await resolveUserSmsConfig(contact.organizationId);
+        const config = await resolveUserSmsConfig(contact.organizationId, resolveSenderUserId({ contactAssignedUserId: contact.assignedUserId }));
 
         if (!config) {
           logger.error('[SMS/ALIGO-DAY1] 발신 설정 없음 (OrgSmsConfig/env 모두 미설정)', {
