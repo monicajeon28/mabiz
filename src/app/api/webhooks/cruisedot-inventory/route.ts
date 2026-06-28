@@ -138,7 +138,9 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    if (alreadyProcessed) {
+    // SUCCESS만 "처리 완료"로 간주. FAILED 행은 재시도가 다시 처리해야 함
+    // (증감 이벤트 특성상 FAILED가 영구 스킵되면 bookedCount 누락 → 과매도 위험).
+    if (alreadyProcessed?.status === 'SUCCESS') {
       logger.log('[InventorySyncWebhook] 중복 이벤트 무시', { eventId });
       return NextResponse.json({ ok: true, duplicate: true });
     }
@@ -224,15 +226,18 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // GAP-4: 멱등성 기록을 트랜잭션 내부에서 원자적으로 처리
-        await tx.processedWebhookEvent.create({
-          data: {
+        // GAP-4: 멱등성 기록을 트랜잭션 내부에서 원자적으로 처리.
+        // upsert — FAILED 선행 행이 있으면 SUCCESS로 갱신(중독 방지).
+        await tx.processedWebhookEvent.upsert({
+          where: { eventId_webhookType: { eventId, webhookType: 'cruisedot-inventory' } },
+          create: {
             eventId,
             webhookType: 'cruisedot-inventory',
             status:      'SUCCESS',
             errorMessage: null,
             processedAt:  new Date(),
           },
+          update: { status: 'SUCCESS', errorMessage: null, processedAt: new Date() },
         });
       },
       { isolationLevel: 'Serializable' }

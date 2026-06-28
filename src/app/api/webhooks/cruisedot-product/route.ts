@@ -66,7 +66,7 @@ const ProductWebhookSchema = z
     deleted: z.boolean().optional(),
     syncedAt: z.string().nullable().optional(),
     refundPolicy: z.any().optional(),
-    roomInventory: z.array(RoomInventoryItemSchema).optional(),
+    roomInventory: z.array(RoomInventoryItemSchema).max(100).optional(), // 비현실적 대용량 페이로드(메모리/DB 비대) 차단
   })
   .passthrough();
 
@@ -123,7 +123,8 @@ export async function POST(req: NextRequest) {
     const alreadyProcessed = await prisma.processedWebhookEvent.findUnique({
       where: { eventId_webhookType: { eventId, webhookType: 'cruisedot-product' } },
     });
-    if (alreadyProcessed) {
+    // SUCCESS만 "처리 완료"로 간주. FAILED 행은 재시도가 다시 처리하도록 통과(중독 방지 — 컬럼 미적용 등 일시오류 후 같은 eventId 재전송 복구).
+    if (alreadyProcessed?.status === 'SUCCESS') {
       return NextResponse.json({ ok: true, duplicate: true });
     }
 
@@ -132,7 +133,7 @@ export async function POST(req: NextRequest) {
       cabinType: normalizeCabinType(r.roomType),
       totalRooms: r.totalRooms,
       soldRooms: r.soldRooms,
-      remaining: r.remaining,
+      remaining: Math.max(0, r.remaining), // 음수 잔여는 0으로 클램프(표시 "잔여 -5" 방지)
       organizationId: r.organizationId ?? null,
       label: r.label ?? null,
       marketingLabel: r.marketingLabel ?? null,
@@ -176,8 +177,11 @@ export async function POST(req: NextRequest) {
           update: { ...common }, // itineraryPattern 미터치(기존 일정 보존)
           create: { productCode, ...common, itineraryPattern: [] }, // non-null Json → create 기본값 필수
         });
-        await tx.processedWebhookEvent.create({
-          data: { eventId, webhookType: 'cruisedot-product', status: 'SUCCESS', errorMessage: null, processedAt: new Date() },
+        // FAILED 선행 행이 있으면 SUCCESS로 갱신(중독 방지). 없으면 생성.
+        await tx.processedWebhookEvent.upsert({
+          where: { eventId_webhookType: { eventId, webhookType: 'cruisedot-product' } },
+          create: { eventId, webhookType: 'cruisedot-product', status: 'SUCCESS', errorMessage: null, processedAt: new Date() },
+          update: { status: 'SUCCESS', errorMessage: null, processedAt: new Date() },
         });
       },
       { isolationLevel: 'Serializable' },
