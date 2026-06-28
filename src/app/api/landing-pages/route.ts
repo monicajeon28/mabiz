@@ -1,11 +1,11 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, resolveOrgIdOrNull, BONSA_ORG_ID, canManageSettings } from "@/lib/rbac";
+import { getAuthContext, resolveOrgIdOrNull, BONSA_ORG_ID, canManageSettings, canEditLandingPages } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
 import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
-import { generateUniqueShortlink, buildLandingTargetUrl, sharedVisibilityOr } from "@/lib/landing-page-utils";
+import { generateUniqueShortlink, buildLandingTargetUrl } from "@/lib/landing-page-utils";
 import { IMAGE_FIELDS_BY_FORMAT } from "@/lib/landing-page-constants";
 
 // GET /api/landing-pages
@@ -58,13 +58,14 @@ export async function GET() {
     //         2) select 사용 (N+1 제거, include 대신 더 효율적)
     const receivedShares = await prisma.crmLandingShare.findMany({
       where: {
-        // 지정공유는 본인만·조직/전체는 센티넬 ""만(타인 지정분 격리) — clone-shared와 공용 헬퍼
-        OR: sharedVisibilityOr(ctx.userId, myOrgId),
-        // 내 페이지는 제외 (자기 자신이 소유한 페이지)
-        landingPage: {
-          organizationId: { not: myOrgId },
-          id: { not: "" }, // 고아 레코드 필터링 (FK Cascade 중 null 방지)
-        },
+        OR: [
+          // 지정공유(나를 콕 집음): 조직 무관하게 표시(내가 만든 페이지만 제외) — 같은 지사 대리점장도 보이게
+          { sharedToUserId: ctx.userId, landingPage: { id: { not: "" }, createdByUserId: { not: ctx.userId } } },
+          // 조직 공유: 내 조직 대상 + 내 조직 페이지 제외
+          { sharedToOrgId: myOrgId, sharedToUserId: "", landingPage: { id: { not: "" }, organizationId: { not: myOrgId } } },
+          // 전체 공유: 내 조직 페이지 제외
+          { isGlobal: true, sharedToUserId: "", landingPage: { id: { not: "" }, organizationId: { not: myOrgId } } },
+        ],
       },
       select: {
         id: true,
@@ -138,9 +139,10 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const ctx   = await getAuthContext();
-    // 랜딩페이지 생성은 지사장(OWNER)·시스템관리자(GLOBAL_ADMIN)만 가능.
-    // 대리점장(AGENT)·마케터(FREE_SALES)는 직접 POST 호출/직접 URL 접근 차단 (P0-2)
-    if (!canManageSettings(ctx)) {
+    // 랜딩페이지 생성: 지사장(OWNER)·시스템관리자(GLOBAL_ADMIN)·대리점장(AGENT) 허용.
+    // 대리점장도 마케팅용 랜딩을 직접 만들 수 있되, 본인 생성분만 보이고 편집됨(createdByUserId 격리).
+    // 마케터(FREE_SALES)는 CRM 비로그인 → 차단.
+    if (!canEditLandingPages(ctx)) {
       return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '랜딩페이지 생성 권한이 없습니다' }, { status: 403 });
     }
     // GLOBAL_ADMIN은 organizationId가 null → 본사 조직 ID 사용 (non-deterministic findFirst 제거)
@@ -176,6 +178,8 @@ export async function POST(req: Request) {
       const newPage = await tx.crmLandingPage.create({
         data: {
           organizationId: orgId, title, slug, shortlink,
+          // 만든 사람 기록 — 대리점장(AGENT)이 본인 페이지를 목록/편집에서 식별하는 기준
+          createdByUserId: ctx.userId,
           htmlContent: sanitizeHtml(htmlContent ?? ""),
           groupId: groupId ?? null,
           editorMode: mode,

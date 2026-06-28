@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
-import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, canDelete, canManageSettings } from "@/lib/rbac";
+import { getAuthContext, canEditLandingPages, landingOwnershipScope } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
 import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
@@ -65,31 +65,45 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(_req: Request, { params }: Params) {
   try {
     const ctx   = await getAuthContext();
-    // 랜딩페이지는 지사장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용 (P0-2)
-    if (!canManageSettings(ctx)) {
+    // 랜딩페이지 접근: 지사장(OWNER)·관리자(GLOBAL_ADMIN)·대리점장(AGENT). 대리점장은 본인 생성분만(scope).
+    if (!canEditLandingPages(ctx)) {
       return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '랜딩페이지 접근 권한이 없습니다' }, { status: 403 });
     }
-    const orgId = resolveOrgIdOrNull(ctx);
     const { id } = await params;
-    // GLOBAL_ADMIN은 조직 필터 없이 조회 가능하지만 신청자 PII(registrations) 제외 (P0-5)
-    const isGlobalAdmin = ctx.role === 'GLOBAL_ADMIN';
+    // 신청자 PII(registrations)는 지사장(OWNER) 전용 + 전화 마스킹.
+    // [id]/registrations 전용 라우트(canManageSettings·phone 마스킹·필드 select)와 동일 정책으로 통일.
+    // 대리점장(AGENT)은 본인 페이지여도 신청자 PII 인라인 제외(리드는 퍼널/CRM으로 흐름), 관리자(GLOBAL_ADMIN)도 제외(P0-5).
+    const isOwner = ctx.role === 'OWNER';
 
     const page = await prisma.crmLandingPage.findFirst({
-      where: { id, ...(orgId ? { organizationId: orgId } : {}) },
+      where: { id, ...landingOwnershipScope(ctx) },
       include: {
         _count: { select: { registrations: true } },
-        ...(!isGlobalAdmin ? { registrations: { orderBy: { createdAt: "desc" }, take: 50 } } : {}),
+        ...(isOwner ? { registrations: {
+          orderBy: { createdAt: "desc" }, take: 50,
+          select: {
+            id: true, name: true, phone: true, email: true,
+            utmSource: true, utmMedium: true, utmCampaign: true,
+            funnelStarted: true, createdAt: true,
+          },
+        } } : {}),
         group: { select: { id: true, name: true, category: true } },
       },
     });
     if (!page) return NextResponse.json({ ok: false }, { status: 404 });
+
+    // 전화 마스킹 (CLAUDE.md 조항 3, registrations 전용 라우트와 동일)
+    const regs = (page as { registrations?: Array<{ phone: string }> }).registrations;
+    const safePage = Array.isArray(regs)
+      ? { ...page, registrations: regs.map((r) => ({ ...r, phone: r.phone ? r.phone.substring(0, 4) + "****" : r.phone })) }
+      : page;
 
     const images = await prisma.crmLandingPageImage.findMany({
       where: { landingPageId: id },
       orderBy: { sortOrder: "asc" },
     });
 
-    return NextResponse.json({ ok: true, page: { ...page, images } });
+    return NextResponse.json({ ok: true, page: { ...safePage, images } });
   } catch (err) {
     logger.error("[GET /api/landing-pages/[id]]", { err });
     return NextResponse.json({ ok: false }, { status: 500 });
@@ -99,19 +113,17 @@ export async function GET(_req: Request, { params }: Params) {
 export async function PATCH(req: Request, { params }: Params) {
   try {
     const ctx   = await getAuthContext();
-    // 랜딩페이지 수정은 지사장(OWNER)·시스템관리자(GLOBAL_ADMIN)만 가능 (P0-2)
-    if (!canManageSettings(ctx)) {
+    // 랜딩페이지 수정: 지사장(OWNER)·관리자(GLOBAL_ADMIN)·대리점장(AGENT). 대리점장은 본인 생성분만(scope).
+    if (!canEditLandingPages(ctx)) {
       return NextResponse.json({ ok: false, error: 'FORBIDDEN', message: '랜딩페이지 수정 권한이 없습니다' }, { status: 403 });
     }
-    // GLOBAL_ADMIN은 null → org 필터 없이 전체 접근 가능
-    const orgId = resolveOrgIdOrNull(ctx);
     const { id } = await params;
     const body   = await req.json();
 
     // 복구 요청 처리 (deletedAt 초기화)
     if (body.action === 'restore') {
       const deleted = await prisma.crmLandingPage.findFirst({
-        where: { id, ...(orgId ? { organizationId: orgId } : {}), deletedAt: { not: null } },
+        where: { id, ...landingOwnershipScope(ctx), deletedAt: { not: null } },
       });
 
       if (!deleted) {
@@ -133,7 +145,7 @@ export async function PATCH(req: Request, { params }: Params) {
     }
 
     const existing = await prisma.crmLandingPage.findFirst({
-      where: { id, ...(orgId ? { organizationId: orgId } : {}) },
+      where: { id, ...landingOwnershipScope(ctx) },
     });
     if (!existing) return NextResponse.json({ ok: false }, { status: 404 });
 
@@ -246,14 +258,13 @@ export async function DELETE(_req: Request, { params }: Params) {
     const ctx = await getAuthContext();
     const { id } = await params;
 
-    if (!canDelete(ctx)) {
+    // 삭제: 지사장(OWNER)·관리자(GLOBAL_ADMIN)·대리점장(AGENT). 대리점장은 본인 생성분만(scope).
+    if (!canEditLandingPages(ctx)) {
       return NextResponse.json({ ok: false, message: "삭제 권한이 없습니다." }, { status: 403 });
     }
 
-    // GLOBAL_ADMIN은 조직 필터 없이 삭제 가능
-    const where = ctx.role === "GLOBAL_ADMIN"
-      ? { id }
-      : { id, organizationId: resolveOrgId(ctx) };
+    // 소유권 스코프 — GLOBAL_ADMIN 전체 / OWNER 본인조직 / AGENT 본인생성분
+    const where = { id, ...landingOwnershipScope(ctx) };
 
     const existing = await prisma.crmLandingPage.findFirst({ where });
     if (!existing) return NextResponse.json({ ok: false, message: "페이지를 찾을 수 없습니다." }, { status: 404 });

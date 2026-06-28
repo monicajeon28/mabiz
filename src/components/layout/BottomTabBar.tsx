@@ -36,8 +36,8 @@ const extraMenus = [
   { href: "/marketing",       icon: BarChart2,  label: "마케팅" },
   { href: "/marketing/sales", icon: TrendingUp, label: "매출관리" },
   { href: "/funnels",            icon: GitBranch,     label: "퍼널" },
-  // 랜딩페이지: 지사장(OWNER)·시스템관리자(GLOBAL_ADMIN) 전용 노출 (P0-2)
-  { href: "/landing-pages",      icon: FileText,      label: "랜딩페이지", ownerOnly: true },
+  // 랜딩페이지: 지사장(OWNER)·관리자(GLOBAL_ADMIN)·대리점장(AGENT) 노출 — 대리점장도 본인 랜딩 직접 제작/편집
+  { href: "/landing-pages",      icon: FileText,      label: "랜딩페이지" },
   { href: "/sms-logs",           icon: ClipboardList, label: "발송기록" },
   { href: "/b2b",                icon: Building2,     label: "B2B" },
   { href: "/payments",           icon: CreditCard,    label: "결제내역" },

@@ -404,3 +404,28 @@ export function resolveOrgId(ctx: AuthContext): string {
   if (ctx.role === 'GLOBAL_ADMIN') return BONSA_ORG_ID;
   return requireOrgId(ctx);
 }
+
+/**
+ * 랜딩페이지 생성·편집 권한.
+ *   지사장(OWNER)·시스템관리자(GLOBAL_ADMIN)·대리점장(AGENT) 허용.
+ *   마케터(FREE_SALES)는 CRM 비로그인 → 차단.
+ * (대리점장도 마케팅용 랜딩을 직접 커스터마이징 — 단 본인 생성분만, landingOwnershipScope로 격리)
+ */
+export function canEditLandingPages(ctx: AuthContext): boolean {
+  return ctx.role === "GLOBAL_ADMIN" || ctx.role === "OWNER" || ctx.role === "AGENT";
+}
+
+/**
+ * 랜딩페이지 소유권 스코프 (Prisma where 조각).
+ *   • GLOBAL_ADMIN: 전 조직 (필터 없음)
+ *   • OWNER(지사): 본인 조직 전체
+ *   • AGENT(대리점장): 본인 조직 + 본인이 만든(복제 포함) 페이지만
+ * 모든 랜딩/이미지 라우트가 이 함수로 소유권을 통일 — 라우트별 불일치(404·격리누락) 제거.
+ */
+export function landingOwnershipScope(ctx: AuthContext): { organizationId?: string; createdByUserId?: string } {
+  const orgId = resolveOrgIdOrNull(ctx);
+  const scope: { organizationId?: string; createdByUserId?: string } = {};
+  if (orgId) scope.organizationId = orgId;
+  if (ctx.role === "AGENT") scope.createdByUserId = ctx.userId;
+  return scope;
+}

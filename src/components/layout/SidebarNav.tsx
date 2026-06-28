@@ -76,7 +76,7 @@ const navSections: NavSection[] = [
       { href: "/sms-logs",              icon: ClipboardList,label: "발송 기록" },
       { href: "/funnel-sms",            icon: GitBranch,    label: "자동문자",           roles: ["GLOBAL_ADMIN", "OWNER"] },
       { href: "/funnel-email",          icon: FileText,     label: "자동이메일",          roles: ["GLOBAL_ADMIN", "OWNER"] },
-      { href: "/landing-pages",         icon: FileText,     label: "랜딩페이지",         roles: ["GLOBAL_ADMIN", "OWNER"] },
+      { href: "/landing-pages",         icon: FileText,     label: "랜딩페이지",         roles: ["GLOBAL_ADMIN", "OWNER", "AGENT"] },
       { href: "/payments",              icon: CreditCard,   label: "결제 관리",          roles: ["GLOBAL_ADMIN", "OWNER"] },
       { href: "/links",                 icon: Link2,        label: "상담 링크",          roles: ["GLOBAL_ADMIN", "OWNER", "AGENT"] },
       { href: "/image-library",         icon: Images,       label: "이미지 라이브러리",   roles: ["GLOBAL_ADMIN", "OWNER"] },

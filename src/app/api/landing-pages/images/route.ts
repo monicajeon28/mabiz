@@ -4,18 +4,13 @@ export const maxDuration = 60;
 import { NextResponse } from 'next/server';
 import sharp from 'sharp';
 import prisma from '@/lib/prisma';
-import { getAuthContext, resolveOrgId } from '@/lib/rbac';
+import { getAuthContext, landingOwnershipScope, canEditLandingPages } from '@/lib/rbac';
 import { MAX_IMAGE_UPLOAD_BYTES, processUploadedImage } from '@/lib/image-upload-processing';
 
-/** GLOBAL_ADMIN 포함 orgId 해결 헬퍼 */
-async function getOrgId(ctx: Awaited<ReturnType<typeof getAuthContext>>): Promise<string> {
-  if (ctx.role === 'GLOBAL_ADMIN' && !ctx.organizationId) {
-    const firstOrg = await prisma.organization.findFirst({ select: { id: true } });
-    if (!firstOrg) throw new Error('NO_ORGANIZATION');
-    return firstOrg.id;
-  }
-  return resolveOrgId(ctx);
-}
+// 소유권은 landingOwnershipScope(ctx)로 통일 — 편집기 GET([id]/route.ts)과 동일 규칙.
+//   • GLOBAL_ADMIN(모니카·저스틴): 전 조직 / OWNER(지사): 본인 조직 / AGENT(대리점장): 본인 생성분만
+// 과거: GLOBAL_ADMIN일 때 정렬 없는 findFirst()로 임의 조직을 골라 본인 페이지를 404 처리하던 버그 제거.
+// 생성되는 이미지는 업로더 소속이 아니라 "그 페이지의 소속(page.organizationId)"을 따라간다.
 import { uploadImageToDrive } from '@/lib/image-sync';
 import { getDriveClient } from '@/lib/drive-client';
 import { logger } from '@/lib/logger';
@@ -32,7 +27,10 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 export async function POST(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = await getOrgId(ctx);
+    if (!canEditLandingPages(ctx)) {
+      return NextResponse.json({ ok: false, message: '랜딩페이지 권한이 없습니다' }, { status: 403 });
+    }
+    const scope = landingOwnershipScope(ctx);
 
     // JSON body: 라이브러리 이미지 등록 (파일 업로드 없이 driveFileId로 연결)
     const contentType = req.headers.get('content-type') ?? '';
@@ -47,10 +45,10 @@ export async function POST(req: Request) {
         );
       }
 
-      // 소유권 확인
+      // 소유권 확인 (GLOBAL_ADMIN은 org 필터 생략 = 전 조직 허용)
       const page = await prisma.crmLandingPage.findFirst({
-        where: { id: lpId, organizationId: orgId },
-        select: { id: true },
+        where: { id: lpId, ...scope },
+        select: { id: true, organizationId: true },
       });
       if (!page) {
         return NextResponse.json(
@@ -59,9 +57,9 @@ export async function POST(req: Request) {
         );
       }
 
-      // 기존 ImageAsset 조회 (driveFileId로, 테넌트 격리)
+      // 기존 ImageAsset 조회 (driveFileId로, 페이지 소속 조직으로 격리)
       const asset = await prisma.imageAsset.findFirst({
-        where: { driveFileId, organizationId: orgId },
+        where: { driveFileId, organizationId: page.organizationId },
         select: { id: true, driveFileId: true, originalFileName: true, mimeType: true, width: true, height: true },
       });
       if (!asset) {
@@ -149,10 +147,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // 랜딩페이지 소유권 확인
+    // 랜딩페이지 소유권 확인 (GLOBAL_ADMIN은 org 필터 생략 = 전 조직 허용)
     const page = await prisma.crmLandingPage.findFirst({
-      where: { id: landingPageId, organizationId: orgId },
-      select: { id: true, title: true },
+      where: { id: landingPageId, ...scope },
+      select: { id: true, title: true, organizationId: true },
     });
     if (!page) {
       return NextResponse.json(
@@ -173,17 +171,17 @@ export async function POST(req: Request) {
       ? Math.round((meta.height ?? 0) / meta.pages)
       : meta.height;
 
-    // 조직명 조회 (Drive 폴더용)
+    // 조직명 조회 (Drive 폴더용) — 이미지는 페이지 소속 조직에 귀속
     const org = await prisma.organization.findUnique({
-      where: { id: orgId },
+      where: { id: page.organizationId },
       select: { name: true },
     });
 
     // Google Drive 백업 (랜딩페이지 전용 폴더)
     const asset = await uploadImageToDrive({
-      organizationId: orgId,
+      organizationId: page.organizationId,
       userId: ctx.userId,
-      orgName: org?.name || orgId,
+      orgName: org?.name || page.organizationId,
       buffer: processedBuffer,
       fileName: finalFileName,
       mimeType: finalMimeType,
@@ -280,6 +278,9 @@ export async function POST(req: Request) {
         mimeType: finalMimeType,
         fileName: finalFileName,
         sortOrder,
+        // 공개(anyone:reader) 권한 부여 성공 여부. false면 라이브 미리보기(iframe 공개URL)가
+        // 잠시 안 보일 수 있음 → 프런트에서 "미리보기 준비 중" 배지로 정직하게 안내.
+        publicReady: permissionSuccess,
       },
     });
   } catch (err) {
@@ -292,8 +293,9 @@ export async function POST(req: Request) {
     }
     if (msg.includes('Failed to parse body as FormData') || msg.includes('Request body exceeded')) {
       logger.warn('[landing-images] 업로드 본문 크기 초과 또는 파싱 실패', { message: msg });
+      // 본문 한도 초과는 거의 항상 압축 안 되는 GIF가 원인(JPG/PNG/WebP는 클라에서 작게 변환됨).
       return NextResponse.json(
-        { ok: false, message: '업로드 파일이 너무 크거나 손상되어 처리할 수 없습니다. 100MB 이하의 이미지로 다시 시도하세요.' },
+        { ok: false, message: '이미지가 너무 커서 업로드되지 않았습니다. 움직이는 GIF는 약 4MB까지 가능합니다. 용량을 줄이거나 JPG·PNG로 올려주세요.' },
         { status: 413 },
       );
     }
@@ -319,7 +321,10 @@ async function getNextSortOrder(landingPageId: string): Promise<number> {
 export async function GET(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = await getOrgId(ctx);
+    if (!canEditLandingPages(ctx)) {
+      return NextResponse.json({ ok: false, message: '랜딩페이지 권한이 없습니다' }, { status: 403 });
+    }
+    const scope = landingOwnershipScope(ctx);
 
     const { searchParams } = new URL(req.url);
     const landingPageId = searchParams.get('landingPageId');
@@ -327,9 +332,9 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: false, message: 'landingPageId 필수' }, { status: 400 });
     }
 
-    // 소유권 확인
+    // 소유권 확인 (GLOBAL_ADMIN은 org 필터 생략 = 전 조직 허용)
     const page = await prisma.crmLandingPage.findFirst({
-      where: { id: landingPageId, organizationId: orgId },
+      where: { id: landingPageId, ...scope },
       select: { id: true },
     });
     if (!page) {
@@ -341,10 +346,11 @@ export async function GET(req: Request) {
       orderBy: { sortOrder: 'asc' },
     });
 
+    // assetIds는 이미 이 페이지(소유권 검증 완료)의 이미지로만 한정 → org 필터 불필요(레거시 자산도 정상 표시)
     const assetIds = images.map((img) => img.imageAssetId);
     const assets = assetIds.length > 0
       ? await prisma.imageAsset.findMany({
-          where: { id: { in: assetIds }, organizationId: orgId },
+          where: { id: { in: assetIds } },
           select: { id: true, driveFileId: true, originalFileName: true, mimeType: true, width: true, height: true, fileSize: true },
         })
       : [];
@@ -391,7 +397,10 @@ export async function GET(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = await getOrgId(ctx);
+    if (!canEditLandingPages(ctx)) {
+      return NextResponse.json({ ok: false, message: '랜딩페이지 권한이 없습니다' }, { status: 403 });
+    }
+    const scope = landingOwnershipScope(ctx);
 
     const body = await req.json();
     const { landingPageId, imageIds } = body as { landingPageId: string; imageIds: string[] };
@@ -400,9 +409,9 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ ok: false, message: 'landingPageId와 imageIds 배열 필수' }, { status: 400 });
     }
 
-    // 소유권 확인
+    // 소유권 확인 (GLOBAL_ADMIN은 org 필터 생략 = 전 조직 허용)
     const page = await prisma.crmLandingPage.findFirst({
-      where: { id: landingPageId, organizationId: orgId },
+      where: { id: landingPageId, ...scope },
       select: { id: true },
     });
     if (!page) {
@@ -441,7 +450,10 @@ export async function PATCH(req: Request) {
 export async function DELETE(req: Request) {
   try {
     const ctx = await getAuthContext();
-    const orgId = await getOrgId(ctx);
+    if (!canEditLandingPages(ctx)) {
+      return NextResponse.json({ ok: false, message: '랜딩페이지 권한이 없습니다' }, { status: 403 });
+    }
+    const scope = landingOwnershipScope(ctx);
 
     const body = await req.json();
     const { id } = body as { id: string };
@@ -457,8 +469,9 @@ export async function DELETE(req: Request) {
     if (!pageImage) {
       return NextResponse.json({ ok: false, message: '이미지를 찾을 수 없습니다' }, { status: 404 });
     }
+    // GLOBAL_ADMIN은 org 필터 생략 = 전 조직 허용
     const ownerPage = await prisma.crmLandingPage.findFirst({
-      where: { id: pageImage.landingPageId, organizationId: orgId },
+      where: { id: pageImage.landingPageId, ...scope },
       select: { id: true },
     });
     if (!ownerPage) {
