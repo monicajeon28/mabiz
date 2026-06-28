@@ -10,8 +10,11 @@ export async function GET(_req: Request, { params }: Params) {
   try {
     const { slug } = await params;
 
+    // 공개 URL은 shortlink 또는 slug 어느 쪽으로도 진입 가능(page.tsx와 동일 규칙).
+    // 과거 slug만 조회 → shortlink(/p/a9az0z-- 형태)로 공유된 페이지는 후기 0건만 반환되어
+    // 설정한 후기는 안 보이고 "후기 남기기" 폼만 노출되던 버그.
     const page = await prisma.crmLandingPage.findFirst({
-      where: { slug, isActive: true, isPublic: true },
+      where: { OR: [{ shortlink: slug }, { slug }], isActive: true, isPublic: true },
       select: { id: true, commentEnabled: true },
     });
     if (!page || !page.commentEnabled) {
@@ -51,8 +54,9 @@ export async function POST(req: Request, { params }: Params) {
 
     const { slug } = await params;
 
+    // GET과 동일: shortlink 또는 slug로 진입한 공개 페이지에서도 후기 작성 가능해야 함.
     const page = await prisma.crmLandingPage.findFirst({
-      where: { slug, isActive: true, isPublic: true, commentEnabled: true },
+      where: { OR: [{ shortlink: slug }, { slug }], isActive: true, isPublic: true, commentEnabled: true },
       select: { id: true },
     });
     if (!page) {
