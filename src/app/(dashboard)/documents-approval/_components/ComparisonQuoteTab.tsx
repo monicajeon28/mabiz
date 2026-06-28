@@ -302,6 +302,14 @@ export default function ComparisonQuoteTab() {
     }));
   };
 
+  // 비교표에서 타사(익명) 항목 O/X를 사장님이 직접 클릭 토글
+  const toggleCompetitorItem = (key: 'competitorIncludedItems' | 'competitorExcludedItems', item: string) => {
+    setForm((prev) => ({
+      ...prev,
+      [key]: prev[key].includes(item) ? prev[key].filter((i) => i !== item) : [...prev[key], item],
+    }));
+  };
+
   const addOption = () => setField('optionItems', [...form.optionItems, '']);
   const updateOption = (i: number, val: string) => {
     const next = [...form.optionItems]; next[i] = val; setField('optionItems', next);
@@ -923,12 +931,15 @@ export default function ComparisonQuoteTab() {
                         {allIncludedItems.map((item) => (
                           <tr key={`inc-${item}`} className="hover:bg-gray-50">
                             <td className="border border-gray-300 px-4 py-2.5 text-gray-800 font-medium">{item}</td>
-                            <td className="border border-gray-300 px-4 py-2.5 text-center">
-                              {form.competitorIncludedItems.includes(item) ? (
-                                <span className="text-green-600 font-extrabold text-sm">✓</span>
-                              ) : (
-                                <span className="text-gray-300 font-bold">○</span>
-                              )}
+                            <td className="border border-gray-300 px-1 py-1 text-center">
+                              <button type="button" onClick={() => toggleCompetitorItem('competitorIncludedItems', item)}
+                                className="w-full py-1.5 rounded hover:bg-blue-50 transition-colors" title="클릭하여 타사 포함(✓)/미포함(○) 변경">
+                                {form.competitorIncludedItems.includes(item) ? (
+                                  <span className="text-green-600 font-extrabold text-sm">✓</span>
+                                ) : (
+                                  <span className="text-gray-300 font-bold">○</span>
+                                )}
+                              </button>
                             </td>
                             <td className="border border-red-200 bg-red-50 px-4 py-2.5 text-center">
                               {form.includedItems.includes(item) ? (
@@ -947,12 +958,15 @@ export default function ComparisonQuoteTab() {
                         {allExcludedItems.map((item) => (
                           <tr key={`exc-${item}`} className="hover:bg-gray-50">
                             <td className="border border-gray-300 px-4 py-2.5 text-gray-800 font-medium">{item}</td>
-                            <td className="border border-gray-300 px-4 py-2.5 text-center">
-                              {form.competitorExcludedItems.includes(item) ? (
-                                <span className="text-red-500 font-extrabold text-sm">✗</span>
-                              ) : (
-                                <span className="text-gray-300 font-bold">-</span>
-                              )}
+                            <td className="border border-gray-300 px-1 py-1 text-center">
+                              <button type="button" onClick={() => toggleCompetitorItem('competitorExcludedItems', item)}
+                                className="w-full py-1.5 rounded hover:bg-blue-50 transition-colors" title="클릭하여 타사 불포함(✗)/해당없음(-) 변경">
+                                {form.competitorExcludedItems.includes(item) ? (
+                                  <span className="text-red-500 font-extrabold text-sm">✗</span>
+                                ) : (
+                                  <span className="text-gray-300 font-bold">-</span>
+                                )}
+                              </button>
                             </td>
                             <td className="border border-red-200 bg-red-50 px-4 py-2.5 text-center">
                               {form.excludedItems.includes(item) ? (
