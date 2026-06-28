@@ -15,11 +15,16 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter, log: ['error'] });
 
 async function checkColumn(table, column) {
-  const rows = await prisma.$queryRaw`
-    SELECT column_name FROM information_schema.columns
-    WHERE table_name = ${table} AND column_name = ${column}
-  `;
-  return rows.length > 0;
+  try {
+    const rows = await prisma.$queryRaw`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = ${table} AND column_name = ${column}
+    `;
+    return rows.length > 0;
+  } catch (e) {
+    console.error('checkColumn 오류:', e.code, e.message);
+    throw e;
+  }
 }
 
 async function run() {
