@@ -142,32 +142,25 @@ function SaleStatusBadge({ status }: { status: string | null }) {
   return <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${cls}`}>{status}</span>;
 }
 
-function CabinSummaryCell({ summary, productCode, availableCount, onRegister }: {
+function CabinSummaryCell({ summary, availableCount }: {
   summary: CabinSummary | null;
-  productCode: string;
-  /** 크루즈닷 공유 CruiseProduct 전체 잔여(타입별 수동 입력 없을 때 폴백 표시). */
+  /** 크루즈닷 웹훅 전체 잔여(타입별 데이터 없을 때 표시). 수동 등록 제거됨. */
   availableCount: number | null;
-  onRegister: (code: string) => void;
 }) {
   if (!summary || Object.keys(summary).length === 0) {
+    // 수동 등록 제거 — 잔여는 크루즈닷 웹훅(자동)만. 데이터 없으면 연동 대기 표시.
     return (
       <div className="space-y-1 min-w-[120px]">
-        {/* 타입별 수동등록 전이면 크루즈닷 전체 잔여를 읽기전용으로 자동 표시 */}
-        {availableCount != null && (
+        {availableCount != null ? (
           <div className="flex items-center gap-1.5 text-base">
             <span className="tabular-nums font-bold text-blue-500">전체 잔여 {availableCount}석</span>
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-600">
               크루즈닷 자동
             </span>
           </div>
+        ) : (
+          <span className="text-sm text-gray-400">크루즈닷 연동 대기</span>
         )}
-        <button
-          onClick={() => onRegister(productCode)}
-          className="flex items-center gap-1 text-base text-gray-600 hover:text-blue-600 transition-colors min-h-[48px]"
-        >
-          <PlusCircle className="w-4 h-4" />
-          {availableCount != null ? "객실타입별 등록" : "객실 등록"}
-        </button>
       </div>
     );
   }
@@ -216,14 +209,6 @@ function CabinSummaryCell({ summary, productCode, availableCount, onRegister }: 
           </div>
         );
       })}
-      {/* 수정 버튼 */}
-      <button
-        onClick={() => onRegister(productCode)}
-        className="flex items-center gap-0.5 text-sm text-gray-500 hover:text-blue-600 transition-colors mt-1"
-      >
-        <PlusCircle className="w-3.5 h-3.5" />
-        수정
-      </button>
     </div>
   );
 }
@@ -1076,9 +1061,7 @@ export default function ProductsPage() {
                     <td className="px-4 py-3">
                       <CabinSummaryCell
                         summary={product.cabinSummary}
-                        productCode={product.code}
                         availableCount={product.availableCount}
-                        onRegister={(code) => { if (canRegisterCabin) setCabinRegisterCode(code); }}
                       />
                     </td>
 
@@ -1179,20 +1162,7 @@ export default function ProductsPage() {
         />
       )}
 
-      {/* 객실 등록 모달 */}
-      {cabinRegisterProduct && (orgId || userRole === 'GLOBAL_ADMIN') && (
-        <CabinRegisterModal
-          productCode={cabinRegisterProduct.code}
-          productName={cabinRegisterProduct.name}
-          organizationId={orgId ?? ''}
-          cabinSummary={cabinRegisterProduct.cabinSummary}
-          onClose={() => setCabinRegisterCode(null)}
-          onSaved={() => {
-            setCabinRegisterCode(null);
-            fetchProducts(page, searchQuery, activeFilter);
-          }}
-        />
-      )}
+      {/* 수동 객실 등록 모달 제거 — 잔여는 크루즈닷 웹훅(자동)으로만 동기화 */}
     </div>
   );
 }
