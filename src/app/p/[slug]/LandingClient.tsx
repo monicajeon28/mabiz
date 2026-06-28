@@ -78,6 +78,11 @@ export function LandingClient({
   const [registeredName, setRegisteredName] = useState("");
   const [registeredPhone, setRegisteredPhone] = useState("");
 
+  // 보장형 결제 구역 — 저장된 HTML에 신청폼이 없을 때(HTML/커스텀형 랜딩) 결제 동선 보장
+  const [hasForm, setHasForm] = useState(true); // 기본 true(이미지형 깜빡임 방지) → 폼 없으면 useEffect에서 false
+  const [payName, setPayName] = useState("");
+  const [payPhone, setPayPhone] = useState("");
+
   // T38: Sticky CTA
   const [showStickyCta, setShowStickyCta] = useState(false);
   const formSectionRef = useRef<HTMLDivElement>(null);
@@ -186,6 +191,51 @@ export function LandingClient({
   // startPayment 최신본을 폼 submit 핸들러(고정 클로저)에서 호출하기 위한 Ref
   const startPaymentRef = useRef(startPayment);
   startPaymentRef.current = startPayment;
+
+  // 보장형 결제 구역의 "결제하기" — 리드 캡처(신청 기록) 후 결제창으로.
+  // 신청 기록 실패(중복 등)는 무시하고 결제는 진행(이 페이지의 목적은 결제).
+  const submitGuaranteedPayment = async () => {
+    const rawPhone = payPhone.replace(/[^0-9]/g, '');
+    if (!payName.trim()) { setFieldError('이름을 입력해 주세요.'); return; }
+    if (!rawPhone || !/^01[016789]\d{7,8}$/.test(rawPhone)) {
+      setPhoneError('올바른 휴대폰 번호를 입력해 주세요. (예: 010-1234-5678)');
+      return;
+    }
+    setFieldError(''); setPhoneError('');
+    submittingRef.current = true;
+    setSubmitting(true);
+    try {
+      const utm = new URLSearchParams(window.location.search);
+      const res = await fetch(`/api/landing-pages/${pageId}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: payName, phone: payPhone, loadedAt: loadTimeRef.current,
+          ...(utm.get('utm_source')   ? { utmSource:   utm.get('utm_source') }   : {}),
+          ...(utm.get('utm_medium')   ? { utmMedium:   utm.get('utm_medium') }   : {}),
+          ...(utm.get('utm_campaign') ? { utmCampaign: utm.get('utm_campaign') } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setRegisteredName(payName);
+        setRegisteredPhone(payPhone);
+        try { localStorage.setItem(`registered_${slug}`, '1'); } catch {}
+        if (l6ConfigRef.current?.enabled && data.registrationId) {
+          fetch(`/api/landing-pages/${pageId}/sms-trigger`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ registrationId: data.registrationId, messageType: 'l6_day0' }),
+          }).catch(() => {});
+        }
+      }
+    } catch {
+      // 신청 기록 실패는 무시 — 결제 우선
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
+    await startPayment(payName, payPhone);
+  };
 
   // 댓글 로드
   useEffect(() => {
@@ -393,6 +443,8 @@ export function LandingClient({
 
     // 폼 submit 이벤트 인터셉트
     const forms = container.querySelectorAll("form");
+    // 폼이 하나도 없으면(HTML/커스텀형) 보장형 결제 구역을 렌더하도록 신호
+    setHasForm(forms.length > 0);
 
     // [WO-15] Honeypot input 주입 (봇 유인 — display:none 금지)
     forms.forEach((form) => {
@@ -669,6 +721,49 @@ export function LandingClient({
           KEEP_CONTENT: true
         }) }}
       />
+
+      {/* 보장형 결제 구역 — 페이지 HTML에 신청폼이 없을 때(HTML/커스텀형) 결제 동선 보장.
+          이미지형(폼 자동주입)은 hasForm=true라 숨김 → 버튼 중복 없음. */}
+      {payment && !hasForm && !done && !alreadyRegistered && (
+        <div className="max-w-md mx-auto px-4 pb-12 pt-4">
+          <div className="bg-white border-2 border-emerald-200 rounded-2xl p-6 shadow-sm">
+            <p className="text-base font-semibold text-gray-800 mb-1">{payment.productName}</p>
+            <p className="text-3xl font-bold text-navy-900 mb-4">
+              {payment.productPrice.toLocaleString()}원
+              {payment.type === "subscription" && <span className="text-base font-normal text-gray-500"> /월</span>}
+            </p>
+            <div className="space-y-3">
+              <input
+                type="text"
+                placeholder="이름"
+                value={payName}
+                onChange={(e) => setPayName(e.target.value)}
+                maxLength={30}
+                className="w-full border border-gray-300 rounded-xl px-4 min-h-[48px] text-base focus:outline-none focus:border-emerald-500"
+              />
+              <input
+                type="tel"
+                placeholder="연락처 (010-1234-5678)"
+                value={payPhone}
+                onChange={(e) => setPayPhone(e.target.value)}
+                maxLength={20}
+                className="w-full border border-gray-300 rounded-xl px-4 min-h-[48px] text-base focus:outline-none focus:border-emerald-500"
+              />
+              <button
+                onClick={submitGuaranteedPayment}
+                disabled={paymentLoading || submitting}
+                className="w-full bg-emerald-600 text-white min-h-[52px] flex items-center justify-center rounded-xl text-lg font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50"
+              >
+                {paymentLoading ? "결제 준비 중..." : payment.type === "subscription" ? "정기결제 시작하기" : "결제하기"}
+              </button>
+            </div>
+            <p className="text-[10px] text-gray-400 mt-3 leading-relaxed">
+              판매자: 마비즈스쿨 원격평생교육원 | 사업자번호: 851-67-00338 | 대표: 전혜선<br />
+              통신판매업: 제 2024-대전서구-2845 호
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* 방문자 후기 댓글 섹션 */}
       {commentEnabled && (
