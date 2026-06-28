@@ -1,12 +1,31 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { DEFAULT_CONTRACT_TEMPLATES, AFFILIATE_CONTRACT_TEMPLATE } from '@/lib/contract-templates-data';
 
 type Params = { params: Promise<{ token: string }> };
 
 // 64자 hex 토큰 형식 검증 (XSS/인젝션 방지)
 function isValidToken(t: string): boolean {
   return /^[a-f0-9]{64}$/.test(t);
+}
+
+// metadata.tierKey(SALES_330/SALES_540/BRANCH_750) 또는 contractTemplate(BRANCH_OFFICE)
+// → 계약서 본문 템플릿. 금액 정합 매핑(contract-pdf-generator.ts와 동일):
+//   마케터330→SALES_AGENT(330만) / 대리점장1=540→CRUISE_STAFF(540만) / 대리점장2=750→BRANCH_MANAGER(750만)
+const TEMPLATE_KEY_BY_TIER: Record<string, string> = {
+  SALES_330: 'SALES_AGENT',
+  SALES_540: 'CRUISE_STAFF',
+  BRANCH_750: 'BRANCH_MANAGER',
+};
+
+function resolveContractTemplate(meta: Record<string, unknown>) {
+  if (meta.contractTemplate === 'BRANCH_OFFICE') {
+    return DEFAULT_CONTRACT_TEMPLATES.BRANCH_OFFICE ?? AFFILIATE_CONTRACT_TEMPLATE;
+  }
+  const tierKey = typeof meta.tierKey === 'string' ? meta.tierKey : '';
+  const key = TEMPLATE_KEY_BY_TIER[tierKey];
+  return (key ? DEFAULT_CONTRACT_TEMPLATES[key] : undefined) ?? AFFILIATE_CONTRACT_TEMPLATE;
 }
 
 /**
@@ -40,6 +59,7 @@ export async function GET(_req: Request, { params }: Params) {
     }
 
     const meta = (contract.metadata as Record<string, unknown> | null) ?? {};
+    const template = resolveContractTemplate(meta);
     return NextResponse.json({
       ok: true,
       contract: {
@@ -49,6 +69,9 @@ export async function GET(_req: Request, { params }: Params) {
         tierKey: meta.tierKey ?? null,
         tierLabel: meta.tierLabel ?? null,
         expiresAt: contract.signatureTokenExpiresAt,
+        // 계약 조항 전문 — 서명 전 반드시 노출 (등급별 템플릿 본문)
+        contractTitle: template.title,
+        clauses: template.sections.map((s) => ({ title: s.title, content: s.content })),
       },
     });
   } catch (e) {

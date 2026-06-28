@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback, use } from 'react';
 
+type Clause = { title: string; content: string };
+
 type ContractInfo = {
   name: string;
   phone: string;
@@ -9,6 +11,8 @@ type ContractInfo = {
   tierKey: string | null;
   tierLabel: string | null;
   expiresAt: string | null;
+  contractTitle?: string | null;
+  clauses?: Clause[];
 };
 
 export default function AffiliateSignPage({ params }: { params: Promise<{ token: string }> }) {
@@ -151,6 +155,24 @@ export default function AffiliateSignPage({ params }: { params: Promise<{ token:
         <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
           아래 정보를 입력하고 서명하시면 계약서가 제출됩니다. 입력하신 내용은 안전하게 보관됩니다.
         </div>
+
+        {/* 계약 조항 전문 — 서명 전 반드시 확인 */}
+        {info?.clauses && info.clauses.length > 0 && (
+          <div>
+            <h2 className="text-base font-bold text-gray-900 mb-2">
+              계약 조항 전문{info?.contractTitle ? ` · ${info.contractTitle}` : ''}
+            </h2>
+            <div className="max-h-80 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4">
+              {info.clauses.map((c, i) => (
+                <div key={i}>
+                  <p className="text-sm font-bold text-gray-900">{c.title}</p>
+                  <p className="mt-1 text-sm text-gray-700 leading-relaxed whitespace-pre-line">{c.content}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-gray-500">위 조항 전문을 끝까지 확인하신 후 아래 정보를 입력하고 서명해 주세요.</p>
+          </div>
+        )}
 
         <div className="space-y-3">
           <div>
