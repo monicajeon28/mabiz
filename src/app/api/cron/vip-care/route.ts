@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { sendByChannel, resolveUserSmsConfig } from "@/lib/aligo";
+import { resolveSenderUserId } from "@/lib/aligo/sender-resolver";
 
 // Vercel Cron: 매시간 실행
 // vercel.json: { "crons": [{ "path": "/api/cron/vip-care", "schedule": "0 * * * *" }] }
@@ -42,7 +43,7 @@ export async function GET(req: Request) {
   let processedTotal = 0;
   let earlyExit      = false;
 
-  // 조직별 SMS 설정 캐시 (같은 조직 반복 조회 방지)
+  // 발송자별 SMS 설정 캐시 (org:발송자 키 — 담당자 개인 알리고 반복 조회 방지)
   const smsConfigCache: Record<string, Awaited<ReturnType<typeof resolveUserSmsConfig>>> = {};
 
   // ─── 핵심 변경: 시퀀스 루프 제거 ──────────────────────────────────
@@ -78,7 +79,7 @@ export async function GET(req: Request) {
             contact: {
               select: {
                 id: true, name: true, phone: true,
-                email: true, organizationId: true,
+                email: true, organizationId: true, assignedUserId: true,
               },
             },
           },
@@ -100,11 +101,13 @@ export async function GET(req: Request) {
     for (const log of logs) {
       const contact = log.sequence.contact;
 
-      // 조직 SMS 설정 캐시 조회
-      if (!Object.prototype.hasOwnProperty.call(smsConfigCache, contact.organizationId)) {
-        smsConfigCache[contact.organizationId] = await resolveUserSmsConfig(contact.organizationId);
+      // 발송자(담당자) 개인 알리고 — 미설정/미검증 시 조직>env 자동 폴백. org:발송자 키로 캐시.
+      const senderUserId = resolveSenderUserId({ contactAssignedUserId: contact.assignedUserId });
+      const cacheKey = `${contact.organizationId}:${senderUserId ?? "__ORG__"}`;
+      if (!Object.prototype.hasOwnProperty.call(smsConfigCache, cacheKey)) {
+        smsConfigCache[cacheKey] = await resolveUserSmsConfig(contact.organizationId, senderUserId);
       }
-      const smsConfig = smsConfigCache[contact.organizationId];
+      const smsConfig = smsConfigCache[cacheKey];
       if (!smsConfig) {
         skippedCount++;
         continue;

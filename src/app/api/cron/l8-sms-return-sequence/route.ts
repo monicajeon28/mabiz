@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { sendSmsWithAligoPublic } from "@/lib/aligo-sms-service";
 import { resolveUserSmsConfig } from "@/lib/aligo";
+import { resolveSenderUserId } from "@/lib/aligo/sender-resolver";
 
 /**
  * L8 렌즈: 재방문 습관화 SMS 자동 발송 (Cron Job)
@@ -97,8 +98,9 @@ export async function POST(req: NextRequest) {
               contact.nextCruiseRecommendation || "다음 크루즈"
             );
 
-            // SMS 발송 (Aligo API 연동)
-            const sent = await sendSmsViaAligo(org.id, contact.phone, smsText);
+            // SMS 발송 — 담당자 개인 알리고(미설정 시 조직>env 폴백)
+            const senderUserId = resolveSenderUserId({ contactAssignedUserId: contact.assignedUserId });
+            const sent = await sendSmsViaAligo(org.id, contact.phone, smsText, senderUserId);
 
             if (sent) {
               // DB 업데이트
@@ -203,6 +205,7 @@ async function getContactsForDay(organizationId: string, day: number) {
       name: true,
       phone: true,
       nextCruiseRecommendation: true,
+      assignedUserId: true, // 담당자 개인 알리고 발송
     },
   });
 }
@@ -213,11 +216,12 @@ async function getContactsForDay(organizationId: string, day: number) {
 async function sendSmsViaAligo(
   organizationId: string,
   phone: string,
-  text: string
+  text: string,
+  senderUserId?: string, // 담당자 개인 알리고(미설정/미검증 시 조직>env 자동 폴백)
 ): Promise<boolean> {
   try {
-    // SMS 설정 가져오기 (복호화된 키)
-    const config = await resolveUserSmsConfig(organizationId);
+    // SMS 설정 가져오기 (담당자 개인 우선, 복호화된 키)
+    const config = await resolveUserSmsConfig(organizationId, senderUserId);
 
     if (!config) {
       logger.warn("[SMS_CONFIG_INACTIVE]", { organizationId });

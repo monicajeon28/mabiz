@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
 import prisma from "@/lib/prisma";
 import { sendSms, resolveUserSmsConfig, getOrgSmsConfig } from "@/lib/aligo";
+import { resolveSenderUserId } from "@/lib/aligo/sender-resolver";
 import { logger } from "@/lib/logger";
 
 /**
@@ -81,7 +82,7 @@ export async function GET(req: Request) {
     },
     select: {
       id: true, name: true, phone: true,
-      organizationId: true, reEngageCount: true,
+      organizationId: true, reEngageCount: true, assignedUserId: true,
     },
     take: 500, // 1회 최대 500명 처리
   });
@@ -104,14 +105,17 @@ export async function GET(req: Request) {
     try {
       const orgId = contact.organizationId;
 
-      // SMS 설정 캐시 (동일 조직은 1회만 조회)
-      if (!(orgId in aligoConfigCache)) {
-        [aligoConfigCache[orgId], orgConfigCache[orgId]] = await Promise.all([
-          resolveUserSmsConfig(orgId),
-          getOrgSmsConfig(orgId),
-        ]);
+      // 발송 알리고 = 담당자 개인(미설정 시 조직>env 폴백), org:발송자 키 캐시.
+      //   메시지 템플릿(orgConfig)은 조직 단위 유지(조직 커스텀 문구).
+      const senderUserId = resolveSenderUserId({ contactAssignedUserId: contact.assignedUserId });
+      const aligoKey = `${orgId}:${senderUserId ?? "__ORG__"}`;
+      if (!(aligoKey in aligoConfigCache)) {
+        aligoConfigCache[aligoKey] = await resolveUserSmsConfig(orgId, senderUserId);
       }
-      const aligoConfig = aligoConfigCache[orgId];
+      if (!(orgId in orgConfigCache)) {
+        orgConfigCache[orgId] = await getOrgSmsConfig(orgId);
+      }
+      const aligoConfig = aligoConfigCache[aligoKey];
       const orgConfig   = orgConfigCache[orgId];
 
       if (!aligoConfig) {
