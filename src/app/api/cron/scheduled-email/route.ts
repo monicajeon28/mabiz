@@ -4,7 +4,9 @@ export const maxDuration = 60;
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
 import prisma from "@/lib/prisma";
-import { sendFunnelEmail } from "@/lib/email";
+import { sendEmailWithConfig } from "@/lib/email";
+import { resolveUserEmailConfig } from "@/lib/email-resolver";
+import { resolveSenderUserId } from "@/lib/aligo/sender-resolver";
 import { logger } from "@/lib/logger";
 
 /**
@@ -93,12 +95,12 @@ export async function GET(req: Request) {
       if (locked.count === 0) continue;
 
       // 수신자 목록 조회
-      const recipients: { id: string; name: string; email: string | null }[] = [];
+      const recipients: { id: string; name: string; email: string | null; assignedUserId: string | null }[] = [];
 
       if (item.contactId) {
         const c = await prisma.contact.findFirst({
           where:  { id: item.contactId, organizationId: item.organizationId, deletedAt: null },
-          select: { id: true, name: true, email: true },
+          select: { id: true, name: true, email: true, assignedUserId: true },
         });
         if (c) recipients.push(c);
       } else if (item.groupId) {
@@ -107,7 +109,7 @@ export async function GET(req: Request) {
             groupId: item.groupId,
             contact: { organizationId: item.organizationId, deletedAt: null },
           },
-          include: { contact: { select: { id: true, name: true, email: true } } },
+          include: { contact: { select: { id: true, name: true, email: true, assignedUserId: true } } },
           take: 200,
         });
         recipients.push(...members.map((m) => m.contact));
@@ -127,16 +129,26 @@ export async function GET(req: Request) {
           .replace(/\[고객명\]/g, r.name)
           .replace(/\[이름\]/g,   r.name);
 
-        const result = await sendFunnelEmail({
-          organizationId: item.organizationId,
-          contactId:      r.id,
-          to:             r.email,
-          subject:        personalSubject,
-          html:           personalHtml,
-          channel:        "MANUAL",
+        // 발송자 = 예약 작성자(createdByUserId) 우선, 없으면 회원 담당자(assignedUserId).
+        //   개인 SMTP(개인>그룹>조직>env 폴백) — 미설정/미검증 시 조직/env로 자동 폴백(발송 끊김 0).
+        const senderUserId = resolveSenderUserId({
+          funnelCreatorUserId: item.createdByUserId,
+          contactAssignedUserId: r.assignedUserId,
+        });
+        const emailConfig = await resolveUserEmailConfig(item.organizationId, {
+          userId: senderUserId,
+          groupId: item.groupId ?? undefined,
+        });
+        if (!emailConfig) { failedCount++; continue; }
+
+        const ok = await sendEmailWithConfig({
+          config: emailConfig,
+          to:      r.email,
+          subject: personalSubject,
+          html:    personalHtml,
         });
 
-        if (result.result_code === 1) { sentCount++; } else { failedCount++; }
+        if (ok) { sentCount++; } else { failedCount++; }
       }
 
       await prisma.scheduledEmail.update({
