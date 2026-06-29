@@ -137,6 +137,9 @@ export default function EditLandingPage() {
   const [comments,      setComments]     = useState<MgrComment[]>([]);
   const [commentEnabled, setCommentEnabled] = useState(false);
   const [genCount,      setGenCount]     = useState(5);
+  // 커뮤니티 댓글 생성 — 날짜 범위(이 기간에 작성된 것처럼 분산). 기본: 최근 60일~오늘
+  const [genDateFrom,   setGenDateFrom]  = useState(() => { const d = new Date(); d.setDate(d.getDate() - 60); return d.toISOString().slice(0, 10); });
+  const [genDateTo,     setGenDateTo]    = useState(() => new Date().toISOString().slice(0, 10));
   const [generating,    setGenerating]   = useState(false);
   const [commentMsg,    setCommentMsg]   = useState("");
 
@@ -482,13 +485,13 @@ export default function EditLandingPage() {
       const res = await fetch(`/api/landing-pages/${id}/comments/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ count: genCount }),
+        body: JSON.stringify({ count: genCount, dateFrom: genDateFrom, dateTo: genDateTo }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.ok) {
         setComments((prev) => [...data.comments, ...prev]);
-        setCommentMsg(`✅ ${data.comments.length}개 AI 후기 생성 완료`);
+        setCommentMsg(`✅ 커뮤니티 댓글 ${data.comments.length}개 생성 완료 (기간 내 날짜 분산)`);
       } else {
         setCommentMsg("생성 실패. 다시 시도하세요.");
       }
@@ -1386,10 +1389,14 @@ export default function EditLandingPage() {
           comments={comments}
           commentEnabled={commentEnabled}
           genCount={genCount}
+          genDateFrom={genDateFrom}
+          genDateTo={genDateTo}
           generating={generating}
           commentMsg={commentMsg}
           onToggleEnabled={toggleCommentEnabled}
           onGenCountChange={setGenCount}
+          onGenDateFromChange={setGenDateFrom}
+          onGenDateToChange={setGenDateTo}
           onGenerate={generateComments}
           onDelete={deleteComment}
         />

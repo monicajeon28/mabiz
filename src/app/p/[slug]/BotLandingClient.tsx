@@ -138,12 +138,12 @@ export default function BotLandingClient({
     const choice = node?.choices[choiceIndex];
     if (!choice) return;
     setFlowPath((p) => [...p, { nodeId, choiceIndex }]);
-    if (choice.to === "lead") {
+    // AI 자유채팅 폐지 → 'lead'(상담 신청)와 'chat'(직접 물어보기) 모두 리드캡처(게이트)로 수렴.
+    //   버튼 퍼널이 막다른길 없이 상담 신청으로 흐르게 한다.
+    if (choice.to === "lead" || choice.to === "chat") {
       setLeadError("");
       setShowLeadForm(true);
       setPhase("gate");
-    } else if (choice.to === "chat") {
-      setPhase("chat");
     } else {
       setNodeId(choice.to);
     }
@@ -379,14 +379,6 @@ export default function BotLandingClient({
                   ← 이전
                 </button>
               )}
-              {/* 작게 — 그냥 둘러보기(AI 채팅 비상구) */}
-              <button
-                type="button"
-                onClick={() => setPhase("chat")}
-                className="w-full text-center text-sm text-slate-400 underline underline-offset-4"
-              >
-                그냥 둘러볼게요
-              </button>
             </div>
           </div>
         </div>
@@ -404,26 +396,16 @@ export default function BotLandingClient({
             </p>
 
             {!showLeadForm ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLeadError("");
-                    setShowLeadForm(true);
-                  }}
-                  className="mt-6 flex min-h-[56px] w-full items-center justify-center rounded-2xl bg-[#27AE60] px-5 text-lg font-bold text-white shadow-sm transition active:scale-[0.99]"
-                >
-                  상담 받기
-                </button>
-                {/* 도피로 — 입력 없이 먼저 둘러보기(이탈자 회수) */}
-                <button
-                  type="button"
-                  onClick={() => setPhase("chat")}
-                  className="mt-4 w-full text-center text-sm text-slate-400 underline underline-offset-4"
-                >
-                  먼저 둘러볼게요
-                </button>
-              </>
+              <button
+                type="button"
+                onClick={() => {
+                  setLeadError("");
+                  setShowLeadForm(true);
+                }}
+                className="mt-6 flex min-h-[56px] w-full items-center justify-center rounded-2xl bg-[#27AE60] px-5 text-lg font-bold text-white shadow-sm transition active:scale-[0.99]"
+              >
+                상담 받기
+              </button>
             ) : (
               <div className="mt-6 rounded-2xl border-2 border-[#2563EB] bg-white px-4 py-4 shadow-sm">
                 <p className="text-base font-bold text-[#1E2D4E]">상담 받기</p>
@@ -505,13 +487,6 @@ export default function BotLandingClient({
                 >
                   {submitting ? "신청 중…" : "신청하기"}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setPhase("chat")}
-                  className="mt-3 w-full text-center text-sm text-slate-400 underline underline-offset-4"
-                >
-                  먼저 둘러볼게요
-                </button>
               </div>
             )}
           </div>
@@ -543,13 +518,6 @@ export default function BotLandingClient({
               <p className="-mt-1 text-center text-sm text-slate-500">
                 담당자가 곧 연락드려요
               </p>
-              <button
-                type="button"
-                onClick={() => setPhase("chat")}
-                className="flex min-h-[52px] items-center justify-center rounded-2xl border-2 border-[#2563EB] px-5 text-base font-bold text-[#2563EB] transition active:scale-[0.99]"
-              >
-                💬 지금 바로 물어보기
-              </button>
             </div>
           </div>
         </div>

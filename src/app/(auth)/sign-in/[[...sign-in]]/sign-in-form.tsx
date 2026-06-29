@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
+import { COMPANY_INFO } from '@/lib/company-info';
 
 export default function SignInContent() {
   const [phone, setPhone] = useState('');
@@ -127,13 +128,13 @@ export default function SignInContent() {
               className="w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-all"
               style={{ border: '2px solid var(--color-gold-500)', color: 'var(--color-gold-500)', backgroundColor: 'white' }}
             >
-              프리마케터 간편 문의신청
+              크루즈닷 파트너스 신청하기
             </a>
-            <p className="text-center text-xs text-slate-400 mt-2">대한민국 최초 판매 CRM / CMS 프로그램</p>
+            <p className="text-center text-xs text-slate-400 mt-2">판매·고객관리(CRM)를 한 곳에서</p>
           </div>
 
           <p className="mt-5 text-center text-xs text-slate-400">
-            문의: {process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@cruisedot.com'}
+            문의: {process.env.NEXT_PUBLIC_SUPPORT_EMAIL || COMPANY_INFO.email}
           </p>
         </div>
       </div>

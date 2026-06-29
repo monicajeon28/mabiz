@@ -14,17 +14,21 @@ interface Props {
   comments: MgrComment[];
   commentEnabled: boolean;
   genCount: number;
+  genDateFrom: string;
+  genDateTo: string;
   generating: boolean;
   commentMsg: string;
   onToggleEnabled: () => void;
   onGenCountChange: (n: number) => void;
+  onGenDateFromChange: (d: string) => void;
+  onGenDateToChange: (d: string) => void;
   onGenerate: () => void;
   onDelete: (commentId: string) => void;
 }
 
 export function CommentsTab({
-  comments, commentEnabled, genCount, generating, commentMsg,
-  onToggleEnabled, onGenCountChange, onGenerate, onDelete,
+  comments, commentEnabled, genCount, genDateFrom, genDateTo, generating, commentMsg,
+  onToggleEnabled, onGenCountChange, onGenDateFromChange, onGenDateToChange, onGenerate, onDelete,
 }: Props) {
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -49,7 +53,24 @@ export function CommentsTab({
         <p className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 mb-2">
           <Sparkles className="w-4 h-4 text-purple-500" /> AI 커뮤니티 댓글 생성
         </p>
-        <p className="text-xs text-gray-500 mb-3">랜딩 내용을 분석해 질문·고민·경험·응원이 섞인 커뮤니티 댓글(+답글)을 유튜브 댓글처럼 다양하게 생성합니다. 생성 후 <b>검토·삭제</b>할 수 있어요.</p>
+        <p className="text-xs text-gray-500 mb-3">랜딩 내용을 분석해 질문·고민·경험·응원이 섞인 커뮤니티 댓글(+답글)을 유튜브 댓글처럼 다양하게 생성합니다. 아래 <b>기간</b>에 작성된 것처럼 날짜가 자연스럽게 분산됩니다. 생성 후 <b>검토·삭제</b>할 수 있어요.</p>
+        {/* 작성 기간 — 이 기간 안에 날짜가 랜덤 분산되어 오래전부터 쌓인 것처럼 보임 */}
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xs text-gray-500 shrink-0">작성 기간</span>
+          <input
+            type="date"
+            value={genDateFrom}
+            onChange={(e) => onGenDateFromChange(e.target.value)}
+            className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white"
+          />
+          <span className="text-xs text-gray-400">~</span>
+          <input
+            type="date"
+            value={genDateTo}
+            onChange={(e) => onGenDateToChange(e.target.value)}
+            className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white"
+          />
+        </div>
         <div className="flex items-center gap-2">
           <select
             value={genCount}

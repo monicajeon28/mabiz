@@ -482,7 +482,7 @@ export default function ComparisonQuoteTab() {
                       key={product.id}
                       type="button"
                       onClick={() => handleSelectProductFromDropdown(product)}
-                      className="w-full border-b border-gray-100 px-4 py-2.5 text-left hover:bg-indigo-50 transition-colors last:border-b-0"
+                      className="w-full border-b border-gray-100 px-3 py-2 text-left hover:bg-indigo-50 transition-colors last:border-b-0"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
@@ -783,17 +783,19 @@ export default function ComparisonQuoteTab() {
       {/* ═══ 우측: 미리보기 (모바일: 100% 너비, 데스크톱: 60%) ════════════════ */}
       <div className="space-y-2 min-w-0">
         <p className="text-sm sm:text-base font-bold text-gray-800 px-0">📄 미리보기 (다운로드 이미지)</p>
+        {/* A4 규격 카드: min-h-[297mm]로 기본은 A4 1장 느낌, 내용이 많으면 카드가 늘어나
+            잘림 없이 전체가 PNG에 담긴다(고정 aspect/overflow-auto는 잘림 원인이라 제거).
+            CertificateTab과 동일한 A4 톤. */}
         <div
           ref={ref}
-          className="space-y-4 sm:space-y-6 rounded-2xl border border-gray-200 bg-white p-4 sm:p-10 text-xs sm:text-sm shadow-lg overflow-auto mx-auto"
-          style={{ maxWidth: '210mm', aspectRatio: '210 / 297' }}
+          className="space-y-3 sm:space-y-5 rounded-2xl border border-gray-200 bg-white p-4 sm:p-8 text-xs sm:text-sm shadow-lg mx-auto max-w-[210mm] min-h-[297mm] print:max-w-none print:min-h-0"
         >
           {/* 레터헤드 */}
           <DocumentLetterhead title="타사 비교 견적서" accentClass="border-indigo-100" />
 
           {/* 고객 정보 */}
-          <div className="rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 p-5 border border-gray-150">
-            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-500">고객 정보</p>
+          <div className="rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 p-4 border border-gray-150">
+            <p className="mb-2 text-xs font-bold uppercase tracking-widest text-gray-500">고객 정보</p>
             <div className="space-y-1 text-gray-700">
               <p><span className="font-bold text-gray-800">{form.customerName || '(고객명 미입력)'}</span></p>
               {form.customerPhone && <p className="text-sm text-gray-600"><span className="text-gray-500">T.</span> {form.customerPhone}</p>}
@@ -802,8 +804,8 @@ export default function ComparisonQuoteTab() {
           </div>
 
           {/* 상품 정보 */}
-          <div className="rounded-xl bg-gradient-to-br from-indigo-50 to-blue-50 p-5 border border-indigo-100">
-            <p className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-indigo-600">
+          <div className="rounded-xl bg-gradient-to-br from-indigo-50 to-blue-50 p-4 border border-indigo-100">
+            <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-indigo-600">
               <Package className="h-4 w-4" />상품 정보
             </p>
             <div className="space-y-1.5 text-gray-700">
@@ -868,39 +870,39 @@ export default function ComparisonQuoteTab() {
                 <table className="w-full border-collapse text-xs">
                   <thead>
                     <tr>
-                      <th className="border border-gray-300 bg-gray-100 px-4 py-3 text-left font-bold text-gray-700">항목</th>
-                      <th className="border border-gray-300 bg-gray-100 px-4 py-3 text-center font-bold text-gray-700">타사 (익명)</th>
-                      <th className="border border-red-200 bg-red-100 px-4 py-3 text-center font-bold text-red-700">크루즈닷</th>
+                      <th className="border border-gray-300 bg-gray-100 px-3 py-2 text-left font-bold text-gray-700">항목</th>
+                      <th className="border border-gray-300 bg-gray-100 px-3 py-2 text-center font-bold text-gray-700">타사 (익명)</th>
+                      <th className="border border-red-200 bg-red-100 px-3 py-2 text-center font-bold text-red-700">크루즈닷</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(form.hasGuide || form.competitorHasGuide) && (
                       <tr className="hover:bg-gray-50">
-                        <td className="border border-gray-300 px-4 py-2.5 font-medium text-gray-800">여행 인솔자</td>
-                        <td className={`border border-gray-300 px-4 py-2.5 text-center font-medium ${form.competitorHasGuide === 'Y' ? 'text-green-600' : form.competitorHasGuide === 'N' ? 'text-red-500' : 'text-gray-400'}`}>
+                        <td className="border border-gray-300 px-3 py-2 font-medium text-gray-800">여행 인솔자</td>
+                        <td className={`border border-gray-300 px-3 py-2 text-center font-medium ${form.competitorHasGuide === 'Y' ? 'text-green-600' : form.competitorHasGuide === 'N' ? 'text-red-500' : 'text-gray-400'}`}>
                           {form.competitorHasGuide === 'Y' ? '✓ 있음' : form.competitorHasGuide === 'N' ? '✗ 없음' : '-'}
                         </td>
-                        <td className={`border border-red-200 bg-red-50 px-4 py-2.5 text-center font-bold ${form.hasGuide === 'Y' ? 'text-green-600' : form.hasGuide === 'N' ? 'text-red-500' : 'text-gray-400'}`}>
+                        <td className={`border border-red-200 bg-red-50 px-3 py-2 text-center font-bold ${form.hasGuide === 'Y' ? 'text-green-600' : form.hasGuide === 'N' ? 'text-red-500' : 'text-gray-400'}`}>
                           {form.hasGuide === 'Y' ? '✓ 있음' : form.hasGuide === 'N' ? '✗ 없음' : '-'}
                         </td>
                       </tr>
                     )}
                     {(form.hasCruisedotStaff || form.competitorHasStaff) && (
                       <tr className="hover:bg-gray-50">
-                        <td className="border border-gray-300 px-4 py-2.5 font-medium text-gray-800">전담스탭</td>
-                        <td className={`border border-gray-300 px-4 py-2.5 text-center font-medium ${form.competitorHasStaff === 'Y' ? 'text-green-600' : form.competitorHasStaff === 'N' ? 'text-red-500' : 'text-gray-400'}`}>
+                        <td className="border border-gray-300 px-3 py-2 font-medium text-gray-800">전담스탭</td>
+                        <td className={`border border-gray-300 px-3 py-2 text-center font-medium ${form.competitorHasStaff === 'Y' ? 'text-green-600' : form.competitorHasStaff === 'N' ? 'text-red-500' : 'text-gray-400'}`}>
                           {form.competitorHasStaff === 'Y' ? '✓ 있음' : form.competitorHasStaff === 'N' ? '✗ 없음' : '-'}
                         </td>
-                        <td className={`border border-red-200 bg-red-50 px-4 py-2.5 text-center font-bold ${form.hasCruisedotStaff === 'Y' ? 'text-green-600' : form.hasCruisedotStaff === 'N' ? 'text-red-500' : 'text-gray-400'}`}>
+                        <td className={`border border-red-200 bg-red-50 px-3 py-2 text-center font-bold ${form.hasCruisedotStaff === 'Y' ? 'text-green-600' : form.hasCruisedotStaff === 'N' ? 'text-red-500' : 'text-gray-400'}`}>
                           {form.hasCruisedotStaff === 'Y' ? '✓ 있음' : form.hasCruisedotStaff === 'N' ? '✗ 없음' : '-'}
                         </td>
                       </tr>
                     )}
                     {form.competitorServiceNotes && (
                       <tr className="hover:bg-gray-50">
-                        <td className="border border-gray-300 px-4 py-2.5 font-medium text-gray-800">특이사항</td>
-                        <td className="border border-gray-300 px-4 py-2.5 text-gray-700">{form.competitorServiceNotes}</td>
-                        <td className="border border-red-200 bg-red-50 px-4 py-2.5 text-center text-gray-400">-</td>
+                        <td className="border border-gray-300 px-3 py-2 font-medium text-gray-800">특이사항</td>
+                        <td className="border border-gray-300 px-3 py-2 text-gray-700">{form.competitorServiceNotes}</td>
+                        <td className="border border-red-200 bg-red-50 px-3 py-2 text-center text-gray-400">-</td>
                       </tr>
                     )}
                   </tbody>
@@ -919,9 +921,9 @@ export default function ComparisonQuoteTab() {
                 <table className="w-full border-collapse text-xs">
                   <thead>
                     <tr>
-                      <th className="border border-gray-300 bg-gray-100 px-4 py-3 text-left font-bold text-gray-700">항목</th>
-                      <th className="border border-gray-300 bg-gray-100 px-4 py-3 text-center font-bold text-gray-700">타사 (익명)</th>
-                      <th className="border border-red-200 bg-red-100 px-4 py-3 text-center font-bold text-red-700">크루즈닷</th>
+                      <th className="border border-gray-300 bg-gray-100 px-3 py-2 text-left font-bold text-gray-700">항목</th>
+                      <th className="border border-gray-300 bg-gray-100 px-3 py-2 text-center font-bold text-gray-700">타사 (익명)</th>
+                      <th className="border border-red-200 bg-red-100 px-3 py-2 text-center font-bold text-red-700">크루즈닷</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -930,7 +932,7 @@ export default function ComparisonQuoteTab() {
                       <>
                         {allIncludedItems.map((item) => (
                           <tr key={`inc-${item}`} className="hover:bg-gray-50">
-                            <td className="border border-gray-300 px-4 py-2.5 text-gray-800 font-medium">{item}</td>
+                            <td className="border border-gray-300 px-3 py-2 text-gray-800 font-medium">{item}</td>
                             <td className="border border-gray-300 px-1 py-1 text-center">
                               <button type="button" onClick={() => toggleCompetitorItem('competitorIncludedItems', item)}
                                 className="w-full py-1.5 rounded hover:bg-blue-50 transition-colors" title="클릭하여 타사 포함(✓)/미포함(○) 변경">
@@ -941,7 +943,7 @@ export default function ComparisonQuoteTab() {
                                 )}
                               </button>
                             </td>
-                            <td className="border border-red-200 bg-red-50 px-4 py-2.5 text-center">
+                            <td className="border border-red-200 bg-red-50 px-3 py-2 text-center">
                               {form.includedItems.includes(item) ? (
                                 <span className="text-green-600 font-extrabold text-sm">✓</span>
                               ) : (
@@ -957,7 +959,7 @@ export default function ComparisonQuoteTab() {
                       <>
                         {allExcludedItems.map((item) => (
                           <tr key={`exc-${item}`} className="hover:bg-gray-50">
-                            <td className="border border-gray-300 px-4 py-2.5 text-gray-800 font-medium">{item}</td>
+                            <td className="border border-gray-300 px-3 py-2 text-gray-800 font-medium">{item}</td>
                             <td className="border border-gray-300 px-1 py-1 text-center">
                               <button type="button" onClick={() => toggleCompetitorItem('competitorExcludedItems', item)}
                                 className="w-full py-1.5 rounded hover:bg-blue-50 transition-colors" title="클릭하여 타사 불포함(✗)/해당없음(-) 변경">
@@ -968,7 +970,7 @@ export default function ComparisonQuoteTab() {
                                 )}
                               </button>
                             </td>
-                            <td className="border border-red-200 bg-red-50 px-4 py-2.5 text-center">
+                            <td className="border border-red-200 bg-red-50 px-3 py-2 text-center">
                               {form.excludedItems.includes(item) ? (
                                 <span className="text-red-500 font-extrabold text-sm">✗</span>
                               ) : (
@@ -1011,8 +1013,8 @@ export default function ComparisonQuoteTab() {
                   <tbody>
                     {form.refundPolicyLines.map((r, i) => (
                       <tr key={i}>
-                        <td className="border border-gray-300 px-4 py-3 font-medium text-gray-800">{r.label}</td>
-                        <td className="border border-gray-300 px-4 py-3 text-right text-gray-700">{r.value}</td>
+                        <td className="border border-gray-300 px-3 py-2 font-medium text-gray-800">{r.label}</td>
+                        <td className="border border-gray-300 px-3 py-2 text-right text-gray-700">{r.value}</td>
                       </tr>
                     ))}
                   </tbody>
