@@ -47,9 +47,9 @@ export function CommentsTab({
       {/* AI FAQ 시드 생성 */}
       <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl p-4">
         <p className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 mb-2">
-          <Sparkles className="w-4 h-4 text-purple-500" /> AI 자주 묻는 질문(FAQ) 등록
+          <Sparkles className="w-4 h-4 text-purple-500" /> AI 커뮤니티 댓글 생성
         </p>
-        <p className="text-xs text-gray-500 mb-3">랜딩 내용을 분석해 자주 묻는 질문 + 운영자의 <b>다관점 답변(장점 + 솔직한 주의/한계)</b>을 운영자 명의로 등록합니다. 가짜 후기가 아니라 정직한 Q&amp;A예요. 나머지 대화는 실제 방문자 답글로 채워집니다.</p>
+        <p className="text-xs text-gray-500 mb-3">랜딩 내용을 분석해 질문·고민·경험·응원이 섞인 커뮤니티 댓글(+답글)을 유튜브 댓글처럼 다양하게 생성합니다. 생성 후 <b>검토·삭제</b>할 수 있어요.</p>
         <div className="flex items-center gap-2">
           <select
             value={genCount}
@@ -63,7 +63,7 @@ export function CommentsTab({
             disabled={generating}
             className="flex-1 bg-purple-600 text-white py-1.5 rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-1.5"
           >
-            {generating ? "생성 중..." : <><Sparkles className="w-3.5 h-3.5" /> FAQ 생성</>}
+            {generating ? "생성 중..." : <><Sparkles className="w-3.5 h-3.5" /> 댓글 생성</>}
           </button>
         </div>
         {commentMsg && (
@@ -76,7 +76,7 @@ export function CommentsTab({
       {/* 댓글 목록 */}
       <div className="space-y-2">
         {comments.length === 0 ? (
-          <p className="text-center text-sm text-gray-400 py-8">등록된 질문·답변이 없습니다.</p>
+          <p className="text-center text-sm text-gray-400 py-8">등록된 댓글이 없습니다.</p>
         ) : (
           comments.map((c) => (
             <div key={c.id} className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3">
