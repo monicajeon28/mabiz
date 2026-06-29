@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-import { cancelSubscription, requestPayment, requestSubscription } from '@/lib/payapp';
+import { cancelSubscription, isConfigured, requestPayment, requestSubscription } from '@/lib/payapp';
 import { normalizePhone } from '@/lib/phone-normalize';
 
 // ─── P0-5: returnUrl 도메인 화이트리스트 ───
@@ -61,6 +61,16 @@ export async function POST(req: Request) {
     }
 
     const { type, goodname, price, customerName, customerPhone, customerEmail, landingPageId, cycleDay, expireDate } = parsed.data;
+
+    // 결제 시스템(PayApp) 환경변수 미설정 — 일반 오류(500)와 구분해 사용자에게 명확히 안내(502).
+    // getConfig()가 throw하기 전에 사전 점검 → DB에 진행 불가능한 pending 결제 기록을 남기지 않음.
+    if (!isConfigured()) {
+      logger.error('[Public/PayApp] 결제 환경변수 미설정 — 결제 요청 차단');
+      return NextResponse.json(
+        { ok: false, message: '결제 시스템이 아직 준비되지 않았습니다. 담당자에게 문의해 주세요.' },
+        { status: 502 }
+      );
+    }
 
     // 랜딩페이지로 조직 특정 (인증 대신) — CRM 랜딩 먼저, B2B 랜딩 폴백
     let landingSlug: string | null = null;

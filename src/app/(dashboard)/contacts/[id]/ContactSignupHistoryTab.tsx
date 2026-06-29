@@ -20,11 +20,22 @@ function getSignupDate(obj: unknown): string | null {
   return o.date || o.createdAt || null;
 }
 
-// Helper: 출처/기기 필드 추출
-function getSourceInfo(obj: unknown): { ip?: string | null; userAgent?: string | null; deviceType?: string | null; referer?: string | null } {
+// Helper: 출처/기기/상품/유입경로 필드 추출
+function getSourceInfo(obj: unknown): {
+  ip?: string | null; userAgent?: string | null; deviceType?: string | null;
+  referer?: string | null; productName?: string | null; utmSource?: string | null;
+  landingPageTitle?: string | null;
+} {
   if (typeof obj !== "object" || obj === null) return {};
-  const o = obj as { ip?: string | null; userAgent?: string | null; deviceType?: string | null; referer?: string | null };
-  return { ip: o.ip, userAgent: o.userAgent, deviceType: o.deviceType, referer: o.referer };
+  const o = obj as {
+    ip?: string | null; userAgent?: string | null; deviceType?: string | null;
+    referer?: string | null; productName?: string | null; utmSource?: string | null;
+    landingPageTitle?: string | null;
+  };
+  return {
+    ip: o.ip, userAgent: o.userAgent, deviceType: o.deviceType, referer: o.referer,
+    productName: o.productName, utmSource: o.utmSource, landingPageTitle: o.landingPageTitle,
+  };
 }
 
 // Helper: 응답 시간 필드 확인
@@ -73,10 +84,10 @@ export default function ContactSignupHistoryTab({ contact }: { contact: Contact 
         const nextSignup = signups[idx + 1];
         const nextDate = getSignupDate(nextSignup);
 
-        // 신청 출처/기기 정보
-        const { ip, userAgent, deviceType, referer } = getSourceInfo(signup);
-        const hasSourceInfo = !!(ip || userAgent || deviceType || referer);
-        const deviceLabel = deviceType === "mobile" ? "📱 휴대폰" : deviceType === "desktop" ? "💻 PC" : null;
+        // 신청 출처/기기/상품/유입경로 정보
+        const { ip, userAgent, deviceType, referer, productName, utmSource, landingPageTitle } = getSourceInfo(signup);
+        const hasSourceInfo = !!(ip || userAgent || deviceType || referer || productName || utmSource || landingPageTitle);
+        const deviceLabel = deviceType === "mobile" ? "📱 휴대폰" : deviceType === "desktop" ? "💻 데스크톱(PC)" : null;
 
         // signupDate를 한 번만 생성
         const signupDate = new Date(date);
@@ -118,26 +129,35 @@ export default function ContactSignupHistoryTab({ contact }: { contact: Contact 
             <p className="text-xs text-gray-500 mb-2">
               {UI_ICONS.DATE} {formattedDate}
             </p>
-            {/* 신청 IP / 기기 — 어디서·어떤 기기로 신청했는지 */}
+            {/* 신청 출처 — 어디서·무엇으로·어떤 기기로 신청했는지 */}
             {hasSourceInfo && (
               <div className="mt-2 mb-2 rounded-lg bg-gray-50 border border-gray-100 px-3 py-2 space-y-1">
-                <p className="text-[11px] font-semibold text-gray-600">신청 IP / 기기</p>
+                <p className="text-xs font-semibold text-gray-600">신청 출처</p>
+                {landingPageTitle && (
+                  <p className="text-sm text-gray-700">신청 페이지: {landingPageTitle}</p>
+                )}
+                {productName && (
+                  <p className="text-sm text-gray-700">신청 상품: {productName}</p>
+                )}
+                {utmSource && (
+                  <p className="text-sm text-gray-700">유입경로: {utmSource}</p>
+                )}
                 {deviceLabel && (
-                  <p className="text-xs text-gray-700">{deviceLabel}</p>
+                  <p className="text-sm text-gray-700">기기: {deviceLabel}</p>
                 )}
                 {ip && (
-                  <p className="text-xs text-gray-700">
-                    IP: <span className="font-mono">{ip}</span>
-                  </p>
-                )}
-                {userAgent && (
-                  <p className="text-[11px] text-gray-400 break-all" title={userAgent}>
-                    {userAgent}
+                  <p className="text-sm text-gray-700">
+                    신청 위치(IP): <span className="font-mono">{ip}</span>
                   </p>
                 )}
                 {referer && (
                   <p className="text-[11px] text-gray-400 break-all" title={referer}>
                     접속경로: {referer}
+                  </p>
+                )}
+                {userAgent && (
+                  <p className="text-[11px] text-gray-400 break-all" title={userAgent}>
+                    {userAgent}
                   </p>
                 )}
               </div>

@@ -340,7 +340,9 @@ export default function BotLandingClient({
                 </p>
               </div>
             )}
-            {/* 설득 사진 (사장님 스토리보드 — /public/bot). 한 화면 유지 위해 높이 캡(화면비례). */}
+            {/* 설득 사진 (사장님 스토리보드 — /public/bot).
+                모바일: 풀폭+크게(세로 상한 50vh)로 한눈에. 데스크톱은 과대 방지 위해 40vh.
+                object-contain 유지로 잘림 방지. 하단 버튼은 바깥 shrink-0 영역이라 같은 화면 보장. */}
             {flowNode.image && (
               <div className="mt-3">
                 <img
@@ -350,7 +352,7 @@ export default function BotLandingClient({
                   onError={(e) => {
                     e.currentTarget.style.display = "none";
                   }}
-                  className="w-full max-h-[26vh] rounded-2xl border border-slate-200 object-contain shadow-sm"
+                  className="w-full max-h-[50vh] sm:max-h-[40vh] rounded-2xl border border-slate-200 object-contain shadow-sm"
                 />
               </div>
             )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Sparkles, Trash2 } from "lucide-react";
+import { Sparkles, Trash2, MessageCircleQuestion } from "lucide-react";
 
 type MgrComment = {
   id: string;
@@ -24,11 +24,16 @@ interface Props {
   onGenDateToChange: (d: string) => void;
   onGenerate: () => void;
   onDelete: (commentId: string) => void;
+  // 샘플 문의 자동 생성(큐레이션 Q&A, 외부 의존 0) — 관리자/지사만
+  canSeed: boolean;
+  seeding: boolean;
+  onSeed: () => void;
 }
 
 export function CommentsTab({
   comments, commentEnabled, genCount, genDateFrom, genDateTo, generating, commentMsg,
   onToggleEnabled, onGenCountChange, onGenDateFromChange, onGenDateToChange, onGenerate, onDelete,
+  canSeed, seeding, onSeed,
 }: Props) {
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -47,6 +52,28 @@ export function CommentsTab({
         </div>
         <p className="text-xs text-gray-400">활성화 시 공개 랜딩페이지 하단에 질문·답변 게시판이 노출됩니다.</p>
       </div>
+
+      {/* 샘플 문의 자동 생성 (큐레이션 Q&A, 외부 연결 없이 안전) — 관리자/지사만 */}
+      {canSeed && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+          <p className="text-base font-semibold text-gray-800 flex items-center gap-1.5 mb-1">
+            <MessageCircleQuestion className="w-5 h-5 text-green-600" /> 샘플 문의 자동 생성
+          </p>
+          <p className="text-sm text-gray-600 mb-3" style={{ lineHeight: 1.6 }}>
+            크루즈 여행에서 자주 나오는 질문과 친절한 안내 답변을 한 번에 만들어 줍니다. 위에서 고른
+            <b> 작성 기간</b>과 <b>개수</b>가 함께 적용되며, 같은 페이지에는 최대 10개까지만 쌓입니다.
+            (만들어진 문의는 아래에서 검토·삭제할 수 있어요.)
+          </p>
+          <button
+            onClick={onSeed}
+            disabled={seeding}
+            style={{ minHeight: 48 }}
+            className="w-full bg-green-600 text-white rounded-lg text-base font-semibold hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2 px-4"
+          >
+            {seeding ? "생성 중..." : <><MessageCircleQuestion className="w-5 h-5" /> 샘플 문의 자동 생성 (최대 10개)</>}
+          </button>
+        </div>
+      )}
 
       {/* AI FAQ 시드 생성 */}
       <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl p-4">

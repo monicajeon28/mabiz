@@ -39,6 +39,20 @@ function getConfig(): PayAppConfig {
 }
 
 /**
+ * PayApp 결제 환경변수(USERID/LINKKEY/LINKVAL)가 모두 설정됐는지 점검.
+ *
+ * getConfig()는 미설정 시 throw하므로, 호출부에서 throw 없이 "결제 시스템 준비 여부"를
+ * 사전 판단할 때 사용합니다. (예: 운영 env 누락 시 일반 500 대신 명확한 안내 메시지 반환)
+ */
+export function isConfigured(): boolean {
+  return Boolean(
+    process.env.PAYAPP_USERID &&
+    process.env.PAYAPP_LINKKEY &&
+    process.env.PAYAPP_LINKVAL,
+  );
+}
+
+/**
  * PayApp REST API 호출 (FORM POST)
  */
 async function payappApiPost(params: Record<string, string>): Promise<PayAppResponse> {

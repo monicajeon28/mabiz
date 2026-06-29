@@ -30,14 +30,30 @@ type Stats = {
   totalPendingCount: number;
 };
 
+// 매칭 실패 시 영어 원본 대신 한글 "확인중" + 회색으로 표시
+const FALLBACK_STATUS = { label: "확인중", color: "text-gray-500 bg-gray-100" };
+
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  paid:             { label: "결제완료", color: "text-emerald-700 bg-emerald-50" },
-  pending:          { label: "대기",     color: "text-gray-600 bg-gray-100" },
-  waiting:          { label: "입금대기", color: "text-amber-700 bg-amber-50" },
-  refunded:         { label: "환불",     color: "text-red-700 bg-red-50" },
-  partial_refunded: { label: "부분환불", color: "text-orange-700 bg-orange-50" },
-  cancelled:        { label: "취소",     color: "text-gray-500 bg-gray-100" },
+  paid:             { label: "결제완료",   color: "text-emerald-700 bg-emerald-50" },
+  completed:        { label: "결제완료",   color: "text-emerald-700 bg-emerald-50" },
+  pending:          { label: "대기",       color: "text-gray-600 bg-gray-100" },
+  ready:            { label: "대기",       color: "text-gray-600 bg-gray-100" },
+  waiting:          { label: "입금대기",   color: "text-amber-700 bg-amber-50" },
+  pending_vbank:    { label: "입금대기",   color: "text-amber-700 bg-amber-50" },
+  refund_pending:   { label: "환불처리중", color: "text-orange-700 bg-orange-50" },
+  refunded:         { label: "환불완료",   color: "text-red-700 bg-red-50" },
+  partial_refunded: { label: "부분환불",   color: "text-orange-700 bg-orange-50" },
+  cancelled:        { label: "취소",       color: "text-gray-500 bg-gray-100" },
+  canceled:         { label: "취소",       color: "text-gray-500 bg-gray-100" },
+  failed:           { label: "결제실패",   color: "text-red-700 bg-red-50" },
+  expired:          { label: "기간만료",   color: "text-gray-500 bg-gray-100" },
 };
+
+// 대소문자/공백 무시하고 한글 라벨 조회 (없으면 "확인중")
+function statusLabel(status: string | null | undefined) {
+  if (!status) return FALLBACK_STATUS;
+  return STATUS_LABELS[status.toString().trim().toLowerCase()] ?? FALLBACK_STATUS;
+}
 
 type Subscription = {
   id: string;
@@ -53,11 +69,22 @@ type Subscription = {
 };
 
 const SUB_STATUS: Record<string, { label: string; color: string }> = {
-  pending:   { label: "대기",     color: "text-gray-600 bg-gray-100" },
-  active:    { label: "활성",     color: "text-emerald-700 bg-emerald-50" },
-  paused:    { label: "일시정지", color: "text-amber-700 bg-amber-50" },
-  cancelled: { label: "해지",     color: "text-red-700 bg-red-50" },
+  pending:        { label: "대기",          color: "text-gray-600 bg-gray-100" },
+  active:         { label: "활성",          color: "text-emerald-700 bg-emerald-50" },
+  paused:         { label: "일시정지",      color: "text-amber-700 bg-amber-50" },
+  cancelled:      { label: "해지",          color: "text-red-700 bg-red-50" },
+  canceled:       { label: "해지",          color: "text-red-700 bg-red-50" },
+  failed:         { label: "결제실패",      color: "text-red-700 bg-red-50" },
+  pause_pending:  { label: "일시정지 처리중", color: "text-amber-700 bg-amber-50" },
+  resume_pending: { label: "재시작 처리중",   color: "text-emerald-700 bg-emerald-50" },
+  cancel_pending: { label: "해지 처리중",     color: "text-red-700 bg-red-50" },
 };
+
+// 정기결제 상태도 대소문자 무시 조회 (없으면 "확인중")
+function subStatusLabel(status: string | null | undefined) {
+  if (!status) return FALLBACK_STATUS;
+  return SUB_STATUS[status.toString().trim().toLowerCase()] ?? FALLBACK_STATUS;
+}
 
 type MallPayment = {
   id: number;
@@ -329,7 +356,7 @@ export default function PaymentsPage() {
             ) : payments.length === 0 ? (
               <tr><td colSpan={7} className="text-center py-12 text-gray-600">결제 내역이 없습니다</td></tr>
             ) : payments.map((p) => {
-              const st = STATUS_LABELS[p.status] ?? { label: p.status, color: "text-gray-500 bg-gray-100" };
+              const st = statusLabel(p.status);
               return (
                 <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900">{p.productName ?? "-"}</td>
@@ -412,7 +439,9 @@ export default function PaymentsPage() {
                   <tr><td colSpan={6} className="text-center py-12 text-gray-600">불러오는 중...</td></tr>
                 ) : mallPayments.length === 0 ? (
                   <tr><td colSpan={6} className="text-center py-12 text-gray-600">결제 내역이 없습니다</td></tr>
-                ) : mallPayments.map((p) => (
+                ) : mallPayments.map((p) => {
+                  const st = statusLabel(p.status);
+                  return (
                   <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-900">{p.productName ?? "-"}</td>
                     <td className="px-4 py-3">
@@ -421,17 +450,15 @@ export default function PaymentsPage() {
                     </td>
                     <td className="px-4 py-3 text-right font-semibold">{p.amount.toLocaleString()}원</td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${
-                        p.status === "paid" ? "text-emerald-700 bg-emerald-50" :
-                        p.status === "cancelled" ? "text-red-700 bg-red-50" : "text-gray-600 bg-gray-100"
-                      }`}>{p.status === "paid" ? "결제완료" : p.status === "cancelled" ? "취소" : p.status}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${st.color}`}>{st.label}</span>
                     </td>
                     <td className="px-4 py-3 text-center text-sm text-gray-500">{p.pgProvider ?? "-"}</td>
                     <td className="px-4 py-3 text-center text-sm text-gray-600">
                       {p.paidAt ? new Date(p.paidAt).toLocaleDateString("ko-KR") : "-"}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -467,7 +494,7 @@ export default function PaymentsPage() {
               ) : subscriptions.length === 0 ? (
                 <tr><td colSpan={7} className="text-center py-12 text-gray-600">정기결제 내역이 없습니다</td></tr>
               ) : subscriptions.map((s) => {
-                const st = SUB_STATUS[s.status] ?? { label: s.status, color: "text-gray-500 bg-gray-100" };
+                const st = subStatusLabel(s.status);
                 return (
                   <tr key={s.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-900">{s.goodname}</td>

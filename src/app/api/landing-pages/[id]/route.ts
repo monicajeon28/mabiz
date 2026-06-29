@@ -5,6 +5,7 @@ import { getAuthContext, canEditLandingPages, landingOwnershipScope } from "@/li
 import { logger } from "@/lib/logger";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
 import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
+import { isFullHtmlDocument } from "@/lib/html-doc-detect";
 
 const PatchSchema = z.object({
   title:          z.string().min(1).max(200).optional(),
@@ -159,7 +160,13 @@ export async function PATCH(req: Request, { params }: Params) {
       pageFormat, ctaType, imageFieldConfig,
       blocksConfig, smsDayRange,
     } = parsed.data;
-    const sanitizedContent = htmlContent !== undefined ? sanitizeHtml(htmlContent) : undefined;
+    // #19a — "전체 HTML 문서"(<!doctype/<html 시작)는 원본 그대로(verbatim) 저장.
+    //   렌더측(src/app/p/[slug]/page.tsx)이 동일 판정으로 iframe 샌드박스(null origin)에서만 격리 렌더하므로
+    //   저장 verbatim이 안전. sanitize하면 head/style/script/doctype가 strip돼 디자인이 죽고 <title>이 본문에 샘.
+    //   빌더형·이미지형(항상 <div> 시작 → isFullHtmlDocument=false)은 기존 sanitize 유지 = 회귀 0.
+    const storedContent = htmlContent !== undefined
+      ? (isFullHtmlDocument(htmlContent) ? htmlContent : sanitizeHtml(htmlContent))
+      : undefined;
 
     // Phase 3: pageFormat 유효성 검증
     const VALID_FORMATS = ['squeeze', 'vsl', 'webinar', 'funnel', 'tripwire', 'downsell', 'launch', 'hybrid'];
@@ -203,7 +210,7 @@ export async function PATCH(req: Request, { params }: Params) {
       data: {
         ...(title             !== undefined ? { title }                                : {}),
         ...(slug              !== undefined ? { slug }                                  : {}),
-        ...(sanitizedContent  !== undefined ? { htmlContent: sanitizedContent }         : {}),
+        ...(storedContent     !== undefined ? { htmlContent: storedContent }            : {}),
         ...(isActive          !== undefined ? { isActive }                              : {}),
         ...(isPublic          !== undefined ? { isPublic }                              : {}),
         ...(shouldUpdateGroupId ? { groupId: resolvedGroupId ?? null }                  : {}),

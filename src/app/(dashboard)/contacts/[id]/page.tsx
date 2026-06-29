@@ -1450,7 +1450,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
           >
             <span className="text-sm font-semibold text-gray-900 flex items-center gap-2">
               <FileText className="w-4 h-4 text-blue-500" />
-              신청 이력 ({contact.signupCount || 0})
+              신청 출처 · 이력 ({contact.signupCount || 0})
             </span>
             <ChevronDown
               className={`w-4 h-4 text-gray-400 transition-transform ${

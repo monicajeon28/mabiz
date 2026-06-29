@@ -5,8 +5,23 @@ import { getAuthContext, resolveOrgIdOrNull, BONSA_ORG_ID, canManageSettings, ca
 import { logger } from "@/lib/logger";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
 import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
+import { isFullHtmlDocument } from "@/lib/html-doc-detect";
 import { generateUniqueShortlink, buildLandingTargetUrl } from "@/lib/landing-page-utils";
 import { IMAGE_FIELDS_BY_FORMAT } from "@/lib/landing-page-constants";
+
+/**
+ * #19a — 저장할 본문 결정.
+ * "전체 HTML 문서"(<!doctype html>/<html>로 시작)는 원본 그대로(verbatim) 저장한다.
+ *   근거: 렌더측(src/app/p/[slug]/page.tsx)이 동일하게 isFullHtmlDocument로 판정해
+ *   오직 iframe 샌드박스(sandbox="allow-scripts allow-popups", allow-same-origin 없음 = null origin)로만
+ *   격리 렌더한다 → 저장 sanitize가 head/style/script/doctype를 strip하면 디자인이 죽고 <title>이 본문에 샌다.
+ * 빌더형·이미지형(항상 <div>로 시작 → isFullHtmlDocument=false)은 기존 sanitize 유지 = 회귀 0.
+ * (판정을 내용 기준으로 통일 → 저장·렌더가 항상 같은 경로를 타게 보장)
+ */
+function resolveStoredHtml(html: string | null | undefined): string {
+  const raw = html ?? "";
+  return isFullHtmlDocument(raw) ? raw : sanitizeHtml(raw);
+}
 
 // GET /api/landing-pages
 export async function GET() {
@@ -181,7 +196,7 @@ export async function POST(req: Request) {
           organizationId: orgId, title, slug, shortlink,
           // 만든 사람 기록 — 대리점장(AGENT)이 본인 페이지를 목록/편집에서 식별하는 기준
           createdByUserId: ctx.userId,
-          htmlContent: sanitizeHtml(htmlContent ?? ""),
+          htmlContent: resolveStoredHtml(htmlContent),
           groupId: groupId ?? null,
           editorMode: mode,
           commentEnabled: commentEnabled === true,

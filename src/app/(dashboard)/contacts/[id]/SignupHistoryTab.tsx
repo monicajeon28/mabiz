@@ -13,6 +13,20 @@ interface SignupRecord {
   email?: string;
   phone?: string;
   daysSinceLanding?: number;
+  // 신청 출처/기기 (어디서·무엇으로 신청했는지)
+  productName?: string | null;
+  ip?: string | null;
+  userAgent?: string | null;
+  deviceType?: string | null; // mobile | desktop
+  referer?: string | null;
+  utmSource?: string | null;
+}
+
+// 기기 종류를 50대 친화 한글 라벨로 변환
+function deviceLabelOf(deviceType?: string | null): string | null {
+  if (deviceType === "mobile") return "📱 휴대폰";
+  if (deviceType === "desktop") return "💻 데스크톱(PC)";
+  return null;
 }
 
 interface SignupHistoryTabProps {
@@ -146,11 +160,61 @@ export function SignupHistoryTab({ contactId }: SignupHistoryTabProps) {
                   <span className="text-gray-400 mt-0.5 flex-shrink-0">📞</span>
                   <div>
                     <p className="text-xs text-gray-600">신청 연락처</p>
-                    <p className="text-sm text-gray-900">
+                    <p className="text-base text-gray-900">
                       {record.phone && <span>{record.phone}</span>}
                       {record.email && record.phone && <span> / </span>}
                       {record.email && <span>{record.email}</span>}
                     </p>
+                  </div>
+                </div>
+              )}
+
+              {/* 신청 상품 — 어떤 상품으로 신청했는지 */}
+              {record.productName && (
+                <div className="flex items-start gap-2">
+                  <span className="text-gray-400 mt-0.5 flex-shrink-0">🚢</span>
+                  <div>
+                    <p className="text-xs text-gray-600">신청 상품</p>
+                    <p className="text-base font-medium text-gray-900">{record.productName}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* 유입경로 — 어떤 광고/채널을 통해 들어왔는지 */}
+              {record.utmSource && (
+                <div className="flex items-start gap-2">
+                  <span className="text-gray-400 mt-0.5 flex-shrink-0">🧭</span>
+                  <div>
+                    <p className="text-xs text-gray-600">유입경로</p>
+                    <p className="text-base text-gray-900">{record.utmSource}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* 신청 위치(IP) / 기기 — 어디서·어떤 기기로 신청했는지 */}
+              {(record.ip || record.deviceType || record.referer || record.userAgent) && (
+                <div className="flex items-start gap-2">
+                  <span className="text-gray-400 mt-0.5 flex-shrink-0">📍</span>
+                  <div className="min-w-0">
+                    <p className="text-xs text-gray-600">신청 위치 · 기기</p>
+                    {deviceLabelOf(record.deviceType) && (
+                      <p className="text-base text-gray-900">기기: {deviceLabelOf(record.deviceType)}</p>
+                    )}
+                    {record.ip && (
+                      <p className="text-base text-gray-900">
+                        신청 위치(IP): <span className="font-mono">{record.ip}</span>
+                      </p>
+                    )}
+                    {record.referer && (
+                      <p className="text-xs text-gray-400 break-all mt-0.5" title={record.referer}>
+                        접속경로: {record.referer}
+                      </p>
+                    )}
+                    {record.userAgent && (
+                      <p className="text-xs text-gray-400 break-all mt-0.5" title={record.userAgent}>
+                        {record.userAgent}
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
