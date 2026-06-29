@@ -366,6 +366,8 @@ export default function ComparisonQuoteTab() {
           competitorHasStaff: form.competitorHasStaff || undefined,
           itinerary: form.itinerary || undefined,
           departureDate: form.departureDate || undefined,
+          // 상품별 취소·환불 규정(재열람/재발급 시 환불표 유실 방지 — P1-3)
+          refundPolicyLines: form.refundPolicyLines ?? [],
         }),
       });
       const json = await res.json().catch(() => ({}));

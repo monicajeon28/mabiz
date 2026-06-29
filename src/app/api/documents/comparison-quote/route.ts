@@ -40,6 +40,8 @@ export async function POST(req: Request) {
       customerEmail?: string;
       itinerary?: string;
       departureDate?: string;
+      // 상품별 취소·환불 규정 라인(프론트가 product-info에서 가져와 표시, 재열람 위해 저장 — P1-3)
+      refundPolicyLines?: Array<{ label: string; value: string }>;
     };
 
     if (!body.customerName || !body.productName || !body.price) {
@@ -91,6 +93,7 @@ export async function POST(req: Request) {
           customerEmail:           body.customerEmail ?? null,
           itinerary:               body.itinerary ?? null,
           departureDate:           body.departureDate ?? null,
+          refundPolicyLines:       body.refundPolicyLines ?? [],
           issuedAt:                new Date().toISOString(),
           issuerOrgId:             orgId,
         },

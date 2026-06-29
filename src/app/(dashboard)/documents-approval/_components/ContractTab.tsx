@@ -227,6 +227,8 @@ export default function ContractTab() {
   const [listLoading, setListLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [modalOpen, setModalOpen] = useState(false);
+  // #24 — 계약서 전달 모달(링크+메시지 복사). 자동 SMS 대신 운영자가 직접 복사해 전달.
+  const [sendModal, setSendModal] = useState<{ signUrl: string; buyerName: string; message: string } | null>(null);
 
   // 우측 항상 표시 미리보기 (목록 행 클릭 시 업데이트)
   const [previewData, setPreviewData] = useState<ContractPreviewData>({});
@@ -519,6 +521,9 @@ export default function ContractTab() {
       if (res.status === 409) { showError('이미 발급된 계약서가 있습니다.'); return; }
       const json = await res.json();
       if (!res.ok || !json.ok) { showError((json.message as string) || '발급 실패'); return; }
+      // #24 — 발급 직후 링크/메시지 복사 모달용 데이터 확보(자동 SMS 발송 안 함)
+      const issuedBuyer = form.buyerName.trim() || '고객';
+      const issuedSignUrl = typeof json.signUrl === 'string' ? json.signUrl : '';
       showSuccess('계약서가 발급되었습니다.');
       setModalOpen(false);
       setForm(getEmptyForm());
@@ -526,6 +531,10 @@ export default function ContractTab() {
       setAddingCompanion(false);
       setCompanionDraft({ name: '', birthDate: '', relation: '배우자', phone: '', pnr: '' });
       await loadDocuments();
+      // 발급 완료 → 링크+메시지 복사 모달을 띄워 운영자가 직접 전달(카카오톡/문자)
+      if (issuedSignUrl) {
+        setSendModal({ signUrl: issuedSignUrl, buyerName: issuedBuyer, message: buildSignMessage(issuedBuyer, issuedSignUrl) });
+      }
     } catch (e) {
       showError(e instanceof Error ? e.message : '발급 중 오류가 발생했습니다.');
     } finally {
@@ -724,6 +733,35 @@ export default function ContractTab() {
     if (!selectedDoc?.id || !selectedDoc.signToken) return null;
     const appUrl = (typeof window !== 'undefined' && window.location?.origin) || 'https://mabizcruisedot.com';
     return `${appUrl}/contract/sign/${selectedDoc.id}?token=${selectedDoc.signToken}`;
+  };
+
+  /* ── #24 전달용 안내 메시지 + 범용 복사 + 전달 모달 오픈 ── */
+  const buildSignMessage = (buyerName: string, url: string) =>
+    `[크루즈닷] ${buyerName}님, 계약서 서명을 요청드립니다.\n아래 링크에서 7일 이내에 서명해 주세요.\n${url}`;
+
+  const copyText = async (text: string, okMsg: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      showSuccess(okMsg);
+    } catch {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+        document.body.removeChild(ta);
+        showSuccess(okMsg);
+      } catch {
+        showError('복사에 실패했어요. 길게 눌러 직접 복사해주세요.');
+      }
+    }
+  };
+
+  // 이미 발급된 계약서를 다시 전달(링크+메시지 복사 모달)
+  const openSendModal = () => {
+    const url = buildSignUrl();
+    if (!url) { showError('이 계약서에는 서명 링크가 없습니다.'); return; }
+    const name = selectedDoc?.buyerName?.trim() || '고객';
+    setSendModal({ signUrl: url, buyerName: name, message: buildSignMessage(name, url) });
   };
 
   /* ── 서명링크 클립보드 복사 ── */
@@ -986,8 +1024,17 @@ export default function ContractTab() {
               {pdfDownloading ? '여는 중...' : '계약서 PDF 다운로드'}
             </button>
 
-            {/* 서명 링크가 있을 때만 문자·복사 노출 */}
+            {/* 서명 링크가 있을 때만 전달·문자·복사 노출 */}
             {selectedDoc.signToken ? (
+              <>
+              <button
+                type="button"
+                onClick={openSendModal}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#1a2e4a] px-4 py-3 text-base font-bold text-white hover:bg-[#243d5e]"
+              >
+                <Send className="h-5 w-5" />
+                링크·메시지 전달하기
+              </button>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -1007,6 +1054,7 @@ export default function ContractTab() {
                   링크 복사
                 </button>
               </div>
+              </>
             ) : (
               <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-center text-sm text-gray-400">
                 이 계약서에는 서명 링크가 없어 문자 발송이 어렵습니다.
@@ -1607,6 +1655,66 @@ export default function ContractTab() {
             <div className="hidden lg:block min-w-0 flex-1 overflow-y-auto">
               <p className="mb-2 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">실시간 계약서 미리보기</p>
               <ContractBody data={formToPreview(form)} agentName={agent.displayName} agentPhone={agent.phone} mode="preview" />
+            </div>
+          </div>
+        </ModalShell>
+      )}
+
+      {/* ═══ #24 계약서 전달 모달 (링크+메시지 복사 — 자동 SMS 안 함) ═══════════ */}
+      {sendModal && (
+        <ModalShell
+          title="계약서 전달하기"
+          maxWidth="max-w-lg"
+          onClose={() => setSendModal(null)}
+          footer={
+            <button
+              onClick={() => setSendModal(null)}
+              className="rounded-lg border border-gray-300 px-5 py-2.5 text-base font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              닫기
+            </button>
+          }
+        >
+          <div className="space-y-5 p-1">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-800">
+              문자가 자동으로 발송되지 않습니다. 아래 <b>링크</b>와 <b>메시지</b>를 복사해서
+              카카오톡·문자로 직접 보내주세요. (서명 유효기간 7일)
+            </div>
+
+            {/* 서명 링크 */}
+            <div>
+              <label className="mb-1.5 block text-sm font-bold text-gray-800">서명 링크</label>
+              <div className="flex gap-2">
+                <input
+                  readOnly
+                  value={sendModal.signUrl}
+                  onFocus={(e) => e.currentTarget.select()}
+                  className="min-w-0 flex-1 rounded-xl border border-gray-300 bg-gray-50 px-3 py-3 text-sm text-gray-700"
+                />
+                <button
+                  onClick={() => copyText(sendModal.signUrl, '링크를 복사했어요. 붙여넣어 보내세요.')}
+                  className="shrink-0 rounded-xl bg-[#1a2e4a] px-4 py-3 text-base font-bold text-white hover:bg-[#243d5e]"
+                >
+                  링크 복사
+                </button>
+              </div>
+            </div>
+
+            {/* 전달 메시지 (수정 가능) */}
+            <div>
+              <label className="mb-1.5 block text-sm font-bold text-gray-800">전달 메시지 (수정 가능)</label>
+              <textarea
+                value={sendModal.message}
+                onChange={(e) => setSendModal((s) => (s ? { ...s, message: e.target.value } : s))}
+                rows={5}
+                className="w-full resize-none rounded-xl border border-gray-300 px-3 py-3 text-sm leading-relaxed text-gray-700"
+              />
+              <button
+                onClick={() => copyText(sendModal.message, '메시지를 복사했어요. 카카오톡·문자에 붙여넣어 보내세요.')}
+                className="mt-2 w-full rounded-xl bg-green-600 px-4 py-3 text-base font-bold text-white hover:bg-green-700"
+              >
+                메시지 복사 (링크 포함)
+              </button>
             </div>
           </div>
         </ModalShell>
