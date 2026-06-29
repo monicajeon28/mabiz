@@ -496,6 +496,20 @@ export function LandingClient({
 
     forms.forEach((f) => f.addEventListener("submit", handleSubmit));
 
+    // [견고화] document 캡처단계 위임 — dangerouslySetInnerHTML 콘텐츠가 하이드레이션 불일치
+    //   (브라우저 확장의 DOM 변조 등)로 React에 의해 재렌더되면 위 per-form 리스너가 유실되어
+    //   "결제하기" 클릭이 네이티브 GET 제출(?phone=...)로 새고 결제가 안 되던 문제를 방지.
+    //   document(안정적 노드)에 캡처로 걸어, 컨테이너 안의 어떤 폼 제출이든 항상 가로챈다.
+    const handleDocSubmit = (e: Event) => {
+      const t = e.target as Element | null;
+      if (t instanceof HTMLFormElement && container.contains(t)) {
+        // 캡처단계에서 처리 + 전파 중단 → 버블단계 per-form 리스너가 중복 호출(이중 제출)하지 않게 함
+        e.stopPropagation();
+        handleSubmit(e);
+      }
+    };
+    document.addEventListener("submit", handleDocSubmit, true);
+
     // submit-btn 클래스 버튼 클릭 인터셉트 (form 태그 없는 경우 대비)
     const btn = container.querySelector(".submit-btn, button[type='submit']");
     const handleBtnClick = (e: Event) => {
@@ -532,6 +546,7 @@ export function LandingClient({
 
     return () => {
       forms.forEach((f) => f.removeEventListener("submit", handleSubmit));
+      document.removeEventListener("submit", handleDocSubmit, true);
       btn?.removeEventListener("click", handleBtnClick);
       payJumpEls.forEach((el) => el.removeEventListener("click", handlePayJump));
     };
