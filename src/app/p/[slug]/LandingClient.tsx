@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import DOMPurify from "dompurify";
 import { logger } from "@/lib/logger";
 import { CountdownTimer } from "@/components/landing/CountdownTimer";
 import { StockGaugeWidget } from "@/components/landing/StockGaugeWidget";
@@ -752,33 +751,13 @@ export function LandingClient({
       {/* T38: formSectionRef 앵커 — 폼 섹션 상단에 위치 */}
       <div ref={formSectionRef} id="landing-form" />
 
+      {/* 서버 sanitizeHtml(폼·이미지 허용, script·onclick류·iframe·style태그 제거)로 이미 완전 정제된 콘텐츠를 그대로 렌더.
+          클라 DOMPurify 중복 제거 — 브라우저 전용이라 SSR에서 window 없어 크래시(운영 /p 500) + 하이드레이션 불일치 유발했음. */}
       <div
         ref={containerRef}
         role="main"
         aria-label="랜딩페이지 콘텐츠"
-        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(htmlContent, {
-          // 폼(input/select/label 등)·표·미디어까지 허용 — 서버 sanitizeHtml에서 1차 정제된 콘텐츠.
-          // 누락 시 이미지형 페이지의 신청 폼/이미지 레이아웃이 사라짐.
-          ALLOWED_TAGS: [
-            'b', 'i', 'u', 'p', 'br', 'hr', 'strong', 'em', 'a', 'img', 'picture', 'source',
-            'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code',
-            'span', 'div', 'section', 'article', 'header', 'footer', 'figure', 'figcaption',
-            'table', 'thead', 'tbody', 'tr', 'td', 'th',
-            'form', 'label', 'input', 'select', 'option', 'textarea', 'button',
-            'details', 'summary', 'mark', 'small', 'sub', 'sup',
-          ],
-          // style/width/height/loading 추가 — 이미지 width:100% 등 인라인 스타일 보존(모바일 깨짐 방지).
-          // 폼 필드는 name/type/placeholder 등을 유지해야 제출 핸들러가 값을 읽음.
-          ALLOWED_ATTR: [
-            'href', 'src', 'srcset', 'alt', 'title', 'class', 'id', 'style', 'role',
-            'width', 'height', 'loading', 'target', 'rel',
-            'name', 'type', 'placeholder', 'value', 'required', 'disabled', 'checked',
-            'maxlength', 'min', 'max', 'step', 'pattern', 'autocomplete', 'readonly',
-            'rows', 'cols', 'selected', 'for', 'colspan', 'rowspan',
-            'data-*', 'aria-label', 'aria-hidden',
-          ],
-          KEEP_CONTENT: true
-        }) }}
+        dangerouslySetInnerHTML={{ __html: htmlContent }}
       />
 
       {/* 보장형 결제 구역 — 페이지 HTML에 신청폼이 없을 때(HTML/커스텀형) 결제 동선 보장.
