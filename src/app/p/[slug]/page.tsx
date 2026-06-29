@@ -17,6 +17,7 @@ const getLandingPageBySlugOrShortlink = cache(async (identifier: string) => {
       ],
       isActive: true,
       isPublic: true,
+      deletedAt: null, // 삭제된 페이지는 고객에게 노출 안 함
     },
     select: {
       id: true, title: true, htmlContent: true, commentEnabled: true,

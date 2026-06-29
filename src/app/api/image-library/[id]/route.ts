@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthContext, resolveOrgId } from "@/lib/rbac";
+import { getAuthContext, resolveOrgId, canDelete } from "@/lib/rbac";
 import { getDriveClient } from "@/lib/drive-client";
 import { logger } from "@/lib/logger";
 
@@ -12,6 +12,11 @@ export async function DELETE(
   try {
     const ctx = await getAuthContext();
     const { id } = await params;
+
+    // 삭제는 관리자(GLOBAL_ADMIN)·지사장(OWNER)만 — 대리점장(AGENT) 등은 조직 자산 삭제 불가
+    if (!canDelete(ctx)) {
+      return NextResponse.json({ ok: false, error: "삭제 권한이 없습니다" }, { status: 403 });
+    }
 
     // GLOBAL_ADMIN: orgId null이면 전체 조직 접근 허용
     const isGlobalAdmin = ctx.role === "GLOBAL_ADMIN" && !ctx.organizationId;

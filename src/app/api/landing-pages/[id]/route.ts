@@ -76,7 +76,7 @@ export async function GET(_req: Request, { params }: Params) {
     const isOwner = ctx.role === 'OWNER';
 
     const page = await prisma.crmLandingPage.findFirst({
-      where: { id, ...landingOwnershipScope(ctx) },
+      where: { id, deletedAt: null, ...landingOwnershipScope(ctx) },
       include: {
         _count: { select: { registrations: true } },
         ...(isOwner ? { registrations: {
@@ -145,7 +145,7 @@ export async function PATCH(req: Request, { params }: Params) {
     }
 
     const existing = await prisma.crmLandingPage.findFirst({
-      where: { id, ...landingOwnershipScope(ctx) },
+      where: { id, deletedAt: null, ...landingOwnershipScope(ctx) },
     });
     if (!existing) return NextResponse.json({ ok: false }, { status: 404 });
 

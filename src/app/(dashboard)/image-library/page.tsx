@@ -10,8 +10,10 @@ import {
   ChevronRightIcon,
   FolderIcon,
   PlusIcon,
+  Trash2Icon,
 } from 'lucide-react';
 import { prepareImageForUpload } from '@/lib/client-image-compress';
+import { useSession } from '@/hooks/useSession';
 
 interface ImageAsset {
   id: string;
@@ -48,6 +50,10 @@ const GOOGLE_DRIVE_LIMIT = 50;
 const UPLOAD_CATEGORIES = ['후기', '크루즈정보사진', '상품'];
 
 export default function ImageLibraryPage() {
+  // 삭제는 관리자(GLOBAL_ADMIN)·지사장(OWNER)만 노출
+  const { role } = useSession();
+  const canDelete = role === 'GLOBAL_ADMIN' || role === 'OWNER';
+
   const [activeTab, setActiveTab] = useState<'local' | 'drive'>('local');
 
   // 로컬 이미지 상태
@@ -265,6 +271,24 @@ export default function ImageLibraryPage() {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+    }
+  };
+
+  // 삭제 (관리자/지사장만) — 업로드 자산(source==='asset')만. confirm 후 DELETE → 목록 재조회.
+  const deleteLocalAsset = async (asset: ImageAsset) => {
+    if (!canDelete || asset.source !== 'asset') return;
+    if (!confirm(`"${asset.title}" 이미지를 삭제할까요? 되돌릴 수 없습니다.`)) return;
+    try {
+      const res = await fetch(`/api/image-library/${asset.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.ok) {
+        setAssets((prev) => prev.filter((a) => a.id !== asset.id));
+        setTotal((t) => Math.max(0, t - 1));
+      } else {
+        alert(data.error || '삭제에 실패했습니다.');
+      }
+    } catch {
+      alert('네트워크 오류로 삭제하지 못했습니다.');
     }
   };
 
@@ -594,6 +618,16 @@ export default function ImageLibraryPage() {
                 >
                   <DownloadIcon className="w-4 h-4 text-gray-600" />
                 </button>
+                {/* 삭제 — 관리자/지사장 + 업로드 자산만 */}
+                {canDelete && asset.source === 'asset' && (
+                  <button
+                    onClick={() => deleteLocalAsset(asset)}
+                    className="p-1 bg-white rounded hover:bg-red-50"
+                    title="삭제 (관리자)"
+                  >
+                    <Trash2Icon className="w-4 h-4 text-red-500" />
+                  </button>
+                )}
               </div>
               <p className="mt-2 text-xs text-gray-600 truncate">{asset.title}</p>
             </div>

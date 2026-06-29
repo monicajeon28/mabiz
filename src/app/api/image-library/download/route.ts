@@ -66,11 +66,7 @@ export async function GET(req: Request) {
     const w = meta.width ?? 800;
     const h = meta.height ?? 600;
 
-    // 반투명 회색 오버레이
-    const overlay = await sharp({
-      create: { width: w, height: h, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0.3 } },
-    }).png().toBuffer();
-
+    // 원본 이미지는 선명하게 유지 — 음영(전체 오버레이) 제거. 로고만 흐린 회색 워터마크로 얹음.
     // 워터마크: logo.png 있으면 사용, 없으면 텍스트
     const logoPath = path.join(process.cwd(), 'public', 'logo.png');
     let watermarkInput: Buffer;
@@ -104,7 +100,6 @@ export async function GET(req: Request) {
 
     const result = await sharp(buffer)
       .composite([
-        { input: overlay, blend: 'over' },
         { input: watermarkInput, gravity: 'center', blend: 'over' },
       ])
       .png()

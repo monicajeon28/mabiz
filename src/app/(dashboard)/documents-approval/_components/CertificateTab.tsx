@@ -267,6 +267,11 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
       // productInfo.refundPolicy 도 폴백값으로 채워 발급 시 generatedData 에 규정이 누락되지 않게 함.
       const effectivePolicy = prod.refundPolicy ?? LEGAL_REFUND_POLICY;
       setProductInfo({ ...prod, refundPolicy: effectivePolicy });
+      // 출발일 자동 채움 — 상품의 startDate를 환불정보 출발일 칸에 (사용자가 아직 안 넣었을 때만 보존)
+      if (prod.startDate) {
+        const ymd = prod.startDate.slice(0, 10);
+        setDirectInput((prev) => (prev.departureDate.trim().length === 0 ? { ...prev, departureDate: ymd } : prev));
+      }
       // 상품별 환불규정이 있으면 사람이 읽는 문자열로 refundPolicyText 자동 채움
       // (사용자가 아직 직접 입력 안 했을 때만 — 입력값 보존). 50자 게이트 자연 통과.
       const lines = (prod.refundPolicyLines && prod.refundPolicyLines.length > 0)
@@ -939,7 +944,7 @@ function PurchasePreview({
   return (
     <div
       ref={cardRef}
-      className="overflow-hidden rounded-xl border-4 border-gray-300 bg-white px-12 py-10 shadow-lg mx-auto max-w-[210mm] aspect-[210/297] print:max-w-none print:aspect-auto"
+      className="rounded-xl border-4 border-gray-300 bg-white px-12 py-10 shadow-lg mx-auto max-w-[210mm] min-h-[297mm] print:max-w-none print:min-h-0"
     >
       <DocumentLetterhead title="구매확인증서" accentClass="border-emerald-100" />
 
@@ -962,6 +967,16 @@ function PurchasePreview({
           <p className="mb-4 text-xs font-bold uppercase tracking-widest text-emerald-700">상품 · 결제 정보</p>
           <dl className="divide-y divide-emerald-200 space-y-0">
             <InfoRow icon={Package} label="상품명" value={data.productName || '-'} strong />
+            {/* 어떤 여행인지 — 상품 상세(선사·선박·기간·출발일) 자동 표시 */}
+            {productInfo && (productInfo.cruiseLine || productInfo.shipName) && (
+              <InfoRow icon={Package} label="크루즈" value={[productInfo.cruiseLine, productInfo.shipName].filter(Boolean).join(' · ') || '-'} />
+            )}
+            {productInfo && (productInfo.nights > 0 || productInfo.days > 0) && (
+              <InfoRow icon={Calendar} label="여행기간" value={`${productInfo.nights}박 ${productInfo.days}일`} />
+            )}
+            {productInfo?.startDate && (
+              <InfoRow icon={Calendar} label="출발일" value={formatDate(productInfo.startDate)} />
+            )}
             <InfoRow icon={CreditCard} label="결제금액" value={formatMoney(data.amount ?? null)} strong size="lg" />
             <InfoRow icon={Calendar} label="결제일" value={formatDate(data.paidAt)} />
             <InfoRow icon={CreditCard} label="결제방법" value={data.paymentMethod || '-'} />
@@ -1052,7 +1067,7 @@ function RefundPreview({
   return (
     <div
       ref={cardRef}
-      className="overflow-hidden rounded-xl border-4 border-gray-300 bg-white px-12 py-10 shadow-lg mx-auto max-w-[210mm] aspect-[210/297] print:max-w-none print:aspect-auto"
+      className="rounded-xl border-4 border-gray-300 bg-white px-12 py-10 shadow-lg mx-auto max-w-[210mm] min-h-[297mm] print:max-w-none print:min-h-0"
     >
       <DocumentLetterhead title={title} accentClass="border-red-100" />
 

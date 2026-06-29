@@ -36,6 +36,7 @@ export async function GET() {
     // 내 페이지 — 대리점장(AGENT)은 본인이 만든(복제 포함) 페이지만(조직 전체 노출 차단)
     const pages = await prisma.crmLandingPage.findMany({
       where: {
+        deletedAt: null, // 소프트삭제된 페이지 제외(삭제 후 부활 버그 수정)
         ...(orgId ? { organizationId: orgId } : {}),
         ...(isAgentPartner ? { createdByUserId: ctx.userId } : {}),
       },
@@ -60,11 +61,11 @@ export async function GET() {
       where: {
         OR: [
           // 지정공유(나를 콕 집음): 조직 무관하게 표시(내가 만든 페이지만 제외) — 같은 지사 대리점장도 보이게
-          { sharedToUserId: ctx.userId, landingPage: { id: { not: "" }, createdByUserId: { not: ctx.userId } } },
+          { sharedToUserId: ctx.userId, landingPage: { id: { not: "" }, deletedAt: null, createdByUserId: { not: ctx.userId } } },
           // 조직 공유: 내 조직 대상 + 내 조직 페이지 제외
-          { sharedToOrgId: myOrgId, sharedToUserId: "", landingPage: { id: { not: "" }, organizationId: { not: myOrgId } } },
+          { sharedToOrgId: myOrgId, sharedToUserId: "", landingPage: { id: { not: "" }, deletedAt: null, organizationId: { not: myOrgId } } },
           // 전체 공유: 내 조직 페이지 제외
-          { isGlobal: true, sharedToUserId: "", landingPage: { id: { not: "" }, organizationId: { not: myOrgId } } },
+          { isGlobal: true, sharedToUserId: "", landingPage: { id: { not: "" }, deletedAt: null, organizationId: { not: myOrgId } } },
         ],
       },
       select: {
