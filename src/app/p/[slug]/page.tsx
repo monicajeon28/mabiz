@@ -274,7 +274,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       type: 'website' as const,
       url,
       siteName: '크루즈닷',
-      ...(page?.exposureImage ? { images: [{ url: page.exposureImage, width: 1200, height: 630, alt: title }] } : {}),
+      ...(page?.exposureImage ? { images: [{ url: rewriteDriveThumbnails(page.exposureImage), width: 1200, height: 630, alt: title }] } : {}),
     },
     twitter: {
       card: 'summary' as const,
