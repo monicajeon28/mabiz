@@ -7,6 +7,7 @@ import BotLandingClient from "./BotLandingClient";
 import { LandingDocumentFrame } from "./LandingDocumentFrame";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
 import { isFullHtmlDocument } from "@/lib/html-doc-detect";
+import { rewriteDriveThumbnails } from "@/lib/drive-image";
 import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
 
 // [T17] React cache()로 같은 요청 내 중복 DB 쿼리 제거
@@ -191,7 +192,8 @@ export default async function PublicLandingPage({
   //   감지는 내용 기준(빌더 조각/이미지형은 <div>로 시작 → 항상 sanitize 경로 유지 = 회귀 0).
   // 내용이 "전체 HTML 문서"로 시작하면 iframe 격리 렌더(#15). 앵커(^\s*<!doctype/<html)라 빌더 조각·이미지형
   //   (항상 <div로 시작)은 절대 오탐 안 됨 → editorMode 게이트 불필요(초안이 'image'로 남아 막히던 문제 해결, #15b).
-  const rawHtml = page.htmlContent ?? "";
+  // 구글드라이브 thumbnail URL(302 실패)을 안정적 lh3 포맷으로 치환 — 저장된 콘텐츠 이미지 표시 복구.
+  const rawHtml = rewriteDriveThumbnails(page.htmlContent ?? "");
   if (isFullHtmlDocument(rawHtml)) {
     return (
       <>
@@ -213,7 +215,7 @@ export default async function PublicLandingPage({
       <LandingClient
         pageId={page.id}
         slug={slug}
-        htmlContent={sanitizeHtml(page.htmlContent ?? "")}
+        htmlContent={sanitizeHtml(rawHtml)}
         commentEnabled={page.commentEnabled}
         buttonTitle={page.buttonTitle ?? undefined}
         completionPageUrl={page.completionPageUrl ?? undefined}

@@ -1,5 +1,4 @@
 import { Prisma } from "@prisma/client";
-import { timingSafeEqual } from "crypto";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { enqueueDLQ } from "@/lib/mabiz-dlq";
@@ -98,39 +97,11 @@ export async function POST(req: Request) {
 
     logger.log('[PayApp Webhook] 요청 수신', { requestIP });
 
-    // [P0-SEC-201] Bearer Token 검증 — PAYAPP_WEBHOOK_TOKEN 설정 시 필수
-    const payappToken = process.env.PAYAPP_WEBHOOK_TOKEN;
-    const authHeader = req.headers.get("authorization") ?? "";
-    if (payappToken) {
-      // env가 설정된 경우 Authorization 헤더는 반드시 있어야 함
-      if (!authHeader) {
-        logger.warn("[PayApp Webhook] Authorization 헤더 누락 — 요청 차단", { requestIP });
-        return new Response("FAIL", { status: 401 });
-      }
-      if (!authHeader.startsWith("Bearer ")) {
-        logger.warn("[PayApp Webhook] 잘못된 Bearer format — 요청 차단", { requestIP });
-        return new Response("FAIL", { status: 401 });
-      }
-
-      const token = authHeader.slice(7);
-
-      // [P0-4] Bearer Token 길이 검증: 최소 32자 이상 (강력한 토큰 필수)
-      if (token.length < 32) {
-        logger.warn("[PayApp Webhook] Bearer token 길이 부족 (최소 32자 필요) — 요청 차단", { requestIP, tokenLength: token.length });
-        return new Response("FAIL", { status: 403 });
-      }
-
-      if (Buffer.byteLength(token, 'utf8') !== Buffer.byteLength(payappToken, 'utf8') || !timingSafeEqual(Buffer.from(token, 'utf8'), Buffer.from(payappToken, 'utf8'))) {
-        logger.warn("[PayApp Webhook] Bearer token 불일치 — 인증 실패", { requestIP });
-        return new Response("FAIL", { status: 401 });
-      }
-    } else if (authHeader) {
-      // env 미설정이지만 헤더가 있는 경우: 형식만 검증
-      if (!authHeader.startsWith("Bearer ")) {
-        logger.warn("[PayApp Webhook] 잘못된 Bearer format — 요청 차단", { requestIP });
-        return new Response("FAIL", { status: 401 });
-      }
-    }
+    // ⚠️ Bearer 토큰 강제 제거(의도적): PayApp 통보(feedbackurl)는 Authorization 헤더를 보내지 않고,
+    //   본문의 linkval(공유비밀) + HMAC-SHA256(linkkey 서명, 아래 [2]·[3]단계)로 인증한다 — PayApp 표준이자
+    //   암호학적으로 강력. 과거 PAYAPP_WEBHOOK_TOKEN 설정 시 Bearer를 요구해 PayApp 정상 완료통보를 401로
+    //   거부 → "결제는 됐는데 완료처리(상태=paid·Contact생성·퍼널) 안 됨" 버그를 유발했으므로 제거한다.
+    //   (운영의 PAYAPP_WEBHOOK_TOKEN 환경변수는 이제 무시되어도 안전.)
 
     const body = await req.text();
     params = new URLSearchParams(body);
