@@ -186,22 +186,25 @@ export default async function PublicLandingPage({
   // P0-6: sanitize headerScript 적용
   const safeHeaderScript = sanitizeHeaderScript(page.headerScript);
 
-  // #15 — HTML형으로 "전체 HTML 문서"(<!doctype html>/<html>)를 붙여넣은 경우:
-  //   sanitize(태그 화이트리스트)로는 style/script/head가 제거돼 디자인이 죽고 <title>이 본문에 새어나옴.
-  //   → 원본 그대로 iframe(샌드박스)로 격리 렌더해 "하얀 백지에 코드 그대로" 보장.
-  //   감지는 내용 기준(빌더 조각/이미지형은 <div>로 시작 → 항상 sanitize 경로 유지 = 회귀 0).
-  // 내용이 "전체 HTML 문서"로 시작하면 iframe 격리 렌더(#15). 앵커(^\s*<!doctype/<html)라 빌더 조각·이미지형
-  //   (항상 <div로 시작)은 절대 오탐 안 됨 → editorMode 게이트 불필요(초안이 'image'로 남아 막히던 문제 해결, #15b).
   // 구글드라이브 thumbnail URL(302 실패)을 안정적 lh3 포맷으로 치환 — 저장된 콘텐츠 이미지 표시 복구.
   const rawHtml = rewriteDriveThumbnails(page.htmlContent ?? "");
-  if (isFullHtmlDocument(rawHtml)) {
+
+  // #15 — iframe 격리 렌더 조건:
+  //   ① "전체 HTML 문서"(<!doctype html>/<html>으로 시작) — 원본 그대로
+  //   ② HTML 탭 모드(editorMode==='html') — 스니펫도 포함. sanitize가 <style>/<script> 제거해 디자인이 죽는 것을 방지.
+  //      스니펫은 최소 HTML 쉘로 감싸서 iframe에 전달(viewport·기본 스타일 보장).
+  const isHtmlTab = page.editorMode === 'html';
+  if (isFullHtmlDocument(rawHtml) || isHtmlTab) {
+    const docHtml = isFullHtmlDocument(rawHtml)
+      ? rawHtml
+      : `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box}body{margin:0}</style></head><body>${rawHtml}</body></html>`;
     return (
       <>
         {safeHeaderScript && (
           <Script id="landing-header-script" strategy="afterInteractive"
             dangerouslySetInnerHTML={{ __html: safeHeaderScript }} />
         )}
-        <LandingDocumentFrame pageId={page.id} htmlContent={rawHtml} />
+        <LandingDocumentFrame pageId={page.id} htmlContent={docHtml} />
       </>
     );
   }

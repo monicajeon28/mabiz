@@ -3,6 +3,7 @@ export const maxDuration = 60;
 
 import { NextResponse } from 'next/server';
 import sharp from 'sharp';
+import { driveImageUrl } from '@/lib/drive-image';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { uploadImageToDrive, validateImageFile } from '@/lib/image-sync';
 import { extractImageDimensions } from '@/lib/image-metadata';
@@ -100,7 +101,7 @@ export async function POST(req: Request) {
         fileSize: asset.fileSize?.toString(),
         width: asset.width,
         height: asset.height,
-        thumbnailUrl: `https://drive.google.com/thumbnail?id=${asset.driveFileId}`,
+        thumbnailUrl: driveImageUrl(asset.driveFileId),
       },
     });
   } catch (err) {

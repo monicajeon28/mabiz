@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthContext, resolveOrgIdOrNull } from '@/lib/rbac';
+import { driveImageUrl } from '@/lib/drive-image';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
@@ -81,8 +82,7 @@ export async function GET(req: Request) {
           height: a.height,
           uploadedAt: a.uploadedAt.toISOString(),
           lastAccessedAt: a.lastAccessedAt?.toISOString(),
-          // Google Drive 미리보기 URL
-          thumbnailUrl: `https://drive.google.com/thumbnail?id=${a.driveFileId}`,
+          thumbnailUrl: driveImageUrl(a.driveFileId),
           driveUrl: `https://drive.google.com/file/d/${a.driveFileId}`,
           webpDriveFileId: a.webpDriveFileId,
           processingStatus: a.processingStatus,

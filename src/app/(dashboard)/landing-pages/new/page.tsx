@@ -9,6 +9,7 @@ import { MAX_IMAGE_UPLOAD_BYTES, GIF_MAX_UPLOAD_BYTES, prepareImageForUpload } f
 import { BlockEditor } from "./BlockEditor";
 import { Block, BlocksConfig } from "@/lib/landing-page-blocks";
 import { isFullHtmlDocument } from "@/lib/html-doc-detect";
+import { driveImageUrl } from "@/lib/drive-image";
 import { LandingPageMetrics } from "./LandingPageMetrics";
 
 // ═════════════════════════════════════════════════════════════
@@ -216,8 +217,8 @@ type UploadedImage = {
 /** Drive fileId → 표준 썸네일 정보 객체 */
 function driveInfoFromFileId(fileId: string): { url: string; driveFileId: string; fullUrl: string } {
   return {
-    url:         `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`,
-    fullUrl:     `https://drive.google.com/thumbnail?id=${fileId}&sz=w1920`,
+    url:         driveImageUrl(fileId, 800),
+    fullUrl:     driveImageUrl(fileId, 1920),
     driveFileId: fileId,
   };
 }
@@ -450,7 +451,7 @@ export default function NewLandingPage() {
             // → 업로드/라이브러리 모두 인증 불필요한 공개 Drive 썸네일 URL을 사용한다.
             // (업로드 이미지는 업로드 시 anyone:reader 권한이 부여되어 공개 접근 가능)
             const previewUrl = img.driveFileId
-              ? `https://drive.google.com/thumbnail?id=${img.driveFileId}&sz=w800`
+              ? driveImageUrl(img.driveFileId, 800)
               : (img.fullUrl ?? img.url);
             return `<img src="${previewUrl}" alt="" style="width:100%;display:block;${ar}" loading="lazy">`;
           }).join("\n")}</div>`
@@ -807,7 +808,7 @@ ${footerBlock}
         const imgTags = images.map((img) => {
           const src = img.mimeType === "image/gif"
             ? `/api/public/landing-image?id=${img.driveFileId}`
-            : (img.fullUrl ?? `https://drive.google.com/thumbnail?id=${img.driveFileId}&sz=w1920`);
+            : (img.fullUrl ?? driveImageUrl(img.driveFileId, 1920));
           const ar  = img.width && img.height ? `aspect-ratio:${img.width}/${img.height};` : "";
           return `<img src="${src}" alt="" style="width:100%;display:block;${ar}" loading="lazy">`;
         }).join("\n");
@@ -1480,7 +1481,7 @@ ${footerBlock}
                             // 이미지(assetId 없음)는 공개 Drive 썸네일로 표시.
                             // proxy가 404/401이면 onError로 공개 URL로 폴백.
                             const publicThumb = img.fullUrl
-                              ?? (img.driveFileId ? `https://drive.google.com/thumbnail?id=${img.driveFileId}&sz=w800` : img.url);
+                              ?? (img.driveFileId ? driveImageUrl(img.driveFileId, 800) : img.url);
                             const primary = img.assetId && img.driveFileId
                               ? `/api/landing-pages/images/proxy?id=${img.driveFileId}`
                               : publicThumb;

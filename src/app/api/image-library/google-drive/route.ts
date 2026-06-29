@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { driveImageUrl } from '@/lib/drive-image';
 import { getAuthContext } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { parseServiceAccount } from '@/lib/parse-service-account';
@@ -136,8 +137,8 @@ async function fetchFolderImages(folder: FolderDef): Promise<DriveImageItem[]> {
         name: file.name,
         mimeType: file.mimeType,
         thumbnailUrl: `/api/landing-pages/images/proxy?id=${file.id}`,
-        publicUrl: `https://drive.google.com/thumbnail?id=${file.id}&sz=w2000`,
-        altPublicUrl: `https://drive.google.com/thumbnail?id=${file.id}&sz=w2000`,
+        publicUrl: driveImageUrl(file.id, 2000),
+        altPublicUrl: driveImageUrl(file.id, 2000),
         webViewLink: file.webViewLink ?? '',
         folderId: folder.id,
         folderName: folder.name,

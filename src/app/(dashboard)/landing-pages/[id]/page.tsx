@@ -10,6 +10,7 @@ import FormBuilder, { FormField } from "@/components/forms/FormBuilder";
 import { MAX_IMAGE_UPLOAD_BYTES, GIF_MAX_UPLOAD_BYTES, prepareImageForUpload } from "@/lib/client-image-compress";
 import { Block, BlocksConfig } from "@/lib/landing-page-blocks";
 import { useSession } from "@/hooks/useSession";
+import { driveImageUrl } from "@/lib/drive-image";
 
 type Registration = {
   id: string;
@@ -237,7 +238,7 @@ export default function EditLandingPage() {
         if (pageData.page.images && Array.isArray(pageData.page.images) && pageData.page.images.length) {
           setImages(pageData.page.images.map((img: { id: string; sortOrder: number; altText?: string; imageAsset: { id: string; driveFileId: string; originalFileName: string; mimeType: string; width: number; height: number } }) => ({
             id: img.id, assetId: img.imageAsset.id,
-            url: `https://drive.google.com/thumbnail?id=${img.imageAsset.driveFileId}&sz=w800`,
+            url: driveImageUrl(img.imageAsset.driveFileId, 800),
             driveFileId: img.imageAsset.driveFileId, width: img.imageAsset.width || 0,
             height: img.imageAsset.height || 0, mimeType: img.imageAsset.mimeType || "",
             fileName: img.imageAsset.originalFileName, sortOrder: img.sortOrder,

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthContext, resolveOrgId, resolveOrgIdOrNull, requireOrgId } from '@/lib/rbac';
+import { driveImageUrl } from '@/lib/drive-image';
 import { getDriveClient } from '@/lib/drive-client';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
@@ -43,7 +44,7 @@ export async function GET(
         uploadedAt: asset.uploadedAt.toISOString(),
         uploadedBy: asset.uploadedBy,
         lastAccessedAt: asset.lastAccessedAt?.toISOString(),
-        thumbnailUrl: `https://drive.google.com/thumbnail?id=${asset.driveFileId}&sz=w400`,
+        thumbnailUrl: driveImageUrl(asset.driveFileId, 400),
         driveUrl: `https://drive.google.com/file/d/${asset.driveFileId}`,
       },
     });

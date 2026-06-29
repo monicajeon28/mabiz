@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { driveImageUrl } from "@/lib/drive-image";
 import { Search, X, Copy, Check, Link2, Play, Trash2, FolderPlus, Loader2, RefreshCw } from "lucide-react";
 
 interface ImageItem {
@@ -120,9 +121,9 @@ export function ImageLibraryModal({ open, onClose, onInsert }: ImageLibraryModal
 
   const buildImageHtml = (item: ImageItem) => {
     // 삽입 HTML에는 공개 Drive 썸네일 URL 사용 (랜딩페이지 외부 공개 필요)
-    // asset인 경우 driveFileId로 Drive URL 직접 구성, cache는 기존 URL 사용
+    // asset인 경우 lh3 포맷으로 직접 서빙(thumbnail 302 실패 방지), cache는 기존 URL 사용
     const insertUrl = item.driveFileId
-      ? `https://drive.google.com/thumbnail?id=${item.driveFileId}&sz=w1200`
+      ? driveImageUrl(item.driveFileId, 1200)
       : item.fullUrl;
 
     if (item.isGif) {

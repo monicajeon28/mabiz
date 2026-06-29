@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { driveImageUrl } from "@/lib/drive-image";
 import { getAuthContext, resolveOrgId } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { uploadImageToDrive } from "@/lib/image-sync";
@@ -72,7 +73,7 @@ export async function GET(req: Request) {
         // 캐시 출처도 driveFileId 노출 → 워터마크 다운로드(?id=) 경로 사용 가능(404 방지)
         driveFileId:  fileId,
         // 외부 HTML/이메일 삽입·복사용 공개 URL
-        publicUrl:    fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w1200` : "",
+        publicUrl:    fileId ? driveImageUrl(fileId, 1200) : "",
       };
     };
 
@@ -116,10 +117,8 @@ export async function GET(req: Request) {
       source:       "asset" as const,
       driveFileId:  asset.driveFileId,
       // 외부 HTML/이메일 삽입·복사용 공개 URL (proxy는 로그인 필요 → 외부에서 안 보임).
-      // 업로드 시 anyone-reader 권한 부여되므로 공개 thumbnail 표시 가능.
-      publicUrl:    asset.driveFileId
-        ? `https://drive.google.com/thumbnail?id=${asset.driveFileId}&sz=w1200`
-        : "",
+      // 업로드 시 anyone-reader 권한 부여되므로 lh3 직접서빙 가능.
+      publicUrl:    asset.driveFileId ? driveImageUrl(asset.driveFileId, 1200) : "",
     });
 
     // ── 정확한 total = ImageAsset + ImageCache 개수 (필터 반영) ──
@@ -313,7 +312,7 @@ export async function POST(req: Request) {
         source:       "asset" as const,
         title:        asset.originalFileName,
         thumbnailUrl: `/api/landing-pages/images/proxy?id=${asset.driveFileId}`,
-        fullUrl:      `https://drive.google.com/thumbnail?id=${asset.driveFileId}&sz=w1200`,
+        fullUrl:      driveImageUrl(asset.driveFileId, 1200),
         folder:       asset.category ?? "기타",
         isGif:        asset.mimeType === "image/gif",
         mimeType:     asset.mimeType,
