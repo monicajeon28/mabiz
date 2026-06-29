@@ -509,9 +509,32 @@ export function LandingClient({
     };
     btn?.addEventListener("click", handleBtnClick);
 
+    // 결제 ON: 본문의 커스텀 '결제' 버튼/링크(폼 submit이 아닌 것)를 누르면 결제구역/신청폼으로 스크롤.
+    // → 직접 디자인한 "결제하기" 버튼이 아무 동작 안 하던 문제 해결.
+    const payJumpEls: Element[] = [];
+    const handlePayJump = (e: Event) => {
+      e.preventDefault();
+      const target =
+        document.getElementById("pay-now") ??
+        container.querySelector("form") ??
+        document.getElementById("landing-form");
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
+    if (paymentRef.current) {
+      container.querySelectorAll("a, button").forEach((el) => {
+        if ((el as HTMLElement).closest("form")) return; // 폼 내부 버튼은 submit 경로가 처리
+        const txt = (el.textContent || "").replace(/\s/g, "");
+        if (txt.includes("결제")) {
+          el.addEventListener("click", handlePayJump);
+          payJumpEls.push(el);
+        }
+      });
+    }
+
     return () => {
       forms.forEach((f) => f.removeEventListener("submit", handleSubmit));
       btn?.removeEventListener("click", handleBtnClick);
+      payJumpEls.forEach((el) => el.removeEventListener("click", handlePayJump));
     };
   // submitting은 submittingRef로 처리 → 의존성 제거 (중복 주입 방지)
   }, [pageId, slug]);
@@ -759,10 +782,12 @@ export function LandingClient({
       />
 
       {/* 보장형 결제 구역 — 페이지 HTML에 신청폼이 없을 때(HTML/커스텀형) 결제 동선 보장.
-          이미지형(폼 자동주입)은 hasForm=true라 숨김 → 버튼 중복 없음. */}
+          이미지형(폼 자동주입)은 hasForm=true라 숨김 → 버튼 중복 없음.
+          본문의 커스텀 '결제' 버튼을 누르면 이 구역(#pay-now)으로 스크롤됨(useEffect 인터셉트). */}
       {payment && !hasForm && !done && !alreadyRegistered && (
-        <div className="max-w-md mx-auto px-4 pb-12 pt-4">
+        <div id="pay-now" className="max-w-md mx-auto px-4 pb-12 pt-4 scroll-mt-4">
           <div className="bg-white border-2 border-emerald-200 rounded-2xl p-6 shadow-sm">
+            <p className="text-lg font-bold text-emerald-700 mb-2">💳 결제하기</p>
             <p className="text-base font-semibold text-gray-800 mb-1">{payment.productName}</p>
             <p className="text-3xl font-bold text-navy-900 mb-4">
               {payment.productPrice.toLocaleString()}원

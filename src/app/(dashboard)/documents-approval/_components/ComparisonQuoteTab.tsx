@@ -380,14 +380,21 @@ export default function ComparisonQuoteTab() {
   const validCompetitors = form.competitorPrices.filter((cp) => cp.price > 0);
 
   // 타사와 크루즈닷 포함 항목 합집합
+  // 표 간소화 토글 — 크루즈닷이 빼는(✗) 불포함 행을 표에서 숨김. 기본=보임(법적 정직고지 안전).
+  const [hideCruisedotExcluded, setHideCruisedotExcluded] = useState(false);
+
   const allIncludedItems = useMemo(() => Array.from(
     new Set([...form.competitorIncludedItems, ...form.includedItems])
   ), [form.competitorIncludedItems, form.includedItems]);
 
   // 타사와 크루즈닷 불포함 항목 합집합
-  const allExcludedItems = useMemo(() => Array.from(
-    new Set([...form.competitorExcludedItems, ...form.excludedItems])
-  ), [form.competitorExcludedItems, form.excludedItems]);
+  // hideCruisedotExcluded=ON이면 크루즈닷이 빼는 행(=✗, form.excludedItems)을 표에서 숨김(표 간소화)
+  const allExcludedItems = useMemo(() => {
+    const merged = Array.from(new Set([...form.competitorExcludedItems, ...form.excludedItems]));
+    return hideCruisedotExcluded
+      ? merged.filter((item) => !form.excludedItems.includes(item))
+      : merged;
+  }, [form.competitorExcludedItems, form.excludedItems, hideCruisedotExcluded]);
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,_40%)_minmax(0,_60%)]">
@@ -410,6 +417,19 @@ export default function ComparisonQuoteTab() {
             직접 입력으로 새로 작성
           </button>
         </div>
+
+        {/* 표 간소화 옵션 — 크루즈닷도 빼는(✗) 불포함 행을 표에서 숨김. 왼쪽 폼(PNG 캡처 바깥)이라 이미지엔 안 찍힘 */}
+        <label className="flex items-center gap-2.5 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={hideCruisedotExcluded}
+            onChange={(e) => setHideCruisedotExcluded(e.target.checked)}
+            className="h-5 w-5 shrink-0 rounded border-gray-300 accent-indigo-600"
+          />
+          <span className="text-sm text-gray-700">
+            불포함 항목 간단히 보기 <span className="text-gray-400">(크루즈닷도 빼는 항목은 표에서 숨김)</span>
+          </span>
+        </label>
 
         {/* 필수 정보: 고객명 */}
         <div>

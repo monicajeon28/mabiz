@@ -276,7 +276,7 @@ export default function BotLandingClient({
   );
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-slate-50">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-slate-50">
       {/* 헤더 */}
       <header className="bg-[#1E2D4E] px-4 py-4 text-white shadow">
         <h1 className="text-lg font-bold">{brandTitle}</h1>
@@ -287,10 +287,12 @@ export default function BotLandingClient({
 
       {/* ── 0단계: 버튼 A/B 플로우 (사장님 스토리보드 · 콜 9대 반론 · AI 호출 0회) ── */}
       {phase === "guide" && flowNode && (
-        <div className="flex flex-1 flex-col px-5 py-6">
-          <div className="mx-auto flex w-full max-w-md flex-1 flex-col">
+        <div className="flex flex-1 flex-col px-5 py-3 min-h-0">
+          <div className="mx-auto flex w-full max-w-md flex-1 flex-col min-h-0">
+            {/* 콘텐츠(필요 시 내부 스크롤) — 버튼은 항상 하단 고정으로 한 화면에 보이게 */}
+            <div className="flex-1 min-h-0 overflow-y-auto">
             {/* 진행점 — 경로 깊이로 표시(그래프라 고정 길이 없음) */}
-            <div className="mb-4 flex items-center justify-center gap-2">
+            <div className="mb-3 flex items-center justify-center gap-2">
               {Array.from({ length: Math.min(flowPath.length + 1, 6) }).map((_, i) => (
                 <span
                   key={i}
@@ -338,9 +340,9 @@ export default function BotLandingClient({
                 </p>
               </div>
             )}
-            {/* 설득 사진 (사장님 스토리보드 — /public/bot) */}
+            {/* 설득 사진 (사장님 스토리보드 — /public/bot). 한 화면 유지 위해 높이 캡(화면비례). */}
             {flowNode.image && (
-              <div className="mt-4">
+              <div className="mt-3">
                 <img
                   src={flowNode.image}
                   alt={flowNode.title}
@@ -348,13 +350,13 @@ export default function BotLandingClient({
                   onError={(e) => {
                     e.currentTarget.style.display = "none";
                   }}
-                  style={{ minHeight: 180 }}
-                  className="w-full rounded-2xl border border-slate-200 object-contain shadow-sm"
+                  className="w-full max-h-[26vh] rounded-2xl border border-slate-200 object-contain shadow-sm"
                 />
               </div>
             )}
-            {/* 버튼 — 첫 선택지=강조(초록), 나머지=보조(테두리). 50대: 48px+ · 16px+ · 동등 크기 */}
-            <div className="mt-auto space-y-3 pt-6">
+            </div>{/* /콘텐츠 스크롤 영역 */}
+            {/* 버튼 — 항상 하단 고정(shrink-0). 첫 선택지=강조(초록), 나머지=보조. 50대: 48px+ */}
+            <div className="shrink-0 space-y-2.5 pt-3">
               {flowNode.choices.map((c, i) => (
                 <button
                   key={i}
