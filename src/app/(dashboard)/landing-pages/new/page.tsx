@@ -740,6 +740,14 @@ ${footerBlock}
   // ──────────────────────────────────────────────
   const save = async () => {
     if (!title.trim() || !slug.trim()) { setError("제목과 슬러그를 입력하세요."); return; }
+    // 결제 ON이면 상품명·금액(100원 이상) 필수 — 안 넣으면 공개페이지 결제하기 버튼이 막힘(PayApp 최소금액)
+    if (paymentEnabled) {
+      const pp = parseInt(productPrice, 10);
+      if (!productName.trim() || !pp || pp < 100) {
+        setError("결제 기능을 켜면 상품명과 결제금액(100원 이상)을 입력해야 결제하기 버튼이 작동합니다.");
+        return;
+      }
+    }
     setSaving(true); setError("");
 
     // AbortController로 10초 타임아웃 설정 (P1-2: Timeout 에러 핸들링)

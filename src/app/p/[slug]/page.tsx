@@ -197,10 +197,10 @@ export default async function PublicLandingPage({
         buttonTitle={page.buttonTitle ?? undefined}
         completionPageUrl={page.completionPageUrl ?? undefined}
         footer={(page.formConfig as Record<string, unknown> | null)?.footer as string | undefined}
-        payment={page.paymentEnabled ? {
+        payment={page.paymentEnabled && (page.productPrice ?? 0) >= 100 && (page.productName ?? "").trim() ? {
           type: (page.paymentType as "onetime" | "subscription") ?? "onetime",
-          productName: page.productName ?? "",
-          productPrice: page.productPrice ?? 0,
+          productName: page.productName as string,
+          productPrice: page.productPrice as number,
           cycleDay: page.cycleDay ?? 1,
           expireDate: page.expireDate?.toISOString().split("T")[0] ?? "",
         } : undefined}

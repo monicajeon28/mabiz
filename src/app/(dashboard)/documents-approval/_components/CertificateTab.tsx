@@ -944,7 +944,7 @@ function PurchasePreview({
   return (
     <div
       ref={cardRef}
-      className="rounded-xl border-4 border-gray-300 bg-white px-12 py-10 shadow-lg mx-auto max-w-[210mm] min-h-[297mm] print:max-w-none print:min-h-0"
+      className="rounded-xl border-4 border-gray-300 bg-white px-10 py-8 shadow-lg mx-auto max-w-[210mm] min-h-[297mm] print:max-w-none print:min-h-0"
     >
       <DocumentLetterhead title="구매확인증서" accentClass="border-emerald-100" />
 
@@ -1067,7 +1067,7 @@ function RefundPreview({
   return (
     <div
       ref={cardRef}
-      className="rounded-xl border-4 border-gray-300 bg-white px-12 py-10 shadow-lg mx-auto max-w-[210mm] min-h-[297mm] print:max-w-none print:min-h-0"
+      className="rounded-xl border-4 border-gray-300 bg-white px-10 py-8 shadow-lg mx-auto max-w-[210mm] min-h-[297mm] print:max-w-none print:min-h-0"
     >
       <DocumentLetterhead title={title} accentClass="border-red-100" />
 
@@ -1084,6 +1084,13 @@ function RefundPreview({
           <dl className="divide-y divide-gray-200 space-y-0">
             <InfoRow icon={User} label="구매자명" value={data.buyerName || '-'} />
             <InfoRow icon={Package} label="상품명" value={data.productName || '-'} strong />
+            {/* 어떤 여행인지 — 상품 상세(구매확인증서와 동일) */}
+            {productInfo && (productInfo.cruiseLine || productInfo.shipName) && (
+              <InfoRow icon={Package} label="크루즈" value={[productInfo.cruiseLine, productInfo.shipName].filter(Boolean).join(' · ') || '-'} />
+            )}
+            {productInfo && (productInfo.nights > 0 || productInfo.days > 0) && (
+              <InfoRow icon={Calendar} label="여행기간" value={`${productInfo.nights}박 ${productInfo.days}일`} />
+            )}
             <InfoRow icon={CreditCard} label="원결제금액" value={formatMoney(data.amount ?? null)} />
             <InfoRow icon={Calendar} label="결제일" value={formatDate(data.paidAt)} />
           </dl>
@@ -1179,11 +1186,11 @@ function InfoRow({
 }) {
   const sizeClasses = {
     base: 'text-sm',
-    lg: 'text-xl',
+    lg: 'text-lg',
   };
 
   return (
-    <div className="flex items-center justify-between py-4">
+    <div className="flex items-center justify-between py-2.5">
       <dt className={`flex items-center gap-1.5 ${size === 'lg' ? 'text-base font-semibold' : 'text-sm'} text-gray-600`}>
         <Icon className="h-4 w-4 text-gray-400" />
         {label}

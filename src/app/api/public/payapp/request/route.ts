@@ -67,7 +67,7 @@ export async function POST(req: Request) {
     let b2bMeta: { b2bLandingPageId: string; b2bLandingTitle: string; b2bCreatedBy: string | null } | null = null;
 
     const crmPage = await prisma.crmLandingPage.findFirst({
-      where: { id: landingPageId, isActive: true },
+      where: { id: landingPageId, isActive: true, deletedAt: null },
       select: { organizationId: true, slug: true },
     });
 
