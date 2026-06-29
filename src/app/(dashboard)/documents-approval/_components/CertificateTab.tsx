@@ -1220,6 +1220,7 @@ function PurchasePreviewDraft({
   data: PurchaseData;
   productInfo?: ProductInfo | null;
 }) {
+  const policyLines = refundPolicyToLines(productInfo?.refundPolicy ?? null);
   return (
     <div className="space-y-3 rounded-xl border border-emerald-200 bg-white p-6">
       <div className="flex items-center justify-between border-b border-emerald-100 pb-4">
@@ -1242,6 +1243,27 @@ function PurchasePreviewDraft({
         <span className="text-sm font-semibold text-gray-600">결제일</span>
         <span className="text-lg font-medium text-gray-900">{formatDate(data.paidAt)}</span>
       </div>
+      {/* 취소·환불규정: productInfo 로드 시 자동 표시 */}
+      {policyLines.length > 0 && (
+        <div className="border-t border-emerald-100 pt-4">
+          <p className="text-xs font-bold text-emerald-700 mb-3">취소·환불규정</p>
+          <table className="w-full text-xs">
+            <tbody>
+              {policyLines.map((row, idx) => (
+                <tr key={idx} className="border-b border-emerald-50 last:border-0">
+                  <td className="py-1.5 text-gray-600">{row.label}</td>
+                  <td className="py-1.5 text-right font-semibold text-gray-800">{row.value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {policyLines.length === 0 && productInfo && (
+        <div className="border-t border-emerald-100 pt-4">
+          <p className="text-xs text-amber-600">⚠️ 상품에 취소·환불규정이 등록되지 않았습니다.</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -1366,6 +1388,27 @@ function RefundPreviewDraft({
           <p className="text-xs text-amber-600 mt-1">출발일을 입력하면 자동으로 환불액이 계산됩니다.</p>
         </div>
       )}
+
+      {/* 취소·환불규정 표 */}
+      {(() => {
+        const lines = refundPolicyToLines(productInfo?.refundPolicy ?? null);
+        if (lines.length === 0) return null;
+        return (
+          <div className="rounded-xl border border-red-200 bg-white p-4">
+            <p className="text-xs font-bold text-red-700 mb-3">취소·환불규정</p>
+            <table className="w-full text-xs">
+              <tbody>
+                {lines.map((row, idx) => (
+                  <tr key={idx} className="border-b border-red-50 last:border-0">
+                    <td className="py-1.5 text-gray-600">{row.label}</td>
+                    <td className="py-1.5 text-right font-semibold text-gray-800">{row.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
     </div>
   );
 }
