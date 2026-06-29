@@ -244,11 +244,13 @@ export async function POST(req: Request) {
       if (landingSlug) {
         const lp = await prisma.crmLandingPage.findFirst({
           where: { slug: landingSlug },
-          select: { id: true, organizationId: true, groupId: true },
+          select: { id: true, organizationId: true, groupId: true, formConfig: true },
         });
         orgId = lp?.organizationId ?? null;
         landingPageId = lp?.id ?? null;
-        groupId = lp?.groupId ?? null;
+        // 결제 완료 고객은 formConfig.paymentGroupId 우선, 없으면 registrationGroupId(groupId) 폴백
+        const paymentGroupId = (lp?.formConfig as Record<string, unknown> | null)?.paymentGroupId as string | null ?? null;
+        groupId = paymentGroupId ?? lp?.groupId ?? null;
       }
 
       // P1-3: B2B 결제의 경우 landingSlug가 없어 orgId가 null → orderId로 폴백 조회

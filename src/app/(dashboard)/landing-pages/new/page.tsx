@@ -314,6 +314,8 @@ export default function NewLandingPage() {
   const [productPrice, setProductPrice]     = useState("");
   const [cycleDay, setCycleDay]             = useState("1");
   const [expireDate, setExpireDate]         = useState("");
+  // 결제 완료 고객 전용 연결 그룹 (신청자 그룹 selectedGroupId와 별도)
+  const [paymentGroupId, setPaymentGroupId] = useState("");
 
   // 블록 에디터 상태
   const [blocks, setBlocks] = useState<Block[]>([]);
@@ -773,6 +775,7 @@ ${footerBlock}
           fields: formFields, additionalFields,
           footer: footer.trim() || null,
           ...(b2bEduType ? { b2bEduType } : {}),
+          paymentGroupId: paymentGroupId || null,
         },
         ...(buttonTitle        ? { buttonTitle }        : {}),
         ...(completionPageUrl  ? { completionPageUrl }  : {}),
@@ -1675,6 +1678,25 @@ ${footerBlock}
                       className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400" />
                   </div>
                 )}
+                {/* 결제 완료 고객 전용 그룹 — 신청자 그룹과 별도 */}
+                <div className="mt-1 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-xs font-semibold text-amber-800 mb-2">💳 결제 완료 고객을 어느 그룹에 넣을까요?</p>
+                  <select
+                    value={paymentGroupId}
+                    onChange={(e) => setPaymentGroupId(e.target.value)}
+                    className="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="">-- 그룹 선택 안 함 --</option>
+                    {groups.map((g) => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                  </select>
+                  {paymentGroupId && (
+                    <p className="text-xs text-green-700 mt-1 font-medium">
+                      ✓ 결제 완료 시 「{groups.find(g => g.id === paymentGroupId)?.name ?? ""}」 그룹에 자동 추가됩니다
+                    </p>
+                  )}
+                </div>
               </div>
             )}
           </div>

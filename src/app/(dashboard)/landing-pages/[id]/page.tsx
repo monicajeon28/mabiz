@@ -127,6 +127,10 @@ export default function EditLandingPage() {
   const [productPrice, setProductPrice]     = useState("");
   const [cycleDay, setCycleDay]             = useState("1");
   const [expireDate, setExpireDate]         = useState("");
+  // 결제 완료 고객 전용 연결 그룹 (신청자 그룹과 별도, formConfig에 저장)
+  const [paymentGroupId, setPaymentGroupId] = useState("");
+  // 그룹 드롭다운 목록
+  const [allGroups, setAllGroups]           = useState<{ id: string; name: string; category: string | null }[]>([]);
 
   // 등록자 목록
   const [registrations, setRegistrations]     = useState<Registration[]>([]);
@@ -213,6 +217,11 @@ export default function EditLandingPage() {
         return r.json();
       }).catch((e) => { if (e?.name === 'AbortError') throw e; return { ok: false }; }),
     ]).then(([pageData, groupData, shareableOrgsData]) => {
+      if (groupData.ok && Array.isArray(groupData.groups)) {
+        setAllGroups(groupData.groups.map((g: { id: string; name: string; category?: string | null }) => ({
+          id: g.id, name: g.name, category: g.category ?? null,
+        })));
+      }
       if (pageData.ok && pageData.page) {
         setTitle(pageData.page.title ?? "");
         setSlug(pageData.page.slug ?? "");
@@ -250,11 +259,12 @@ export default function EditLandingPage() {
         setProductPrice(String(pageData.page.productPrice ?? ""));
         setCycleDay(String(pageData.page.cycleDay ?? "1"));
         setExpireDate(pageData.page.expireDate ? pageData.page.expireDate.split("T")[0] : "");
-        const fc = pageData.page.formConfig as { b2bEduType?: string; fields?: FormField[]; footer?: string; additionalFields?: { id: string; name: string; required: boolean }[] } | null;
+        const fc = pageData.page.formConfig as { b2bEduType?: string; fields?: FormField[]; footer?: string; additionalFields?: { id: string; name: string; required: boolean }[]; paymentGroupId?: string | null } | null;
         setB2bEduType((fc?.b2bEduType as "" | "INQUIRER" | "BUYER") ?? "");
         if (fc?.fields && Array.isArray(fc.fields)) setFormFields(fc.fields);
         if (fc?.footer) setFooter(fc.footer);
         if (fc?.additionalFields && Array.isArray(fc.additionalFields)) setAdditionalFields(fc.additionalFields);
+        setPaymentGroupId(fc?.paymentGroupId ?? "");
         // 추가 편집 필드
         setExposureTitle(pageData.page.exposureTitle ?? "");
         setExposureImage(pageData.page.exposureImage ?? "");
@@ -840,13 +850,14 @@ export default function EditLandingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title, slug, htmlContent: content, editorMode,
-          // 이름+연락처 입력 시 배정 그룹: 대그룹=카테고리, 소그룹=그룹명. 서버가 그룹 관리에 생성/연결
+          // 이름+연락처 입력 시 배정 그룹: 소그룹명이 있을 때만 서버에 생성/연결 요청.
+          // 비어 있으면 기존 groupId 유지(null로 리셋 안 함 — P0 버그 수정).
           ...(subGroupName.trim()
             ? {
                 groupCategory: addingCategory ? (newCategory.trim() || null) : (parentCategory || null),
                 groupSubName: subGroupName.trim(),
               }
-            : { groupId: null }),
+            : {}),
           paymentEnabled,
           infoCollection: true,
           formConfig: {
@@ -854,6 +865,8 @@ export default function EditLandingPage() {
             fields: formFields,
             additionalFields,
             ...(footer ? { footer } : {}),
+            // 결제 완료 고객 전용 연결 그룹 (신청자 그룹과 별도)
+            paymentGroupId: paymentGroupId || null,
           },
           ...(exposureTitle     ? { exposureTitle }                     : { exposureTitle: null }),
           ...(exposureImage     ? { exposureImage }                     : { exposureImage: null }),
@@ -1077,6 +1090,30 @@ export default function EditLandingPage() {
                 </>
               )}
             </div>
+            {/* 결제 완료 고객 연결 그룹 */}
+            {paymentEnabled && (
+              <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-xs font-semibold text-amber-800 mb-2">💳 결제 완료 고객을 어느 그룹에 넣을까요?</p>
+                <p className="text-xs text-amber-700 mb-2">결제가 완료되면 이 고객을 선택한 그룹에 자동으로 추가하고 문자를 보냅니다.</p>
+                <select
+                  value={paymentGroupId}
+                  onChange={(e) => setPaymentGroupId(e.target.value)}
+                  className="w-full border border-amber-300 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:border-amber-500"
+                >
+                  <option value="">-- 그룹 선택 안 함 --</option>
+                  {allGroups.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.category ? `[${g.category}] ` : ""}{g.name}
+                    </option>
+                  ))}
+                </select>
+                {paymentGroupId && (
+                  <p className="text-xs text-green-700 mt-1 font-medium">
+                    ✓ 결제 완료 시 「{allGroups.find(g => g.id === paymentGroupId)?.name ?? ""}」 그룹에 자동 추가됩니다
+                  </p>
+                )}
+              </div>
+            )}
           </div>
           {/* CTA 버튼 선택 */}
           <div className="px-4 py-4 bg-white border-b border-gray-100 shrink-0">
