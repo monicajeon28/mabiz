@@ -49,7 +49,7 @@ export function CommentsTab({
         <p className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 mb-2">
           <Sparkles className="w-4 h-4 text-purple-500" /> AI 자주 묻는 질문(FAQ) 등록
         </p>
-        <p className="text-xs text-gray-500 mb-3">랜딩 내용을 분석해 자주 묻는 질문 + 운영자 답변을 <b>운영자 명의</b>로 등록합니다. 가짜 후기가 아니라 정직한 Q&amp;A예요.</p>
+        <p className="text-xs text-gray-500 mb-3">랜딩 내용을 분석해 자주 묻는 질문 + 운영자의 <b>다관점 답변(장점 + 솔직한 주의/한계)</b>을 운영자 명의로 등록합니다. 가짜 후기가 아니라 정직한 Q&amp;A예요. 나머지 대화는 실제 방문자 답글로 채워집니다.</p>
         <div className="flex items-center gap-2">
           <select
             value={genCount}
