@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { FileText, CheckCircle, Clock, XCircle, Plus, Download, FolderOpen } from "lucide-react";
 import { showError, showSuccess } from "@/components/ui/Toast";
 import html2canvas from "html2canvas";
+import { CERT_LOGO_DATA_URI, CERT_SEAL_DATA_URI } from "../documents-approval/_components/cert-assets";
 
 type DocType = "COMPARISON_QUOTE" | "PURCHASE_CONFIRMATION" | "PURCHASE_CONTRACT" | "REFUND_CERTIFICATE";
 type DocStatus = "APPROVED" | "PENDING_APPROVAL" | "REJECTED" | "DRAFT";
@@ -460,6 +461,7 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
           >
             {/* 공통 헤더 */}
             <div style={{ textAlign: 'center', marginBottom: '48px', borderBottom: '3px solid #1a2e4a', paddingBottom: '24px' }}>
+              <img src={CERT_LOGO_DATA_URI} alt="크루즈닷" style={{ height: '48px', margin: '0 auto 12px', display: 'block' }} />
               <p style={{ fontSize: '12px', color: '#666', margin: '0 0 8px', letterSpacing: '2px' }}>크루즈닷 CRUISEDOT</p>
               <h1 style={{ fontSize: '28px', fontWeight: 'bold', margin: 0, letterSpacing: '4px' }}>{docType.label}</h1>
               <p style={{ fontSize: '12px', color: '#999', margin: '12px 0 0' }}>발급일: {issuedDate} · 문서번호: {doc.id.slice(-8).toUpperCase()}</p>
@@ -575,9 +577,12 @@ export default function DocumentsClient({ initialRole }: DocumentsClientProps) {
 
             {/* 공통 푸터 */}
             <div style={{ marginTop: '48px', borderTop: '1px solid #ddd', paddingTop: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', fontSize: '12px', color: '#888' }}>
-              <div>
-                <p style={{ margin: 0 }}>크루즈닷 | 대표: {process.env.NEXT_PUBLIC_COMPANY_REP || '대표'}</p>
-                <p style={{ margin: '4px 0 0' }}>{process.env.NEXT_PUBLIC_BANK_ACCOUNT || ''}</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <img src={CERT_SEAL_DATA_URI} alt="직인" style={{ width: '64px', height: '64px', objectFit: 'contain', opacity: 0.95 }} />
+                <div>
+                  <p style={{ margin: 0 }}>크루즈닷 | 대표: {process.env.NEXT_PUBLIC_COMPANY_REP || '대표'}</p>
+                  <p style={{ margin: '4px 0 0' }}>{process.env.NEXT_PUBLIC_BANK_ACCOUNT || ''}</p>
+                </div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <p style={{ margin: 0 }}>문서번호: {doc.id.slice(-12).toUpperCase()}</p>
