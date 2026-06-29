@@ -272,15 +272,9 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
         const ymd = prod.startDate.slice(0, 10);
         setDirectInput((prev) => (prev.departureDate.trim().length === 0 ? { ...prev, departureDate: ymd } : prev));
       }
-      // 상품별 환불규정이 있으면 사람이 읽는 문자열로 refundPolicyText 자동 채움
-      // (사용자가 아직 직접 입력 안 했을 때만 — 입력값 보존). 50자 게이트 자연 통과.
-      const lines = (prod.refundPolicyLines && prod.refundPolicyLines.length > 0)
-        ? prod.refundPolicyLines
-        : refundPolicyToLines(effectivePolicy);
-      if (lines.length > 0) {
-        const text = `[${prod.productName} 취소·환불 규정]\n` + lines.map((l) => `· ${l.label}: ${l.value}`).join('\n');
-        setDirectInput((prev) => (prev.refundPolicyText.trim().length === 0 ? { ...prev, refundPolicyText: text } : prev));
-      }
+      // ⚠️ 환불규정 자동채움(directText) 제거(#17a) — directText는 구조화 상품정책보다 우선 렌더돼
+      //   웹훅 동기화된 실제 상품 환불정책을 덮어버렸음(고정 "입력규정" 증상). refundPolicyText를 비워두면
+      //   증서가 liveLines = refundPolicyToLines(productInfo.refundPolicy)로 떨어져 실제 상품정책 그대로 표시됨.
     } catch {
       // 조회 실패 시 무시 — 사용자가 환불규정 수기 입력 가능
     } finally {
@@ -368,12 +362,14 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
   // 발급 버튼 활성화 조건
   const canIssue = (() => {
     if (inputMode === 'search') return !!selectedSale;
-    // 직접 입력: 이름 + 상품명 + 금액 + 환불규정 (50자 이상) 필수
+    // 직접 입력: 이름 + 상품명 + 금액 필수. 환불규정은 상품 구조정책이 있으면 그걸 쓰므로 수기 불필요(#17a),
+    // 상품 미선택(구조정책 없음)일 때만 수기 50자 필수.
+    const hasProductPolicy = (productInfo?.refundPolicy?.slots?.length ?? 0) > 0;
     return !!(
       directInput.buyerName &&
       directInput.productName &&
       directInput.amount &&
-      directInput.refundPolicyText.length >= 50
+      (hasProductPolicy || directInput.refundPolicyText.length >= 50)
     );
   })();
 
@@ -413,6 +409,13 @@ export default function CertificateTab({ mode }: { mode: CertMode }) {
           // 출발일: 사용자 입력 우선, 없으면 선택한 상품의 출발일(startDate) — 미리보기와 동일 규칙
           departureDate: directInput.departureDate || productInfo?.startDate || null,
         };
+
+        // 발급 시점 상품 환불정책 스냅샷(구매·환불 공통, #17a) — directText 자동채움 제거 후
+        // 구조화 정책을 generatedData에 박아 재발급/PNG/재조회에서도 실제 상품정책 그대로 재현.
+        if (productInfo?.refundPolicy) {
+          gen.refundPolicy = productInfo.refundPolicy;
+          gen.refundPolicyLines = refundPolicyToLines(productInfo.refundPolicy);
+        }
 
         // 환불인증서 직접 입력: 자동 계산
         // 상품을 드롭다운으로 선택해 productInfo가 로드됐으면 그 상품정책/출발일로 계산,

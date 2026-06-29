@@ -3,16 +3,10 @@ import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { getAuthContext, resolveOrgId } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
-import { sendFunnelEmail } from '@/lib/email';
 import { COMPANY_INFO, CANCELLATION_POLICY_LINES, BANK_TRANSFER_LABEL, CRUISE_CANCELLATION_POLICY } from '@/lib/company-info';
 import { refundPolicyToLines, normalizeRefundPolicy } from '@/lib/refund-calculator';
 
-// P0-4: HTML 이스케이프 함수
-function escHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-// POST: 구매계약서 발급
+// POST: 구매계약서 발급 (#17c: 발급 시 자동 이메일/문자 미발송 — 운영자가 signUrl 수동 전달)
 export async function POST(req: Request) {
   try {
     const ctx   = await getAuthContext();
@@ -304,65 +298,12 @@ export async function POST(req: Request) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://mabizcruisedot.com';
     const signUrl = `${appUrl}/contract/sign/${doc.id}?token=${signToken}`;
 
-    // P1-2: APPROVED 시 서명 링크 이메일 중복 발송 방지
-    if (!buyerEmail) {
-      logger.warn('[PurchaseContract] buyerEmail 없음 — 서명 링크 이메일 미발송. signUrl 응답에 포함됨', { docId: doc.id, signUrl });
-    }
-    if (buyerEmail) {
-      sendFunnelEmail({
-        organizationId: orgId,
-        to:      buyerEmail,
-        subject: `[구매계약서] ${escHtml(docProductName)} 계약서 서명 요청`,
-        html: `<div style="font-family:sans-serif;line-height:1.8;max-width:600px;margin:0 auto;padding:32px 24px">
-<h2 style="color:#1a1a2e;margin:0 0 16px">구매 계약서 서명 요청</h2>
-<p>${escHtml(buyerName ?? '')}님, 안녕하세요.<br>아래 상품의 구매 계약서 서명을 요청드립니다.</p>
-<table style="width:100%;border-collapse:collapse;margin:20px 0">
-  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666;width:40%">상품명</td><td style="padding:10px 14px;font-weight:600">${escHtml(docProductName)}</td></tr>
-  ${departureDate ? `<tr><td style="padding:10px 14px;color:#666">출발일</td><td style="padding:10px 14px">${escHtml(departureDate)}</td></tr>` : ''}
-  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666">계약금액</td><td style="padding:10px 14px;font-weight:700;color:#2b6cb0">${docAmount.toLocaleString()}원</td></tr>
-  <tr><td style="padding:10px 14px;color:#666">결제방법</td><td style="padding:10px 14px">${escHtml(paymentMethod)}</td></tr>
-</table>
-<div style="text-align:center;margin:32px 0">
-  <a href="${signUrl}" style="display:inline-block;background:#2b6cb0;color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:16px;font-weight:700">계약서 서명하기</a>
-</div>
-<p style="color:#888;font-size:13px;text-align:center">위 링크는 <strong>7일</strong>간 유효합니다. 기간 내 서명을 완료해 주세요.</p>
-<p style="color:#666;font-size:13px">버튼이 작동하지 않으면 아래 주소를 복사해 브라우저에 붙여넣기 해주세요:<br>
-<span style="word-break:break-all;color:#4a90e2">${signUrl}</span></p>
-<hr style="border:none;border-top:1px solid #eee;margin:24px 0">
-<p style="color:#aaa;font-size:12px">문의사항은 담당 에이전트에게 연락해 주세요.</p>
-</div>`,
-        channel: 'MANUAL',
-      }).catch(() => {});
-    }
+    // #17c: 발급 시 자동 이메일/문자 발송하지 않음 — 운영자가 서명 링크(signUrl)를 직접 복사/문자로
+    //   전달해 서명받는다. (자동발송은 "이메일칸도 없는데 발송됨" 혼란 + 미동의 발송 위험. 수동=운영자 통제.)
+    //   signUrl·signToken을 응답에 실어 발급 직후 바로 복사/전달 가능하게 함.
 
-    // APPROVED면 발급 안내 이메일
-    if (status === 'APPROVED') {
-      if (buyerEmail) {
-        sendFunnelEmail({
-          organizationId: orgId,
-          to:      buyerEmail,
-          subject: `[구매계약서] ${escHtml(docProductName)} 구매 계약서가 발급되었습니다`,
-          html: `<div style="font-family:sans-serif;line-height:1.8;max-width:600px;margin:0 auto;padding:32px 24px">
-<h2 style="color:#1a1a2e;margin:0 0 16px">구매 계약서 발급 안내</h2>
-<p>${escHtml(buyerName ?? '')}님, 아래 내용으로 구매 계약서가 발급되었습니다.</p>
-<table style="width:100%;border-collapse:collapse;margin:20px 0">
-  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666;width:40%">상품명</td><td style="padding:10px 14px;font-weight:600">${escHtml(docProductName)}</td></tr>
-  ${departureDate ? `<tr><td style="padding:10px 14px;color:#666">출발일</td><td style="padding:10px 14px">${escHtml(departureDate)}</td></tr>` : ''}
-  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666">계약금액</td><td style="padding:10px 14px;font-weight:700;color:#2b6cb0">${docAmount.toLocaleString()}원</td></tr>
-  <tr><td style="padding:10px 14px;color:#666">결제방법</td><td style="padding:10px 14px">${escHtml(paymentMethod)}</td></tr>
-  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666">계약일</td><td style="padding:10px 14px">${escHtml(signedAt)}</td></tr>
-  <tr><td style="padding:10px 14px;color:#666">문서번호</td><td style="padding:10px 14px;font-size:12px;color:#888">${escHtml(doc.id)}</td></tr>
-</table>
-${body.specialTerms ? `<p style="background:#fffbeb;border-left:4px solid #f59e0b;padding:12px 16px;margin:16px 0;border-radius:0 8px 8px 0"><strong>특약사항:</strong> ${escHtml(body.specialTerms)}</p>` : ''}
-<p style="color:#666;font-size:14px">문의사항은 담당 에이전트에게 연락해 주세요.</p>
-</div>`,
-          channel: 'MANUAL',
-        }).catch(() => {});
-      }
-    }
-
-    logger.log('[PurchaseContract] 발급', { orgId, orderId: effectiveOrderId, mode: isManual ? 'manual' : 'sale', status, docId: doc.id });
-    return NextResponse.json({ ok: true, documentId: doc.id, status });
+    logger.log('[PurchaseContract] 발급(자동발송 없음)', { orgId, orderId: effectiveOrderId, mode: isManual ? 'manual' : 'sale', status, docId: doc.id });
+    return NextResponse.json({ ok: true, documentId: doc.id, status, signUrl, signToken });
   } catch (e) {
     // P2-3: logger.error 사용
     logger.error('[PurchaseContract] 오류', { error: e instanceof Error ? e.message : String(e) });
