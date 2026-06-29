@@ -1688,14 +1688,21 @@ ${footerBlock}
                   >
                     <option value="">-- 그룹 선택 안 함 --</option>
                     {groups.map((g) => (
-                      <option key={g.id} value={g.id}>{g.name}</option>
+                      <option key={g.id} value={g.id}>
+                        {g.name} {g.funnelId ? "📱 자동 발송" : "⚠️ 퍼널 미연결"}
+                      </option>
                     ))}
                   </select>
-                  {paymentGroupId && (
-                    <p className="text-xs text-green-700 mt-1 font-medium">
-                      ✓ 결제 완료 시 「{groups.find(g => g.id === paymentGroupId)?.name ?? ""}」 그룹에 자동 추가됩니다
-                    </p>
-                  )}
+                  {paymentGroupId && (() => {
+                    const pg = groups.find(g => g.id === paymentGroupId);
+                    return (
+                      <p className={`text-xs mt-1 font-medium ${pg?.funnelId ? "text-blue-700" : "text-amber-700"}`}>
+                        {pg?.funnelId
+                          ? `📱 결제 완료 즉시 「${pg.name}」 퍼널 문자 자동 발송`
+                          : `✓ 「${pg?.name ?? ""}」 그룹에 추가됩니다 (퍼널 미연결 — 그룹 관리에서 퍼널을 연결하면 문자도 자동 발송)`}
+                      </p>
+                    );
+                  })()}
                 </div>
               </div>
             )}

@@ -130,7 +130,7 @@ export default function EditLandingPage() {
   // 결제 완료 고객 전용 연결 그룹 (신청자 그룹과 별도, formConfig에 저장)
   const [paymentGroupId, setPaymentGroupId] = useState("");
   // 그룹 드롭다운 목록
-  const [allGroups, setAllGroups]           = useState<{ id: string; name: string; category: string | null }[]>([]);
+  const [allGroups, setAllGroups]           = useState<{ id: string; name: string; category: string | null; funnelId: string | null }[]>([]);
 
   // 등록자 목록
   const [registrations, setRegistrations]     = useState<Registration[]>([]);
@@ -218,8 +218,8 @@ export default function EditLandingPage() {
       }).catch((e) => { if (e?.name === 'AbortError') throw e; return { ok: false }; }),
     ]).then(([pageData, groupData, shareableOrgsData]) => {
       if (groupData.ok && Array.isArray(groupData.groups)) {
-        setAllGroups(groupData.groups.map((g: { id: string; name: string; category?: string | null }) => ({
-          id: g.id, name: g.name, category: g.category ?? null,
+        setAllGroups(groupData.groups.map((g: { id: string; name: string; category?: string | null; funnelId?: string | null }) => ({
+          id: g.id, name: g.name, category: g.category ?? null, funnelId: g.funnelId ?? null,
         })));
       }
       if (pageData.ok && pageData.page) {
@@ -1103,15 +1103,20 @@ export default function EditLandingPage() {
                   <option value="">-- 그룹 선택 안 함 --</option>
                   {allGroups.map((g) => (
                     <option key={g.id} value={g.id}>
-                      {g.category ? `[${g.category}] ` : ""}{g.name}
+                      {g.category ? `[${g.category}] ` : ""}{g.name} {g.funnelId ? "📱 자동 발송" : "⚠️ 퍼널 미연결"}
                     </option>
                   ))}
                 </select>
-                {paymentGroupId && (
-                  <p className="text-xs text-green-700 mt-1 font-medium">
-                    ✓ 결제 완료 시 「{allGroups.find(g => g.id === paymentGroupId)?.name ?? ""}」 그룹에 자동 추가됩니다
-                  </p>
-                )}
+                {paymentGroupId && (() => {
+                  const pg = allGroups.find(g => g.id === paymentGroupId);
+                  return (
+                    <p className={`text-xs mt-1 font-medium ${pg?.funnelId ? "text-blue-700" : "text-amber-700"}`}>
+                      {pg?.funnelId
+                        ? `📱 결제 완료 즉시 「${pg.name}」 퍼널 문자 자동 발송`
+                        : `✓ 「${pg?.name ?? ""}」 그룹에 추가됩니다 (퍼널 미연결 — 그룹 관리에서 퍼널을 연결하면 문자도 자동 발송)`}
+                    </p>
+                  );
+                })()}
               </div>
             )}
           </div>
