@@ -40,8 +40,26 @@ export function refundPolicyToLines(
 ): { label: string; value: string }[] {
   if (!policy || !Array.isArray(policy.slots) || policy.slots.length === 0) return [];
   const sorted = [...policy.slots].sort((a, b) => b.daysBeforeDep - a.daysBeforeDep);
-  return sorted.map((s) => {
-    const label = s.label ?? (s.daysBeforeDep > 0 ? `출발 ${s.daysBeforeDep}일 이전` : '출발 당일');
+  // 각 구간의 라벨을 "범위"로 생성 — 인접 slot 경계로 상한을 계산해 표시.
+  //   예: [91:0%, 58:30%, 51:50%, 0:100%] →
+  //       "출발 91일 이전=위약없음 / 58~90일 전=30% / 51~57일 전=50% / 50일 전~당일=100%"
+  //   (기존엔 "출발 58일 이전 / 당일 포함"처럼 상한을 안 보여줘 실제 정책을 오해하게 했음 = 버그 수정)
+  return sorted.map((s, i) => {
+    const d = s.daysBeforeDep;
+    let label: string;
+    if (i === 0) {
+      // 최상위(가장 이른) 구간: 그 이전 전부
+      label = d > 0 ? `출발 ${d}일 이전` : '출발 당일';
+    } else {
+      const upper = sorted[i - 1].daysBeforeDep - 1; // 바로 위(더 이른) 구간 시작 -1 = 이 구간 상한
+      if (d <= 0) {
+        label = upper > 0 ? `출발 ${upper}일 전 ~ 당일` : '출발 당일';
+      } else if (upper > d) {
+        label = `출발 ${d}~${upper}일 전`;
+      } else {
+        label = `출발 ${d}일 전`;
+      }
+    }
     const value = s.penaltyRate > 0 ? `여행 요금의 ${s.penaltyRate}%` : '위약금 없음';
     return { label, value };
   });
