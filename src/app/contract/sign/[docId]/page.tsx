@@ -2,6 +2,12 @@
 
 import { useState, useEffect, useRef, use, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import ContractBody, {
+  type ContractBodyData,
+  type ContractBodyCompanion,
+  type SignatureMap,
+  type SignaturePointId,
+} from "@/app/(dashboard)/documents-approval/_components/ContractBody";
 
 // ─── 타입 정의 ────────────────────────────────────────────────────────────────
 type Companion = {
@@ -11,41 +17,94 @@ type Companion = {
   phone: string;
 };
 
-type DocData = {
-  productName?: string;
-  buyerName?: string;
-  amount?: number;
-  departureDate?: string;
-  nights?: number;
-  paymentMethod?: string;
-  paidAt?: string;
-  cancellationPolicy?: string[];
-  specialTerms?: string;
-  companyName?: string;
-  signedAt?: string;
-  signStatus?: string;
-  customerSignedAt?: string;
+type InputField = {
+  id: string;
+  label: string;
+  type: "text" | "email" | "phone" | "date" | "select" | "number";
+  required: boolean;
+  placeholder?: string;
+  pattern?: string;
+  options?: Array<{ label: string; value: string }>;
 };
 
-type Step = "loading" | "error" | "contract" | "companions" | "signature" | "done";
+// GET 응답 doc (SPEC 화이트리스트 + ContractBody 가 쓰는 동적 필드)
+type SignDocResponse = {
+  id?: string;
+  buyerName?: string | null;
+  buyerTel?: string | null;
+  agentName?: string | null;
+  productName?: string | null;
+  amount?: number | null;
+  departureDate?: string | null;
+  nights?: number | null;
+  includedItems?: string[];
+  excludedItems?: string[];
+  hasGuide?: "Y" | "N" | "";
+  refundPolicy?: { label: string; value: string }[] | null;
+  refundPolicyLines?: { label: string; value: string }[] | null;
+  specialTerms?: string | null;
+  contractDetails?: Record<string, unknown> | null;
+  companions?: ContractBodyCompanion[];
+  signatures?: SignatureMap;
+  marketingConsent?: boolean;
+  signStatus?: string;
+};
+
+type Step = "loading" | "error" | "contract" | "info" | "companions" | "signature" | "done";
+
+// ─── 서명점 (순차 서명: 필수 5개 + 선택 마케팅) ────────────────────────────────
+const REQUIRED_POINTS: SignaturePointId[] = [
+  "privacy_collect",
+  "privacy_3rd",
+  "terms_handover",
+  "special_terms_ack",
+  "main",
+];
+const POINT_LABELS: Record<SignaturePointId, string> = {
+  privacy_collect: "개인정보 수집·이용 동의 (필수)",
+  privacy_3rd: "개인정보 제3자 제공 동의 (필수)",
+  privacy_mkt: "마케팅 활용 동의 (선택)",
+  terms_handover: "여행약관 교부 확인",
+  special_terms_ack: "크루즈 특별약관 교부 확인",
+  main: "계약 전체 대표 서명",
+  vendor_seal: "여행업자",
+};
+// 개인정보 필수 2개는 체크 없이 다음 불가
+const REQUIRE_CHECK = new Set<SignaturePointId>(["privacy_collect", "privacy_3rd"]);
 
 // ─── 헬퍼 ─────────────────────────────────────────────────────────────────────
-function formatKRW(amount: number) {
-  return amount.toLocaleString("ko-KR") + "원";
-}
-
-function formatDate(dateStr?: string | null) {
-  if (!dateStr) return "-";
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
+function buildBodyData(doc: SignDocResponse | null): ContractBodyData {
+  if (!doc) return {};
+  // GET 응답은 includedItems/excludedItems/hasGuide 를 contractDetails 안에 담아 내려준다(SPEC 화이트리스트).
+  // ContractBody 는 이 3개를 data 최상위에서 읽으므로, 최상위에 없으면 contractDetails 에서 끌어올린다.
+  const cd = (doc.contractDetails ?? {}) as Record<string, unknown>;
+  const cdArr = (k: string): string[] | undefined =>
+    Array.isArray(cd[k]) ? (cd[k] as string[]) : undefined;
+  const cdGuide: "Y" | "N" | undefined =
+    cd.hasGuide === "Y" || cd.hasGuide === "N" ? cd.hasGuide : undefined;
+  return {
+    buyerName: doc.buyerName ?? null,
+    buyerTel: doc.buyerTel ?? null,
+    productName: doc.productName ?? null,
+    amount: doc.amount ?? null,
+    departureDate: doc.departureDate ?? null,
+    nights: doc.nights ?? null,
+    includedItems: doc.includedItems ?? cdArr("includedItems"),
+    excludedItems: doc.excludedItems ?? cdArr("excludedItems"),
+    hasGuide: doc.hasGuide ?? cdGuide,
+    refundPolicy: doc.refundPolicy ?? undefined,
+    refundPolicyLines: doc.refundPolicyLines ?? undefined,
+    specialTerms: doc.specialTerms ?? null,
+    companions: doc.companions,
+    contractDetails: (doc.contractDetails ?? undefined) as ContractBodyData["contractDetails"],
+  };
 }
 
 // ─── 단계 표시기 ───────────────────────────────────────────────────────────────
 function StepIndicator({ current }: { current: number }) {
-  const steps = ["계약서 확인", "동행자 입력", "전자서명"];
+  const steps = ["계약서 확인", "내 정보", "동행자", "전자서명"];
   return (
-    <div className="flex items-center justify-center gap-2 py-4 px-6">
+    <div className="flex items-center justify-center gap-2 py-4 px-4">
       {steps.map((label, i) => {
         const idx = i + 1;
         const isActive = idx === current;
@@ -79,11 +138,7 @@ function StepIndicator({ current }: { current: number }) {
               </span>
             </div>
             {i < steps.length - 1 && (
-              <div
-                className={`w-8 h-0.5 mb-4 transition-colors ${
-                  isDone ? "bg-green-400" : "bg-gray-200"
-                }`}
-              />
+              <div className={`w-6 h-0.5 mb-4 transition-colors ${isDone ? "bg-green-400" : "bg-gray-200"}`} />
             )}
           </div>
         );
@@ -101,32 +156,53 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
   const [step, setStep] = useState<Step>("loading");
   const [errorMsg, setErrorMsg] = useState("");
   const [isTokenError, setIsTokenError] = useState(false);
-  const [docData, setDocData] = useState<DocData | null>(null);
+
+  // 계약서 본문 데이터 + 담당자(스냅샷)
+  const [docData, setDocData] = useState<SignDocResponse | null>(null);
+  const [agentName, setAgentName] = useState<string | null>(null);
+
+  // 내 정보 입력 (inputFields)
+  const [inputFields, setInputFields] = useState<InputField[]>([]);
+  const [inputValues, setInputValues] = useState<Record<string, string>>({});
 
   // 동행자 상태
   const [travelCount, setTravelCount] = useState(1);
   const [soloTravel, setSoloTravel] = useState(false);
   const [companions, setCompanions] = useState<Companion[]>([]);
 
-  // 서명 상태
+  // 서명 상태 (순차)
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSigned, setHasSigned] = useState(false);
-  const [signerName, setSignerName] = useState("");
+  const [currentSignIndex, setCurrentSignIndex] = useState(0); // 0..REQUIRED_POINTS.length
+  const [signatures, setSignatures] = useState<SignatureMap>({});
+  const [agreedMap, setAgreedMap] = useState<Partial<Record<SignaturePointId, boolean>>>({});
+  const [mktChoice, setMktChoice] = useState<null | "sign" | "skip">(null);
+  const [submittedSignatures, setSubmittedSignatures] = useState<SignatureMap | null>(null);
+  const [marketingConsent, setMarketingConsent] = useState(false);
+
   const [submitting, setSubmitting] = useState(false);
   const [completedAt, setCompletedAt] = useState("");
+  // 서명완료 후 공개 PDF 다운로드 토큰(서버가 발급) — signToken은 서명 시 무효화되므로 별도 사용
+  const [pdfToken, setPdfToken] = useState("");
 
-  // P0-3: 이중 제출 방지 ref
+  // 이중 제출 방지 ref
   const submitLockRef = useRef(false);
-
-  // P1-5: 드로잉 거리 추적 ref
+  // 드로잉 거리 추적 ref
   const drawnDistanceRef = useRef(0);
   const lastDrawPosRef = useRef<{ x: number; y: number } | null>(null);
-
   // 네트워크 오류 재시도 카운터
   const [retryCount, setRetryCount] = useState(0);
 
-  // ── 토큰 검증 (P1-3: AbortController 메모리 누수 방지) ─────────────────────
+  const inMktPhase = currentSignIndex >= REQUIRED_POINTS.length;
+  const activePoint: SignaturePointId | null = inMktPhase
+    ? (mktChoice === "sign" ? "privacy_mkt" : null)
+    : (REQUIRED_POINTS[currentSignIndex] ?? null);
+  const signerName = (inputValues["signerName"] ?? docData?.buyerName ?? "").toString().trim();
+  // 서명 캔버스가 화면에 떠 있는 단계인가
+  const canvasVisible = step === "signature" && (!inMktPhase || mktChoice === "sign");
+
+  // ── 토큰 검증 + 계약서 로드 ───────────────────────────────────────────────
   useEffect(() => {
     if (!docId || !token) {
       setErrorMsg("유효하지 않은 링크입니다.");
@@ -146,13 +222,39 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
           setStep("error");
           return;
         }
-        // P0-1: d.data → d.doc
-        setDocData(d.doc as DocData);
-        setSignerName(d.doc?.buyerName ?? "");
-        // P0-1: d.alreadySigned 로 변경
+
+        const doc: SignDocResponse | null = (d.doc as SignDocResponse) ?? null;
+        setDocData(doc);
+        setAgentName(doc?.agentName ?? null);
+
+        // 내 정보 입력 필드 + 기본값(Contact 자동 채우기)
+        const fields: InputField[] = Array.isArray(d.inputFields) ? (d.inputFields as InputField[]) : [];
+        setInputFields(fields);
+        const defaults = (d.inputFieldDefaults ?? null) as Record<string, unknown> | null;
+        const initVals: Record<string, string> = {};
+        fields.forEach((f) => {
+          const v = defaults?.[f.id];
+          initVals[f.id] = v != null ? String(v) : "";
+        });
+        if (!initVals["signerName"] && doc?.buyerName) initVals["signerName"] = doc.buyerName;
+        setInputValues(initVals);
+
+        // 기존 동행자 복원(있으면)
+        if (Array.isArray(doc?.companions) && doc.companions.length > 0) {
+          const restored = doc.companions.map((c) => ({
+            name: c.name ?? "",
+            birthDate: c.birthDate ?? "",
+            relation: c.relation ?? "",
+            phone: c.phone ?? "",
+          }));
+          setCompanions(restored);
+          setTravelCount(restored.length + 1);
+        }
+
         if (d.alreadySigned) {
-          // P0-1: d.signedAt 으로 변경
           setCompletedAt(d.signedAt ?? "");
+          setSubmittedSignatures(doc?.signatures ?? null);
+          setMarketingConsent(!!doc?.marketingConsent);
           setStep("done");
           return;
         }
@@ -166,7 +268,7 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
     return () => controller.abort();
   }, [docId, token, retryCount]);
 
-  // ── 동행자 배열 동기화 (P1-4: 감소 시 기존 데이터 보존) ───────────────────
+  // ── 동행자 배열 동기화 (감소 시 기존 데이터 보존) ─────────────────────────
   useEffect(() => {
     if (soloTravel) {
       setCompanions([]);
@@ -189,9 +291,9 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
     });
   }, [travelCount, soloTravel]);
 
-  // ── 캔버스 초기화 (P1-1: Retina DPI + P1-2: ResizeObserver) ───────────────
+  // ── 캔버스 초기화 (Retina DPI + ResizeObserver) ───────────────────────────
   useEffect(() => {
-    if (step !== "signature") return;
+    if (!canvasVisible) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -214,17 +316,16 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
     }
 
     initCanvas();
+    // 단계/서명점 전환 시 새 빈 캔버스로 시작
+    drawnDistanceRef.current = 0;
+    lastDrawPosRef.current = null;
 
-    // P1-2: ResizeObserver 캔버스 재초기화
-    const ro = new ResizeObserver(() => {
-      initCanvas();
-    });
+    const ro = new ResizeObserver(() => initCanvas());
     ro.observe(canvas);
     return () => ro.disconnect();
-  }, [step]);
+  }, [canvasVisible, currentSignIndex, mktChoice]);
 
   // ── 캔버스 드로잉 ──────────────────────────────────────────────────────────
-  // P2-1: touchend changedTouches 사용, null 반환 가능
   function getPos(
     e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
     canvas: HTMLCanvasElement
@@ -248,9 +349,7 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
     };
   }
 
-  function startDraw(
-    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
-  ) {
+  function startDraw(e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) {
     e.preventDefault();
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -261,13 +360,10 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
     if (!pos) return;
     ctx.beginPath();
     ctx.moveTo(pos.x, pos.y);
-    // P1-5: 드로잉 시작 시 lastPos 초기화
     lastDrawPosRef.current = pos;
   }
 
-  function draw(
-    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
-  ) {
+  function draw(e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) {
     e.preventDefault();
     if (!isDrawing) return;
     const canvas = canvasRef.current;
@@ -278,8 +374,6 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
     if (!pos) return;
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
-
-    // P1-5: 드로잉 거리 누적
     const dx = pos.x - (lastDrawPosRef.current?.x ?? pos.x);
     const dy = pos.y - (lastDrawPosRef.current?.y ?? pos.y);
     drawnDistanceRef.current += Math.sqrt(dx * dx + dy * dy);
@@ -299,38 +393,103 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
     if (!ctx) return;
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    // P1-5: 거리 및 위치 초기화
     drawnDistanceRef.current = 0;
     lastDrawPosRef.current = null;
     setHasSigned(false);
   }
 
-  // ── 제출 (P0-2, P0-3, P1-6 적용) ─────────────────────────────────────────
-  async function handleSubmit() {
-    if (!hasSigned || !signerName.trim()) return;
+  // 현재 캔버스 서명 이미지 캡처 (크기 검증 포함)
+  function captureSignature(): string | null {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const img = canvas.toDataURL("image/png");
+    if (img.length > 500_000) {
+      alert("서명 이미지가 너무 큽니다. 지우기 후 다시 서명해 주세요.");
+      return null;
+    }
+    return img;
+  }
 
-    // P0-3: 이중 제출 방지
+  // ── 해당 약관 위치로 스크롤 ────────────────────────────────────────────────
+  function scrollToClause(pointId: SignaturePointId | null) {
+    if (!pointId || typeof document === "undefined") return;
+    document.getElementById(`sign-point-${pointId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  // 서명 슬롯 클릭 → 해당 서명점으로 이동
+  function jumpToPoint(pointId: SignaturePointId) {
+    if (pointId === "privacy_mkt") {
+      setCurrentSignIndex(REQUIRED_POINTS.length);
+      setMktChoice("sign");
+    } else {
+      const idx = REQUIRED_POINTS.indexOf(pointId);
+      if (idx >= 0) {
+        setCurrentSignIndex(idx);
+        setMktChoice(null);
+      }
+    }
+    setHasSigned(false);
+  }
+
+  // ── 필수 서명점 진행 ──────────────────────────────────────────────────────
+  function advanceRequired() {
+    const point = REQUIRED_POINTS[currentSignIndex];
+    if (!point || !hasSigned) return;
+    if (REQUIRE_CHECK.has(point) && !agreedMap[point]) return;
+    const img = captureSignature();
+    if (!img) return;
+    setSignatures((prev) => ({
+      ...prev,
+      [point]: {
+        role: "TRAVELER",
+        image: img,
+        signedByName: signerName,
+        signedAt: new Date().toISOString(),
+        agreed: REQUIRE_CHECK.has(point) ? !!agreedMap[point] : true,
+      },
+    }));
+    setHasSigned(false);
+    drawnDistanceRef.current = 0;
+    lastDrawPosRef.current = null;
+    setCurrentSignIndex((i) => i + 1);
+  }
+
+  // ── 마케팅 동의: 서명 후 제출 ──────────────────────────────────────────────
+  function handleMktSignAndSubmit() {
+    if (!hasSigned) return;
+    const img = captureSignature();
+    if (!img) return;
+    const finalSigs: SignatureMap = {
+      ...signatures,
+      privacy_mkt: {
+        role: "TRAVELER",
+        image: img,
+        signedByName: signerName,
+        signedAt: new Date().toISOString(),
+        agreed: true,
+      },
+    };
+    void doSubmit(finalSigs, true);
+  }
+
+  // ── 제출 ───────────────────────────────────────────────────────────────────
+  async function doSubmit(finalSignatures: SignatureMap, mkt: boolean) {
     if (submitLockRef.current) return;
+    const mainImage = finalSignatures.main?.image;
+    if (!mainImage) {
+      setErrorMsg("대표 서명이 필요합니다. 다시 시도해 주세요.");
+      setStep("error");
+      return;
+    }
+    if (!signerName) {
+      setErrorMsg("서명자 성함이 필요합니다.");
+      setStep("error");
+      return;
+    }
     submitLockRef.current = true;
 
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      submitLockRef.current = false;
-      return;
-    }
-
-    // P2-5: 서명 이미지 크기 클라이언트 검증
-    const signatureImage = canvas.toDataURL("image/png");
-    if (signatureImage.length > 500_000) {
-      alert("서명 이미지가 너무 큽니다. 지우기 후 다시 서명해 주세요.");
-      submitLockRef.current = false;
-      return;
-    }
-
-    // P1-6: fetch 타임아웃
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
-
     setSubmitting(true);
     try {
       const res = await fetch("/api/documents/purchase-contract/sign", {
@@ -341,29 +500,35 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
           docId,
           token,
           companions,
-          signatureImage,
-          signerName: signerName.trim(),
+          signatures: finalSignatures,
+          marketingConsent: mkt,
+          signerName,
+          inputValues,
+          // 하위호환: 기존 PDF/Drive/완료판정이 쓰는 단일 main 서명 이미지
+          signatureImage: mainImage,
         }),
       });
 
-      // P0-3: 409 응답 시 done 화면으로
       if (res.status === 409) {
         setCompletedAt(new Date().toISOString());
+        setSubmittedSignatures(finalSignatures);
+        setMarketingConsent(mkt);
         setStep("done");
         return;
       }
 
-      const data = await res.json() as { ok: boolean; message?: string; signedAt?: string };
+      const data = (await res.json()) as { ok: boolean; message?: string; signedAt?: string; pdfDownloadToken?: string };
       if (data.ok) {
-        // P0-2: signedAt 수신
         setCompletedAt(data.signedAt ?? new Date().toISOString());
+        setSubmittedSignatures(finalSignatures);
+        setMarketingConsent(mkt);
+        if (data.pdfDownloadToken) setPdfToken(data.pdfDownloadToken);
         setStep("done");
       } else {
         setErrorMsg(data.message ?? "제출 중 오류가 발생했습니다.");
         setStep("error");
       }
     } catch (err) {
-      // P1-6: AbortError → 타임아웃 메시지
       if (err instanceof Error && err.name === "AbortError") {
         setErrorMsg("요청 시간 초과. 잠시 후 다시 시도해 주세요.");
       } else {
@@ -377,7 +542,12 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
     }
   }
 
-  // ── 동행자 필드 유효성 검증 ────────────────────────────────────────────────
+  // ── 유효성 ─────────────────────────────────────────────────────────────────
+  function isInfoValid() {
+    return inputFields.every(
+      (f) => !f.required || (inputValues[f.id] ?? "").toString().trim() !== ""
+    );
+  }
   function isCompanionsValid() {
     if (soloTravel || travelCount === 1) return true;
     return companions.every(
@@ -389,9 +559,9 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
     );
   }
 
-  // ── 렌더링 ─────────────────────────────────────────────────────────────────
+  const bodyData = buildBodyData(docData);
 
-  // 로딩
+  // ── 렌더링: 로딩 ───────────────────────────────────────────────────────────
   if (step === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -403,7 +573,7 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
     );
   }
 
-  // 에러 (P2-3: "다시 시도" 버튼, 토큰 오류 시 제외)
+  // ── 렌더링: 에러 ───────────────────────────────────────────────────────────
   if (step === "error") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
@@ -430,57 +600,71 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
               다시 시도
             </button>
           )}
-          <p className="text-sm text-gray-400 mt-4">
-            문제가 계속되면 담당 에이전트에게 연락해 주세요.
-          </p>
+          <p className="text-sm text-gray-400 mt-4">문제가 계속되면 담당자에게 연락해 주세요.</p>
         </div>
       </div>
     );
   }
 
-  // 완료
+  // ── 렌더링: 완료 ───────────────────────────────────────────────────────────
   if (step === "done") {
+    const doneSignatures = submittedSignatures ?? docData?.signatures ?? undefined;
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-lg">
-          <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-            </svg>
+      <div className="min-h-screen bg-gray-100 flex justify-center py-0 sm:py-8">
+        <div className="w-full max-w-[640px] bg-white sm:rounded-2xl sm:shadow-xl flex flex-col min-h-screen sm:min-h-0">
+          <div className="px-5 pt-8 pb-6 text-center">
+            <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">서명이 완료되었습니다!</h2>
+            <p className="text-base text-gray-500 mb-2">담당자에게 알림이 전송되었습니다.</p>
+            <p className="text-sm text-blue-600 bg-blue-50 rounded-xl px-4 py-2 mb-4">
+              입력하신 이메일로 계약서 사본이 발송됩니다 (수분 내 수신).
+            </p>
+            {completedAt && (
+              <div className="bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-600 mb-4">
+                <span className="font-medium">서명 일시:</span>{" "}
+                {new Date(completedAt).toLocaleString("ko-KR", {
+                  year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
+                })}
+              </div>
+            )}
+            {pdfToken ? (
+              <button
+                onClick={() =>
+                  window.open(`/api/documents/${docId}/contract-pdf?token=${encodeURIComponent(pdfToken)}`, "_blank", "noopener,noreferrer")
+                }
+                className="w-full bg-[#1a2e4a] text-white text-lg font-bold py-4 rounded-2xl hover:bg-[#243d5e] transition-colors active:scale-95"
+              >
+                계약서 PDF 다운받기
+              </button>
+            ) : (
+              <p className="text-sm text-gray-500 bg-gray-50 rounded-xl px-4 py-3">
+                계약서 사본은 입력하신 이메일로 발송됩니다.
+              </p>
+            )}
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">서명이 완료되었습니다!</h2>
-          <p className="text-base text-gray-500 mb-2">
-            담당 에이전트에게 알림이 전송되었습니다.
-          </p>
-          <p className="text-sm text-blue-600 bg-blue-50 rounded-xl px-4 py-2 mb-4">
-            📧 입력하신 이메일로 계약서 사본이 발송됩니다 (수분 내 수신).
-          </p>
-          {completedAt && (
-            <div className="bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-600">
-              <span className="font-medium">서명 일시:</span>{" "}
-              {new Date(completedAt).toLocaleString("ko-KR", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+
+          {/* 서명 완료된 계약서 본문 재표시 */}
+          {docData && (
+            <div className="px-3 pb-8">
+              <p className="mb-2 px-2 text-sm font-semibold text-gray-700">내 계약서</p>
+              <ContractBody data={bodyData} agentName={agentName} signatures={doneSignatures} mode="preview" />
             </div>
           )}
-          <p className="text-sm text-gray-400 mt-6">
-            이 창은 닫으셔도 됩니다.
-          </p>
         </div>
       </div>
     );
   }
 
   // ── 메인 레이아웃 ──────────────────────────────────────────────────────────
-  const currentStepNum = step === "contract" ? 1 : step === "companions" ? 2 : 3;
+  const currentStepNum = step === "contract" ? 1 : step === "info" ? 2 : step === "companions" ? 3 : 4;
 
   return (
     <div className="min-h-screen bg-gray-100 flex justify-center py-0 sm:py-8">
-      <div className="w-full max-w-[640px] bg-white sm:rounded-2xl sm:shadow-xl flex flex-col min-h-screen sm:min-h-0">
+      <div className="w-full max-w-[680px] bg-white sm:rounded-2xl sm:shadow-xl flex flex-col min-h-screen sm:min-h-0">
         {/* 헤더 */}
         <div className="bg-[#1a2e4a] px-6 py-5 sm:rounded-t-2xl">
           <div className="flex items-center justify-between">
@@ -490,9 +674,7 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
             </div>
             <div className="text-right">
               <p className="text-[#93c5fd] text-xs">크루즈닷</p>
-              <p className="text-white text-sm font-semibold mt-0.5">
-                {docData?.buyerName ?? ""}
-              </p>
+              <p className="text-white text-sm font-semibold mt-0.5">{docData?.buyerName ?? ""}</p>
             </div>
           </div>
         </div>
@@ -500,103 +682,92 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
         {/* 단계 표시기 */}
         <StepIndicator current={currentStepNum} />
 
-        {/* ── 단계 1: 계약서 내용 확인 ── */}
-        {step === "contract" && docData && (
-          <div className="flex flex-col flex-1 px-5 pb-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">계약서 내용을 확인해 주세요</h2>
-
-            {/* 계약 정보 카드 */}
-            <div className="bg-[#f0f5ff] rounded-2xl p-5 mb-5 border border-[#c7d9f7]">
-              <h3 className="text-base font-bold text-[#1a2e4a] mb-3 flex items-center gap-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                계약 상세
-              </h3>
-              <div className="space-y-3">
-                <InfoRow label="구매자명" value={docData.buyerName ?? "-"} />
-                <InfoRow label="상품명" value={docData.productName ?? "-"} highlight />
-                {docData.departureDate && (
-                  <InfoRow
-                    label="출발일"
-                    value={`${formatDate(docData.departureDate)}${docData.nights ? ` (${docData.nights}박)` : ""}`}
-                  />
-                )}
-                <InfoRow
-                  label="결제금액"
-                  value={docData.amount ? formatKRW(docData.amount) : "-"}
-                  bold
-                  blue
-                />
-                <InfoRow label="결제방법" value={docData.paymentMethod ?? "-"} />
-                {docData.paidAt && (
-                  <InfoRow label="결제일시" value={formatDate(docData.paidAt)} />
-                )}
-              </div>
+        {/* ── 단계 1: 계약서 전체 확인 ── */}
+        {step === "contract" && (
+          <div className="flex flex-col flex-1 px-3 pb-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-1 px-2">계약서 내용을 확인해 주세요</h2>
+            <p className="text-base text-gray-500 mb-4 px-2">
+              아래 계약서 전체 내용을 천천히 읽어보신 뒤 다음으로 진행해 주세요.
+            </p>
+            <div className="max-h-[60vh] overflow-y-auto rounded-2xl border border-gray-100">
+              <ContractBody data={bodyData} agentName={agentName} mode="sign" />
             </div>
-
-            {/* 취소/환불 규정 (P2-2: 하드코딩 폴백 제거) */}
-            <div className="bg-amber-50 rounded-2xl p-5 mb-5 border border-amber-200">
-              <h3 className="text-base font-bold text-amber-800 mb-3 flex items-center gap-2">
-                <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                취소 / 환불 규정
-              </h3>
-              <ul className="space-y-2">
-                {(Array.isArray(docData.cancellationPolicy) ? docData.cancellationPolicy : []).length > 0
-                  ? (Array.isArray(docData.cancellationPolicy) ? docData.cancellationPolicy : []).map((policy, i) => (
-                      <li key={i} className="flex items-start gap-2 text-base text-amber-900">
-                        <span className="text-amber-500 mt-0.5 flex-shrink-0">•</span>
-                        {policy}
-                      </li>
-                    ))
-                  : (
-                      <li className="flex items-start gap-2 text-base text-amber-900">
-                        <span className="text-amber-500 mt-0.5 flex-shrink-0">•</span>
-                        취소/환불 규정은 담당 에이전트에게 문의하세요.
-                      </li>
-                    )
-                }
-              </ul>
-            </div>
-
-            {/* 특약사항 */}
-            {docData.specialTerms && (
-              <div className="bg-gray-50 rounded-2xl p-5 mb-5 border border-gray-200">
-                <h3 className="text-base font-bold text-gray-700 mb-2">특약사항</h3>
-                <p className="text-base text-gray-600 leading-relaxed whitespace-pre-line">
-                  {docData.specialTerms}
-                </p>
-              </div>
-            )}
-
-            <div className="mt-auto pt-4">
+            <div className="mt-4 px-1">
               <button
-                onClick={() => setStep("companions")}
+                onClick={() => setStep("info")}
                 className="w-full bg-[#1a2e4a] text-white text-lg font-bold py-4 rounded-2xl hover:bg-[#243d5e] transition-colors active:scale-95"
               >
                 내용 확인 완료, 다음 →
               </button>
-              <p className="text-center text-sm text-gray-400 mt-3">
-                위 내용을 충분히 확인하신 후 다음 단계로 진행해 주세요.
-              </p>
             </div>
           </div>
         )}
 
-        {/* ── 단계 2: 동행자 정보 입력 ── */}
+        {/* ── 단계 2: 내 정보 입력 ── */}
+        {step === "info" && (
+          <div className="flex flex-col flex-1 px-5 pb-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-1">내 정보를 입력해 주세요</h2>
+            <p className="text-base text-gray-500 mb-6">계약서에 들어갈 계약자 정보입니다.</p>
+
+            <div className="space-y-4">
+              {inputFields.map((f) => (
+                <div key={f.id}>
+                  <label className="text-base font-bold text-gray-800 mb-1.5 block">
+                    {f.label} {f.required && <span className="text-red-500">*</span>}
+                  </label>
+                  {f.type === "select" && f.options ? (
+                    <select
+                      value={inputValues[f.id] ?? ""}
+                      onChange={(e) => setInputValues((v) => ({ ...v, [f.id]: e.target.value }))}
+                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-[#1a2e4a] bg-white"
+                    >
+                      <option value="">선택하세요</option>
+                      {f.options.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type={f.type === "phone" ? "tel" : f.type === "number" ? "number" : f.type === "date" ? "date" : f.type === "email" ? "email" : "text"}
+                      inputMode={f.type === "phone" ? "tel" : undefined}
+                      value={inputValues[f.id] ?? ""}
+                      onChange={(e) => setInputValues((v) => ({ ...v, [f.id]: e.target.value }))}
+                      placeholder={f.placeholder ?? ""}
+                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-[#1a2e4a]"
+                    />
+                  )}
+                </div>
+              ))}
+              {inputFields.length === 0 && (
+                <p className="text-base text-gray-400">추가로 입력할 정보가 없습니다. 다음으로 진행해 주세요.</p>
+              )}
+            </div>
+
+            <div className="mt-auto pt-6">
+              <button
+                onClick={() => setStep("companions")}
+                disabled={!isInfoValid()}
+                className="w-full bg-[#1a2e4a] text-white text-lg font-bold py-4 rounded-2xl hover:bg-[#243d5e] transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+              >
+                다음 →
+              </button>
+              <button
+                onClick={() => setStep("contract")}
+                className="w-full text-gray-500 text-base py-3 mt-2 hover:text-gray-700 transition-colors"
+              >
+                ← 이전으로
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── 단계 3: 동행자 정보 입력 ── */}
         {step === "companions" && (
           <div className="flex flex-col flex-1 px-5 pb-6">
             <h2 className="text-xl font-bold text-gray-900 mb-1">동행자 정보 입력</h2>
-            <p className="text-base text-gray-500 mb-6">
-              여행자 여권 정보 등록에 필요합니다.
-            </p>
+            <p className="text-base text-gray-500 mb-6">여행자 여권 정보 등록에 필요합니다.</p>
 
-            {/* 혼자 여행 체크박스 */}
-            <label className="flex items-center gap-3 bg-gray-50 rounded-2xl p-4 mb-5 cursor-pointer border-2 border-transparent checked:border-[#1a2e4a]">
+            <label className="flex items-center gap-3 bg-gray-50 rounded-2xl p-4 mb-5 cursor-pointer border-2 border-transparent">
               <input
                 type="checkbox"
                 checked={soloTravel}
@@ -606,14 +777,11 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
                 }}
                 className="w-5 h-5 accent-[#1a2e4a] flex-shrink-0"
               />
-              <span className="text-base font-medium text-gray-700">
-                혼자 여행합니다 (동행자 없음)
-              </span>
+              <span className="text-base font-medium text-gray-700">혼자 여행합니다 (동행자 없음)</span>
             </label>
 
             {!soloTravel && (
               <>
-                {/* 인원 선택 */}
                 <div className="mb-6">
                   <label className="text-base font-bold text-gray-800 mb-3 block">
                     나 포함 총 몇 명이 여행하시나요?
@@ -624,33 +792,22 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
                         key={n}
                         onClick={() => setTravelCount(n)}
                         className={`w-12 h-12 rounded-xl text-base font-bold transition-colors ${
-                          travelCount === n
-                            ? "bg-[#1a2e4a] text-white"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          travelCount === n ? "bg-[#1a2e4a] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                         }`}
                       >
                         {n}
                       </button>
                     ))}
                   </div>
-                  <p className="text-sm text-gray-400 mt-2">
-                    구매자 본인(1명)은 자동 포함됩니다.
-                  </p>
+                  <p className="text-sm text-gray-400 mt-2">구매자 본인(1명)은 자동 포함됩니다.</p>
                 </div>
 
-                {/* 동행자 카드 */}
                 {companions.length > 0 && (
                   <div className="space-y-4 mb-4">
                     {companions.map((companion, i) => (
-                      <div
-                        key={i}
-                        className="bg-gray-50 rounded-2xl p-5 border border-gray-200"
-                      >
-                        <h4 className="text-base font-bold text-[#1a2e4a] mb-4">
-                          동행자 {i + 1}
-                        </h4>
+                      <div key={i} className="bg-gray-50 rounded-2xl p-5 border border-gray-200">
+                        <h4 className="text-base font-bold text-[#1a2e4a] mb-4">동행자 {i + 1}</h4>
                         <div className="space-y-4">
-                          {/* 이름 */}
                           <div>
                             <label className="text-sm font-medium text-gray-700 mb-1.5 block">
                               이름 <span className="text-red-500">*</span>
@@ -667,7 +824,6 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
                               className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-[#1a2e4a]"
                             />
                           </div>
-                          {/* 생년월일 */}
                           <div>
                             <label className="text-sm font-medium text-gray-700 mb-1.5 block">
                               생년월일 <span className="text-red-500">*</span>
@@ -683,7 +839,6 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
                               className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-[#1a2e4a]"
                             />
                           </div>
-                          {/* 관계 */}
                           <div>
                             <label className="text-sm font-medium text-gray-700 mb-1.5 block">
                               관계 <span className="text-red-500">*</span>
@@ -706,7 +861,6 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
                               <option value="기타">기타</option>
                             </select>
                           </div>
-                          {/* 연락처 */}
                           <div>
                             <label className="text-sm font-medium text-gray-700 mb-1.5 block">
                               연락처 <span className="text-red-500">*</span>
@@ -743,7 +897,7 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
                 다음 →
               </button>
               <button
-                onClick={() => setStep("contract")}
+                onClick={() => setStep("info")}
                 className="w-full text-gray-500 text-base py-3 mt-2 hover:text-gray-700 transition-colors"
               >
                 ← 이전으로
@@ -752,122 +906,186 @@ function SignPageContent({ params }: { params: Promise<{ docId: string }> }) {
           </div>
         )}
 
-        {/* ── 단계 3: 전자서명 ── */}
+        {/* ── 단계 4: 전자서명 (순차) ── */}
         {step === "signature" && (
-          <div className="flex flex-col flex-1 px-5 pb-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-1">계약서에 서명해 주세요</h2>
-            <p className="text-base text-gray-500 mb-6">
-              아래 영역에 본인의 서명을 해주세요
-            </p>
+          <div className="flex flex-col flex-1 px-3 pb-6">
+            {/* 진행 카운터 */}
+            <div className="px-2 mb-3 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">전자서명</h2>
+              {!inMktPhase && (
+                <span className="rounded-full bg-[#1a2e4a] px-3 py-1 text-sm font-bold text-white">
+                  서명 {currentSignIndex + 1} / {REQUIRED_POINTS.length}
+                </span>
+              )}
+            </div>
 
-            {/* 서명 캔버스 */}
-            <div className="mb-6">
-              <div className="border-2 border-[#1a2e4a] rounded-2xl overflow-hidden bg-white relative">
-                <canvas
-                  ref={canvasRef}
-                  className="w-full touch-none cursor-crosshair block"
-                  style={{ height: "200px" }}
-                  onMouseDown={startDraw}
-                  onMouseMove={draw}
-                  onMouseUp={endDraw}
-                  onMouseLeave={endDraw}
-                  onTouchStart={startDraw}
-                  onTouchMove={draw}
-                  onTouchEnd={endDraw}
-                />
-                {!hasSigned && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <p className="text-gray-300 text-base">여기에 서명하세요</p>
-                  </div>
-                )}
-              </div>
-              <div className="flex justify-end mt-2">
+            {/* 서명 카드 (필수 서명점) */}
+            {!inMktPhase && activePoint && (
+              <div className="mx-1 mb-5 rounded-2xl border-2 border-[#1a2e4a] bg-[#f0f5ff] p-4">
+                <p className="text-lg font-bold text-[#1a2e4a] mb-1">
+                  {currentSignIndex + 1}. {POINT_LABELS[activePoint]}
+                </p>
+                <p className="text-sm text-gray-600 mb-3">
+                  아래 약관 내용을 확인하시고, 동의 후 서명해 주세요.
+                </p>
+
                 <button
-                  onClick={clearCanvas}
-                  className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition-colors"
+                  type="button"
+                  onClick={() => scrollToClause(activePoint)}
+                  className="mb-3 w-full rounded-xl border-2 border-[#1a2e4a] bg-white py-2.5 text-base font-bold text-[#1a2e4a] hover:bg-blue-50"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  지우기
+                  📄 이 약관 내용 보기
+                </button>
+
+                {/* 동의 체크박스 (개인정보 필수 2개) */}
+                {REQUIRE_CHECK.has(activePoint) && (
+                  <label className="mb-3 flex items-center gap-3 rounded-xl bg-white p-3 cursor-pointer border-2 border-gray-200">
+                    <input
+                      type="checkbox"
+                      checked={!!agreedMap[activePoint]}
+                      onChange={(e) => setAgreedMap((m) => ({ ...m, [activePoint]: e.target.checked }))}
+                      className="w-5 h-5 accent-[#1a2e4a] flex-shrink-0"
+                    />
+                    <span className="text-base font-medium text-gray-700">
+                      위 내용을 확인하였으며 동의합니다.
+                    </span>
+                  </label>
+                )}
+
+                {/* 서명 캔버스 */}
+                <div className="border-2 border-[#1a2e4a] rounded-2xl overflow-hidden bg-white relative">
+                  <canvas
+                    ref={canvasRef}
+                    className="w-full touch-none cursor-crosshair block"
+                    style={{ height: "200px" }}
+                    onMouseDown={startDraw}
+                    onMouseMove={draw}
+                    onMouseUp={endDraw}
+                    onMouseLeave={endDraw}
+                    onTouchStart={startDraw}
+                    onTouchMove={draw}
+                    onTouchEnd={endDraw}
+                  />
+                  {!hasSigned && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <p className="text-gray-300 text-base">여기에 서명하세요</p>
+                    </div>
+                  )}
+                </div>
+                <div className="flex justify-end mt-2">
+                  <button
+                    onClick={clearCanvas}
+                    className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    지우기
+                  </button>
+                </div>
+
+                <button
+                  onClick={advanceRequired}
+                  disabled={!hasSigned || (REQUIRE_CHECK.has(activePoint) && !agreedMap[activePoint])}
+                  className="mt-3 w-full bg-[#1a2e4a] text-white text-lg font-bold py-4 rounded-2xl hover:bg-[#243d5e] transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                >
+                  {currentSignIndex + 1 < REQUIRED_POINTS.length ? "다음 서명 →" : "다음 (마지막 단계) →"}
                 </button>
               </div>
-            </div>
+            )}
 
-            {/* 서명자 이름 확인 */}
-            <div className="mb-8">
-              <label className="text-base font-bold text-gray-800 mb-2 block">
-                서명자 성함 확인{" "}
-                <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={signerName}
-                onChange={(e) => setSignerName(e.target.value)}
-                placeholder={docData?.buyerName ?? "구매자 성함"}
-                className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-[#1a2e4a]"
-              />
-            </div>
+            {/* 마케팅 동의 (선택) */}
+            {inMktPhase && (
+              <div className="mx-1 mb-5 rounded-2xl border-2 border-gray-300 bg-gray-50 p-4">
+                <p className="text-lg font-bold text-gray-800 mb-1">마케팅 활용 동의 (선택)</p>
+                <p className="text-sm text-gray-600 mb-3">
+                  할인·신규 일정 등 소식을 받아보시려면 동의 후 서명해 주세요. 동의하지 않아도 계약은 정상 진행됩니다.
+                </p>
+
+                {mktChoice !== "sign" ? (
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => { setMktChoice("sign"); setHasSigned(false); }}
+                      className="w-full bg-[#1a2e4a] text-white text-lg font-bold py-4 rounded-2xl hover:bg-[#243d5e] transition-colors active:scale-95"
+                    >
+                      동의하고 서명하기
+                    </button>
+                    <button
+                      onClick={() => { setMktChoice("skip"); void doSubmit(signatures, false); }}
+                      disabled={submitting}
+                      className="w-full bg-white text-gray-700 text-lg font-bold py-4 rounded-2xl border-2 border-gray-300 hover:bg-gray-100 transition-colors disabled:opacity-40 active:scale-95"
+                    >
+                      {submitting ? "제출 중..." : "동의 안 함 / 건너뛰고 제출"}
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="border-2 border-[#1a2e4a] rounded-2xl overflow-hidden bg-white relative">
+                      <canvas
+                        ref={canvasRef}
+                        className="w-full touch-none cursor-crosshair block"
+                        style={{ height: "200px" }}
+                        onMouseDown={startDraw}
+                        onMouseMove={draw}
+                        onMouseUp={endDraw}
+                        onMouseLeave={endDraw}
+                        onTouchStart={startDraw}
+                        onTouchMove={draw}
+                        onTouchEnd={endDraw}
+                      />
+                      {!hasSigned && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <p className="text-gray-300 text-base">여기에 서명하세요</p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex justify-end mt-2">
+                      <button
+                        onClick={clearCanvas}
+                        className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        지우기
+                      </button>
+                    </div>
+                    <button
+                      onClick={handleMktSignAndSubmit}
+                      disabled={!hasSigned || submitting}
+                      className="mt-3 w-full bg-[#1a2e4a] text-white text-lg font-bold py-4 rounded-2xl hover:bg-[#243d5e] transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                    >
+                      {submitting ? "제출 중..." : "동의 서명 완료 및 제출"}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
 
             {/* 법적 안내 */}
-            <div className="bg-blue-50 rounded-2xl p-4 mb-6 border border-blue-100">
+            <div className="mx-1 mb-4 rounded-2xl bg-blue-50 p-4 border border-blue-100">
               <p className="text-sm text-blue-800 leading-relaxed">
                 위 서명은 「전자서명법」에 따른 전자서명으로, 본 구매계약서에 법적 효력을 가집니다.
                 서명 완료 후에는 수정이 불가합니다.
               </p>
             </div>
 
-            <div className="mt-auto">
-              <button
-                onClick={handleSubmit}
-                disabled={!hasSigned || !signerName.trim() || submitting}
-                className="w-full bg-[#1a2e4a] text-white text-lg font-bold py-4 rounded-2xl hover:bg-[#243d5e] transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 flex items-center justify-center gap-2"
-              >
-                {submitting && (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                )}
-                {submitting ? "처리 중..." : "서명 완료 및 제출"}
-              </button>
-              <button
-                onClick={() => setStep("companions")}
-                disabled={submitting}
-                className="w-full text-gray-500 text-base py-3 mt-2 hover:text-gray-700 transition-colors disabled:opacity-40"
-              >
-                ← 이전으로
-              </button>
+            {/* 참고: 계약서 본문 (현재 서명점 강조) */}
+            <div className="max-h-[55vh] overflow-y-auto rounded-2xl border border-gray-100 mx-1">
+              <ContractBody
+                data={bodyData}
+                agentName={agentName}
+                signatures={signatures}
+                mode="sign"
+                activeSignPointId={activePoint}
+                onRequestSign={jumpToPoint}
+              />
             </div>
+
+            <button
+              onClick={() => setStep("companions")}
+              disabled={submitting}
+              className="w-full text-gray-500 text-base py-3 mt-3 hover:text-gray-700 transition-colors disabled:opacity-40"
+            >
+              ← 이전으로
+            </button>
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-// ─── 정보 행 컴포넌트 ───────────────────────────────────────────────────────────
-function InfoRow({
-  label,
-  value,
-  highlight,
-  bold,
-  blue,
-}: {
-  label: string;
-  value: string;
-  highlight?: boolean;
-  bold?: boolean;
-  blue?: boolean;
-}) {
-  return (
-    <div className={`flex justify-between items-start gap-4 py-2 border-b border-[#dce8f7] last:border-0 ${highlight ? "bg-[#e8f0fe] -mx-2 px-2 rounded-lg" : ""}`}>
-      <span className="text-sm text-gray-500 flex-shrink-0 mt-0.5">{label}</span>
-      <span
-        className={`text-base text-right leading-relaxed ${
-          bold ? "font-bold" : "font-medium"
-        } ${blue ? "text-[#2b6cb0]" : "text-gray-900"}`}
-      >
-        {value}
-      </span>
     </div>
   );
 }

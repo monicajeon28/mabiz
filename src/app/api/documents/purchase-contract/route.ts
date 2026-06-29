@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/prisma';
-import { getAuthContext, resolveOrgId } from '@/lib/rbac';
+import { getAuthContext, resolveOrgId, actorDisplayName } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { COMPANY_INFO, CANCELLATION_POLICY_LINES, BANK_TRANSFER_LABEL, CRUISE_CANCELLATION_POLICY } from '@/lib/company-info';
 import { refundPolicyToLines, normalizeRefundPolicy } from '@/lib/refund-calculator';
@@ -32,6 +32,9 @@ export async function POST(req: Request) {
       nights?: number;
       specialTerms?: string;
       signedAt?: string;
+      // 연결 고객 id (완료 시 고객 상태 자동전환에 필요) + 발급 담당자 연락처(선택)
+      contactId?: string;
+      agentPhone?: string;
       // 수동 입력 override 필드 (자동 도출값 덮어쓰기)
       overrideProductName?: string;
       overrideDepartureDate?: string;
@@ -197,6 +200,26 @@ export async function POST(req: Request) {
       }
     } catch (productErr) { logger.warn('[PurchaseContract] 상품 정보 조회 실패 — 기본값 사용', { error: productErr instanceof Error ? productErr.message : String(productErr) }); }
 
+    // 발급 담당자/연결 고객 스냅샷 — 공개 서명페이지는 로그인하지 않으므로 발급 시점에 저장한다.
+    const agentName = actorDisplayName(ctx);
+    let agentPhone: string | null = (body.agentPhone ?? '').trim() || null;
+    if (!agentPhone && ctx.member?.id) {
+      const m = await prisma.organizationMember.findUnique({
+        where: { id: ctx.member.id },
+        select: { phone: true },
+      }).catch(() => null);
+      agentPhone = m?.phone ?? null;
+    }
+    // 연결 고객 — 조직 소유 검증 후 저장(없거나 타 조직이면 null). 완료 시 고객 상태 자동전환에 사용.
+    let linkedContactId: string | null = null;
+    if (body.contactId) {
+      const c = await prisma.contact.findFirst({
+        where: { id: body.contactId, organizationId: orgId },
+        select: { id: true },
+      }).catch(() => null);
+      linkedContactId = c?.id ?? null;
+    }
+
     const signedAt = body.signedAt ?? new Date().toISOString().split('T')[0];
 
     // AGENT → PENDING_APPROVAL, OWNER/ADMIN → APPROVED
@@ -228,6 +251,7 @@ export async function POST(req: Request) {
           orderId:        effectiveOrderId,
           affiliateSaleId: effectiveSaleId,
           createdBy:      ctx.userId,
+          contactId:      linkedContactId,
           generatedData: {
             // 계약 당사자
             buyerName:      buyerName,
@@ -266,6 +290,14 @@ export async function POST(req: Request) {
             signatureImage: null,
             customerSignedAt: null,
             signedByName:  null,
+            // 발급 담당자/연결 고객 스냅샷 (공개 서명페이지 표시 + 완료 시 고객 상태전환)
+            agentName,
+            agentPhone,
+            contactId:     linkedContactId,
+            // 다중 서명점(7개) 맵 — 서명 완료 시 채워짐. 발급 시점엔 빈 맵.
+            signatures:    {},
+            // 마케팅 활용 동의(선택) — 서명 시 결정. 기본 미동의.
+            marketingConsent: false,
           },
         },
         select: { id: true, status: true },

@@ -1,15 +1,54 @@
 import { NextResponse } from 'next/server';
 import type { Prisma } from '@prisma/client';
-import { timingSafeEqual } from 'crypto';
+import { timingSafeEqual, randomBytes } from 'crypto';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { sendFunnelEmail } from '@/lib/email';
 import { checkRateLimitAsync } from '@/lib/rate-limit';
 import { saveContractToDrive } from '@/lib/affiliate/document-drive-sync';
-import { generatePurchaseContractPdf } from '@/lib/purchase-contract-pdf';
+import { renderPurchaseContractPdf } from '@/lib/purchase-contract-pdf';
 import { sendSystemEmail, COMPANY_EMAIL } from '@/lib/system-email';
 import { extractAllContactFieldValues, validateAllFieldValues } from '@/lib/utils/contract-field-mapper';
 import type { ContractInputField } from '@/lib/types/contract-templates';
+import { CERT_SEAL_DATA_URI } from '@/app/(dashboard)/documents-approval/_components/cert-assets';
+
+// ─── 다중 서명점(7개) 정의 ────────────────────────────────────────────────────
+// 여행자 서명점 6개 + 크루즈닷(VENDOR) 직인 1개(vendor_seal, 서버 자동 주입)
+const TRAVELER_POINTS = [
+  'privacy_collect',   // 개인정보 수집·이용(필수)
+  'privacy_3rd',       // 제3자 제공(필수)
+  'privacy_mkt',       // 마케팅 활용(선택 — 거부 가능)
+  'terms_handover',    // 약관 교부
+  'special_terms_ack', // 약관교부확인(특별약관)
+  'main',              // 전체 대표 서명
+] as const;
+// 필수 5개 (privacy_mkt 는 선택이라 제외)
+const REQUIRED_POINTS = [
+  'privacy_collect', 'privacy_3rd', 'terms_handover', 'special_terms_ack', 'main',
+] as const;
+// 50대 친화 한글 라벨 (오류 메시지용)
+const POINT_LABELS: Record<string, string> = {
+  privacy_collect:   '개인정보 수집·이용 동의',
+  privacy_3rd:       '개인정보 제3자 제공 동의',
+  privacy_mkt:       '마케팅 활용 동의(선택)',
+  terms_handover:    '여행약관 교부 확인',
+  special_terms_ack: '특별약관 교부 확인',
+  main:              '계약 대표 서명',
+};
+
+type SignaturePointInput = {
+  image?: string | null;
+  agreed?: boolean;
+  signedByName?: string;
+};
+
+type StoredSignaturePoint = {
+  role: 'TRAVELER' | 'VENDOR';
+  image: string | null;
+  signedByName?: string;
+  signedAt?: string;
+  agreed?: boolean;
+};
 
 type Companion = {
   name: string;      // 이름 (필수)
@@ -252,22 +291,60 @@ export async function GET(req: Request) {
     // Phase 6: 기본 inputFields (템플릿에 없으면 폴백)
     const inputFields = templateInputFields ?? getInputFields(contactData);
 
+    // 약관 본문/특별약관/개인정보 동의 등 계약 본문에 필요한 서술형 필드를 contractDetails 로 묶는다.
+    // (발급 시 body.contractDetails 가 top-level 로 펼쳐 저장되므로 알려진 키만 화이트리스트로 수집)
+    const CONTRACT_DETAIL_KEYS = [
+      'contractType', 'travelGuarantee', 'hasInsurance', 'insuranceCompany',
+      'minPax', 'maxPax', 'pricePerPerson', 'transportTypes', 'shipName',
+      'accommodationTypes', 'hotelGrade', 'mealDisplay', 'breakfast', 'lunch',
+      'dinner', 'localGuide', 'localTransport', 'localAgency',
+      'includedItems', 'excludedItems', 'hasGuide',
+    ] as const;
+    const contractDetails: Record<string, unknown> = {};
+    for (const k of CONTRACT_DETAIL_KEYS) {
+      if (data[k] !== undefined) contractDetails[k] = data[k];
+    }
+    contractDetails.specialTerms       = data.specialTerms       ?? null;
+    contractDetails.cancellationPolicy = data.cancellationPolicy ?? null;
+
+    // 환불 규정 표시용 문자열 라인 (refundPolicy 는 {label,value}[] 형태로 저장됨)
+    const refundPolicyRaw = Array.isArray(data.refundPolicy)
+      ? (data.refundPolicy as Array<{ label?: string; value?: string }>)
+      : [];
+    const refundPolicyLines = refundPolicyRaw
+      .map((r) => [r?.label, r?.value].filter(Boolean).join(' '))
+      .filter((s) => s.length > 0);
+
+    const existingSignatures = (data.signatures && typeof data.signatures === 'object')
+      ? (data.signatures as Record<string, unknown>)
+      : {};
+
+    // 보안 R2: 화이트리스트 — signToken/createdBy/orderId 등 내부필드는 절대 내보내지 않음
     return NextResponse.json({
       ok: true,
       doc: {
-        id: doc.id,
-        productName:        data.productName        ?? null,
+        id:                 doc.id,
         buyerName:          data.buyerName          ?? null,
+        agentName:          data.agentName          ?? null,
+        productName:        data.productName        ?? null,
         amount:             data.amount             ?? null,
         departureDate:      data.departureDate      ?? null,
         nights:             data.nights             ?? null,
         paymentMethod:      data.paymentMethod      ?? null,
         paidAt:             data.paidAt             ?? null,
         signedAt:           data.signedAt           ?? null,
-        cancellationPolicy: data.cancellationPolicy ?? null,
-        specialTerms:       data.specialTerms       ?? null,
         companyName:        data.companyName        ?? null,
+        refundPolicy:       data.refundPolicy       ?? null,
+        refundPolicyLines,
+        contractDetails,
+        companions:         Array.isArray(data.companions) ? data.companions : [],
+        inputFields,
+        inputFieldDefaults,
+        signatures:         existingSignatures,
+        marketingConsent:   typeof data.marketingConsent === 'boolean' ? data.marketingConsent : false,
+        signStatus:         data.signStatus ?? 'PENDING',
       },
+      // 하위호환: 기존 화면이 top-level 로 읽던 필드 유지
       inputFields,
       inputFieldDefaults,
       alreadySigned: false,
@@ -298,19 +375,80 @@ export async function POST(req: Request) {
       docId: string;
       token: string;
       companions: Companion[];
-      signatureImage: string;
+      signatureImage?: string;                 // 하위호환(레거시 단일 서명) — 신규는 signatures 사용
       signerName: string;
-      inputValues?: Record<string, any>; // Phase 6: 입력 필드 값 객체 (fieldId → 값)
+      inputValues?: Record<string, any>;       // Phase 6: 입력 필드 값 객체 (fieldId → 값)
+      signatures?: Record<string, SignaturePointInput>; // 신규: 다중 서명점 맵
+      marketingConsent?: boolean;              // 마케팅 활용 동의(선택)
     };
 
-    const { docId, token, companions = [], signatureImage, signerName, inputValues = {} } = body;
+    const {
+      docId, token, companions = [], signatureImage, signerName,
+      inputValues = {}, marketingConsent,
+    } = body;
 
-    // 필수값 검증
-    if (!docId || !token || !signatureImage || !signerName) {
+    // 필수값 검증 (signatureImage 는 신규 흐름에선 signatures.main 으로 대체되므로 여기선 제외)
+    if (!docId || !token || !signerName) {
       return NextResponse.json(
-        { ok: false, message: 'docId, token, signatureImage, signerName은 필수입니다' },
+        { ok: false, message: 'docId, token, signerName은 필수입니다' },
         { status: 400 },
       );
+    }
+
+    // ── 다중 서명점 해석 ─────────────────────────────────────────────────────
+    // 신규 클라이언트는 signatures 맵을, 레거시 클라이언트는 signatureImage(=main) 단일을 보낸다.
+    const hasNewSignatures =
+      !!body.signatures && typeof body.signatures === 'object' && Object.keys(body.signatures).length > 0;
+    const providedSignatures: Record<string, SignaturePointInput> = hasNewSignatures
+      ? (body.signatures as Record<string, SignaturePointInput>)
+      : (signatureImage ? { main: { image: signatureImage, agreed: true } } : {});
+
+    // main(대표 서명)은 두 흐름 모두 필수
+    const mainImage = providedSignatures.main?.image ?? null;
+    if (!mainImage) {
+      return NextResponse.json(
+        { ok: false, message: `${POINT_LABELS.main}이(가) 필요합니다` },
+        { status: 400 },
+      );
+    }
+
+    // 각 서명점 이미지 형식·크기 검증 (base64 png/jpeg/webp, 각 500KB 이하, 합계 4MB 이하)
+    const sigBase64Regex = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/;
+    let totalSignatureBytes = 0;
+    for (const pointId of TRAVELER_POINTS) {
+      const img = providedSignatures[pointId]?.image;
+      if (!img) continue;
+      if (!sigBase64Regex.test(img)) {
+        return NextResponse.json(
+          { ok: false, message: `${POINT_LABELS[pointId] ?? pointId} 서명 이미지 형식이 올바르지 않습니다` },
+          { status: 400 },
+        );
+      }
+      if (img.length > 500_000) {
+        return NextResponse.json(
+          { ok: false, message: `${POINT_LABELS[pointId] ?? pointId} 서명 이미지 크기가 너무 큽니다 (최대 375KB)` },
+          { status: 400 },
+        );
+      }
+      totalSignatureBytes += img.length;
+    }
+    if (totalSignatureBytes > 4_000_000) {
+      return NextResponse.json(
+        { ok: false, message: '서명 이미지 전체 크기가 너무 큽니다. 다시 시도해 주세요.' },
+        { status: 400 },
+      );
+    }
+
+    // 필수 5개 서명점 검증 (신규 흐름에서만 강제 — 레거시 단일 흐름은 main 만으로 통과)
+    if (hasNewSignatures) {
+      for (const pointId of REQUIRED_POINTS) {
+        if (!providedSignatures[pointId]?.image) {
+          return NextResponse.json(
+            { ok: false, message: `${POINT_LABELS[pointId] ?? pointId} 서명이 필요합니다` },
+            { status: 400 },
+          );
+        }
+      }
     }
 
     // Phase 6: 문서 사전 조회 (inputFields 검증용)
@@ -341,27 +479,10 @@ export async function POST(req: Request) {
       }
     }
 
-    // P1-2: signatureImage base64 형식 검증
-    const base64Regex = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/;
-    if (!base64Regex.test(signatureImage)) {
-      return NextResponse.json(
-        { ok: false, message: '유효하지 않은 서명 이미지입니다' },
-        { status: 400 },
-      );
-    }
-
     // 동행자 최대 20명 제한
     if (companions.length > 20) {
       return NextResponse.json(
         { ok: false, message: '동행자는 최대 20명까지 등록 가능합니다' },
-        { status: 400 },
-      );
-    }
-
-    // 서명 이미지 크기 검증 (base64 ~375KB max)
-    if (signatureImage.length > 500_000) {
-      return NextResponse.json(
-        { ok: false, message: '서명 이미지 크기가 너무 큽니다 (최대 375KB)' },
         { status: 400 },
       );
     }
@@ -417,6 +538,13 @@ export async function POST(req: Request) {
 
       const signedAt = new Date().toISOString();
 
+      // 공개 PDF 다운로드 토큰 — 서명 직후 완료화면/이메일에서 비로그인 고객이 본인 계약서를
+      //   내려받을 수 있게 발급. signToken(무효화됨)과 별개의 영구 토큰. 추측 불가(랜덤 24바이트).
+      //   기존 토큰이 있으면(재서명 방지로 도달 불가하지만) 보존, 없으면 신규 생성.
+      const existingPdfToken = typeof existingData.pdfDownloadToken === 'string' && existingData.pdfDownloadToken
+        ? existingData.pdfDownloadToken
+        : randomBytes(24).toString('hex');
+
       // Phase 6: inputValues를 generatedData에 병합
       let mergedData = { ...existingData };
       if (Object.keys(inputValues).length > 0) {
@@ -425,6 +553,34 @@ export async function POST(req: Request) {
           inputValues: { ...inputValues }, // { signerName, signerPhone, signerEmail, signerBirthDate, ... }
         };
       }
+
+      // ── 다중 서명점 맵 구성 (기존 + 새 여행자 서명 + 회사 직인 자동 주입) ──
+      const existingSignatures = (existingData.signatures && typeof existingData.signatures === 'object')
+        ? (existingData.signatures as Record<string, StoredSignaturePoint>)
+        : {};
+      const storedSignatures: Record<string, StoredSignaturePoint> = { ...existingSignatures };
+      for (const pointId of TRAVELER_POINTS) {
+        const sig = providedSignatures[pointId];
+        if (sig?.image) {
+          storedSignatures[pointId] = {
+            role:         'TRAVELER',
+            image:        sig.image,
+            signedByName: sig.signedByName ?? signerName,
+            signedAt,
+            agreed:       sig.agreed ?? true,
+          };
+        } else if (pointId === 'privacy_mkt') {
+          // 마케팅 활용 동의 미서명/거부 — 기록은 남기되 image=null
+          storedSignatures[pointId] = { role: 'TRAVELER', image: null, agreed: false, signedAt };
+        }
+      }
+      // S5: 크루즈닷 직인 자동 주입 (손님 입력이 아닌 서버 주입)
+      storedSignatures.vendor_seal = { role: 'VENDOR', image: CERT_SEAL_DATA_URI, signedAt };
+
+      // 마케팅 동의 결과 — 명시 값 우선, 없으면 privacy_mkt 서명 여부로 판정
+      const resolvedMarketingConsent = typeof marketingConsent === 'boolean'
+        ? marketingConsent
+        : Boolean(providedSignatures.privacy_mkt?.image && (providedSignatures.privacy_mkt?.agreed ?? true));
 
       // P1-5: 서명 후 signToken 무효화
       const doc = await tx.salesDocument.update({
@@ -435,12 +591,18 @@ export async function POST(req: Request) {
           generatedData: {
             ...mergedData,
             companions,
-            signatureImage,
+            // ★하위호환: 기존 이메일PDF/Drive/완료판정이 쓰는 단일 필드 — 반드시 main 값으로 채움
+            signatureImage:   mainImage,
+            // 신규: 7개 서명점 맵 + 마케팅 동의 결과
+            signatures:       storedSignatures,
+            marketingConsent: resolvedMarketingConsent,
             signedAt,
             signedByName: signerName,
             signStatus:   'SIGNED',
             signToken:    null,
             signTokenExpiresAt: null,
+            // 공개 PDF 다운로드용 영구 토큰(contract-pdf 라우트가 ?token= 으로 검증)
+            pdfDownloadToken: existingPdfToken,
           },
         },
       });
@@ -468,6 +630,7 @@ export async function POST(req: Request) {
         signedAt,
         organizationId: current.organizationId,
         productName,
+        pdfDownloadToken: existingPdfToken,
         previousStatus: current.status,
         previousApprovedAt: current.approvedAt,
         previousGeneratedData: current.generatedData as Prisma.InputJsonValue,
@@ -504,6 +667,7 @@ export async function POST(req: Request) {
       signedAt,
       organizationId,
       productName: productNameFromTx,
+      pdfDownloadToken,
       previousStatus,
       previousApprovedAt,
       previousGeneratedData,
@@ -704,24 +868,10 @@ export async function POST(req: Request) {
           hour: '2-digit', minute: '2-digit',
         });
 
-        const pdfBuffer = await generatePurchaseContractPdf({
-          docId,
-          buyerName:          typeof d.buyerName    === 'string' ? d.buyerName    : signerName,
-          buyerTel:           typeof d.buyerTel     === 'string' ? d.buyerTel     : '',
-          productName:        typeof d.productName  === 'string' ? d.productName  : '크루즈 상품',
-          amount:             typeof d.amount       === 'number' ? d.amount       : Number(d.amount ?? 0),
-          departureDate:      typeof d.departureDate === 'string' ? d.departureDate : null,
-          nights:             typeof d.nights       === 'number' ? d.nights       : null,
-          paymentMethod:      typeof d.paymentMethod === 'string' ? d.paymentMethod : '-',
-          paidAt:             typeof d.paidAt       === 'string' ? d.paidAt       : null,
-          cancellationPolicy: Array.isArray(d.cancellationPolicy) ? (d.cancellationPolicy as string[]) : [],
-          specialTerms:       typeof d.specialTerms === 'string' ? d.specialTerms : null,
-          companions,
-          signatureImage:     typeof d.signatureImage === 'string' ? d.signatureImage : signatureImage,
-          signedAt:           signedAtStr,
-          signedByName:       signerName,
-          companyName:        typeof d.companyName === 'string' ? d.companyName : '크루즈닷',
-        });
+        // 다운로드 PDF(contract-pdf 라우트)와 동일하게 generatedData 전체를 렌더 —
+        // 7개 서명점·상품별 환불규정·계약상세가 모두 포함된 완전한 계약서로 발송한다.
+        // (기존 축약 params 경로는 main 서명·기본 환불규정만 담겨 다운로드본과 불일치했음)
+        const pdfBuffer = await renderPurchaseContractPdf(d, docId);
 
         const productName = typeof d.productName === 'string' ? d.productName : '크루즈 상품';
         const filename = `구매계약서_${signerName}_${signedAt.slice(0, 10)}.pdf`;
@@ -785,8 +935,8 @@ export async function POST(req: Request) {
       }
     })();
 
-    // POST 응답에 signedAt 포함
-    return NextResponse.json({ ok: true, message: '서명이 완료되었습니다', signedAt });
+    // POST 응답에 signedAt + 공개 PDF 다운로드 토큰 포함(완료화면 다운로드 버튼이 사용)
+    return NextResponse.json({ ok: true, message: '서명이 완료되었습니다', signedAt, pdfDownloadToken });
   } catch (e) {
     logger.error('[PurchaseContractSign POST] 오류', {
       error: e instanceof Error ? e.message : String(e),
