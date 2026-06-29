@@ -372,6 +372,10 @@ export default function NewLandingPage() {
   // buildPreviewHtml: 현재 state → 완전한 HTML 문서
   // ──────────────────────────────────────────────
   const buildPreviewHtml = useCallback((): string => {
+    // #15 — HTML형으로 "전체 HTML 문서"를 붙여넣으면 래퍼로 또 감싸지 말고 그대로(라이브 iframe과 동일).
+    if (editorMode === "html" && /<!doctype\s+html|<html[\s>]/i.test(html)) {
+      return html;
+    }
     const req = (r: boolean) => r ? " <span style='color:#e53e3e;font-size:11px'>*</span>" : "";
 
     const fieldHtmls = Object.entries(formFields)

@@ -4,6 +4,7 @@ import { cache } from "react";
 import Script from "next/script";
 import { LandingClient } from "./LandingClient";
 import BotLandingClient from "./BotLandingClient";
+import { LandingDocumentFrame } from "./LandingDocumentFrame";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
 import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
 
@@ -182,6 +183,23 @@ export default async function PublicLandingPage({
 
   // P0-6: sanitize headerScript 적용
   const safeHeaderScript = sanitizeHeaderScript(page.headerScript);
+
+  // #15 — HTML형으로 "전체 HTML 문서"(<!doctype html>/<html>)를 붙여넣은 경우:
+  //   sanitize(태그 화이트리스트)로는 style/script/head가 제거돼 디자인이 죽고 <title>이 본문에 새어나옴.
+  //   → 원본 그대로 iframe(샌드박스)로 격리 렌더해 "하얀 백지에 코드 그대로" 보장.
+  //   감지는 내용 기준(빌더 조각/이미지형은 <div>로 시작 → 항상 sanitize 경로 유지 = 회귀 0).
+  const rawHtml = page.htmlContent ?? "";
+  if (/<!doctype\s+html|<html[\s>]/i.test(rawHtml)) {
+    return (
+      <>
+        {safeHeaderScript && (
+          <Script id="landing-header-script" strategy="afterInteractive"
+            dangerouslySetInnerHTML={{ __html: safeHeaderScript }} />
+        )}
+        <LandingDocumentFrame pageId={page.id} htmlContent={rawHtml} />
+      </>
+    );
+  }
 
   return (
     <>
