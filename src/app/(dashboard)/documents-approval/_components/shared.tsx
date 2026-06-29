@@ -2,11 +2,14 @@
 
 import { useState, useRef, useCallback, useEffect, useId } from 'react';
 import { Search, Loader2, User, Package, X, Phone } from 'lucide-react';
+import { CERT_LOGO_DATA_URI, CERT_SEAL_DATA_URI } from './cert-assets';
 
 // ─── 회사 에셋/정보 상수 ────────────────────────────────────────────────────────
+// 로고·직인은 base64 data URI(cert-assets.ts) — PNG 캡처(html2canvas-pro)에서 CORS/배포/타이밍
+// 무관하게 항상 렌더(미리보기엔 보이는데 다운로드엔 누락되던 문제 해결).
 export const COMPANY = {
-  logo: '/logo-cruisedot.png',   // 가운데 정렬 로고 (4종 서류 공통)
-  seal: '/cruise-stamp.png',    // 좌하단 직인 (회사 도장)
+  logo: CERT_LOGO_DATA_URI,   // 가운데 정렬 로고 (4종 서류 공통)
+  seal: CERT_SEAL_DATA_URI,   // 좌하단 직인 (회사 도장)
   name: '크루즈닷',
   ceo: '배연성',
   hqPhone: '010-3289-3800',     // 본사 대표번호 (담당자 연락처 미입력 시 폴백)

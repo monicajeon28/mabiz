@@ -24,7 +24,18 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json() as {
-      orderId: string;
+      orderId?: string;
+      // 발급 모드: 'sale'=구매자 검색(Payment 강결합) / 'manual'=직접입력(검색 없이 발급)
+      mode?: 'sale' | 'manual';
+      // 수동(manual) 모드 필드 — Payment/판매건 없이 직접 입력으로 발급
+      buyerName?: string;
+      buyerTel?: string;
+      buyerEmail?: string;
+      productName?: string;
+      amount?: number;
+      productCode?: string;
+      departureDate?: string;
+      nights?: number;
       specialTerms?: string;
       signedAt?: string;
       // 수동 입력 override 필드 (자동 도출값 덮어쓰기)
@@ -61,40 +72,95 @@ export async function POST(req: Request) {
       };
     };
 
-    if (!body.orderId) {
-      return NextResponse.json({ ok: false, message: 'orderId 필수' }, { status: 400 });
-    }
+    const isManual = body.mode === 'manual';
 
-    // 결제 정보 조회
-    const payment = await prisma.payment.findUnique({
-      where: { orderId: body.orderId },
-      select: {
-        orderId: true, buyerName: true, buyerTel: true, buyerEmail: true,
-        amount: true, status: true, pgProvider: true, paidAt: true,
-        productName: true, affiliateCode: true, metadata: true,
-      },
-    });
+    // ── sale / manual 공통 변수 (양쪽 분기에서 반드시 채움) ──
+    let buyerName: string | null;
+    let buyerTel: string | null;
+    let buyerEmail: string | null;
+    let docAmount: number;
+    let docProductName: string;
+    let paidAtIso: string | null;
+    let paymentMethod: string;
+    let effectiveOrderId: string | null;
+    let effectiveSaleId: string | null;
+    let docAffiliateCode: string | null;
+    let lookupProductCode: string;
 
-    if (!payment) {
-      return NextResponse.json({ ok: false, message: '결제 정보 없음' }, { status: 404 });
-    }
+    if (isManual) {
+      // 수동(직접입력) 모드 — orderId/Payment/결제완료/판매건 소유권 검증 전부 건너뜀.
+      // 대신 필수 입력값(이름·연락처·상품명·금액)만 직접 검증한다.
+      const mName    = (body.buyerName ?? '').trim();
+      const mTel     = (body.buyerTel ?? '').trim();
+      const mProduct = (body.productName ?? '').trim();
+      const mAmount  = Number(body.amount);
+      if (!mName)    return NextResponse.json({ ok: false, message: '구매자 이름을 입력해주세요' }, { status: 400 });
+      if (!mTel)     return NextResponse.json({ ok: false, message: '구매자 연락처를 입력해주세요' }, { status: 400 });
+      if (!mProduct) return NextResponse.json({ ok: false, message: '상품명을 입력해주세요' }, { status: 400 });
+      if (!Number.isFinite(mAmount) || mAmount <= 0) {
+        return NextResponse.json({ ok: false, message: '계약 금액을 0원보다 큰 숫자로 입력해주세요' }, { status: 400 });
+      }
+      buyerName        = mName;
+      buyerTel         = mTel;
+      buyerEmail       = (body.buyerEmail ?? '').trim() || null;
+      docAmount        = mAmount;
+      docProductName   = mProduct;
+      paidAtIso        = null;
+      paymentMethod    = BANK_TRANSFER_LABEL;
+      effectiveOrderId = null;
+      effectiveSaleId  = null;
+      docAffiliateCode = null;
+      lookupProductCode = (body.productCode ?? '').trim();
+    } else {
+      // 기존 sale 모드 — orderId 필수 + 결제 조회 + 완료 + 판매건 소유권 검증 (동작 보존)
+      if (!body.orderId) {
+        return NextResponse.json({ ok: false, message: 'orderId 필수' }, { status: 400 });
+      }
 
-    if (payment.status !== 'completed') {
-      return NextResponse.json({ ok: false, message: '결제 완료 건만 계약서 발급 가능합니다' }, { status: 400 });
-    }
+      // 결제 정보 조회
+      const payment = await prisma.payment.findUnique({
+        where: { orderId: body.orderId },
+        select: {
+          orderId: true, buyerName: true, buyerTel: true, buyerEmail: true,
+          amount: true, status: true, pgProvider: true, paidAt: true,
+          productName: true, affiliateCode: true, metadata: true,
+        },
+      });
 
-    // 조직 소유권 검증
-    const sale = await prisma.affiliateSale.findFirst({
-      where: { orderId: body.orderId, organizationId: orgId },
-      select: { id: true, saleAmount: true, affiliateCode: true },
-    });
-    if (!sale) {
-      return NextResponse.json({ ok: false, message: '이 조직의 판매건이 아닙니다' }, { status: 403 });
+      if (!payment) {
+        return NextResponse.json({ ok: false, message: '결제 정보 없음' }, { status: 404 });
+      }
+
+      if (payment.status !== 'completed') {
+        return NextResponse.json({ ok: false, message: '결제 완료 건만 계약서 발급 가능합니다' }, { status: 400 });
+      }
+
+      // 조직 소유권 검증
+      const sale = await prisma.affiliateSale.findFirst({
+        where: { orderId: body.orderId, organizationId: orgId },
+        select: { id: true, saleAmount: true, affiliateCode: true },
+      });
+      if (!sale) {
+        return NextResponse.json({ ok: false, message: '이 조직의 판매건이 아닙니다' }, { status: 403 });
+      }
+
+      buyerName        = payment.buyerName;
+      buyerTel         = payment.buyerTel;
+      buyerEmail       = payment.buyerEmail ?? null;
+      docAmount        = payment.amount;
+      docProductName   = payment.productName ?? '크루즈 상품';
+      paidAtIso        = payment.paidAt?.toISOString() ?? null;
+      paymentMethod    = payment.pgProvider ? `${payment.pgProvider} (온라인 결제)` : BANK_TRANSFER_LABEL;
+      effectiveOrderId = body.orderId;
+      effectiveSaleId  = sale.id;
+      docAffiliateCode = sale.affiliateCode ?? null;
+      lookupProductCode = (payment.metadata as { productCode?: string })?.productCode ?? '';
     }
 
     // 출발일 + 상품 포함/불포함/인솔자 자동 도출
-    let departureDate: string | null = null;
-    let nights: number | null = null;
+    // manual이 departureDate/nights를 직접 주면 그 값을 우선(아래 Trip 조회는 비어있을 때만 채움).
+    let departureDate: string | null = (isManual && body.departureDate) ? body.departureDate : null;
+    let nights: number | null = (isManual && typeof body.nights === 'number') ? body.nights : null;
     let includedItems: string[] = [
       '선박/항공기 운임', '숙박/식사료', '항만세·관광기금',
       '제세금', '여행알선수수료', '유류할증료', '관광지 입장료', '여행보험료',
@@ -104,14 +170,15 @@ export async function POST(req: Request) {
     let productRefundPolicy: { label: string; value: string }[] = CRUISE_CANCELLATION_POLICY.slice();
 
     try {
-      const productCode = (payment.metadata as { productCode?: string })?.productCode ?? '';
+      const productCode = lookupProductCode;
       if (productCode) {
         const trip = await prisma.$queryRaw<{ departureDate: Date; nights: number | null }[]>`
           SELECT "departureDate", "nights" FROM "Trip"
           WHERE "productCode" = ${productCode} LIMIT 1`;
         if (trip[0]?.departureDate) {
-          departureDate = trip[0].departureDate.toISOString().split('T')[0] ?? null;
-          nights = trip[0].nights ?? null;
+          // manual 직접 입력값이 이미 있으면 보존, 없을 때만 Trip 값으로 채움
+          if (departureDate === null) departureDate = trip[0].departureDate.toISOString().split('T')[0] ?? null;
+          if (nights === null) nights = trip[0].nights ?? null;
         }
 
         // 크루즈 상품 정보로 포함/불포함 자동 도출
@@ -136,10 +203,6 @@ export async function POST(req: Request) {
       }
     } catch (productErr) { logger.warn('[PurchaseContract] 상품 정보 조회 실패 — 기본값 사용', { error: productErr instanceof Error ? productErr.message : String(productErr) }); }
 
-    const paymentMethod = payment.pgProvider
-      ? `${payment.pgProvider} (온라인 결제)`
-      : BANK_TRANSFER_LABEL;
-
     const signedAt = body.signedAt ?? new Date().toISOString().split('T')[0];
 
     // AGENT → PENDING_APPROVAL, OWNER/ADMIN → APPROVED
@@ -152,10 +215,13 @@ export async function POST(req: Request) {
     // P1-4: SalesDocument + Approval 트랜잭션 (중복 체크 포함)
     const txResult = await prisma.$transaction(async (tx) => {
       // Race condition 방지: 트랜잭션 내부에서 중복 재확인
-      const alreadyExists = await tx.salesDocument.findFirst({
-        where: { orderId: body.orderId, documentType: 'PURCHASE_CONTRACT' },
-        select: { id: true },
-      });
+      // ⚠️ manual 발급은 orderId=null 이므로 null끼리 오매칭되지 않도록 effectiveOrderId 있을 때만 검사
+      const alreadyExists = effectiveOrderId
+        ? await tx.salesDocument.findFirst({
+            where: { orderId: effectiveOrderId, documentType: 'PURCHASE_CONTRACT' },
+            select: { id: true },
+          })
+        : null;
       if (alreadyExists) {
         return { conflict: true as const, documentId: alreadyExists.id };
       }
@@ -165,24 +231,24 @@ export async function POST(req: Request) {
           organizationId: orgId,
           documentType:   'PURCHASE_CONTRACT',
           status,
-          orderId:        body.orderId,
-          affiliateSaleId: sale.id,
+          orderId:        effectiveOrderId,
+          affiliateSaleId: effectiveSaleId,
           createdBy:      ctx.userId,
           generatedData: {
             // 계약 당사자
-            buyerName:      payment.buyerName,
-            buyerTel:       payment.buyerTel,
-            buyerEmail:     payment.buyerEmail ?? null,
+            buyerName:      buyerName,
+            buyerTel:       buyerTel,
+            buyerEmail:     buyerEmail,
             // 상품 정보 (수동 override 우선 적용)
-            productName:    body.overrideProductName ?? payment.productName ?? '크루즈 상품',
+            productName:    body.overrideProductName ?? docProductName,
             departureDate:  body.overrideDepartureDate !== undefined ? body.overrideDepartureDate : departureDate,
             nights:         body.overrideNights !== undefined ? body.overrideNights : nights,
             // 계약 금액
-            amount:         payment.amount,
+            amount:         docAmount,
             paymentMethod,
-            paidAt:         payment.paidAt?.toISOString() ?? null,
+            paidAt:         paidAtIso,
             // 계약 정보
-            affiliateCode:  sale.affiliateCode ?? null,
+            affiliateCode:  docAffiliateCode,
             signedAt,
             specialTerms:   body.specialTerms ?? null,
             // 상품 포함/불포함/인솔자 (수동 override 우선 적용)
@@ -239,21 +305,21 @@ export async function POST(req: Request) {
     const signUrl = `${appUrl}/contract/sign/${doc.id}?token=${signToken}`;
 
     // P1-2: APPROVED 시 서명 링크 이메일 중복 발송 방지
-    if (!payment.buyerEmail) {
+    if (!buyerEmail) {
       logger.warn('[PurchaseContract] buyerEmail 없음 — 서명 링크 이메일 미발송. signUrl 응답에 포함됨', { docId: doc.id, signUrl });
     }
-    if (payment.buyerEmail) {
+    if (buyerEmail) {
       sendFunnelEmail({
         organizationId: orgId,
-        to:      payment.buyerEmail,
-        subject: `[구매계약서] ${escHtml(payment.productName ?? '크루즈 상품')} 계약서 서명 요청`,
+        to:      buyerEmail,
+        subject: `[구매계약서] ${escHtml(docProductName)} 계약서 서명 요청`,
         html: `<div style="font-family:sans-serif;line-height:1.8;max-width:600px;margin:0 auto;padding:32px 24px">
 <h2 style="color:#1a1a2e;margin:0 0 16px">구매 계약서 서명 요청</h2>
-<p>${escHtml(payment.buyerName ?? '')}님, 안녕하세요.<br>아래 상품의 구매 계약서 서명을 요청드립니다.</p>
+<p>${escHtml(buyerName ?? '')}님, 안녕하세요.<br>아래 상품의 구매 계약서 서명을 요청드립니다.</p>
 <table style="width:100%;border-collapse:collapse;margin:20px 0">
-  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666;width:40%">상품명</td><td style="padding:10px 14px;font-weight:600">${escHtml(payment.productName ?? '크루즈 상품')}</td></tr>
+  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666;width:40%">상품명</td><td style="padding:10px 14px;font-weight:600">${escHtml(docProductName)}</td></tr>
   ${departureDate ? `<tr><td style="padding:10px 14px;color:#666">출발일</td><td style="padding:10px 14px">${escHtml(departureDate)}</td></tr>` : ''}
-  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666">계약금액</td><td style="padding:10px 14px;font-weight:700;color:#2b6cb0">${payment.amount.toLocaleString()}원</td></tr>
+  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666">계약금액</td><td style="padding:10px 14px;font-weight:700;color:#2b6cb0">${docAmount.toLocaleString()}원</td></tr>
   <tr><td style="padding:10px 14px;color:#666">결제방법</td><td style="padding:10px 14px">${escHtml(paymentMethod)}</td></tr>
 </table>
 <div style="text-align:center;margin:32px 0">
@@ -271,18 +337,18 @@ export async function POST(req: Request) {
 
     // APPROVED면 발급 안내 이메일
     if (status === 'APPROVED') {
-      if (payment.buyerEmail) {
+      if (buyerEmail) {
         sendFunnelEmail({
           organizationId: orgId,
-          to:      payment.buyerEmail,
-          subject: `[구매계약서] ${escHtml(payment.productName ?? '크루즈 상품')} 구매 계약서가 발급되었습니다`,
+          to:      buyerEmail,
+          subject: `[구매계약서] ${escHtml(docProductName)} 구매 계약서가 발급되었습니다`,
           html: `<div style="font-family:sans-serif;line-height:1.8;max-width:600px;margin:0 auto;padding:32px 24px">
 <h2 style="color:#1a1a2e;margin:0 0 16px">구매 계약서 발급 안내</h2>
-<p>${escHtml(payment.buyerName ?? '')}님, 아래 내용으로 구매 계약서가 발급되었습니다.</p>
+<p>${escHtml(buyerName ?? '')}님, 아래 내용으로 구매 계약서가 발급되었습니다.</p>
 <table style="width:100%;border-collapse:collapse;margin:20px 0">
-  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666;width:40%">상품명</td><td style="padding:10px 14px;font-weight:600">${escHtml(payment.productName ?? '크루즈 상품')}</td></tr>
+  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666;width:40%">상품명</td><td style="padding:10px 14px;font-weight:600">${escHtml(docProductName)}</td></tr>
   ${departureDate ? `<tr><td style="padding:10px 14px;color:#666">출발일</td><td style="padding:10px 14px">${escHtml(departureDate)}</td></tr>` : ''}
-  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666">계약금액</td><td style="padding:10px 14px;font-weight:700;color:#2b6cb0">${payment.amount.toLocaleString()}원</td></tr>
+  <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666">계약금액</td><td style="padding:10px 14px;font-weight:700;color:#2b6cb0">${docAmount.toLocaleString()}원</td></tr>
   <tr><td style="padding:10px 14px;color:#666">결제방법</td><td style="padding:10px 14px">${escHtml(paymentMethod)}</td></tr>
   <tr style="background:#f8f9fa"><td style="padding:10px 14px;color:#666">계약일</td><td style="padding:10px 14px">${escHtml(signedAt)}</td></tr>
   <tr><td style="padding:10px 14px;color:#666">문서번호</td><td style="padding:10px 14px;font-size:12px;color:#888">${escHtml(doc.id)}</td></tr>
@@ -295,7 +361,7 @@ ${body.specialTerms ? `<p style="background:#fffbeb;border-left:4px solid #f59e0
       }
     }
 
-    logger.log('[PurchaseContract] 발급', { orgId, orderId: body.orderId, status, docId: doc.id });
+    logger.log('[PurchaseContract] 발급', { orgId, orderId: effectiveOrderId, mode: isManual ? 'manual' : 'sale', status, docId: doc.id });
     return NextResponse.json({ ok: true, documentId: doc.id, status });
   } catch (e) {
     // P2-3: logger.error 사용

@@ -443,46 +443,66 @@ export default function ContractTab() {
 
   /* ── 모달: 계약서 발급 ── */
   const handleIssue = async () => {
-    if (!form.orderId) { showError('구매자를 검색하여 주문 건을 선택해주세요.'); return; }
+    // 하이브리드: 구매자 검색(orderId) 또는 수동 직접입력(이름·연락처·상품명·금액) 둘 다 발급 가능
+    const hasManualFields = !!(form.buyerName.trim() && form.buyerTel.trim() && form.productName.trim() && form.amount);
+    if (!form.orderId && !hasManualFields) {
+      showError('구매자를 검색하거나, ③ 계약 기본 정보에 구매자 이름·연락처·상품명·금액을 직접 입력해주세요.');
+      return;
+    }
     setIssuing(true);
     try {
+      const isManual = !form.orderId;
+      const payload: Record<string, unknown> = {
+        specialTerms: form.specialTerms || undefined,
+        overrideProductName: form.productName || undefined,
+        overrideDepartureDate: form.departureDate || undefined,
+        overrideNights: form.nights ?? undefined,
+        overrideIncludedItems: form.includedItems.length > 0 ? form.includedItems : undefined,
+        overrideExcludedItems: form.excludedItems.length > 0 ? form.excludedItems : undefined,
+        overrideHasGuide: form.hasGuide,
+        overrideRefundPolicy: form.refundPolicy.length > 0 ? form.refundPolicy : undefined,
+        companions: form.companions.map(({ id: _id, ...rest }) => rest),
+        // ③-2 계약 추가 정보 (미리보기에만 보이고 저장 누락되던 필드 — 저장 반영)
+        contractDetails: {
+          contractType: form.contractType,
+          travelGuarantee: form.travelGuarantee,
+          hasInsurance: form.hasInsurance,
+          insuranceCompany: form.insuranceCompany || undefined,
+          minPax: form.minPax ?? undefined,
+          maxPax: form.maxPax ?? undefined,
+          pricePerPerson: form.pricePerPerson ?? undefined,
+          transportTypes: form.transportTypes,
+          shipName: form.shipName || undefined,
+          accommodationTypes: form.accommodationTypes,
+          hotelGrade: form.hotelGrade || undefined,
+          mealDisplay: form.mealDisplay,
+          breakfast: form.breakfast ?? undefined,
+          lunch: form.lunch ?? undefined,
+          dinner: form.dinner ?? undefined,
+          localGuide: form.localGuide,
+          localTransport: form.localTransport,
+          localAgency: form.localAgency,
+        },
+      };
+      if (isManual) {
+        // 수동(직접입력) 모드 — 구매자 검색 없이 발급. 필수 4필드 + 선택 상품코드/출발일/박수.
+        payload.mode = 'manual';
+        payload.buyerName = form.buyerName.trim();
+        payload.buyerTel = form.buyerTel.trim();
+        payload.productName = form.productName.trim();
+        payload.amount = form.amount ?? undefined;
+        payload.productCode = productCode || undefined;
+        payload.departureDate = form.departureDate || undefined;
+        payload.nights = form.nights ?? undefined;
+      } else {
+        payload.mode = 'sale';
+        payload.orderId = form.orderId;
+      }
       const res = await fetch('/api/documents/purchase-contract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          orderId: form.orderId,
-          specialTerms: form.specialTerms || undefined,
-          overrideProductName: form.productName || undefined,
-          overrideDepartureDate: form.departureDate || undefined,
-          overrideNights: form.nights ?? undefined,
-          overrideIncludedItems: form.includedItems.length > 0 ? form.includedItems : undefined,
-          overrideExcludedItems: form.excludedItems.length > 0 ? form.excludedItems : undefined,
-          overrideHasGuide: form.hasGuide,
-          overrideRefundPolicy: form.refundPolicy.length > 0 ? form.refundPolicy : undefined,
-          companions: form.companions.map(({ id: _id, ...rest }) => rest),
-          // ③-2 계약 추가 정보 (미리보기에만 보이고 저장 누락되던 필드 — 저장 반영)
-          contractDetails: {
-            contractType: form.contractType,
-            travelGuarantee: form.travelGuarantee,
-            hasInsurance: form.hasInsurance,
-            insuranceCompany: form.insuranceCompany || undefined,
-            minPax: form.minPax ?? undefined,
-            maxPax: form.maxPax ?? undefined,
-            pricePerPerson: form.pricePerPerson ?? undefined,
-            transportTypes: form.transportTypes,
-            shipName: form.shipName || undefined,
-            accommodationTypes: form.accommodationTypes,
-            hotelGrade: form.hotelGrade || undefined,
-            mealDisplay: form.mealDisplay,
-            breakfast: form.breakfast ?? undefined,
-            lunch: form.lunch ?? undefined,
-            dinner: form.dinner ?? undefined,
-            localGuide: form.localGuide,
-            localTransport: form.localTransport,
-            localAgency: form.localAgency,
-          },
-        }),
+        body: JSON.stringify(payload),
       });
       if (res.status === 409) { showError('이미 발급된 계약서가 있습니다.'); return; }
       const json = await res.json();
@@ -863,7 +883,7 @@ export default function ContractTab() {
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40">
                 닫기
               </button>
-              <button onClick={handleIssue} disabled={issuing || !form.orderId}
+              <button onClick={handleIssue} disabled={issuing || !(form.orderId || (form.buyerName.trim() && form.buyerTel.trim() && form.productName.trim() && form.amount))}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-orange-600 px-5 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-40">
                 {issuing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 {issuing ? '발급 중...' : '발급 및 서명 요청'}
@@ -879,7 +899,8 @@ export default function ContractTab() {
 
               {/* ① 고객 검색 */}
               <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
-                <p className="mb-2 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">① 구매자 검색 (주문 건 선택)</p>
+                <p className="mb-1 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">① 구매자 검색 (선택)</p>
+                <p className="mb-2 text-[11px] leading-relaxed text-gray-500">검색해서 주문 건을 선택하거나, <span className="font-semibold text-gray-700">검색 없이 아래 ③에 직접 입력</span>해도 계약서를 발급할 수 있어요.</p>
                 <CustomerAutocomplete
                   label=""
                   placeholder="이름·주문번호·전화번호로 검색"
@@ -968,7 +989,8 @@ export default function ContractTab() {
 
               {/* ③ 계약 기본 정보 */}
               <div className="rounded-xl border border-gray-200 bg-white p-3 space-y-2.5">
-                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">③ 계약 기본 정보 (수동 수정 가능)</p>
+                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">③ 계약 기본 정보 (직접 입력으로도 발급 가능)</p>
+                <p className="text-[11px] leading-relaxed text-gray-500">구매자 검색 없이 <span className="font-semibold text-gray-700">이름·연락처·상품명·금액</span>만 입력하면 바로 발급할 수 있어요. (상품을 ②에서 선택하면 환불정책이 자동 연결됩니다)</p>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
