@@ -329,7 +329,7 @@ export default function GoldInquiriesPage() {
 
                   {/* 희망등급 + 접수일 */}
                   <div className="flex items-center gap-3 text-sm text-gray-500">
-                    <span>희망등급: {inq.tier != null ? (TIER_LABELS[inq.tier] ?? `Tier${inq.tier}`) : "-"}</span>
+                    <span>희망등급: {inq.tier != null ? (TIER_LABELS[inq.tier] ?? `${inq.tier}등급`) : "-"}</span>
                     <span>·</span>
                     <span>{(inq.submittedAt ?? inq.createdAt).slice(0, 10)}</span>
                   </div>
@@ -424,7 +424,7 @@ export default function GoldInquiriesPage() {
                       <td className="px-4 py-3 font-medium text-gray-900">{inq.name}</td>
                       <td className="px-4 py-3 text-gray-500 text-sm font-mono">{inq.phone}</td>
                       <td className="px-4 py-3 text-gray-500 text-sm">
-                        {inq.tier != null ? (TIER_LABELS[inq.tier] ?? `Tier${inq.tier}`) : "-"}
+                        {inq.tier != null ? (TIER_LABELS[inq.tier] ?? `${inq.tier}등급`) : "-"}
                       </td>
                       <td className="px-4 py-3 text-gray-500 text-sm max-w-[180px] truncate" title={inq.message ?? ""}>
                         {inq.message ?? "-"}

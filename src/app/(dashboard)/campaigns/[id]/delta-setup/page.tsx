@@ -120,7 +120,7 @@ export default function DeltaSetupPage() {
         animate={{ opacity: 1 }}
         transition={{ duration: 0.2 }}
       >
-        Step {state.currentStep}/4
+        단계 {state.currentStep}/4
       </motion.p>
 
       {/* Step 컴포넌트 with AnimatePresence (P1 1-2) */}

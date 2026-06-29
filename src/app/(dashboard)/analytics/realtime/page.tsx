@@ -152,7 +152,7 @@ function OverviewTab({
 
         <MetricCard
           title="상위 렌즈"
-          value={metrics?.topLenses?.[0]?.lens || 'N/A'}
+          value={metrics?.topLenses?.[0]?.lens || '없음'}
           sub={`${metrics?.topLenses?.[0]?.count || 0}명`}
           icon={<BarChart3 className="w-5 h-5" />}
           color="bg-gradient-to-br from-purple-500 to-purple-600"

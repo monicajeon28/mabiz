@@ -337,7 +337,7 @@ export default function Customer360View({ contactId }: Customer360ViewProps) {
         <Card className="p-6">
           <h3 className="font-semibold mb-4 flex items-center gap-2">
             <Users size={18} />
-            Groups ({customer.groupMemberships.length})
+            그룹 ({customer.groupMemberships.length})
           </h3>
           <div className="space-y-2">
             {customer.groupMemberships.map((group) => (

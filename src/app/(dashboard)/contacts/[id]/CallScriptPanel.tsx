@@ -184,7 +184,7 @@ export default function CallScriptPanel({ contact, isExpanded = true, onPhaseCha
           <div>
             <h3 className="font-semibold text-blue-900">콜 스크립트 가이드</h3>
             <p className="text-sm text-blue-600">
-              Segment {segment} • {script?.versionName || "로딩 중..."}
+              세그먼트 {segment} • {script?.versionName || "로딩 중..."}
             </p>
           </div>
         </div>

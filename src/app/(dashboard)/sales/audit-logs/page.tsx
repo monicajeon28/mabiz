@@ -26,6 +26,21 @@ interface PaginationInfo {
   pages: number;
 }
 
+// 표시용 라벨 (값 비교/필터에는 영향 없음 — 화면 표기만 한글화)
+const ACTION_LABELS: Record<string, string> = {
+  SETTLE: "정산",
+  DISPUTE: "이의",
+  VERIFY: "검증",
+  RECALCULATE: "재계산",
+};
+
+const RESOURCE_LABELS: Record<string, string> = {
+  COMMISSION: "수수료",
+  SETTLEMENT: "정산",
+  CONTACT: "연락처",
+  SALES: "판매",
+};
+
 export default function AuditLogsPage() {
   const searchParams = useSearchParams();
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -301,8 +316,8 @@ export default function AuditLogsPage() {
                 logs.map((log) => (
                   <tr key={log.id} className="border-b border-gray-200 hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm text-gray-900">{log.userEmail}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-blue-600">{log.action}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{log.resource}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-blue-600">{ACTION_LABELS[log.action] ?? log.action}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{RESOURCE_LABELS[log.resource] ?? log.resource}</td>
                     <td className="px-6 py-4 text-sm">
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-medium ${

@@ -31,6 +31,7 @@ type Sale = {
 };
 
 const OWNER_LABEL: Record<string, string> = { PRESALES: "마케터", BRANCH_MANAGER: "지사장" };
+const ACTION_LABEL: Record<string, string> = { approve: "승인", reject: "거절", refund: "환불" };
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   PENDING:          { label: "대기",     color: "bg-yellow-100 text-yellow-700" },
@@ -121,12 +122,12 @@ export default function AffiliateSalesPage() {
 
       if (!d.ok) {
         logger.warn("[affiliate-sales] action 실패", { id, action, message: d.message });
-        toast({ title: `${action} 실패`, description: d.message || '서버 오류', variant: 'destructive' });
+        toast({ title: `${ACTION_LABEL[action] ?? action} 실패`, description: d.message || '서버 오류', variant: 'destructive' });
         setActing(null);
         return;
       }
 
-      toast({ title: `${action} 완료` });
+      toast({ title: `${ACTION_LABEL[action] ?? action} 완료` });
       setActing(null);
       load();
     } catch (err) {

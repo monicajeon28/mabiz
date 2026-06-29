@@ -410,7 +410,7 @@ export default function FunnelSmsNewPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 max-w-sm w-full">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">이 회차를 삭제하시겠습니까?</h3>
-            <p className="text-sm text-gray-600 mb-6">Day {messages[pendingDeleteIndex]?.daysAfter}의 메시지 내용이 삭제됩니다.</p>
+            <p className="text-sm text-gray-600 mb-6">{messages[pendingDeleteIndex]?.daysAfter}일차 메시지 내용이 삭제됩니다.</p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setPendingDeleteIndex(null)}

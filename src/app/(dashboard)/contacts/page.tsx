@@ -1353,7 +1353,7 @@ export default function ContactsPage() {
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-gray-900">{c.name}</span>
                   {(c.leadScore ?? 0) >= 70 && (
-                    <span className="text-sm bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold">🔥 HOT</span>
+                    <span className="text-sm bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold">🔥 뜨거움</span>
                   )}
                 </div>
                 <span className="text-gray-500 flex items-center gap-3">

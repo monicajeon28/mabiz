@@ -1336,7 +1336,7 @@ export default function EditLandingPage() {
 
           <div className="flex-1 overflow-hidden">
             {preview ? (
-              <iframe srcDoc={editorMode === "image" ? buildHtmlFromImages() : html} className="w-full h-full border-0" title="preview" sandbox="allow-scripts" />
+              <iframe srcDoc={editorMode === "image" ? buildHtmlFromImages() : html} className="w-full h-full border-0" title="미리보기" sandbox="allow-scripts" />
             ) : editorMode === "html" ? (
               <HtmlEditor value={html} onChange={setHtml} />
             ) : (

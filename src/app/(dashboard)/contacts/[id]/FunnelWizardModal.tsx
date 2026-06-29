@@ -65,7 +65,7 @@ export function FunnelWizardModal({
           <div className="flex items-start justify-between">
             <div>
               <h2 className="text-xl font-bold">🚀 자동메시지 마법사</h2>
-              <p className="text-sm text-gray-600 mt-1">Step {step} / 5 - {contactName}</p>
+              <p className="text-sm text-gray-600 mt-1">단계 {step} / 5 - {contactName}</p>
             </div>
             <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
           </div>

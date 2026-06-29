@@ -64,7 +64,7 @@ export function ShortlinkABTestCard({
         const res = await fetch(`/api/analytics/ab-test-results?testId=${testId}`, {
           signal: controller.signal,
         });
-        if (!res.ok) throw new Error('Failed to fetch');
+        if (!res.ok) throw new Error('테스트를 불러올 수 없습니다');
         const data = await res.json();
         setResult(data);
         setError(null);
@@ -133,7 +133,7 @@ export function ShortlinkABTestCard({
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Failed to declare winner');
+        throw new Error(data.error || '우승자 선정에 실패했습니다');
       }
 
       toast({
@@ -152,7 +152,7 @@ export function ShortlinkABTestCard({
     } catch (err) {
       toast({
         title: '오류',
-        description: err instanceof Error ? err.message : 'Unknown error',
+        description: err instanceof Error ? err.message : '알 수 없는 오류',
         variant: 'destructive',
       });
     } finally {

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { showSuccess, showError } from "@/components/ui/Toast";
-import { PSYCHOLOGY_LENSES, LENS_LABELS, CATEGORY_LABEL } from "../constants";
+import { PSYCHOLOGY_LENSES, LENS_LABELS, CATEGORY_LABEL, STATUS_LABEL, VISIBILITY_LABEL } from "../constants";
 
 interface ContractTemplate {
   id: string;
@@ -243,13 +243,13 @@ export default function ContractTemplateDetailPage() {
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
                 상태
               </label>
-              <p className="text-lg font-semibold">{template.status}</p>
+              <p className="text-lg font-semibold">{STATUS_LABEL[template.status] || template.status}</p>
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
                 공개 범위
               </label>
-              <p className="text-lg font-semibold">{template.visibility}</p>
+              <p className="text-lg font-semibold">{VISIBILITY_LABEL[template.visibility] || template.visibility}</p>
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">

@@ -4,8 +4,8 @@ import prisma from '@/lib/prisma';
 import { getMabizSession } from '@/lib/auth';
 
 export const metadata: Metadata = {
-  title: 'Monthly Reports',
-  description: 'View monthly settlement reports'
+  title: '월별 리포트',
+  description: '월별 정산 리포트 보기'
 };
 
 export default async function MonthlyReportsPage() {
@@ -47,10 +47,10 @@ export default async function MonthlyReportsPage() {
 
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; color: string }> = {
-      DRAFT: { label: 'Draft', color: 'bg-gray-100 text-gray-800' },
-      APPROVED: { label: 'Approved', color: 'bg-green-100 text-green-800' },
-      LOCKED: { label: 'Locked', color: 'bg-blue-100 text-blue-800' },
-      PAID: { label: 'Paid', color: 'bg-purple-100 text-purple-800' }
+      DRAFT: { label: '작성중', color: 'bg-gray-100 text-gray-800' },
+      APPROVED: { label: '승인됨', color: 'bg-green-100 text-green-800' },
+      LOCKED: { label: '확정', color: 'bg-blue-100 text-blue-800' },
+      PAID: { label: '지급완료', color: 'bg-purple-100 text-purple-800' }
     };
 
     const map = statusMap[status] || statusMap['DRAFT'];
@@ -60,22 +60,22 @@ export default async function MonthlyReportsPage() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Monthly Settlements</h1>
+        <h1 className="text-3xl font-bold">월별 정산</h1>
         <p className="text-gray-600 mt-1">
-          View monthly settlement and commission reports
+          월별 정산 및 수당 리포트를 확인합니다
         </p>
       </div>
 
       {/* Summary Card */}
       <div className="bg-white p-6 rounded-lg shadow border">
         <div className="text-sm text-gray-600 font-semibold">
-          Total Commission (Last 12 Months)
+          총 수당 (최근 12개월)
         </div>
         <div className="text-3xl font-bold mt-2 text-green-600">
           {formatCurrency(totalAmount)}
         </div>
         <div className="text-sm text-gray-500 mt-2">
-          Based on {settlements.length} monthly settlements
+          {settlements.length}개월 정산 기준
         </div>
       </div>
 
@@ -86,19 +86,19 @@ export default async function MonthlyReportsPage() {
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                  Period
+                  기간
                 </th>
                 <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">
-                  Total Commission
+                  총 수당
                 </th>
                 <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">
-                  Settled
+                  정산 완료
                 </th>
                 <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">
-                  Unsettled
+                  미정산
                 </th>
                 <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">
-                  Status
+                  상태
                 </th>
               </tr>
             </thead>
@@ -141,8 +141,7 @@ export default async function MonthlyReportsPage() {
                     colSpan={5}
                     className="px-6 py-12 text-center text-gray-500"
                   >
-                    No settlements available yet. Settlements are generated
-                    automatically on the 1st of each month.
+                    아직 정산 내역이 없습니다. 정산은 매월 1일에 자동으로 생성됩니다.
                   </td>
                 </tr>
               )}
@@ -153,9 +152,8 @@ export default async function MonthlyReportsPage() {
 
       {/* Info Box */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
-        <strong>ℹ️ Note:</strong> Monthly settlements are automatically generated
-        at 1:00 AM UTC on the 1st of each month. They aggregate commission data
-        from the previous month.
+        <strong>ℹ️ 안내:</strong> 월별 정산은 매월 1일 새벽 1시(UTC)에 자동으로
+        생성되며, 전월 수당 데이터를 집계합니다.
       </div>
     </div>
   );

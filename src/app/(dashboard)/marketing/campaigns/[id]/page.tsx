@@ -222,7 +222,7 @@ export default function CampaignDetailPage() {
           <p className="text-sm text-blue-700 font-medium">발송</p>
           <p className="text-2xl font-bold text-blue-900">{stats.sent}</p>
           <p className="text-xs text-blue-600 mt-1">
-            {stats.total > 0 ? `${((stats.sent / stats.total) * 100).toFixed(1)}%` : '0%'} of {stats.total}
+            전체 {stats.total}건 중 {stats.total > 0 ? `${((stats.sent / stats.total) * 100).toFixed(1)}%` : '0%'}
           </p>
         </div>
 
@@ -251,7 +251,7 @@ export default function CampaignDetailPage() {
         <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
           <p className="text-sm text-gray-700 font-medium">대상</p>
           <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-          <p className="text-xs text-gray-600 mt-1">Total</p>
+          <p className="text-xs text-gray-600 mt-1">전체</p>
         </div>
       </div>
 

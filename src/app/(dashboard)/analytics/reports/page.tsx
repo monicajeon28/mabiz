@@ -74,7 +74,7 @@ export default function ReportsPage() {
   };
 
   const exportToCSV = () => {
-    const headers = ['Date', 'Revenue', 'Conversion Rate', 'Alerts', 'Top Partner'];
+    const headers = ['날짜', '매출', '전환율', '알림', '우수 파트너'];
     const rows = reports.map((r) => [
       r.reportDate,
       `$${(r.revenue / 100).toFixed(0)}`,
@@ -100,7 +100,7 @@ export default function ReportsPage() {
           onClick={exportToCSV}
           className="w-full md:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition"
         >
-          ⬇️ Export CSV
+          ⬇️ CSV 내보내기
         </button>
       </div>
 
@@ -108,8 +108,8 @@ export default function ReportsPage() {
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Daily Reports</h1>
-            <p className="text-gray-600 mt-1">Performance metrics and insights</p>
+            <h1 className="text-3xl font-bold text-gray-900">일별 리포트</h1>
+            <p className="text-gray-600 mt-1">성과 지표 및 인사이트</p>
           </div>
         </div>
 
@@ -125,7 +125,7 @@ export default function ReportsPage() {
                 : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
             }`}
           >
-            Last {days} days
+            최근 {days}일
           </button>
         ))}
       </div>
@@ -133,30 +133,30 @@ export default function ReportsPage() {
       {/* Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-gray-600">Loading reports...</div>
+          <div className="p-8 text-center text-gray-600">불러오는 중...</div>
         ) : reports.length === 0 ? (
-          <div className="p-8 text-center text-gray-600">No reports found</div>
+          <div className="p-8 text-center text-gray-600">리포트가 없습니다</div>
         ) : (
           <table className="w-full">
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
-                  Date
+                  날짜
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
-                  Revenue
+                  매출
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
-                  Conversion
+                  전환율
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
-                  Alerts
+                  알림
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
-                  Top Partner
+                  우수 파트너
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
-                  Status
+                  상태
                 </th>
                 <th className="w-8"></th>
               </tr>
@@ -187,7 +187,7 @@ export default function ReportsPage() {
                             : 'bg-green-100 text-green-800'
                         }`}
                       >
-                        {report.alertCount} {report.alertCount === 1 ? 'alert' : 'alerts'}
+                        {report.alertCount}건
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
@@ -214,7 +214,7 @@ export default function ReportsPage() {
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div className="bg-white p-4 rounded border-l-4 border-blue-500">
                               <div className="text-sm text-gray-600 font-medium">
-                                Revenue
+                                매출
                               </div>
                               <div className="text-2xl font-bold text-gray-900 mt-1">
                                 ${(expandedData.revenue / 100).toFixed(0)}
@@ -222,7 +222,7 @@ export default function ReportsPage() {
                             </div>
                             <div className="bg-white p-4 rounded border-l-4 border-green-500">
                               <div className="text-sm text-gray-600 font-medium">
-                                Conversion Rate
+                                전환율
                               </div>
                               <div className="text-2xl font-bold text-gray-900 mt-1">
                                 {expandedData.conversionRate.toFixed(2)}%
@@ -230,7 +230,7 @@ export default function ReportsPage() {
                             </div>
                             <div className="bg-white p-4 rounded border-l-4 border-purple-500">
                               <div className="text-sm text-gray-600 font-medium">
-                                SMS Open Rate
+                                SMS 열람률
                               </div>
                               <div className="text-2xl font-bold text-gray-900 mt-1">
                                 {expandedData.smsOpenRate.toFixed(1)}%
@@ -238,7 +238,7 @@ export default function ReportsPage() {
                             </div>
                             <div className="bg-white p-4 rounded border-l-4 border-orange-500">
                               <div className="text-sm text-gray-600 font-medium">
-                                Email Open Rate
+                                이메일 열람률
                               </div>
                               <div className="text-2xl font-bold text-gray-900 mt-1">
                                 {expandedData.emailOpenRate.toFixed(1)}%
@@ -250,7 +250,7 @@ export default function ReportsPage() {
                           {expandedData.alerts && expandedData.alerts.length > 0 && (
                             <div>
                               <h4 className="font-semibold text-gray-900 mb-3">
-                                Alerts ({expandedData.alerts.length})
+                                알림 ({expandedData.alerts.length})
                               </h4>
                               <div className="space-y-2">
                                 {expandedData.alerts.map((alert: any, i: number) => (
@@ -274,7 +274,7 @@ export default function ReportsPage() {
                             expandedData.recommendations.length > 0 && (
                               <div>
                                 <h4 className="font-semibold text-gray-900 mb-3">
-                                  Recommendations ({expandedData.recommendations.length})
+                                  추천 ({expandedData.recommendations.length})
                                 </h4>
                                 <div className="space-y-2">
                                   {expandedData.recommendations.map(
@@ -287,7 +287,7 @@ export default function ReportsPage() {
                                           {rec.description}
                                         </div>
                                         <div className="text-sm text-green-600 mt-1">
-                                          Impact: {rec.impact}
+                                          효과: {rec.impact}
                                         </div>
                                       </div>
                                     )
@@ -301,7 +301,7 @@ export default function ReportsPage() {
                             expandedData.topPartners.length > 0 && (
                               <div>
                                 <h4 className="font-semibold text-gray-900 mb-3">
-                                  Top Partners
+                                  우수 파트너
                                 </h4>
                                 <div className="space-y-2">
                                   {expandedData.topPartners.map(

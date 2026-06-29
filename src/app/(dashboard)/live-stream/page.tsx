@@ -195,7 +195,7 @@ export default function LiveStreamPage() {
                 className="w-4 h-4 mt-1 text-blue-600 rounded focus:ring-blue-500"
               />
               <span className="ml-3 text-sm text-gray-700">
-                <strong>SMS 수신 동의</strong> - 신청 완료 및 Day 0-3 자동 메시지를 받으실 수 있습니다.
+                <strong>SMS 수신 동의</strong> - 신청 완료 및 신청 후 3일간 자동 메시지를 받으실 수 있습니다.
               </span>
             </label>
           </div>

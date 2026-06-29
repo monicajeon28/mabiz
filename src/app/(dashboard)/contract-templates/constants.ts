@@ -45,3 +45,9 @@ export const STATUS_CLASS: Record<string, string> = {
   ARCHIVED: "bg-gray-100 text-gray-700",
   DRAFT: "bg-yellow-100 text-yellow-700",
 };
+
+export const VISIBILITY_LABEL: Record<string, string> = {
+  PERSONAL: "개인",
+  MANAGER_ONLY: "매니저만",
+  ORGANIZATION: "조직 전체",
+};

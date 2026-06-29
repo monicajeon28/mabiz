@@ -792,7 +792,7 @@ export default function CruisedotLandingPage() {
           {/* 라이브 정보 카드 */}
           <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-xl p-10 text-center border-[3px] border-red-400 mb-8">
             <p className="text-red-600 text-xl font-bold mb-2">
-              🔴 LIVE
+              🔴 생방송
             </p>
             <p className="text-3xl font-bold text-gray-800 mb-2">
               {config.sections.liveStream.schedule}
@@ -849,7 +849,7 @@ export default function CruisedotLandingPage() {
             🌍 크루즈닷 | 자유 여행, 인솔자 함께
           </p>
           <p className="text-sm mb-4">
-            Contact: {config.contact.phone}
+            연락처: {config.contact.phone}
           </p>
           <p className="text-xs text-gray-600">
             국토교통부 여행업등록 | 한국의료관광협회 정회원 | 고객 신용보험 100% 가입

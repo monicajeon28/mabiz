@@ -131,7 +131,7 @@ export default function PartnerRegisterPage({ params, searchParams }: PageProps)
 
             <div className="bg-gray-50 rounded-lg p-4 mb-6 space-y-3">
               <div>
-                <label className="text-sm text-gray-600">Mall User ID</label>
+                <label className="text-sm text-gray-600">쇼핑몰 아이디</label>
                 <div className="flex items-center gap-2 mt-1">
                   <code className="flex-1 text-sm font-mono bg-white border border-gray-300 rounded px-3 py-2">
                     {result.mallUserId}
@@ -150,7 +150,7 @@ export default function PartnerRegisterPage({ params, searchParams }: PageProps)
               </div>
 
               <div>
-                <label className="text-sm text-gray-600">Affiliate Code</label>
+                <label className="text-sm text-gray-600">추천 코드</label>
                 <div className="flex items-center gap-2 mt-1">
                   <code className="flex-1 text-sm font-mono bg-white border border-gray-300 rounded px-3 py-2">
                     {result.affiliateCode}
@@ -169,7 +169,7 @@ export default function PartnerRegisterPage({ params, searchParams }: PageProps)
               </div>
 
               <div>
-                <label className="text-sm text-gray-600">Profile ID</label>
+                <label className="text-sm text-gray-600">프로필 ID</label>
                 <div className="flex items-center gap-2 mt-1">
                   <code className="flex-1 text-sm font-mono bg-white border border-gray-300 rounded px-3 py-2">
                     {result.profileId}

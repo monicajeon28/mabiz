@@ -63,7 +63,7 @@ export function LandingPageMetrics({
       {/* L10: Day 3 마감 안내 (긴박감 + 손실회피) */}
       <div className="bg-red-50 p-3 rounded border border-red-200">
         <p className="text-sm text-red-700">
-          🔥 <strong>중요:</strong> Day 3 메시지에 "마감 24시간" 안내가 포함됩니다.
+          🔥 <strong>중요:</strong> 3일차 메시지에 "마감 24시간" 안내가 포함됩니다.
           <br />
           정확한 마감일을 설정하세요.
         </p>

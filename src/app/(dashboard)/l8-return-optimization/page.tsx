@@ -82,7 +82,7 @@ export default function L8ReturnOptimizationPage() {
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return;
-      setError(err instanceof Error ? err.message : "Failed to load stats");
+      setError(err instanceof Error ? err.message : "통계를 불러오지 못했습니다");
     } finally {
       if (!signal?.aborted) setLoading(false);
     }

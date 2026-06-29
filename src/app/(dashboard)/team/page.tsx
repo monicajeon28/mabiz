@@ -568,7 +568,7 @@ export default function TeamPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <KpiCard title="전체 고객" value={summary.totalContacts} sub="누적" icon={Users} />
               <KpiCard
-                title="LEAD"
+                title="리드"
                 value={summary.totalLeads}
                 sub={`이번 달 +${summary.monthLeads}`}
                 icon={TrendingUp}
@@ -582,7 +582,7 @@ export default function TeamPage() {
               <KpiCard
                 title="이번 달 전환율"
                 value={`${summary.conversionRate}%`}
-                sub="LEAD → 구매"
+                sub="리드 → 구매"
                 icon={BarChart}
                 accent
               />

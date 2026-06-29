@@ -309,7 +309,7 @@ export function CanvasPreview({
       >
         <iframe
           srcDoc={previewHtml}
-          title="Canvas Preview"
+          title="캔버스 미리보기"
           style={{
             width: "100%",
             height: "100%",

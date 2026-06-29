@@ -1782,7 +1782,7 @@ ${footerBlock}
             <span className="text-sm font-medium text-gray-300">실시간 미리보기</span>
             <span className="ml-auto flex items-center gap-1 text-sm text-green-400 font-medium">
               <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-              LIVE
+              실시간
             </span>
           </div>
           {/* 모바일/PC 탭 */}

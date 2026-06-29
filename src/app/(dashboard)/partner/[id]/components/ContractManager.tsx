@@ -52,19 +52,19 @@ export function ContractManager({ partnerId }: { partnerId: string }) {
         const templatesRes = await fetch(
           `/api/partners/${partnerId}/contract-templates`, { signal }
         );
-        if (!templatesRes.ok) throw new Error("Failed to fetch templates");
+        if (!templatesRes.ok) throw new Error("템플릿을 불러오지 못했습니다");
         const templatesData = await templatesRes.json();
         setTemplates(templatesData.data || []);
 
         const contractsRes = await fetch(
           `/api/partners/${partnerId}/contracts`, { signal }
         );
-        if (!contractsRes.ok) throw new Error("Failed to fetch contracts");
+        if (!contractsRes.ok) throw new Error("계약서를 불러오지 못했습니다");
         const contractsData = await contractsRes.json();
         setContracts(contractsData.data || []);
       } catch (err: any) {
         if (err?.name === 'AbortError') return;
-        const message = err instanceof Error ? err.message : "An error occurred";
+        const message = err instanceof Error ? err.message : "오류가 발생했습니다";
         setError(message);
         toast({
           title: "로드 실패",
@@ -96,7 +96,7 @@ export function ContractManager({ partnerId }: { partnerId: string }) {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Failed to apply template");
+        throw new Error(data.error || "템플릿 적용에 실패했습니다");
       }
 
       const result = await res.json();
@@ -114,7 +114,7 @@ export function ContractManager({ partnerId }: { partnerId: string }) {
         description: "계약서가 적용되었습니다",
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to apply template";
+      const message = err instanceof Error ? err.message : "템플릿 적용에 실패했습니다";
       setError(message);
       toast({
         title: "적용 실패",
@@ -138,7 +138,7 @@ export function ContractManager({ partnerId }: { partnerId: string }) {
         { method: "DELETE" }
       );
 
-      if (!res.ok) throw new Error("Failed to delete contract");
+      if (!res.ok) throw new Error("계약서 삭제에 실패했습니다");
 
       // 목록 새로고침
       setContracts(prev => prev.filter(c => c.id !== contractId));
@@ -148,7 +148,7 @@ export function ContractManager({ partnerId }: { partnerId: string }) {
         description: "계약서가 삭제되었습니다",
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to delete";
+      const message = err instanceof Error ? err.message : "삭제에 실패했습니다";
       setError(message);
       toast({
         title: "삭제 실패",

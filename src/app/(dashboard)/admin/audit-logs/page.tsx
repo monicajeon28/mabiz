@@ -163,10 +163,10 @@ export default function AuditLogsPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md"
               >
                 <option value="ALL">모두</option>
-                <option value="SELECT">SELECT</option>
-                <option value="INSERT">INSERT</option>
-                <option value="UPDATE">UPDATE</option>
-                <option value="DELETE">DELETE</option>
+                <option value="SELECT">조회</option>
+                <option value="INSERT">생성</option>
+                <option value="UPDATE">수정</option>
+                <option value="DELETE">삭제</option>
               </select>
             </div>
 

@@ -1894,7 +1894,7 @@ function ShortlinkTabContent({ shortlinkData, loading }: ShortlinkTabContentProp
       setAbTestsLoading(true);
       setAbTestsError(null);
       const res = await fetch('/api/links/ab-tests');
-      if (!res.ok) throw new Error('Failed to fetch AB tests');
+      if (!res.ok) throw new Error('A/B 테스트 목록을 불러올 수 없습니다.');
       const data = await res.json();
       setAbTests(data);
     } catch (err) {
@@ -1921,7 +1921,7 @@ function ShortlinkTabContent({ shortlinkData, loading }: ShortlinkTabContentProp
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ testName, variantA_id, variantB_id }),
       });
-      if (!res.ok) throw new Error('Failed to create test');
+      if (!res.ok) throw new Error('테스트 생성에 실패했습니다.');
 
       await fetchABTests();
       toast({
@@ -1929,7 +1929,7 @@ function ShortlinkTabContent({ shortlinkData, loading }: ShortlinkTabContentProp
         description: '테스트가 생성되었습니다.',
       });
     } catch (err) {
-      throw err instanceof Error ? err : new Error('Failed to create test');
+      throw err instanceof Error ? err : new Error('테스트 생성에 실패했습니다.');
     }
   };
 

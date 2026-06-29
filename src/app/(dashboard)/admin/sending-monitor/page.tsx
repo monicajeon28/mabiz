@@ -99,18 +99,18 @@ export default function SendingMonitorPage() {
         const res = await fetch(`/api/admin/sending-metrics?period=${period}`, { signal: ctrl.signal });
 
         if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
+          throw new Error(`서버 오류 (HTTP ${res.status})`);
         }
 
         const data = await res.json();
         if (!data.ok) {
-          throw new Error(data.message || 'Failed to fetch metrics');
+          throw new Error(data.message || '데이터를 불러오지 못했습니다.');
         }
 
         setMetrics(data.metrics);
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') return;
-        setError(err instanceof Error ? err.message : 'Unknown error');
+        setError(err instanceof Error ? err.message : '알 수 없는 오류');
       } finally {
         if (!ctrl.signal.aborted) setLoading(false);
       }

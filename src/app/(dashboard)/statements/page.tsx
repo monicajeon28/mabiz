@@ -365,7 +365,7 @@ function PayslipTable({ payslips }: { payslips: PayslipItem[] }) {
         <thead className="bg-gray-50 border-b border-gray-200">
           <tr>
             <th className="text-left px-4 py-3 font-medium text-gray-500 whitespace-nowrap">정산기간</th>
-            <th className="text-left px-4 py-3 font-medium text-gray-500 whitespace-nowrap">Tier</th>
+            <th className="text-left px-4 py-3 font-medium text-gray-500 whitespace-nowrap">등급</th>
             <th className="text-right px-4 py-3 font-medium text-gray-500 whitespace-nowrap">기본커미션</th>
             <th className="text-right px-4 py-3 font-medium text-gray-500 whitespace-nowrap">보너스</th>
             <th className="text-right px-4 py-3 font-medium text-gray-500 whitespace-nowrap">환수금액</th>

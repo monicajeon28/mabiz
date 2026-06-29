@@ -37,10 +37,10 @@ const SOURCE_TYPE_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 const getLeadTier = (score: number) => {
-  if (score >= 70) return { label: "🔥 HOT",  color: "bg-red-100 text-red-700" };
-  if (score >= 30) return { label: "☀️ WARM", color: "bg-orange-100 text-orange-600" };
-  if (score >= 0)  return { label: "❄️ COLD", color: "bg-blue-50 text-blue-500" };
-  return               { label: "💤 LOST", color: "bg-gray-100 text-gray-600" };
+  if (score >= 70) return { label: "🔥 뜨거움",  color: "bg-red-100 text-red-700" };
+  if (score >= 30) return { label: "☀️ 따뜻함", color: "bg-orange-100 text-orange-600" };
+  if (score >= 0)  return { label: "❄️ 차가움", color: "bg-blue-50 text-blue-500" };
+  return               { label: "💤 못찾음", color: "bg-gray-100 text-gray-600" };
 };
 
 type QuickCallResult = "INTERESTED" | "PENDING" | "REJECTED";
@@ -448,7 +448,7 @@ export default function InquiriesPage() {
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-gray-900">{c.name}</span>
                   {(c.leadScore ?? 0) >= 70 && (
-                    <span className="text-sm bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold">🔥 HOT</span>
+                    <span className="text-sm bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold">🔥 뜨거움</span>
                   )}
                 </div>
                 <span className="text-gray-500 flex items-center gap-3">
