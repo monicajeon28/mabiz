@@ -8,6 +8,7 @@ import { ImageLibraryModal } from "@/components/image-library/ImageLibraryModal"
 import { MAX_IMAGE_UPLOAD_BYTES, GIF_MAX_UPLOAD_BYTES, prepareImageForUpload } from "@/lib/client-image-compress";
 import { BlockEditor } from "./BlockEditor";
 import { Block, BlocksConfig } from "@/lib/landing-page-blocks";
+import { isFullHtmlDocument } from "@/lib/html-doc-detect";
 import { LandingPageMetrics } from "./LandingPageMetrics";
 
 // ═════════════════════════════════════════════════════════════
@@ -372,8 +373,8 @@ export default function NewLandingPage() {
   // buildPreviewHtml: 현재 state → 완전한 HTML 문서
   // ──────────────────────────────────────────────
   const buildPreviewHtml = useCallback((): string => {
-    // #15 — HTML형으로 "전체 HTML 문서"를 붙여넣으면 래퍼로 또 감싸지 말고 그대로(라이브 iframe과 동일).
-    if (editorMode === "html" && /<!doctype\s+html|<html[\s>]/i.test(html)) {
+    // #15 — HTML형으로 "전체 HTML 문서"를 붙여넣으면 래퍼로 또 감싸지 말고 그대로(라이브 iframe과 동일 게이트).
+    if (editorMode === "html" && isFullHtmlDocument(html)) {
       return html;
     }
     const req = (r: boolean) => r ? " <span style='color:#e53e3e;font-size:11px'>*</span>" : "";

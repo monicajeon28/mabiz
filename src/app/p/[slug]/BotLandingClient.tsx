@@ -276,7 +276,7 @@ export default function BotLandingClient({
   );
 
   return (
-    <div className="flex h-[100dvh] flex-col overflow-hidden bg-slate-50">
+    <div className="flex min-h-[100dvh] flex-col bg-slate-50">
       {/* 헤더 */}
       <header className="bg-[#1E2D4E] px-4 py-4 text-white shadow">
         <h1 className="text-lg font-bold">{brandTitle}</h1>

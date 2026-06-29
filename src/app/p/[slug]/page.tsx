@@ -6,6 +6,7 @@ import { LandingClient } from "./LandingClient";
 import BotLandingClient from "./BotLandingClient";
 import { LandingDocumentFrame } from "./LandingDocumentFrame";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
+import { isFullHtmlDocument } from "@/lib/html-doc-detect";
 import { sanitizeHeaderScript } from "@/lib/sanitize-header-script";
 
 // [T17] React cache()로 같은 요청 내 중복 DB 쿼리 제거
@@ -22,7 +23,7 @@ const getLandingPageBySlugOrShortlink = cache(async (identifier: string) => {
     },
     select: {
       id: true, title: true, htmlContent: true, commentEnabled: true,
-      pageType: true, botConfig: true,
+      pageType: true, botConfig: true, editorMode: true,
       paymentEnabled: true, paymentType: true, productName: true, productPrice: true,
       cycleDay: true, expireDate: true,
       buttonTitle: true, completionPageUrl: true, headerScript: true,
@@ -188,8 +189,10 @@ export default async function PublicLandingPage({
   //   sanitize(태그 화이트리스트)로는 style/script/head가 제거돼 디자인이 죽고 <title>이 본문에 새어나옴.
   //   → 원본 그대로 iframe(샌드박스)로 격리 렌더해 "하얀 백지에 코드 그대로" 보장.
   //   감지는 내용 기준(빌더 조각/이미지형은 <div>로 시작 → 항상 sanitize 경로 유지 = 회귀 0).
+  // editorMode='html' + 내용이 전체 HTML 문서로 시작할 때만 iframe(미리보기와 동일 게이트).
+  //   editorMode 미게이트/비앵커 정규식은 본문에 <html 문자열만 끼어도 오탐해 폼·결제·댓글을 통째 누락시킴(P1).
   const rawHtml = page.htmlContent ?? "";
-  if (/<!doctype\s+html|<html[\s>]/i.test(rawHtml)) {
+  if (page.editorMode === "html" && isFullHtmlDocument(rawHtml)) {
     return (
       <>
         {safeHeaderScript && (
